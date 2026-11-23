@@ -1,0 +1,17 @@
+/*
+ * The app's stylesheet. The look is coss ui (theme.css, components in
+ * src/ui); what is written by hand here is what no component covers: the
+ * app's frame, the stage and its drawings, the controls that keep their own
+ * event handling (NOT-HALT, hold, jog), and the print page.
+ *
+ * These files are unlayered on purpose: they place and size coss components
+ * in their context (`[data-slot='button']` inside a jog pad, say), which a
+ * utility class cannot do from outside.
+ */
+@import './theme.css';
+@import './shell.css';
+@import './stage.css';
+@import './controls.css';
+@import './rooms.css';
+@import './find.css';
+@import './print.css';

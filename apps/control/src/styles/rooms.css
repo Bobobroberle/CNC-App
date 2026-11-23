@@ -1,0 +1,1730 @@
+/*
+ * Inside the rooms: the lists, rows and small pictures of the cards. The
+ * cards themselves, their buttons, fields and notices are coss components.
+ */
+
+.with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* A card's own title */
+[data-slot='card-title'] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-base);
+  line-height: 1.3;
+}
+
+/* A card that is running or needs the operator now */
+[data-slot='card'].running {
+  border-color: var(--success);
+}
+
+[data-slot='card'].toolchange {
+  border: 2px solid var(--warning);
+}
+
+[data-slot='card'].step-panel {
+  border-color: var(--warning);
+}
+
+/* Cards inside a folded section or a folded part are not boxes of their own. */
+.section-body > [data-slot='card'],
+[data-fold='more'] [data-slot='card'] {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.section-body > [data-slot='card']::before,
+[data-fold='more'] [data-slot='card']::before {
+  display: none;
+}
+
+/* A titled part inside a card, set off by a line */
+.subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding-top: var(--gap);
+  border-top: 1px solid var(--border);
+}
+
+/* Name → value */
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.375rem 0.75rem;
+  font-size: var(--text-sm);
+}
+
+.facts dt {
+  color: var(--muted-foreground);
+}
+
+.facts dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.facts dd.big {
+  font-size: var(--text-3xl);
+  line-height: 1;
+  letter-spacing: -0.015em;
+}
+
+.positions,
+.profile,
+.table-list {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.positions th,
+.positions td,
+.profile th,
+.profile td {
+  padding: 0.375rem 0.25rem;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.positions td {
+  font-variant-numeric: tabular-nums;
+}
+
+.profile th,
+.positions thead th {
+  color: var(--muted-foreground);
+  font-weight: 400;
+  font-size: var(--text-sm);
+}
+
+.profile th {
+  text-align: left;
+}
+
+.table-list {
+  font-size: var(--text-sm);
+}
+
+.table-list th,
+.table-list td {
+  text-align: left;
+  padding: 0.375rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.table-list th {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.table-list td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.current-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* What the check of a program or a drawing found: one line each, the edge says how bad */
+.diagnostics {
+  font-size: var(--text-sm);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.diagnostics li {
+  padding: 0.25rem 0 0.25rem 0.5rem;
+  border-left: 3px solid var(--warning);
+  margin-bottom: 0.25rem;
+}
+
+.diagnostics li.error {
+  border-left-color: var(--destructive);
+}
+
+/* A note that two cuts meet on purpose: nothing to do */
+.diagnostics li.fine {
+  border-left-color: var(--success);
+}
+
+.diagnostics .tabular-nums {
+  display: inline-block;
+  min-width: 5ch;
+  color: var(--muted-foreground);
+}
+
+.log {
+  max-height: 280px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.log li {
+  display: grid;
+  grid-template-columns: 9ch 2ch 1fr;
+  gap: 0.25rem;
+  padding: 2px 0;
+}
+
+.log time {
+  color: var(--muted-foreground);
+}
+
+.log-error .log-text {
+  color: var(--destructive-foreground);
+}
+
+.log-out .log-text {
+  color: var(--muted-foreground);
+}
+
+/* The console: the log is what the area is for */
+.log-tall {
+  max-height: none;
+  height: clamp(12rem, 45vh, 32rem);
+}
+
+.console-history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.travel-grid {
+  display: grid;
+  grid-template-columns: 2ch 1fr 1fr;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.travel-grid > .text-muted-foreground:first-child {
+  grid-column: 1 / -1;
+}
+
+/* Grenzen der Steuerung: axis, top speed, acceleration */
+.limits-grid {
+  display: grid;
+  grid-template-columns: 2ch 1fr 1fr;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.limits-grid > .axis-name {
+  align-self: center;
+}
+
+.travel-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.steps {
+  padding-left: 1.25rem;
+  list-style: decimal;
+  font-size: var(--text-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.parts,
+.recordings,
+.cam-list,
+.series-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.part {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: var(--gap);
+  border-top: 1px solid var(--border);
+}
+
+.part:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.part code {
+  word-break: break-all;
+}
+
+.macro-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: var(--gap);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Text of a file, as it is */
+.config-text,
+.diff {
+  max-height: 320px;
+  overflow: auto;
+  padding: 0.5rem;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.diff {
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+}
+
+.diff .add {
+  color: var(--success-foreground);
+}
+
+.diff .del {
+  color: var(--warning-foreground);
+  text-decoration: line-through;
+}
+
+[data-slot='textarea-control'].code textarea {
+  min-height: 320px;
+  font-family: var(--font-mono);
+}
+
+[data-slot='textarea-control'] textarea {
+  font-family: var(--font-mono);
+}
+
+.workspace [data-slot='textarea-control'] textarea {
+  min-height: calc(var(--target) * 1.5);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+
+.thumb.large {
+  width: 120px;
+  height: 120px;
+}
+
+.sparkline svg {
+  width: 100%;
+  height: 96px;
+  background: var(--muted);
+  border-radius: var(--radius-lg);
+}
+
+.spark-line {
+  fill: none;
+  stroke: var(--foreground);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark-line.over {
+  stroke: var(--warning);
+}
+
+.spark-warn {
+  stroke: var(--destructive);
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+
+[data-slot='button'].history-row {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+  white-space: normal;
+}
+
+.sensor-panel,
+.photo-map-panel,
+.recording-panel,
+.recording-player,
+.cta,
+.hole-panel,
+.workspace,
+.jig-card,
+.jig-block,
+.jig-teach,
+.flip-turn-step,
+.flip-locate,
+.cam-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.sensor-panel,
+.photo-map-panel,
+.recording-panel,
+.recording-player,
+.cam-add {
+  gap: 0.5rem;
+}
+
+/* ---------- job dashboard ---------- */
+
+.dash {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.dash .tile.wide {
+  grid-column: 1 / -1;
+}
+
+.dash-title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+}
+
+.dash-facts dt {
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+
+.dash-facts dd {
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* The program in one line (drawing workspace) */
+.dash-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 0 0.25rem;
+}
+
+.dash-line .dash-title {
+  min-width: 0;
+  font-size: var(--text-base);
+}
+
+.dash-line .text-muted-foreground {
+  flex: none;
+}
+
+.start-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--gap);
+}
+
+.start-row .hold {
+  min-height: 4.5rem;
+  font-size: 1.25rem;
+}
+
+.start-row [data-slot='button']:not(.hold) {
+  height: auto;
+  font-size: var(--text-base);
+  white-space: normal;
+}
+
+/* ---------- the readiness list, start and run bars ---------- */
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: var(--target);
+  padding: 0.25rem 0.25rem 0.25rem 0;
+  font-size: var(--text-sm);
+}
+
+.check-text {
+  flex: 1;
+}
+
+.check-dot {
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.check-warn .check-dot,
+.check-dot.check-warn {
+  background: var(--warning);
+}
+
+.check-block .check-dot,
+.check-dot.check-block {
+  background: var(--destructive);
+}
+
+.start-bar,
+.run-bar {
+  position: sticky;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.start-bar {
+  bottom: 0;
+  padding: 0.75rem 1rem;
+}
+
+.start-bar-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-weight: 500;
+}
+
+/* A job is running: yellow, the thing that is going on */
+.run-bar {
+  top: 0;
+  margin-bottom: var(--gap);
+  padding: 0.625rem 0.875rem;
+  border-color: var(--warning);
+}
+
+.run-bar-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.run-bar-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-bar [data-slot='progress-indicator'] {
+  background: var(--warning);
+}
+
+/* The spindle works hard */
+.load-high [data-slot='progress-indicator'] {
+  background: var(--warning);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .start-bar,
+  .run-bar {
+    background: var(--card);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* The steps of a flow: done, current, to come */
+.parts-steps,
+.flip-steps {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.parts-steps {
+  flex-direction: column;
+}
+
+.flip-steps {
+  flex-wrap: wrap;
+}
+
+.parts-steps li,
+.flip-steps li {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-left: 3px solid var(--input);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+}
+
+.parts-steps li {
+  justify-content: space-between;
+  gap: var(--gap);
+}
+
+.flip-steps li {
+  flex: 1 1 150px;
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.parts-steps li.done,
+.flip-steps li.done {
+  border-left-color: var(--success);
+}
+
+.parts-steps li.current,
+.flip-steps li.current {
+  border-left-color: var(--warning);
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.flip-step-n,
+.series-n {
+  flex: none;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--input);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* What is set up elsewhere, in one line, with the way there */
+.status-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding-top: var(--gap);
+  border-top: 1px solid var(--border);
+}
+
+.status-line p {
+  min-width: 0;
+}
+
+/* ---------- drawing workspace ---------- */
+
+/* The way back stays in reach while the workspace scrolls */
+.workspace-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding-bottom: 0.25rem;
+  background: var(--background);
+}
+
+.workspace-head [data-slot='button'] {
+  flex: none;
+}
+
+.workspace-head h2 {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One row per part of the drawing */
+.cam-list {
+  gap: 0.5rem;
+}
+
+.cam-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+
+/* Selected for arranging: outlined, as on the table */
+.cam-row.selected {
+  border-color: var(--ring);
+  background: var(--input);
+}
+
+/* The name of a row is the way to select it */
+.cam-name {
+  grid-column: 1 / -1;
+  min-height: var(--target);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cam-depth {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.cam-depth [data-slot='input-control'] {
+  width: 4.5rem;
+}
+
+.cam-options {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+/* Beside the tabs where the panel is wide enough, below them where it is not */
+.cam-options [data-slot='select-control'] {
+  flex: 1 1 190px;
+  width: auto;
+}
+
+/* The shapes to add: one tap each, as many beside each other as fit */
+.cam-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.5rem;
+}
+
+.cam-tools [data-slot='button'] {
+  flex-direction: column;
+  gap: 2px;
+  min-height: 3.75rem;
+  padding: 0.375rem 0.25rem;
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  white-space: normal;
+}
+
+/* The keys are named where a mouse says there is a keyboard */
+.cam-keys {
+  display: none;
+  font-size: var(--text-sm);
+}
+
+.has-keys .cam-keys {
+  display: block;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cam-keys {
+    display: block;
+  }
+}
+
+/* What is selected: its numbers and what can be done with it */
+.cam-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.cam-selection.flex {
+  flex-direction: row;
+}
+
+/* The arranging buttons: as many beside each other as fit */
+.cam-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.5rem;
+}
+
+.cam-actions [data-slot='button'] {
+  white-space: normal;
+}
+
+.cam-actions.two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.cam-actions[hidden] {
+  display: none;
+}
+
+.cam-clear {
+  align-self: flex-start;
+}
+
+/* ---------- accuracy check ---------- */
+
+.accuracy-sketch {
+  width: min(320px, 100%);
+  align-self: center;
+}
+
+.sketch-side {
+  fill: none;
+  stroke: var(--stage-line);
+  stroke-width: 2;
+}
+
+.sketch-diag {
+  stroke: var(--muted-foreground);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+
+.sketch-mark {
+  fill: var(--stage-surface);
+  stroke: var(--foreground);
+  stroke-width: 2;
+}
+
+.sketch-label,
+.sketch-axis {
+  fill: var(--foreground);
+  font: 600 16px var(--font-sans);
+}
+
+.sketch-axis {
+  fill: var(--muted-foreground);
+}
+
+/* ---------- input pins ---------- */
+
+.inputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.875rem;
+}
+
+.input-led {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  font-size: var(--text-sm);
+}
+
+/* Yellow = current: the switch is pressed right now. */
+.input-led.on .chip-led {
+  border-color: var(--warning);
+  background: var(--warning);
+}
+
+/* ---------- recordings of the tool camera ---------- */
+
+.recordings {
+  gap: 0.5rem;
+}
+
+.recording {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+
+.recording-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.625rem;
+}
+
+.recording-head strong {
+  overflow-wrap: anywhere;
+}
+
+.recording-player video {
+  display: block;
+  width: 100%;
+  max-height: 50vh;
+  border-radius: var(--radius-lg);
+  background: #000;
+}
+
+/* ---------- both sides ("Wenden") ---------- */
+
+/* In the drawing: the switch and, with it on, how the part is turned and found again */
+.cam-sides {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: 0.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+
+.flip-ways {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.flip-way {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: var(--target);
+  padding: 0.625rem 0.5rem;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--input) 32%, var(--popover));
+  font-size: var(--text-sm);
+  text-align: center;
+  cursor: pointer;
+}
+
+.flip-way.active {
+  border-color: var(--ring);
+  background: var(--input);
+}
+
+.flip-way:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.flip-picture {
+  flex: none;
+  color: var(--foreground);
+}
+
+.flip-board {
+  fill: var(--stage-surface);
+  stroke: var(--muted-foreground);
+  stroke-width: 1.5;
+}
+
+/* The half that moves */
+.flip-half {
+  fill: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.flip-line {
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-dasharray: 8 3 2 3;
+}
+
+.flip-turn {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.flip-hole {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+/* Under the (sticky) steps of the Job room: brought into view, a card stops below them */
+.flip-card,
+.sections-card,
+.jig-card,
+.jigs-card,
+[data-check='flip'],
+[data-check='sections'],
+[data-find] {
+  scroll-margin-top: 4.25rem;
+}
+
+.flip-how {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+
+.flip-todo {
+  padding-left: 1.375rem;
+  list-style: decimal;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.flip-locate .hole-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* ---------- a series on scattered blanks ---------- */
+
+.series-list {
+  gap: 0.375rem;
+}
+
+.series-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+  border-left: 3px solid var(--input);
+}
+
+.series-row.out {
+  color: var(--muted-foreground);
+}
+
+/* The motif runs over the edge: the warning colour, as on the table */
+.series-row.misfit {
+  border-left-color: var(--warning);
+}
+
+.series-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.series-what strong {
+  font-size: var(--text-base);
+  overflow-wrap: anywhere;
+}
+
+.series-row.out .series-note {
+  color: var(--muted-foreground);
+}
+
+/* ---------- jigs with printed tags ---------- */
+
+.jig-block + .jig-block,
+.jig-teach {
+  padding-top: var(--gap);
+  border-top: 1px solid var(--border);
+}
+
+.jig-next [data-slot='button'] {
+  flex: none;
+}
+
+/* ---------- a part longer than the table ---------- */
+
+.sections-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.sections-steps li {
+  flex: 1 1 96px;
+  white-space: nowrap;
+}
+
+/* What to do with the hands, step by step: many words, kept small */
+.sections-card .flip-todo,
+.sections-card .flip-how p {
+  font-size: var(--text-sm);
+}
+
+/* The table in the picture of the slide: what the machine reaches */
+.slide-table {
+  fill: none;
+  stroke: var(--muted-foreground);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 3;
+}
+
+.slide-mark {
+  fill: var(--foreground);
+}
+
+/* ---------- ⑤ Fräsen: before the start, while it runs, at the end ---------- */
+
+.run-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.run-facts dt,
+.run-big-label {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+
+.run-name {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.run-figure {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.run-ready {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Readable from two metres (DESIGN.md §5, §7: 48–72 px) */
+.run-big {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1rem;
+  align-items: end;
+}
+
+.run-percent,
+.run-remaining {
+  display: block;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.run-percent {
+  font-size: 4.5rem;
+}
+
+.run-remaining {
+  font-size: 3rem;
+}
+
+.run-operation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.run-operation strong {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.run-line {
+  overflow: hidden;
+  min-height: 1.4em;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-slot='card'].run-live {
+  border-color: var(--primary);
+}
+
+[data-slot='card'].run-live[data-holding='true'] {
+  border-color: var(--warning);
+}
+
+[data-slot='card'].run-done {
+  border-color: var(--success);
+}
+
+.override {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.override-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.override-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.override-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.override-row {
+  display: grid;
+  grid-template-columns: auto minmax(4rem, 1fr) auto auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* §2: a value that is the recommendation says so; one that differs carries a dot */
+.rec-mark {
+  flex: none;
+  font-weight: 400;
+}
+
+.deviation-dot {
+  display: inline-flex;
+  align-items: center;
+}
+
+.deviation-dot-mark {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+/* ---------- confirmations (§6.4) and the critical message (§6.3) ---------- */
+
+.confirm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.confirm-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-md);
+}
+
+.confirm-list li > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.confirm-hold {
+  flex: 1;
+  max-width: 18rem;
+}
+
+[data-slot='dialog-popup'].critical {
+  flex: 1;
+  max-width: none;
+  border: 4px solid var(--destructive);
+  background: var(--background);
+}
+
+.critical-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: auto;
+  width: min(100%, 46rem);
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.critical-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  color: var(--destructive-foreground);
+}
+
+.critical-title {
+  color: var(--destructive-foreground);
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+.critical-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  font-size: 1.125rem;
+}
+
+.critical-facts dt {
+  color: var(--muted-foreground);
+}
+
+.critical-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+/* ---------- ① Job: cards with the path's picture, the place to drop files ---------- */
+
+.job-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.5rem;
+}
+
+.job-card {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.job-card-button {
+  width: 100%;
+  min-height: var(--target);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  color: var(--card-foreground);
+  cursor: pointer;
+}
+
+.job-card-button:hover,
+.job-card-button:active {
+  background: var(--accent);
+}
+
+.job-card-button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.job-card-button:disabled {
+  cursor: default;
+  opacity: 0.64;
+}
+
+[data-slot='card'].job-card-loaded {
+  border-color: var(--primary);
+}
+
+.job-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.job-preview {
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: var(--radius-md);
+  background: var(--muted);
+}
+
+.job-preview path {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+[data-slot='card'].drop-zone {
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  border: 2px dashed var(--input);
+  background: transparent;
+  text-align: center;
+}
+
+/* ---------- ③ Einrichten: the one way to the zero, the probing tiles ---------- */
+
+.zero-now {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.flow-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.flow-steps > li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--muted);
+}
+
+.flow-steps h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.probe-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+[data-slot='button'].probe-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+  height: auto;
+  padding: 0.625rem 0.5rem;
+  white-space: normal;
+  text-align: center;
+}
+
+.probe-sketch {
+  width: 4.5rem;
+  height: 3.125rem;
+  color: var(--foreground);
+}
+
+.probe-tile-label {
+  font-weight: 600;
+}
+
+.probe-tile-hint {
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+/* ---------- ② Werkzeuge: one row per tool of the job ---------- */
+
+.tool-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tool-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border-left: 3px solid var(--success);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+}
+
+.tool-row.tool-warn {
+  border-left-color: var(--warning);
+}
+
+.tool-row.tool-block {
+  border-left-color: var(--destructive);
+}
+
+.tool-row-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.tool-row-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tool-kind {
+  width: 2.25rem;
+  height: 1.75rem;
+  fill: var(--foreground);
+}
+
+.tool-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tool-state-ok {
+  color: var(--success-foreground);
+}
+
+.tool-state-warn {
+  color: var(--warning-foreground);
+}
+
+.tool-state-block {
+  color: var(--destructive-foreground);
+}
+
+.tool-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+}
+
+.tool-issues li {
+  display: flex;
+  gap: 0.375rem;
+  align-items: flex-start;
+}
+
+.check-sign {
+  display: inline-flex;
+  flex: none;
+  color: var(--success-foreground);
+}
+
+.check-sign-warn {
+  color: var(--warning-foreground);
+}
+
+.check-sign-block {
+  color: var(--destructive-foreground);
+}
+
+/* ---------- messages (§6.3): the centre and the history ---------- */
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius-lg);
+  background: var(--background);
+}
+
+/* The level shows by its sign and word; the edge only repeats it. Red: faults and critical only. */
+.message[data-level='warning'] {
+  border-left-color: var(--warning);
+}
+
+.message[data-level='fault'],
+.message[data-level='critical'] {
+  border-left-color: var(--destructive);
+}
+
+.message:not([data-open]) {
+  border-left-color: var(--border);
+}
+
+.message-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  font-size: var(--text-sm);
+}
+
+.message-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 600;
+}
+
+.message-level svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.message[data-level='warning'] .message-level svg {
+  color: var(--warning-foreground);
+}
+
+.message[data-level='fault'] .message-level svg,
+.message[data-level='critical'] .message-level svg {
+  color: var(--destructive-foreground);
+}
+
+.message-state,
+.message-time {
+  color: var(--muted-foreground);
+}
+
+.message-time {
+  margin-left: auto;
+}
+
+.message-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The controller's code: small, behind the plain text – never instead of it */
+.message-code {
+  margin-left: 0.5rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.message-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.125rem 0.75rem;
+  font-size: var(--text-sm);
+}
+
+.message-facts dt {
+  color: var(--muted-foreground);
+}
+
+.message-way-out {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.message-blocks {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.message-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.message-empty svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ---------- Service & Diagnose ---------- */
+
+.axis-test {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.axis-test > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.375rem;
+}
+
+.axis-test-name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+}
+
+.axis-test-name .jog-label {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.axis-test-holds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.axis-test-result {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+  font-size: var(--text-sm);
+}
+
+.axis-test-result svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+}
+
+.run-time-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+}

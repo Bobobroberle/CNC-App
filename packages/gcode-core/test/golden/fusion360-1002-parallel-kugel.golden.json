@@ -1,0 +1,55 @@
+{
+  "lineCount": 5748,
+  "segments": 5733,
+  "motions": {
+    "rapid": 5,
+    "linear": 5728
+  },
+  "events": [
+    "toolChange@9",
+    "spindle@10",
+    "end@5747"
+  ],
+  "diagnostics": [
+    "error:tool-length-table@14"
+  ],
+  "bounds": {
+    "min": {
+      "x": -78,
+      "y": -19.987,
+      "z": -17.405,
+      "a": 0
+    },
+    "max": {
+      "x": 78,
+      "y": 20.047,
+      "z": 4,
+      "a": 0
+    }
+  },
+  "cutBounds": {
+    "min": {
+      "x": -78,
+      "y": -19.987,
+      "z": -17.405,
+      "a": 0
+    },
+    "max": {
+      "x": 78,
+      "y": 20.047,
+      "z": -1.005,
+      "a": 0
+    }
+  },
+  "tools": [
+    2
+  ],
+  "usesRotary": false,
+  "feedRange": {
+    "min": 333.33,
+    "max": 1200
+  },
+  "rapidLength": 106.308,
+  "feedLength": 13266.174,
+  "estimatedSeconds": 749
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@lowrider/cam",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Simple 2.5D CAM for LowRider Control: DXF and drawn shapes to contour, pocket and drill toolpaths",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "clipper-lib": "6.4.2"
+  },
+  "devDependencies": {
+    "@types/clipper-lib": "6.4.0",
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "4.1.12",
+    "typescript": "~5.9.3",
+    "vitest": "4.1.12"
+  }
+}

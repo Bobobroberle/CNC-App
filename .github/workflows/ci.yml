@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A newer push to the same branch cancels the run still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # A fixed release: Playwright knows its system packages. On the newest image
+    # (`ubuntu-latest`) the font packages could not be fetched and the UI tests never started.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      # The browser with its system packages; if the package mirrors cannot be reached, the
+      # browser alone (the runner already has the libraries of its own Chrome).
+      - run: |
+          pnpm --filter @lowrider/control exec playwright install --with-deps chromium ||
+            pnpm --filter @lowrider/control exec playwright install chromium
+      - run: pnpm e2e
+        env:
+          CI: 'true'

@@ -1,0 +1,755 @@
+import { describe, expect, it } from 'vitest';
+import {
+  bounds,
+  circle,
+  defaultOperations,
+  holeGrid,
+  nestingDepths,
+  offsetPolygons,
+  passDepths,
+  pathLength,
+  pocketRings,
+  rectangle,
+  region,
+  signedArea,
+  slot,
+  tabPoints,
+  textContours,
+  toGcode,
+  toolpaths,
+  type Contour,
+  type CutSettings,
+  type Move,
+  type Operation,
+} from '../src';
+
+const s: CutSettings = {
+  toolDiameter: 6,
+  depth: 6,
+  stepdown: 3,
+  stepover: 0.4,
+  feed: 1200,
+  plungeFeed: 300,
+  rampAngle: 90,
+  safeZ: 5,
+  climb: true,
+};
+
+const cutting = (moves: Move[]) => moves.filter((m) => m.feed !== null && m.x !== undefined);
+const lowest = (moves: Move[]) => Math.min(...moves.map((m) => m.z ?? 0));
+
+describe('shapes and geometry', () => {
+  it('draws rectangles, rounded ones, circles, slots and hole grids', () => {
+    const r = rectangle(0, 0, 100, 50);
+    expect(signedArea(r.points)).toBe(5000);
+    const rounded = rectangle(0, 0, 100, 50, 10);
+    expect(signedArea(rounded.points)).toBeCloseTo(5000 - (400 - Math.PI * 100), 0);
+    expect(rectangle(0, 0, 10, 10, 50).points.length).toBeGreaterThan(8);
+    const c = circle(10, 10, 20);
+    expect(c.circle).toEqual({ cx: 10, cy: 10, r: 10 });
+    expect(signedArea(c.points)).toBeCloseTo(Math.PI * 100, 0);
+    const sl = slot(0, 0, 40, 10, 90);
+    expect(bounds(sl.points).maxY).toBeCloseTo(20, 1);
+    expect(bounds(sl.points).maxX).toBeCloseTo(5);
+    expect(slot(0, 0, 4, 10).points.length).toBeGreaterThan(4);
+    const grid = holeGrid(10, 10, 5, 3, 2, 20, 30);
+    expect(grid).toHaveLength(6);
+    expect(grid[5]!.circle).toEqual({ cx: 50, cy: 40, r: 2.5 });
+    expect(pathLength(r.points, true)).toBe(300);
+    expect(pathLength(r.points, false)).toBe(250);
+    expect(pathLength([], true)).toBe(0);
+  });
+
+  it('finds what lies inside what', () => {
+    const outer = rectangle(0, 0, 100, 100);
+    const hole = circle(50, 50, 30);
+    const island = circle(50, 50, 10);
+    const beside = rectangle(200, 0, 10, 10);
+    const open = { closed: false, points: [] };
+    expect(nestingDepths([outer, hole, island, beside, open])).toEqual([0, 1, 2, 0, 0]);
+  });
+
+  it('offsets polygons outwards with round corners and inwards until they vanish', () => {
+    const square = rectangle(0, 0, 10, 10).points;
+    const grown = offsetPolygons([square], 1);
+    expect(grown).toHaveLength(1);
+    expect(Math.abs(signedArea(grown[0]!))).toBeCloseTo(100 + 40 + Math.PI, 1);
+    expect(offsetPolygons([square], -6)).toEqual([]);
+    const [outer, hole] = region([...square].reverse(), [rectangle(4, 4, 2, 2).points]);
+    expect(signedArea(outer!)).toBeGreaterThan(0);
+    expect(signedArea(hole!)).toBeLessThan(0);
+    const [, cwHole] = region(square, [[...rectangle(4, 4, 2, 2).points].reverse()]);
+    expect(signedArea(cwHole!)).toBeLessThan(0);
+  });
+
+  it('divides the depth into equal passes', () => {
+    expect(passDepths(6, 3)).toEqual([-3, -6]);
+    expect(passDepths(5, 2)).toEqual([-5 / 3, -10 / 3, -5]);
+    expect(passDepths(1, 3)).toEqual([-1]);
+  });
+});
+
+describe('toolpaths', () => {
+  it('cuts an outline outside, with the cutter radius beside the part', () => {
+    const part = rectangle(0, 0, 100, 50);
+    const { moves, problems } = toolpaths([part], [{ contour: 0, kind: 'outside' }], s);
+    expect(problems).toEqual([]);
+    const b = bounds(cutting(moves).map((m) => ({ x: m.x!, y: m.y! })));
+    expect(b.minX).toBeCloseTo(-3);
+    expect(b.maxY).toBeCloseTo(53);
+    expect(lowest(moves)).toBeCloseTo(-6);
+    expect(moves.at(-1)).toEqual({ z: 5, feed: null });
+  });
+
+  it('runs outside counter-clockwise for climb and clockwise conventional; inside the other way', () => {
+    const part = rectangle(0, 0, 100, 50);
+    const turn = (settings: CutSettings, kind: 'outside' | 'inside') => {
+      const pts = cutting(toolpaths([part], [{ contour: 0, kind }], settings).moves)
+        .slice(0, 40)
+        .map((m) => ({ x: m.x!, y: m.y! }));
+      return Math.sign(signedArea(pts));
+    };
+    expect(turn(s, 'outside')).toBe(1);
+    expect(turn({ ...s, climb: false }, 'outside')).toBe(-1);
+    expect(turn(s, 'inside')).toBe(-1);
+    expect(turn({ ...s, climb: false }, 'inside')).toBe(1);
+  });
+
+  it('ramps into the material instead of plunging', () => {
+    const part = rectangle(0, 0, 100, 50);
+    const { moves } = toolpaths([part], [{ contour: 0, kind: 'outside' }], { ...s, rampAngle: 5 });
+    const plunge = moves.findIndex((m) => m.feed === 300 && m.z !== undefined && m.x === undefined);
+    // Straight down only to the surface, then sideways and down together.
+    expect(moves[plunge]!.z).toBe(0);
+    const firstCut = moves[plunge + 1]!;
+    expect(firstCut.x).toBeDefined();
+    expect(firstCut.z!).toBeLessThan(0);
+    expect(firstCut.z!).toBeGreaterThan(-3);
+  });
+
+  it('leaves tabs standing on the last passes', () => {
+    const part = rectangle(0, 0, 100, 50);
+    const tabs = { count: 4, width: 8, height: 2 };
+    const { moves } = toolpaths([part], [{ contour: 0, kind: 'outside', tabs }], s);
+    const atTab = cutting(moves).filter((m) => Math.abs(m.z! - -4) < 1e-9);
+    expect(atTab).toHaveLength(4);
+    // Up onto each tab and down again behind it, slowly.
+    const lifts = moves.filter((m) => m.x === undefined && m.feed === 300 && m.z === -4);
+    expect(lifts).toHaveLength(4);
+  });
+
+  it('engraves open lines back and forth and closed ones on the line', () => {
+    const line = {
+      closed: false,
+      points: [
+        { x: 0, y: 0 },
+        { x: 50, y: 0 },
+      ],
+    };
+    const { moves } = toolpaths(
+      [line, rectangle(0, 10, 20, 20)],
+      [
+        { contour: 0, kind: 'on' },
+        { contour: 1, kind: 'on' },
+      ],
+      s,
+    );
+    const xs = cutting(moves)
+      .slice(0, 2)
+      .map((m) => m.x);
+    expect(xs).toEqual([50, 0]);
+    expect(Math.max(...cutting(moves).map((m) => m.y!))).toBeCloseTo(30);
+  });
+
+  it('drills holes that fit the cutter and bores larger ones in a helix', () => {
+    const { moves } = toolpaths(
+      [circle(10, 10, 6), circle(50, 10, 20)],
+      [
+        { contour: 0, kind: 'drill' },
+        { contour: 1, kind: 'drill', depth: 4 },
+      ],
+      { ...s, rampAngle: 3 },
+    );
+    const pecks = moves.filter((m) => m.x === undefined && m.feed === 300);
+    expect(pecks.map((m) => m.z)).toContain(-6);
+    const arcs = moves.filter((m) => m.arc);
+    expect(arcs.length).toBeGreaterThan(2);
+    expect(arcs[0]!.arc).toEqual({ cw: true, i: -7, j: 0 });
+    expect(arcs.at(-1)!.z).toBe(-4);
+    const conventional = toolpaths([circle(0, 0, 20)], [{ contour: 0, kind: 'drill' }], {
+      ...s,
+      climb: false,
+    });
+    expect(conventional.moves.find((m) => m.arc)!.arc!.cw).toBe(false);
+  });
+
+  it('clears a pocket ring by ring around an island', () => {
+    const pocket = rectangle(0, 0, 60, 40);
+    const island = circle(30, 20, 10);
+    const levels = pocketRings(pocket.points, [island.points], s);
+    expect(levels.length).toBeGreaterThan(2);
+    const { moves, problems } = toolpaths([pocket, island], [{ contour: 0, kind: 'pocket' }], s);
+    expect(problems).toEqual([]);
+    const cut = cutting(moves);
+    // Never into the island: every point stays at least the radius away from it.
+    const near = cut.filter((m) => Math.hypot(m.x! - 30, m.y! - 20) < 5 + 3 - 0.05);
+    expect(near).toEqual([]);
+    expect(Math.min(...cut.map((m) => m.x!))).toBeCloseTo(3, 1);
+    const conventional = toolpaths([pocket], [{ contour: 0, kind: 'pocket' }], {
+      ...s,
+      climb: false,
+    });
+    expect(cutting(conventional.moves).length).toBeGreaterThan(0);
+  });
+
+  it('starts each loop near where the last one ended, whatever the drawing order', () => {
+    const square = rectangle(0, 0, 10, 10);
+    const reversed = { ...square, points: [...square.points].reverse() };
+    const doubled = {
+      closed: true,
+      points: [
+        { x: 20, y: 0 },
+        { x: 20, y: 0 },
+        { x: 30, y: 0 },
+        { x: 30, y: 10 },
+        { x: 20, y: 10 },
+        { x: 20, y: 0 },
+      ],
+    };
+    const { moves } = toolpaths(
+      [reversed, doubled],
+      [
+        { contour: 0, kind: 'outside' },
+        { contour: 1, kind: 'on' },
+      ],
+      s,
+    );
+    const rapids = moves.filter((m) => m.feed === null && m.x !== undefined);
+    // Engraving first (from its first corner), then the outline from its point nearest to there.
+    expect(rapids[0]).toMatchObject({ x: 20, y: 0 });
+    expect(rapids[1]!.x).toBeCloseTo(13, 0);
+    expect(Math.abs(rapids[1]!.y!)).toBeLessThan(0.5);
+    const pocket = toolpaths(
+      [rectangle(0, 0, 60, 40), rectangle(25, 15, 10, 10)],
+      [{ contour: 0, kind: 'pocket' }],
+      s,
+    );
+    const cut = cutting(pocket.moves);
+    // At least the cutter radius from the square island everywhere.
+    const gap = (m: Move) =>
+      Math.hypot(Math.max(25 - m.x!, 0, m.x! - 35), Math.max(15 - m.y!, 0, m.y! - 25));
+    expect(cut.filter((m) => gap(m) < 2.95)).toEqual([]);
+    expect(circle(0, 0, 0.01).points.length).toBe(4);
+  });
+
+  it('reports what it cannot cut and skips "none"', () => {
+    const tiny = rectangle(0, 0, 4, 4);
+    const open = {
+      closed: false,
+      points: [
+        { x: 0, y: 0 },
+        { x: 5, y: 0 },
+      ],
+    };
+    const { moves, problems } = toolpaths(
+      [tiny, open, circle(0, 0, 4), rectangle(0, 0, 10, 10)],
+      [
+        { contour: 0, kind: 'inside' },
+        { contour: 0, kind: 'pocket' },
+        { contour: 1, kind: 'outside' },
+        { contour: 2, kind: 'drill' },
+        { contour: 3, kind: 'drill' },
+        { contour: 3, kind: 'none' },
+        { contour: 9, kind: 'outside' },
+      ],
+      s,
+    );
+    // In the order they would be cut: holes (both at the work zero: as listed), pocket, then the cuts.
+    expect(problems).toEqual([
+      { contour: 2, code: 'hole-too-small' },
+      { contour: 3, code: 'hole-too-small' },
+      { contour: 0, code: 'tool-too-large' },
+      { contour: 1, code: 'open-contour' },
+      { contour: 0, code: 'tool-too-large' },
+    ]);
+    expect(moves).toEqual([]);
+  });
+
+  it('chooses Estlcam-like defaults', () => {
+    const tabs = { count: 4, width: 6, height: 2 };
+    const ops = defaultOperations(
+      [
+        rectangle(0, 0, 100, 100),
+        circle(20, 20, 6),
+        circle(50, 50, 30),
+        circle(50, 50, 10),
+        {
+          closed: false,
+          points: [
+            { x: 0, y: 0 },
+            { x: 1, y: 1 },
+          ],
+        },
+      ],
+      6,
+      tabs,
+    );
+    expect(ops.map((o) => o.kind)).toEqual(['outside', 'drill', 'inside', 'outside', 'on']);
+    expect(ops[0]!.tabs).toBe(tabs);
+  });
+});
+
+/** The rapid moves to a new place: where each cut begins. */
+const starts = (moves: Move[]) =>
+  moves
+    .filter((m) => m.feed === null && m.x !== undefined)
+    .map((m) => [Math.round(m.x! * 100) / 100, Math.round(m.y! * 100) / 100]);
+const at = (m: Move, x: number, y: number) =>
+  m.x !== undefined && Math.abs(m.x - x) < 1e-3 && Math.abs(m.y! - y) < 1e-3;
+const line = (x0: number, y0: number, x1: number, y1: number): Contour => ({
+  closed: false,
+  points: [
+    { x: x0, y: y0 },
+    { x: x1, y: y1 },
+  ],
+});
+
+describe('order of the cuts', () => {
+  it('drills first, then pockets, engraving, cut-outs, and the outline last – however they are listed', () => {
+    const contours = [
+      rectangle(0, 0, 200, 100),
+      rectangle(120, 20, 60, 60),
+      line(20, 80, 100, 80),
+      rectangle(20, 20, 40, 40),
+      circle(100, 50, 6),
+    ];
+    const operations: Operation[] = [
+      { contour: 0, kind: 'outside' },
+      { contour: 1, kind: 'inside' },
+      { contour: 2, kind: 'on' },
+      { contour: 3, kind: 'pocket' },
+      { contour: 4, kind: 'drill' },
+    ];
+    const { moves, problems } = toolpaths(contours, operations, s);
+    expect(problems).toEqual([]);
+    const first = starts(moves);
+    // The hole, the pocket (innermost ring first), the line, the cut-out, the outline.
+    expect(first[0]).toEqual([100, 50]);
+    expect(first[1]![0]).toBeGreaterThan(20);
+    expect(first[1]![0]).toBeLessThan(60);
+    // The line is entered at the end nearer to the pocket.
+    expect(first.at(-3)).toEqual([20, 80]);
+    expect(first.at(-2)![0]).toBeGreaterThan(120);
+    expect(first.at(-2)![0]).toBeLessThan(180);
+    // The outline starts at its corner nearest to where the cut-out ended.
+    expect(first.at(-1)![0]).toBeGreaterThan(190);
+  });
+
+  it('takes the nearest next, starting from the work zero', () => {
+    const holes = [circle(100, 10, 6), circle(10, 10, 6), circle(50, 10, 6), circle(140, 10, 6)];
+    const { moves } = toolpaths(
+      holes,
+      holes.map((_, i) => ({ contour: i, kind: 'drill' as const })),
+      s,
+    );
+    expect(starts(moves).map((p) => p[0])).toEqual([10, 50, 100, 140]);
+    // From where an earlier toolpath left the tool (a series: the blank before).
+    const on = toolpaths(
+      holes,
+      holes.map((_, i) => ({ contour: i, kind: 'drill' as const })),
+      s,
+      { x: 150, y: 10 },
+    );
+    expect(starts(on.moves).map((p) => p[0])).toEqual([140, 100, 50, 10]);
+  });
+
+  it('engraves an open line from its nearer end', () => {
+    const { moves } = toolpaths(
+      [line(100, 0, 10, 0), line(110, 10, 200, 10), line(300, 20, 210, 20)],
+      [0, 1, 2].map((contour) => ({ contour, kind: 'on' as const })),
+      s,
+    );
+    // 10 → 100, on to 110 → 200, on to 210 → 300: never back across the sheet.
+    expect(starts(moves).map((p) => p[0])).toEqual([10, 110, 210]);
+    const ends = cutting(moves).filter((m) => m.z === undefined || m.z === -6);
+    expect(ends.at(-1)).toMatchObject({ x: 210 });
+  });
+
+  it('cuts what lies inside a contour before that contour comes free', () => {
+    // A ring: the disc in the middle is a part of its own, inside the hole of the frame.
+    const frame = rectangle(0, 0, 100, 100);
+    const hole = circle(50, 50, 60);
+    const disc = circle(50, 50, 30);
+    const mark = line(45, 50, 55, 50);
+    const { moves } = toolpaths(
+      [frame, hole, disc, mark],
+      [
+        { contour: 0, kind: 'outside' },
+        { contour: 1, kind: 'inside' },
+        { contour: 2, kind: 'outside' },
+        { contour: 3, kind: 'on' },
+      ],
+      s,
+    );
+    const radius = starts(moves).map((p) => Math.round(Math.hypot(p[0]! - 50, p[1]! - 50)));
+    // The mark on the disc, the disc (15 + 3), the hole around it (30 − 3), the frame.
+    expect(radius[0]).toBe(5);
+    expect(radius[1]).toBe(18);
+    expect(radius[2]).toBe(27);
+    expect(radius[3]).toBeGreaterThan(50);
+  });
+
+  it('finishes each part with its own outline when parts lie side by side', () => {
+    const contours = [
+      rectangle(0, 0, 50, 50),
+      rectangle(100, 0, 50, 50),
+      rectangle(10, 10, 30, 30),
+      rectangle(110, 10, 30, 30),
+    ];
+    const { moves } = toolpaths(
+      contours,
+      [
+        { contour: 0, kind: 'outside' },
+        { contour: 1, kind: 'outside' },
+        { contour: 2, kind: 'inside' },
+        { contour: 3, kind: 'inside' },
+      ],
+      s,
+    );
+    const xs = starts(moves).map((p) => p[0]!);
+    // Both cut-outs before any outline; then the outline nearest to the last cut-out.
+    expect(xs[0]).toBeCloseTo(13);
+    expect(xs[1]).toBeCloseTo(113);
+    expect(xs[2]).toBeGreaterThan(95);
+    expect(xs[3]).toBeLessThan(55);
+  });
+
+  it('skips contours without points and operations without a contour', () => {
+    const { moves, problems } = toolpaths(
+      [{ closed: false, points: [] }],
+      [
+        { contour: 0, kind: 'on' },
+        { contour: 5, kind: 'on' },
+      ],
+      s,
+    );
+    expect(moves).toEqual([]);
+    expect(problems).toEqual([]);
+  });
+});
+
+describe('holding tabs', () => {
+  it('stand at fixed places of the drawn contour', () => {
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    expect(tabPoints(rectangle(0, 0, 100, 50).points, 4).map((p) => [r3(p.x), r3(p.y)])).toEqual([
+      [37.5, 0],
+      [100, 12.5],
+      [62.5, 50],
+      [0, 37.5],
+    ]);
+  });
+
+  it('lie where they were put, wherever the cut happens to begin', () => {
+    const part = rectangle(0, 0, 100, 50);
+    const tabs = { count: 4, width: 8, height: 2 };
+    const lifted = (before: Contour[]) => {
+      const contours = [...before, part];
+      const ops: Operation[] = [
+        ...before.map((_, i) => ({ contour: i, kind: 'drill' as const })),
+        { contour: before.length, kind: 'outside', tabs },
+      ];
+      // Where the cutter crosses a tab: the stretches cut at the tabs' height.
+      return cutting(toolpaths(contours, ops, s).moves)
+        .filter((m) => Math.abs(m.z! - -4) < 1e-9)
+        .map((m) => [Math.round(m.x! * 100) / 100, Math.round(m.y! * 100) / 100])
+        .sort((a, b) => a[0]! - b[0]! || a[1]! - b[1]!);
+    };
+    // Each tab is 8 mm plus the cutter: 14 mm of path, ending 7 mm behind the tab's middle.
+    const fromZero = lifted([]);
+    expect(fromZero).toEqual([
+      [-3, 30.5],
+      [44.5, -3],
+      [55.5, 53],
+      [103, 19.5],
+    ]);
+    // Coming from a hole at the far corner, the loop starts elsewhere – the tabs do not move.
+    expect(lifted([circle(120, 70, 6)])).toEqual(fromZero);
+  });
+
+  it('may lie across the point where the loop begins', () => {
+    // Drawn from the middle of the lower edge; the cut starts at the corner 0, 0.
+    const loop: Contour = {
+      closed: true,
+      points: [
+        { x: 50, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 50 },
+        { x: 0, y: 50 },
+        { x: 0, y: 0 },
+      ],
+    };
+    // Two tabs of 54 mm (60 with the cutter): around 100, 25 and around 0, 25.
+    const tabs = { count: 2, width: 54, height: 2 };
+    const { moves } = toolpaths([loop], [{ contour: 0, kind: 'on', tabs }], s);
+    const high = cutting(moves).filter((m) => Math.abs(m.z! - -4) < 1e-9);
+    // The tab at 0, 25 reaches 5 mm round the corner where the loop starts and ends.
+    expect(high.some((m) => at(m, 5, 0))).toBe(true);
+    expect(high.some((m) => at(m, 0, 50))).toBe(true);
+    expect(high.some((m) => at(m, 0, 0))).toBe(true);
+    // Beyond the tab the cut is at full depth again.
+    const deep = cutting(moves).filter((m) => m.z === -6);
+    expect(deep.some((m) => at(m, 50, 0))).toBe(true);
+    // A point drawn twice does not confuse the places of the tabs.
+    const doubled = { ...loop, points: [loop.points[0]!, ...loop.points] };
+    const again = toolpaths([doubled], [{ contour: 0, kind: 'on', tabs }], s);
+    expect(cutting(again.moves).filter((m) => Math.abs(m.z! - -4) < 1e-9)).toEqual(high);
+    // No tabs at all when their count is zero.
+    const none = toolpaths([loop], [{ contour: 0, kind: 'on', tabs: { ...tabs, count: 0 } }], s);
+    expect(cutting(none.moves).some((m) => Math.abs(m.z! - -4) < 1e-9)).toBe(false);
+  });
+});
+
+describe('relief of inside corners', () => {
+  const slotHole = rectangle(0, 0, 40, 20);
+  const d = 3 / Math.SQRT2;
+
+  it('runs into every corner of a cut-out and back, at full depth', () => {
+    const { moves } = toolpaths([slotHole], [{ contour: 0, kind: 'inside', relief: 'dogbone' }], s);
+    const cut = cutting(moves);
+    for (const [x, y] of [
+      [d, d],
+      [40 - d, d],
+      [40 - d, 20 - d],
+      [d, 20 - d],
+    ] as const) {
+      const visits = cut.filter((m) => at(m, x, y));
+      // Once on each of the two passes (stepdown 3 of 6).
+      expect(visits.length).toBe(2);
+      const i = moves.indexOf(visits.at(-1)!);
+      // Out of the corner the same way: back to where the path turns, 3 mm from both walls.
+      expect(at(moves[i + 1]!, x < 20 ? 3 : 37, y < 10 ? 3 : 17)).toBe(true);
+      expect(at(moves[i - 1]!, x < 20 ? 3 : 37, y < 10 ? 3 : 17)).toBe(true);
+    }
+    // The detours are cut at the depth of their pass; the deepest is the full depth.
+    const depthAt = moves.filter((m) => at(m, d, d)).map((m) => moves[moves.indexOf(m) - 1]!.z);
+    expect(depthAt).toEqual([-3, -6]);
+    // Nowhere else does the cutter come closer to a wall than its radius.
+    const others = cut.filter((m) => Math.min(m.x!, 40 - m.x!, m.y!, 20 - m.y!) < 3 - 1e-3);
+    expect(others).toHaveLength(8);
+    // Without relief the path is the plain rectangle 3 mm inside.
+    const plain = toolpaths([slotHole], [{ contour: 0, kind: 'inside' }], s);
+    expect(cutting(plain.moves).every((m) => m.x! >= 3 - 1e-3 && m.y! >= 3 - 1e-3)).toBe(true);
+  });
+
+  it('keeps the tabs when corners are relieved', () => {
+    const tabs = { count: 2, width: 6, height: 2 };
+    const { moves } = toolpaths(
+      [slotHole],
+      [{ contour: 0, kind: 'inside', relief: 'tbone', tabs }],
+      s,
+    );
+    // T-bones along the long edges: the cutter stands over the short walls at y = 3 and 17.
+    for (const [x, y] of [
+      [0, 3],
+      [40, 3],
+      [40, 17],
+      [0, 17],
+    ] as const) {
+      expect(cutting(moves).some((m) => at(m, x, y) || at(m, x, y))).toBe(true);
+    }
+    // Two tabs (in the middle of the long sides): lifted to 2 mm above the bottom twice.
+    const lifts = moves.filter((m) => m.x === undefined && m.feed === 300 && m.z === -4);
+    expect(lifts).toHaveLength(2);
+    const high = cutting(moves).filter((m) => Math.abs(m.z! - -4) < 1e-9);
+    expect(high.map((m) => Math.round(m.y!)).sort()).toEqual([17, 3]);
+  });
+
+  it('frees the notch of an outline cut outside, and the corners of a pocket', () => {
+    const l: Contour = {
+      closed: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 40, y: 0 },
+        { x: 40, y: 20 },
+        { x: 20, y: 20 },
+        { x: 20, y: 40 },
+        { x: 0, y: 40 },
+      ],
+    };
+    const outside = toolpaths([l], [{ contour: 0, kind: 'outside', relief: 'dogbone' }], s);
+    expect(cutting(outside.moves).filter((m) => at(m, 20 + d, 20 + d))).toHaveLength(2);
+    // The five outer corners need nothing: the cutter goes round them.
+    expect(cutting(outside.moves).filter((m) => at(m, d, d))).toHaveLength(0);
+
+    const pocket = toolpaths([slotHole], [{ contour: 0, kind: 'pocket', relief: 'dogbone' }], s);
+    const cut = cutting(pocket.moves);
+    expect(cut.filter((m) => at(m, d, d))).toHaveLength(2);
+    expect(cut.filter((m) => at(m, 40 - d, 20 - d))).toHaveLength(2);
+    // Only the ring along the wall goes into the corners: four corners, two passes.
+    expect(cut.filter((m) => Math.min(m.x!, 40 - m.x!, m.y!, 20 - m.y!) < 3 - 1e-3)).toHaveLength(
+      8,
+    );
+  });
+
+  it('skips a corner the cutter never comes near', () => {
+    // A keyhole: the narrow neck (4 mm) is closed to a 6 mm cutter, its corners stay as they are.
+    const keyhole: Contour = {
+      closed: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 30, y: 0 },
+        { x: 30, y: 30 },
+        { x: 17, y: 30 },
+        { x: 17, y: 40 },
+        { x: 13, y: 40 },
+        { x: 13, y: 30 },
+        { x: 0, y: 30 },
+      ],
+    };
+    const { moves, problems } = toolpaths(
+      [keyhole],
+      [{ contour: 0, kind: 'inside', relief: 'dogbone' }],
+      s,
+    );
+    expect(problems).toEqual([]);
+    const cut = cutting(moves);
+    expect(cut.some((m) => at(m, d, d))).toBe(true);
+    expect(cut.some((m) => at(m, 30 - d, 30 - d))).toBe(true);
+    // Nothing reaches up into the neck.
+    expect(cut.every((m) => m.y! <= 30 - d + 1e-3)).toBe(true);
+  });
+});
+
+describe('finishing allowance', () => {
+  const rough = { ...s, allowance: 0.5 };
+
+  it('roughs an outline with the allowance and finishes it in one pass at full depth', () => {
+    const part = rectangle(0, 0, 100, 50);
+    const { moves } = toolpaths([part], [{ contour: 0, kind: 'outside' }], rough);
+    const cut = cutting(moves);
+    const left = (x: number) => cut.filter((m) => Math.abs(m.x! - x) < 1e-3);
+    // Roughing 3.5 mm beside the part on both passes, finishing at 3 mm on the last depth only.
+    expect([...new Set(left(-3.5).map((m) => m.z))]).toEqual([-3, -6]);
+    expect([...new Set(left(-3).map((m) => m.z))]).toEqual([-6]);
+    expect(Math.min(...cut.map((m) => m.x!))).toBeCloseTo(-3.5);
+    // Roughing comes first.
+    expect(cut.indexOf(left(-3.5)[0]!)).toBeLessThan(cut.indexOf(left(-3)[0]!));
+    // Same direction for both: climb, counter-clockwise outside.
+    const turn = (x: number) => {
+      const i = cut.indexOf(left(x)[0]!);
+      return Math.sign(signedArea(cut.slice(i, i + 30).map((m) => ({ x: m.x!, y: m.y! }))));
+    };
+    expect(turn(-3.5)).toBe(1);
+    expect(turn(-3)).toBe(1);
+  });
+
+  it('roughs a cut-out towards the inside and keeps the tabs in the same places', () => {
+    const hole = rectangle(0, 0, 100, 50);
+    const tabs = { count: 4, width: 8, height: 2 };
+    const { moves } = toolpaths([hole], [{ contour: 0, kind: 'inside', tabs }], rough);
+    const cut = cutting(moves);
+    expect(Math.min(...cut.map((m) => m.x!))).toBeCloseTo(3);
+    // The stretches over the tabs: four while roughing, the same four while finishing.
+    const high = cut.filter((m) => Math.abs(m.z! - -4) < 1e-9);
+    expect(high).toHaveLength(8);
+    const ends = high.map((m) => [Math.round(m.x!), Math.round(m.y!)]);
+    // Clockwise inside: over the tab at 37.5 on the lower edge the cutter leaves at 37.5 − 7.
+    expect(ends).toContainEqual([31, 4]);
+    expect(ends).toContainEqual([31, 3]);
+    expect(ends).toContainEqual([4, 45]);
+    expect(ends).toContainEqual([3, 45]);
+  });
+
+  it('finishes in all passes when there is no room to rough', () => {
+    // 8 mm wide: the 6 mm cutter fits, with 1.5 mm allowance on both sides it does not.
+    const narrow = rectangle(0, 0, 40, 8);
+    const { moves, problems } = toolpaths([narrow], [{ contour: 0, kind: 'inside' }], {
+      ...s,
+      allowance: 1.5,
+    });
+    expect(problems).toEqual([]);
+    const cut = cutting(moves);
+    expect([...new Set(cut.map((m) => m.y))].sort()).toEqual([3, 5]);
+    expect([...new Set(cut.map((m) => m.z))]).toEqual([-3, -6]);
+    const pocket = toolpaths([narrow], [{ contour: 0, kind: 'pocket' }], { ...s, allowance: 1.5 });
+    expect([...new Set(cutting(pocket.moves).map((m) => m.z))]).toEqual([-3, -6]);
+  });
+
+  it('clears a pocket up to the allowance and finishes its wall, corners included', () => {
+    const pocket = rectangle(0, 0, 60, 40);
+    const { moves } = toolpaths(
+      [pocket],
+      [{ contour: 0, kind: 'pocket', relief: 'dogbone' }],
+      rough,
+    );
+    const cut = cutting(moves);
+    const wall = cut.filter((m) => Math.abs(m.x! - 3) < 1e-3 && m.z !== undefined);
+    expect([...new Set(wall.map((m) => m.z))]).toEqual([-6]);
+    const before = cut.filter((m) => Math.abs(m.x! - 3.5) < 1e-3);
+    expect([...new Set(before.map((m) => m.z))]).toEqual([-3, -6]);
+    expect(cut.indexOf(before.at(-1)!)).toBeLessThan(cut.indexOf(wall[0]!));
+    // The corner relief belongs to the finishing pass: once, at full depth.
+    const d = 3 / Math.SQRT2;
+    expect(cut.filter((m) => at(m, d, d))).toHaveLength(1);
+    // A negative allowance counts as none.
+    const none = toolpaths([pocket], [{ contour: 0, kind: 'pocket' }], { ...s, allowance: -1 });
+    expect(cutting(none.moves)).toEqual(
+      cutting(toolpaths([pocket], [{ contour: 0, kind: 'pocket' }], s).moves),
+    );
+  });
+});
+
+describe('engraving text', () => {
+  it('follows the strokes at the engraving depth, lifting between them', () => {
+    const text = textContours('Li', { height: 10, x: 10, y: 10 });
+    const ops: Operation[] = text.contours.map((_, i) => ({ contour: i, kind: 'on', depth: 1 }));
+    const { moves, problems } = toolpaths(text.contours, ops, s);
+    expect(problems).toEqual([]);
+    // L, the stem of the i, its dot: three plunges to 1 mm, nothing deeper.
+    expect(moves.filter((m) => m.feed === 300).map((m) => m.z)).toEqual([-1, -1, -1]);
+    expect(lowest(moves)).toBe(-1);
+    // The L is entered at its foot, the end nearer to the work zero, and left at its top;
+    // nearest from there is the dot of the i, then its stem.
+    expect(starts(moves)).toEqual([
+      [15, 10],
+      [17, 19.8],
+      [17, 17],
+    ]);
+    const code = toGcode(moves, { name: 'text', rpm: 18000, safeZ: 5 });
+    expect(code).toContain('G1 Z-1 F300\nX10 F1200\nY20\n');
+  });
+});
+
+describe('G-code', () => {
+  it('writes a complete program without repeated words', () => {
+    const { moves } = toolpaths([circle(0, 0, 20)], [{ contour: 0, kind: 'drill' }], s);
+    const ccwCode = toGcode(
+      toolpaths([circle(0, 0, 20)], [{ contour: 0, kind: 'drill' }], { ...s, climb: false }).moves,
+      { name: 'x', rpm: 1, safeZ: 5 },
+    );
+    expect(ccwCode).toContain('G3 X7');
+    const code = toGcode(
+      [
+        ...moves,
+        { x: 1, y: 1, feed: 500 },
+        { x: 2, feed: 500 },
+        { feed: 500 },
+        { z: -0.0001, feed: null },
+      ],
+      { name: 'Platte (Test)', rpm: 18000, safeZ: 5 },
+    );
+    const lines = code.split('\n');
+    expect(lines.slice(0, 4)).toEqual([
+      '(LowRider Control CAM: Platte Test)',
+      'G21 G90 G17 G94',
+      'G0 Z5',
+      'M3 S18000',
+    ]);
+    expect(lines.slice(-4)).toEqual(['G0 Z5', 'M5', 'M30', '']);
+    expect(code).toMatch(/G2 X7 Y0 Z-\d/);
+    expect(code).toContain('I-7 J0');
+    expect(code).toContain('G1 X1 Y1 F500');
+    expect(code).toContain('\nX2\n');
+    expect(code).toContain('G0 Z0\n');
+  });
+});

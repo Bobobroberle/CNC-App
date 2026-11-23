@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de" class="dark" style="background: #0f1115">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover: the app fills the whole screen and keeps clear of the
+         status bar, corners and home indicator itself (safe-area insets in src/styles/shell.css). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f1115" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Numbers like 192.168.0.198 are not telephone numbers. -->
+    <meta name="format-detection" content="telephone=no" />
+    <!-- Home-screen app on the iPad ("Teilen → Zum Home-Bildschirm"): full screen,
+         own icon, the status bar drawn over the app's dark background. The icons,
+         launch pictures and the manifest are files beside this page (docs/ipad.md). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="LowRider" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="./apple-touch-icon-152.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="./apple-touch-icon-167.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <!-- Launch pictures for the iPad Air 11" (820 × 1180 pt) and 13" (1024 × 1366 pt). -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+      href="./splash-1640x2360.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"
+      href="./splash-2360x1640.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+      href="./splash-2048x2732.png"
+    />
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"
+      href="./splash-2732x2048.png"
+    />
+    <title>LowRider Control</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

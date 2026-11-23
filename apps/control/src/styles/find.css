@@ -1,0 +1,168 @@
+/*
+ * Quick search and the sheet of keys: two coss dialogs in the dialog layer
+ * (under the top bar – NOT-HALT stays above them).
+ */
+
+.find-sheet {
+  max-width: 40rem;
+  overflow: hidden;
+}
+
+.keys-sheet {
+  max-width: 55rem;
+}
+
+@media (hover: none) and (pointer: coarse), (max-width: 900px), (max-height: 600px) {
+  .find-sheet {
+    max-width: 47.5rem;
+  }
+  .keys-sheet {
+    max-width: 55rem;
+  }
+}
+
+/* The sheet of keys is long: it starts right under the top bar */
+.dialog-layer [data-slot='dialog-viewport']:has(.keys-sheet) {
+  padding-top: 0.375rem;
+}
+
+/* The field always has the focus here; the line under it shows it. */
+.find-field {
+  border-bottom: 1px solid var(--border);
+}
+
+.find-field:focus-within {
+  box-shadow: inset 0 -2px 0 var(--ring);
+}
+
+.find-field input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--target);
+  background: transparent;
+  outline: none;
+  font-size: 1.0625rem;
+}
+
+.find-field input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.find-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.375rem;
+}
+
+/* A hit: where it leads, where that is, and its key */
+.find-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-height: 3.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.find-row svg {
+  flex: none;
+}
+
+.find-row[aria-selected='true'] {
+  border-color: var(--input);
+  background: var(--input);
+  color: var(--foreground);
+}
+
+.keys-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0.5rem 1.75rem;
+  margin-top: 0.5rem;
+}
+
+.keys-group h3 {
+  margin: 0.625rem 0 0.375rem;
+}
+
+.keys-group dl > div {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.375rem;
+  border-top: 1px solid var(--border);
+}
+
+.keys-group dt {
+  flex: 0 0 46%;
+  padding: 0.3125rem 0;
+}
+
+/* Key caps: only where a keyboard is likely – a mouse is there, or a key was pressed */
+.kbd-hint {
+  display: none;
+}
+
+.has-keys .kbd-hint {
+  display: inline-flex;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kbd-hint {
+    display: inline-flex;
+  }
+}
+
+/* Where the search led: outlined for a moment, then left alone */
+.found {
+  outline: 3px solid var(--foreground);
+  outline-offset: 2px;
+  animation: found 1.8s ease-out both;
+}
+
+/* Inside the panel the outline lies on the card's own edge: the panel clips what sticks out */
+.panel [data-slot='card'].found {
+  outline-offset: -3px;
+}
+
+h3.found {
+  border-radius: 4px;
+  outline-offset: 6px;
+}
+
+@keyframes found {
+  0%,
+  65% {
+    outline-color: var(--foreground);
+  }
+  100% {
+    outline-color: transparent;
+  }
+}
+
+/* NOT-HALT is pointed at, never animated */
+.estop.found {
+  outline-color: #fff;
+  outline-offset: 3px;
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .found {
+    animation: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .find-row[aria-selected='true'] {
+    border-color: var(--foreground);
+  }
+}

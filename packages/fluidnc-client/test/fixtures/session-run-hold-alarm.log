@@ -1,0 +1,25 @@
+# SYNTHETIC session in FluidNC 3.x format – replace with a real recording
+# from the Jackpot (see docs/offene-fragen.md). One frame per line:
+#   <ms> ~ <text>    text frame (WebUI meta)
+#   <ms> < <line>    binary frame from the controller (newline appended)
+0 ~ CURRENT_ID:0
+0 ~ ACTIVE_ID:0
+12 < Grbl 3.7 [FluidNC v3.7.12 (wifi) '$' for help]
+15 < [MSG:INFO: '$H'|'$X' to unlock]
+200 < <Idle|MPos:0.000,0.000,0.000,0.000|FS:0,0|WCO:610.000,1205.000,-50.000,0.000>
+400 < <Idle|MPos:0.000,0.000,0.000,0.000|FS:0,0|Ov:100,100,100>
+600 < <Idle|MPos:0.000,0.000,0.000,0.000|FS:0,0>
+650 < ok
+800 < <Run|MPos:612.500,1205.000,-48.000,0.000|FS:1200,0|Ln:20|Bf:14,96>
+1000 < <Run|MPos:630.000,1205.000,-52.000,0.000|FS:1200,0|Ln:30|Bf:12,64|Ov:120,100,100|A:S>
+1200 < <Hold:1|MPos:640.000,1205.000,-52.000,0.000|FS:400,0|Ln:30|A:S>
+1400 < <Hold:0|MPos:641.000,1205.000,-52.000,0.000|FS:0,0|Ln:30|WCO:610.000,1205.000,-50.000,0.000|A:S>
+1600 < <Run|MPos:660.000,1205.000,-52.000,0.000|FS:1200,0|Ln:40>
+1700 < ALARM:1
+1710 < [MSG:ERR: Hard limit triggered]
+1800 < <Alarm|MPos:661.000,1205.000,-52.000,0.000|FS:0,0|Pn:X>
+2000 < <Alarm|MPos:661.000,1205.000,-52.000,0.000|FS:0,0>
+2100 ~ PING:60000:60000
+2200 < [MSG:INFO: Caution: Unlocked]
+2210 < ok
+2400 < <Idle|MPos:661.000,1205.000,-52.000,0.000|FS:0,0>

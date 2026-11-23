@@ -1,0 +1,190 @@
+{
+  "format": "lowrider-control/profile",
+  "version": 1,
+  "createdAt": "2026-10-24T00:00:00.000Z",
+  "name": "V1E LowRider v4 (Jackpot 2)",
+  "author": "LowRider Control",
+  "description": "V1E LowRider v4 mit Jackpot 2 (FluidNC), Werte der V1E-Standard-config.yaml. Verfahrweg nach dem Aufbau prüfen!",
+  "machine": {
+    "travel": {
+      "x": {
+        "min": 3,
+        "max": 1223
+      },
+      "y": {
+        "min": 3,
+        "max": 2443
+      },
+      "z": {
+        "min": -297,
+        "max": 3
+      }
+    },
+    "softLimits": true,
+    "jogFeed": {
+      "xy": 3000,
+      "z": 600
+    },
+    "kinematics": {
+      "axes": {
+        "x": {
+          "maxRate": 9000,
+          "acceleration": 200
+        },
+        "y": {
+          "maxRate": 9000,
+          "acceleration": 200
+        },
+        "z": {
+          "maxRate": 1200,
+          "acceleration": 80
+        },
+        "a": {
+          "maxRate": 3600,
+          "acceleration": 300
+        }
+      },
+      "junctionDeviation": 0.01,
+      "arcTolerance": 0.002,
+      "toolChangeSeconds": 60,
+      "pauseSeconds": 0,
+      "spindleSeconds": 0
+    },
+    "controller": {
+      "source": "V1E-Standard-config.yaml (Jackpot V2 TMC2226, LowRider)",
+      "softLimits": false,
+      "toolChangeHandled": false,
+      "useLineNumbers": false,
+      "mustHome": false,
+      "spindleControlled": false
+    },
+    "probe": {
+      "plateThickness": 0.5,
+      "maxTravel": 40,
+      "feed": 100,
+      "retract": 10
+    }
+  },
+  "tools": [
+    {
+      "id": "t1",
+      "number": 1,
+      "name": "Schaftfräser 8 mm",
+      "kind": "flat",
+      "diameter": 8,
+      "flutes": 2,
+      "fluteLength": 25,
+      "stickout": 35,
+      "holder": "Spannzange 8 mm",
+      "holderDiameter": 30
+    },
+    {
+      "id": "t2",
+      "number": 2,
+      "name": "Kugelfräser 6 mm",
+      "kind": "ball",
+      "diameter": 6,
+      "flutes": 2,
+      "fluteLength": 20,
+      "stickout": 30,
+      "holder": "Spannzange 6 mm",
+      "holderDiameter": 30
+    },
+    {
+      "id": "t3",
+      "number": 3,
+      "name": "Schaftfräser 6 mm",
+      "kind": "flat",
+      "diameter": 6,
+      "flutes": 2,
+      "fluteLength": 22,
+      "stickout": 30,
+      "holder": "Spannzange 6 mm",
+      "holderDiameter": 30
+    }
+  ],
+  "materials": [
+    {
+      "id": "softwood",
+      "name": "Weichholz (Fichte, Kiefer)",
+      "group": "wood",
+      "vc": 600,
+      "fz6": 0.08,
+      "depthFactor": 0.5,
+      "stepoverFactor": 0.4,
+      "plungeFactor": 0.3
+    },
+    {
+      "id": "hardwood",
+      "name": "Hartholz (Buche, Eiche)",
+      "group": "wood",
+      "vc": 500,
+      "fz6": 0.06,
+      "depthFactor": 0.35,
+      "stepoverFactor": 0.35,
+      "plungeFactor": 0.25
+    },
+    {
+      "id": "mdf",
+      "name": "MDF",
+      "group": "board",
+      "vc": 600,
+      "fz6": 0.08,
+      "depthFactor": 0.5,
+      "stepoverFactor": 0.4,
+      "plungeFactor": 0.3
+    },
+    {
+      "id": "plywood",
+      "name": "Multiplex / Sperrholz",
+      "group": "board",
+      "vc": 550,
+      "fz6": 0.07,
+      "depthFactor": 0.4,
+      "stepoverFactor": 0.4,
+      "plungeFactor": 0.25
+    },
+    {
+      "id": "acrylic",
+      "name": "Acryl (PMMA)",
+      "group": "plastic",
+      "vc": 300,
+      "fz6": 0.05,
+      "depthFactor": 0.3,
+      "stepoverFactor": 0.3,
+      "plungeFactor": 0.2,
+      "notes": "Einschneider, Späne gut abführen"
+    },
+    {
+      "id": "hdpe",
+      "name": "HDPE / POM",
+      "group": "plastic",
+      "vc": 400,
+      "fz6": 0.08,
+      "depthFactor": 0.5,
+      "stepoverFactor": 0.4,
+      "plungeFactor": 0.3
+    },
+    {
+      "id": "aluminium",
+      "name": "Aluminium",
+      "group": "metal",
+      "vc": 200,
+      "fz6": 0.02,
+      "depthFactor": 0.1,
+      "stepoverFactor": 0.2,
+      "plungeFactor": 0.15,
+      "notes": "Einschneider, Kühlung/Luft, kleine Zustellung"
+    }
+  ],
+  "macros": [
+    {
+      "name": "Z hoch",
+      "gcode": "G53 G0 Z0"
+    },
+    {
+      "name": "Zum Nullpunkt XY",
+      "gcode": "G53 G0 Z0\nG90 G0 X0 Y0"
+    }
+  ]
+}

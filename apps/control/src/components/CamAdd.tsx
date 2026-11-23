@@ -1,0 +1,134 @@
+import type { Sketch, SketchType } from '@lowrider/cam';
+import { useRef, useState } from 'react';
+import { t, tDynamic } from '../i18n';
+import { tableBox } from '../lib/tableBox';
+import { useCam } from '../store/cam';
+import { useMachine } from '../store/machine';
+import { focusNewText } from './CamArrange';
+import { Icon, type IconName } from './Icon';
+import { Alert } from '../ui/alert';
+import { Button } from '../ui/button';
+
+/** What a tap on a shape puts on the table: a usual size, changed there afterwards. */
+const START: Record<Exclude<SketchType, 'text'>, Sketch> = {
+  rect: { type: 'rect', w: 100, h: 60, r: 0 },
+  circle: { type: 'circle', d: 20 },
+  slot: { type: 'slot', l: 60, w: 10 },
+  grid: { type: 'grid', d: 6, nx: 3, ny: 2, px: 30, py: 30 },
+};
+const SHAPES = Object.keys(START) as (keyof typeof START)[];
+const ICONS: Record<SketchType, IconName> = {
+  rect: 'rect',
+  circle: 'circle',
+  slot: 'slot',
+  grid: 'grid',
+  text: 'text',
+};
+
+/**
+ * What is to be made, one tap each: a shape or a text appears on the table
+ * picture at once, selected, where the eye is – its size, place and words
+ * are changed there and in the fields of the selection. A DXF or SVG file
+ * comes in the same way.
+ */
+export function CamAdd() {
+  const project = useCam((s) => s.project);
+  const cam = useCam.getState();
+  const addLog = useMachine((s) => s.addLog);
+  const fileInput = useRef<HTMLInputElement>(null);
+  /** The last file held nothing that can be cut */
+  const [empty, setEmpty] = useState(false);
+  if (!project) return null;
+
+  const skipped = Object.entries(project.skipped);
+  const add = (sketch: Sketch) => {
+    setEmpty(false);
+    cam.addSketch(sketch, tableBox());
+  };
+
+  return (
+    <div className="cam-add" data-testid="cam-add">
+      <div className="cam-tools" role="group" aria-label={t('cam.addShape')}>
+        {SHAPES.map((shape) => (
+          <Button
+            key={shape}
+            variant="outline"
+            data-find={`shape-${shape}`}
+            onClick={() => add(START[shape])}
+          >
+            <Icon name={ICONS[shape]} size={22} />
+            <span>{t(`cam.shapes.${shape}`)}</span>
+          </Button>
+        ))}
+        <Button
+          variant="outline"
+          data-find="shape-text"
+          onClick={() => {
+            add({
+              type: 'text',
+              text: t('cam.text.sample'),
+              height: 20,
+              spacing: 0,
+              lineSpacing: 1.6,
+              align: 'center',
+            });
+            // The words are typed next: the field takes the keyboard.
+            focusNewText();
+          }}
+        >
+          <Icon name="text" size={22} />
+          <span>{t('cam.shapes.text')}</span>
+        </Button>
+        <Button variant="outline" data-find="shape-file" onClick={() => fileInput.current?.click()}>
+          <Icon name="file" size={22} />
+          <span>{t('cam.importFile')}</span>
+        </Button>
+      </div>
+      {project.items.length === 0 ? (
+        <p className="text-muted-foreground text-sm">{t('cam.addHint')}</p>
+      ) : null}
+      {/* Only where there is a keyboard to press them on; the keys themselves are on their sheet. */}
+      <p className="text-muted-foreground text-sm cam-keys">{t('find.shortcuts.hint')}</p>
+      {empty ? <Alert variant="warning">{t('cam.fileEmpty')}</Alert> : null}
+      {skipped.length > 0 ? (
+        <Alert variant="warning">
+          {t('cam.skipped', { list: skipped.map(([k, n]) => `${n}× ${k}`).join(', ') })}
+        </Alert>
+      ) : null}
+      {project.notes.length > 0 ? (
+        <ul className="diagnostics" data-testid="cam-notes">
+          {project.notes.map((n) => (
+            <li key={n.code} className="warning">
+              {tDynamic(`cam.notes.${n.code}`, 'cam.notes.svg-element', { count: n.count })}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".dxf,.svg,image/svg+xml"
+        hidden
+        data-testid="cam-file"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file) return;
+          void file.text().then((content) => {
+            try {
+              const before = useCam.getState().project?.items.length ?? 0;
+              cam.importFile(file.name, content);
+              setEmpty((useCam.getState().project?.items.length ?? 0) === before);
+            } catch (error) {
+              addLog(
+                'error',
+                t('cam.fileError', { reason: (error as Error).message }),
+                'cam.fileError',
+              );
+            }
+          });
+        }}
+      />
+    </div>
+  );
+}

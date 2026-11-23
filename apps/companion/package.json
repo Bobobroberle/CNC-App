@@ -1,0 +1,34 @@
+{
+  "name": "@lowrider/companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LowRider Control companion: hosts the app, stores libraries and history, relays FluidNC, collects sensor data",
+  "type": "module",
+  "bin": {
+    "lowrider-companion": "dist/companion.mjs"
+  },
+  "scripts": {
+    "dev": "node build.mjs && node dist/companion.mjs",
+    "build": "tsc -p tsconfig.json && node build.mjs",
+    "start": "node dist/companion.mjs",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fastify/static": "10.1.7",
+    "@fastify/websocket": "11.3.4",
+    "@lowrider/gcode-core": "workspace:*",
+    "@lowrider/workshop": "workspace:*",
+    "fastify": "5.12.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/ws": "8.18.2",
+    "@vitest/coverage-v8": "4.1.12",
+    "esbuild": "0.28.2",
+    "typescript": "~5.9.3",
+    "vitest": "4.1.12",
+    "ws": "8.22.0"
+  }
+}

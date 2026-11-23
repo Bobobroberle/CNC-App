@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+coverage
+dist
+docs/projektbeschreibung.md
+**/*.nc
+**/*.golden.json
+DESIGN.md

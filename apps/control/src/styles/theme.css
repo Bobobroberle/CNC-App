@@ -1,0 +1,359 @@
+/*
+ * The look of DESIGN.md §7 on the coss ui components (src/ui): calm, technical,
+ * depth from the lightness of a surface instead of shadows, radius 8 px for
+ * controls and 12 px for cards, Inter for the interface and JetBrains Mono for
+ * G-code and the console. Two themes: dark (the default) and light for a
+ * bright workshop; `class="dark"` on <html> says which (store/ui.ts).
+ *
+ * The guide's tokens under the names the components already use:
+ *   --bg → --background · --surface → --card · --surface-2 → --popover/--secondary
+ *   --text → --foreground · --text-muted → --muted-foreground
+ *   --accent (blue) → --primary/--info/--ring   (coss calls its hover surface
+ *     `--accent`; that name keeps that meaning here)
+ *   --danger → --destructive · --success · --warning · --probe · --axis-x/y/z/a
+ *
+ * Colour keeps its meaning: primary (blue) = the one main action, selection,
+ * "runs"; success = done; warning = attention, paused; destructive = fault,
+ * alarm, critical and NOT-HALT – nowhere else; probe (violet) = probing.
+ * A state never shows by colour alone: an icon or a word goes with it.
+ */
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Inter and JetBrains Mono, latin only, from the bundle: the machine's network has no internet. */
+@font-face {
+  font-family: 'JetBrains Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* The app's own measures, as utilities (min-h-target, w-panel, …) */
+  --spacing-target: var(--target);
+  --spacing-panel: var(--panel-width);
+  --color-probe: var(--probe);
+  --color-probe-foreground: var(--probe-foreground);
+  --color-on-solid: var(--on-solid);
+  --color-axis-x: var(--axis-x);
+  --color-axis-y: var(--axis-y);
+  --color-axis-z: var(--axis-z);
+  --color-axis-a: var(--axis-a);
+  /* §7: radius 8 px for controls, 12 px for cards and panels – nothing rounder */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 0.75rem;
+  /* §7: depth comes from the lightness of a surface, not from shadows */
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+}
+
+:root {
+  --radius: 0.5rem;
+  color-scheme: light;
+  --background: #f4f5f7;
+  --foreground: #14171c;
+  --card: #ffffff;
+  --card-foreground: #14171c;
+  --popover: #eceef2;
+  --popover-foreground: #14171c;
+  --primary: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --secondary: #eceef2;
+  --secondary-foreground: #14171c;
+  --muted: #eceef2;
+  --muted-foreground: #4b5260;
+  --accent: #e1e5eb;
+  --accent-foreground: #14171c;
+  --destructive: #b91c1c;
+  --destructive-foreground: #b91c1c;
+  --info: #1d4ed8;
+  --info-foreground: #1d4ed8;
+  --success: #15803d;
+  --success-foreground: #166534;
+  --warning: #b45309;
+  --warning-foreground: #92400e;
+  --probe: #7e22ce;
+  --probe-foreground: #6b21a8;
+  --border: #c9ced8;
+  --input: #aab1be;
+  --ring: #1d4ed8;
+  /* What is written on a solid colour (a primary button, NOT-HALT) */
+  --on-solid: #ffffff;
+  --estop: #b91c1c;
+  --estop-pressed: #991b1b;
+  /* Laid over any surface while a control is pressed (controls.css) */
+  --press-tint: rgb(0 0 0 / 0.16);
+  --axis-x: #b91c1c;
+  --axis-y: #15803d;
+  --axis-z: #1d4ed8;
+  --axis-a: #b45309;
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /*
+   * Touch first (§8): every control is at least this high and wide – 48 px on
+   * a desktop or a tablet, 56 px on the machine's own touch screen (a finger,
+   * 600–1023 px wide). The owned components in src/ui take it as their
+   * default size.
+   */
+  --target: 3rem;
+  --gap: 0.75rem;
+  --panel-width: 26.25rem;
+  --bar-height: 4rem;
+
+  /* Motion (§7): 150–200 ms, ease-out, functional only; springs live in lib/spring.ts */
+  --ease-out: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --t-fast: 100ms;
+  --t: 180ms;
+
+  /*
+   * The stage pictures (canvas 2D, three.js) need plain colours they can
+   * parse: the same theme, written out, once per theme.
+   */
+  --stage-bg: #ffffff;
+  --stage-surface: #eceef2;
+  --stage-line: #aab1be;
+  --stage-grid: #edeff3;
+  --stage-grid-major: #d9dde4;
+  --stage-text: #14171c;
+  --stage-muted: #4b5260;
+  --stage-rapid: #9aa3b2; /* rapid moves */
+  --stage-air: #5b6472; /* feed above the material */
+  --stage-cut: #1d4ed8; /* in the material: the accent, never red (red is alarm only) */
+  --stage-done: #15803d;
+  --stage-current: #b45309;
+  --stage-select: #7e22ce; /* what is selected on the picture */
+
+  /* A layer floating over the camera picture */
+  --material: color-mix(in srgb, var(--card) 88%, transparent);
+  --material-blur: blur(18px) saturate(140%);
+}
+
+@media (pointer: coarse) and (max-width: 1023px) {
+  :root {
+    --target: 3.5rem;
+  }
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0f1115;
+  --foreground: #e8eaed;
+  --card: #171a21;
+  --card-foreground: #e8eaed;
+  --popover: #20242d;
+  --popover-foreground: #e8eaed;
+  --primary: #3b82f6;
+  --primary-foreground: #0b0e14;
+  --secondary: #20242d;
+  --secondary-foreground: #e8eaed;
+  --muted: #20242d;
+  --muted-foreground: #9aa0a6;
+  --accent: #2a2f3a;
+  --accent-foreground: #e8eaed;
+  --destructive: #ef4444;
+  --destructive-foreground: #f87171;
+  --info: #3b82f6;
+  --info-foreground: #60a5fa;
+  --success: #22c55e;
+  --success-foreground: #4ade80;
+  --warning: #f59e0b;
+  --warning-foreground: #fbbf24;
+  --probe: #a855f7;
+  --probe-foreground: #c084fc;
+  --border: #2c313c;
+  --input: #3a404d;
+  --ring: #3b82f6;
+  --on-solid: #0b0e14;
+  --estop: #dc2626;
+  --estop-pressed: #b91c1c;
+  --press-tint: rgb(255 255 255 / 0.2);
+  --axis-x: #ef4444;
+  --axis-y: #22c55e;
+  --axis-z: #3b82f6;
+  --axis-a: #f59e0b;
+
+  --stage-bg: #12151b;
+  --stage-surface: #20242d;
+  --stage-line: #3a404d;
+  --stage-grid: #181c23;
+  --stage-grid-major: #232832;
+  --stage-text: #e8eaed;
+  --stage-muted: #9aa0a6;
+  --stage-rapid: #4b5260;
+  --stage-air: #9aa0a6;
+  --stage-cut: #3b82f6;
+  --stage-done: #22c55e;
+  --stage-current: #f59e0b;
+  --stage-select: #c084fc;
+}
+
+/* Sunlit workshop or "Kontrast erhöhen": firmer edges, brighter secondary text */
+@media (prefers-contrast: more) {
+  :root {
+    --border: #6b7280;
+    --input: #4b5260;
+    --muted-foreground: #2c313c;
+    --material: var(--card);
+  }
+  .dark {
+    --border: #6b7280;
+    --input: #8a909c;
+    --muted-foreground: #c9ced8;
+    --stage-line: #737b88;
+    --stage-muted: #c9ced8;
+  }
+}
+
+/* "Transparenz reduzieren": solid surfaces instead of frosted glass */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material: var(--card);
+    --material-blur: none;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /*
+   * The page is an app, not a document: it never scrolls, bounces or zooms as
+   * a whole. Only the panel scrolls; only the stage views zoom.
+   */
+  html {
+    height: 100%;
+    overflow: hidden;
+    touch-action: pan-x pan-y;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    @apply bg-background;
+  }
+
+  body {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    @apply bg-background font-sans text-base text-foreground antialiased;
+  }
+
+  #root {
+    height: 100%;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
+  }
+
+  /* A heading in a room: the size of the text, set off by its weight */
+  h2 {
+    @apply font-heading font-semibold text-base;
+  }
+
+  /* Controls never start a text selection or the long-press callout. */
+  button,
+  summary,
+  label,
+  [role='tab'],
+  [role='option'] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+
+  /* On a touch screen a long press anywhere would bring up the magnifier; text fields keep it. */
+  @media (hover: none) and (pointer: coarse) {
+    body {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    input,
+    textarea,
+    [contenteditable],
+    code,
+    pre {
+      -webkit-user-select: text;
+      user-select: text;
+    }
+  }
+
+  /* Safari zooms the page when a focused field has text smaller than 16 px. */
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}

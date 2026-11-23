@@ -1,0 +1,165 @@
+/*
+ * The page tags are printed from. On screen it lies over the app below the
+ * top bar (NOT-HALT stays visible); on paper it is alone. The sheet itself
+ * is paper white and ink black whatever the theme, with sizes in
+ * millimetres – printed tags must come out exactly as drawn.
+ */
+
+.tag-sheet {
+  position: fixed;
+  inset: var(--tag-sheet-top, 0px) 0 0 0;
+  z-index: 1000;
+  overflow: auto;
+  padding: var(--gap) calc(var(--gap) + env(safe-area-inset-right))
+    calc(var(--gap) + env(safe-area-inset-bottom)) calc(var(--gap) + env(safe-area-inset-left));
+  background: var(--background);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.tag-sheet-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  width: 100%;
+  max-width: 210mm;
+  margin: 0 auto;
+}
+
+.tag-sheet-bar h2 {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.tag-sheet-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--gap);
+}
+
+.tag-sheet-fields [data-slot='field'] {
+  flex: 1 1 220px;
+}
+
+.tag-sheet-fields .field-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.tag-page {
+  width: 100%;
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 12mm;
+  border-radius: var(--radius-lg);
+  background: #fff;
+  color: #000;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 11pt;
+}
+
+.tag-page h1 {
+  margin: 0 0 6mm;
+  font-size: 14pt;
+  font-weight: 700;
+}
+
+.tag-ruler {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4mm;
+  margin-bottom: 8mm;
+}
+
+.tag-ruler svg {
+  flex: none;
+}
+
+.tag-ruler p {
+  flex: 1 1 60mm;
+  margin: 0;
+}
+
+.tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10mm;
+  margin-bottom: 8mm;
+}
+
+.tag-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2mm;
+  break-inside: avoid;
+}
+
+.tag-figure img {
+  display: block;
+  max-width: none;
+  outline: 1px dashed #bbb;
+}
+
+.tag-figure figcaption {
+  color: #666;
+}
+
+/* On the white page the button is drawn for paper, not for the dark theme */
+.tag-figure [data-slot='button'] {
+  border-color: #bbb;
+  background: #f4f4f4;
+  color: #000;
+}
+
+.tag-hints {
+  margin: 0;
+  padding-left: 5mm;
+  list-style: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5mm;
+}
+
+@media print {
+  html.tag-sheet-open,
+  html.tag-sheet-open body {
+    position: static;
+    height: auto;
+    overflow: visible;
+    background: #fff !important;
+  }
+
+  html.tag-sheet-open #root,
+  html.tag-sheet-open .no-print {
+    display: none !important;
+  }
+
+  html.tag-sheet-open .tag-sheet {
+    position: static;
+    padding: 0;
+    overflow: visible;
+    background: #fff;
+  }
+
+  html.tag-sheet-open .tag-page {
+    max-width: none;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  html.tag-sheet-open .tag-figure img {
+    outline: none;
+  }
+}
+
+@page {
+  margin: 12mm;
+}

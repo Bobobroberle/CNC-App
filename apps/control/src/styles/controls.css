@@ -1,0 +1,573 @@
+/*
+ * Controls that keep their own event handling – they are not library
+ * buttons, they only wear the theme: NOT-HALT (acts on pointerdown), hold to
+ * confirm, hold to move, the joystick and the wheel.
+ */
+
+/*
+ * Pressed (DESIGN.md §6.2): every control shows the press at once – a tint
+ * laid over whatever surface it has, so it reads on a solid blue button, an
+ * outline one, a ghost one and a tile alike, dark or light, and differs from
+ * the hover surface. `data-press` comes from lib/press.ts at pointerdown;
+ * `:active` covers the keyboard (Space/Enter). Instant on press, eased on
+ * release. NOT-HALT and PAUSE have their own pressed look below.
+ */
+:is(button, [role='button'], [role='tab'], [role='checkbox'], [role='switch'], a[href], summary):is(
+    [data-press],
+    :active
+  ):not(:disabled, [aria-disabled='true'], .estop, .pause) {
+  background-image: linear-gradient(var(--press-tint), var(--press-tint));
+  transition: none;
+}
+
+/*
+ * NOT-HALT: always visible, one tap, never animated – no transition, no
+ * press animation that could look like a delay.
+ */
+.estop {
+  flex: none;
+  min-height: 3.5rem;
+  min-width: 8rem;
+  /* §8: critical actions keep at least 24 px apart – PAUSE lies to its left */
+  margin-left: 0.75rem;
+  padding: 0 1rem;
+  border: 2px solid color-mix(in srgb, var(--estop) 70%, white);
+  border-radius: var(--radius-lg);
+  background: var(--estop);
+  color: #fff;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.estop:active {
+  background: var(--estop-pressed);
+}
+
+.estop:focus-visible,
+.pause:focus-visible {
+  outline: 3px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+/*
+ * PAUSE: feed hold, one tap, beside NOT-HALT in every status bar. Amber is
+ * the colour of "paused"; like NOT-HALT it is never animated and never
+ * disabled.
+ */
+.pause {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 3.5rem;
+  min-width: 7.5rem;
+  padding: 0 0.875rem;
+  border: 2px solid var(--warning);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--warning) 16%, var(--card));
+  color: var(--foreground);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pause svg {
+  width: 1.375rem;
+  height: 1.375rem;
+  color: var(--warning-foreground);
+}
+
+.pause:active,
+.pause[data-holding] {
+  background: var(--warning);
+  color: var(--on-solid);
+}
+
+.pause:active svg,
+.pause[data-holding] svg {
+  color: inherit;
+}
+
+@media (max-width: 1279px) {
+  .estop {
+    min-width: 7.5rem;
+    padding: 0 0.625rem;
+  }
+  .pause {
+    min-width: 6.5rem;
+    padding: 0 0.5rem;
+  }
+}
+
+/* ---------- hold to confirm ---------- */
+
+/* Held to move or to confirm: a rolling finger must not hand the touch to scrolling. */
+.hold,
+.jog {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.hold {
+  width: 100%;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  white-space: normal;
+}
+
+/* The bar fills while the button is held */
+.hold-fill {
+  position: absolute;
+  inset: 0;
+  width: calc(var(--hold, 0) * 100%);
+  background: var(--foreground);
+  opacity: 0.2;
+}
+
+.hold-accent .hold-fill {
+  background: var(--primary-foreground);
+  opacity: 0.25;
+}
+
+.hold-danger .hold-fill {
+  background: var(--foreground);
+  opacity: 0.25;
+}
+
+.hold-go .hold-fill {
+  background: var(--on-solid);
+  opacity: 0.25;
+}
+
+/* Confirmed: the whole button lights up once, on the same frame as the command. */
+.hold.confirmed .hold-fill {
+  width: 100%;
+  animation: hold-confirmed 420ms ease-out forwards;
+}
+
+@keyframes hold-confirmed {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.hold-label,
+.hold-hint {
+  position: relative;
+}
+
+.hold-hint {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  opacity: 0.72;
+}
+
+/* Beside a notice or in the list of checks: as wide as its words */
+[data-slot='alert-action'] .hold,
+.checklist .hold {
+  width: auto;
+  min-height: var(--target);
+}
+
+/* ---------- jog ---------- */
+
+/*
+ * The jog card lays itself out by its own width: in the context panel the
+ * cross with Z beside it and everything else below; in the wide bottom sheet
+ * the cross lies flat in two rows (like the arrow keys) with the step widths
+ * and the quick actions beside it, so it fits under the picture.
+ */
+.jog-card {
+  container-type: inline-size;
+}
+
+.jog-notices:empty {
+  display: none;
+}
+
+.jog-notices,
+.jog-main,
+.jog-move,
+.jog-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.jogpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) 0.5rem 1fr;
+  grid-template-areas:
+    '. yp . . zp'
+    'xm stop xp . .'
+    '. ym . . zm';
+  gap: 0.5rem;
+}
+
+.jog-stop {
+  grid-area: stop;
+  min-width: 0;
+  padding: 0.25rem;
+  flex-direction: column;
+  gap: 0;
+  font-size: var(--text-sm);
+}
+
+.jog-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.wheel-fine {
+  width: 100%;
+  flex-direction: column;
+  gap: 0;
+  white-space: normal;
+}
+
+.wheel-fine[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 16%, var(--card));
+}
+
+@container (min-width: 40rem) {
+  /* Under the picture the cross comes first: what there is to say stands below it. */
+  .jog-notices {
+    order: 1;
+  }
+  .jog-card > .kbd-hint {
+    order: 2;
+  }
+  .jog-main {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: start;
+  }
+  .jogpad {
+    grid-template-areas:
+      'stop yp . . zp'
+      'xm ym xp . zm';
+  }
+}
+
+/* The axes keep their colours everywhere (DESIGN.md §7): DRO, jog, the 3D axes. The letter says it too. */
+.jog-axis-x .jog-label {
+  color: var(--axis-x);
+}
+.jog-axis-y .jog-label {
+  color: var(--axis-y);
+}
+.jog-axis-z .jog-label {
+  color: var(--axis-z);
+}
+.jog-axis-a .jog-label {
+  color: var(--axis-a);
+}
+.jog:disabled .jog-label {
+  color: inherit;
+}
+
+/* The rotary axis, where there is one: its two buttons under the pad */
+.jog-rotary {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.jog {
+  min-width: 0;
+  padding: 0.25rem;
+  flex-direction: column;
+  gap: 0;
+  font-weight: 600;
+}
+
+/* One line under the direction, however far the axis still goes */
+.jog-hint {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+@media (max-width: 1250px) {
+  .jog-hint {
+    font-size: 0.75rem;
+  }
+}
+
+.jog-yp {
+  grid-area: yp;
+}
+.jog-ym {
+  grid-area: ym;
+}
+.jog-xm {
+  grid-area: xm;
+}
+.jog-xp {
+  grid-area: xp;
+}
+.jog-zp {
+  grid-area: zp;
+}
+.jog-zm {
+  grid-area: zm;
+}
+
+.finepad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-areas:
+    '. yp .'
+    'xm . xp'
+    '. ym .';
+  gap: 0.5rem;
+}
+
+.fp-yp {
+  grid-area: yp;
+}
+.fp-ym {
+  grid-area: ym;
+}
+.fp-xm {
+  grid-area: xm;
+}
+.fp-xp {
+  grid-area: xp;
+}
+
+/* Jog feed: heading over two equal fields (XY, Z) */
+.feed-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.feed-grid > .text-muted-foreground:first-child {
+  grid-column: 1 / -1;
+}
+
+/* ---------- joystick ---------- */
+
+.jogstick {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--input) 64%, var(--card));
+  border: 2px solid var(--input);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jogstick.disabled {
+  opacity: 0.64;
+}
+
+/* Beyond this ring the machine moves. */
+.jogstick-zone {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px dashed var(--input);
+  pointer-events: none;
+}
+
+.jogstick.live {
+  border-color: var(--muted-foreground);
+}
+
+.jogstick-knob {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--foreground);
+  opacity: 0.85;
+  pointer-events: none;
+  will-change: transform;
+  transition: opacity var(--t-fast) ease-out;
+}
+
+.jogstick.live .jogstick-knob {
+  opacity: 1;
+  box-shadow: 0 0 0 4px var(--input);
+}
+
+.jogstick-label {
+  position: absolute;
+  bottom: 6px;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.jogstick-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ---------- wheel ---------- */
+
+.jogwheel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap);
+}
+
+.wheel {
+  width: min(260px, 100%);
+  aspect-ratio: 1;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wheel.disabled {
+  opacity: 0.64;
+}
+
+.wheel-ring {
+  fill: var(--stage-surface);
+  stroke: var(--stage-line);
+  stroke-width: 2;
+}
+
+.wheel-tick {
+  stroke: var(--muted-foreground);
+  stroke-width: 2;
+}
+
+.wheel-knob {
+  fill: var(--foreground);
+}
+
+/* One flash per detent sent: the step you feel is the step the machine got. */
+.wheel-knob.pulse {
+  animation: wheel-detent 180ms ease-out;
+}
+
+@keyframes wheel-detent {
+  from {
+    fill: var(--warning);
+  }
+}
+
+.wheel-label {
+  fill: var(--foreground);
+  font-size: 32px;
+  font-weight: 600;
+}
+
+/* ---------- small native controls ---------- */
+
+.scrubber {
+  width: 100%;
+  height: var(--target);
+  accent-color: var(--primary);
+  /* The thumb is dragged sideways: neither scrolling nor a swipe may take it. */
+  touch-action: none;
+}
+
+/* − value + */
+.stepper {
+  display: grid;
+  grid-template-columns: 1fr var(--target) 7ch var(--target);
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-sm);
+}
+
+.stepper output {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Three holds side by side: their hint is small, so the label keeps one line */
+.jog-quick .hold {
+  padding-inline: 0.375rem;
+}
+
+.jog-quick .hold-hint {
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+.jog-quick .hold-label {
+  font-size: 1rem;
+}
+
+/*
+ * Result feedback (DESIGN.md §6.2, components/Ack.tsx): a mark on the control
+ * that did it, and the controller's answer to the last command. Shape and word,
+ * not colour alone; amber for "not possible" – red is for faults only.
+ */
+.ack-mark {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.375rem;
+  vertical-align: middle;
+}
+
+.ack-mark svg,
+.command-ack svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+}
+
+.ack-mark[data-ack='ok'] svg,
+.command-ack[data-state='ok'] svg {
+  color: var(--success-foreground);
+}
+
+.ack-mark[data-ack='failed'] svg,
+.command-ack[data-state='error'] svg {
+  color: var(--warning-foreground);
+}
+
+.bg-primary .ack-mark svg,
+.hold-accent .ack-mark svg,
+.hold-go .ack-mark svg {
+  color: inherit;
+}
+
+.command-ack {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+/* One line, always: what comes later must not push the controls below it */
+.command-ack > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.command-ack code {
+  color: var(--foreground);
+}

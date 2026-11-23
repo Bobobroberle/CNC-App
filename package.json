@@ -1,0 +1,31 @@
+{
+  "name": "lowrider-control",
+  "private": true,
+  "description": "Web-Oberfläche für die V1E LowRider v4 mit Jackpot-Board (FluidNC)",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @lowrider/control dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "coverage": "pnpm -r coverage",
+    "typecheck": "pnpm -r typecheck",
+    "e2e": "pnpm --filter @lowrider/control e2e",
+    "format": "prettier --write .",
+    "check": "pnpm typecheck && pnpm coverage && pnpm build",
+    "bundle": "pnpm build && node scripts/bundle.mjs && node scripts/simulator-page.mjs",
+    "test:pi": "python3 -m unittest discover -s scripts/pi",
+    "icons": "pnpm --filter @lowrider/control icons"
+  },
+  "devDependencies": {
+    "prettier": "3.8.1",
+    "typescript": "~5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
