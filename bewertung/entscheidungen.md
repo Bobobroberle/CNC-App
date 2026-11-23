@@ -68,13 +68,40 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 - **Aktionsleiste (1280×800, 800×600, 820×1180, `skripte/aktionsleiste.cjs`):** Job leer „G-Code öffnen“; Job geladen, CAM, Einrichten, Prüfen, Service: keine Primäraktion; Fräsen (Start gesperrt): „Prüfen“. Screenshots in `screenshots/Aktionsleiste-*`.
 - **Reviews:** Teil 2: 19 Funde, 9 bestätigt (6 Sachfehler: laufendes Programm unter der Zeichnung, Reiter ohne Namen, Überlappung bei schmaler Zeile, Menü-Knopf mit langem Namen, CAM öffnet auf 3D, nextStep im CAM) – behoben, nextStep durch Teil 3 erledigt. Teil 3 (zweiter Durchgang): 22 Funde, 17 bestätigt. Behoben: Umbenennung beim ersten Import (das eigene Programm galt als fremd – eine Regression des ersten Fixes), Zeichnung im CAM bei fremdem Programm unsichtbar, Verbindungsabbruch unter dem Job, Serie nahm fremdes Programm mit `take`, veralteter Download, „geändert“ ohne Änderung, Name des aktuellen Reiters unter 620 px, Reiterstreifen bei großer Schrift (jetzt scrollbar), 761–775 px mit Werkzeugliste, Werkzeugwechsel-Empfehlung „Weiter: “ ohne Ziel, Prüfen-Ansicht zwischen zwei Teilen, README/Docs/UI-Texte (Strg+→, Menü-Wege, ③/⑤, „Raum“), verwaiste Texte, Taste „Leertaste“ im Tastenblatt. Nicht angefasst (siehe unten): andere Wege, ein Programm unter einem Job zu laden; veraltetes `stepAt` nach Abbruch.
 
+## Abnahme Stufe 2 (Prüf-Durchgänge 3 bis 5)
+- **Stand der Tests bei 39ebdea / b289d67:** alle drei E2E-Projekte grün (283 bestanden, 1 übersprungen), `pnpm check` grün (control 624 Tests); jeweils nur nach grünem Lauf gepusht.
+- **Prüf-Durchgang 4** (nach der Korrekturrunde, Bereich 01ba42a..HEAD, 3 Blickwinkel mit je 2 Gegenprüfern, 27 Funde, **23 bestätigt**, 4 widerlegt). Umgang mit jedem bestätigten Fund (Nummern wie im Prüfbericht; Spalte „Stand“ wird beim Abarbeiten nachgeführt):
+
+| Nr | Fund | Neu durch uns? | Stand |
+|---|---|---|---|
+| 13 | Schritt-Jog wartet auf Ruhe und fährt nach „Jog stoppen“ noch (`jogCancel` verwarf ihn nicht) | ja, b289d67 | **behoben** (Epochenzähler: Abbruch, Not-Halt, neue Fahrt, Reset, Alarm verwerfen den wartenden Schritt), getestet mit Mutationen |
+| 14 | `jogStale`-Test unterschied „in Ruhe“ nicht von „irgendeinem Bericht“ | ja | **behoben** (Zwischenbericht „Jog“, Abbruch, zwei wartende Taps, Zeitablauf, Fahrt gerade gesendet) |
+| 15 | Schritt-Tap, der nach 1,5 s verworfen wird, blieb stumm | ja | **behoben** (Hinweis `drive.notAtRest`) |
+| 16 | Schritt-Jog zählt von einem Idle-Bericht, der älter ist als die gerade gesendete Fahrt | nein (schmal) | **verengt, nicht geschlossen:** nach einer gesendeten Fahrt oder einem Stopp gilt der gespeicherte Bericht nicht mehr; ein Bericht, der schon unterwegs war, kann das Fenster noch öffnen – **an der Maschine prüfen** |
+| 1, 22 | Abläufe (Löcher, Wenden, Vorrichtung, Abschnitte, Prüfmuster, Autolevel, Demo) laufen nach einer vom zentralen Schloss verweigerten Ladung weiter (Nullpunkt gesetzt, „angewendet“ gemeldet) | ja, a6d005c | in Arbeit: ein gemeinsamer Wächter vor jedem Ablauf, `load`/`loadDerived` melden Erfolg |
+| 3, 21 | Profiländerung stößt die Neuberechnung über die Sperre an (Fehlmeldung); `job.locked` nennt keinen Ausweg und hat den Folgeschritt „Vorgang wiederholen“ | ja | in Arbeit |
+| 0, 8 | SD-Liste und „Programm starten“ zwischen zwei Teilen umgehen die Start-Sperre (Entscheidung 32) | 0: Lock macht es sichtbar; 8: vorher schon | in Arbeit: gesperrt mit Grund, solange das Teil wartet |
+| 4 | Serie: Übergabe gesperrt ohne Grund | ja | in Arbeit (Grund `cam.jobRuns`) |
+| 9 | Leere Bühnenzeile bei jedem Großbild (8 px) | ja | in Arbeit |
+| 19, 20 | Testlücken (`offStage(take)` im Fall „keine Fahrten“, wirkungslose Prüfung in `programLock.test.ts`) | ja | in Arbeit |
+| 17, 18 | Entscheidungsprotokoll nicht auf Stand | ja | mit diesem Eintrag behoben |
+| 5 | Not-Halt während „Job fortsetzen“ stellt den Stream wieder auf „läuft“, Programm bleibt bis Neuladen gesperrt | nein | in Arbeit (**Festlegung, bitte prüfen**: wie Entscheidung 34, weil die Programmsperre daran hängt) |
+| 6 | Abbruch während des M6-Halts lässt `toolChange` stehen und sendet danach noch M5 / `G91 G0 Z20` | nein | in Arbeit (**Festlegung, bitte prüfen**, wie 5) |
+| 2 | Alarm im SD-Job lässt `fileJob` und die Sperre bis Not-Halt stehen; Entsperren wird verweigert | nein (Bibliothek) | **offen:** Verhalten der echten FluidNC unbekannt, Änderung läge in `fluidnc-client`; an der Maschine prüfen |
+| 7 | Einzelschritt mit Großbild: Weiter-Knopf nur im Panel | nein | **offen**, geht in den Plan für Stufe 3 (angedockte Aktion) ein |
+| 10 | Karte im Bühnenfeld bei Großbild unten abgeschnitten (Scrollkasten) | ja | **offen**, wie 7 (Stufe 3) |
+| 11 | Bestätigungshälfte von `BetweenParts` ungetestet | nein | **offen**, E2E in Stufe 3 |
+| 12 | „Prüfen“ tippbar, aber wirkungslos, solange ein Job wartet (ohne Grund) | nein | **offen** |
+
+- Widerlegt (je zwei Gegenprüfer): Großbild-Karte zwischen den Teilen in jedem Bereich; `stepAt`-Zweig unbelegt; veralteter Kommentar „Bewegung zählt als unterwegs“; CLAUDE.md/Tastenblatt ohne T·K·D im CAM.
+- **Regel für den Rest der Nacht** (Rat des Advisors): Stufe 2 gilt als abgenommen, wenn alle von uns neu eingeführten Funde und 5/6 behoben sind und der Rest hier mit Grund steht; danach nur ein enger Prüf-Durchgang über die Korrektur-Commits.
+
 ## Stand der Bereichs-Oberfläche
-Stufe 1 (sechs Reiter, kein „Weiter“, nichts unten rechts in Prüfen) und Stufe 2 (im CAM nur das CAM und die Statusleiste) sind gebaut, getestet und gepusht; die Abnahme steht unten. **Offen: Stufe 3** (angedockte Hauptaktion je Panel) – wartet auf dein Go.
-**Regeln des Betreibers:** nicht programmieren, bevor er es freigibt; vor jedem neuen Programmierpunkt Advisor-Plan, sonst nachfragen; offene Fragen immer als Auswahl zum Anklicken stellen.
-Offen: Mutation `start.ts:108` (braucht Test mit React-Rendering), Wächter gegen Funkstille bei sichtbarem, aber ruhendem Steuer-Tab (10 s Übergabe, noch nicht geprüft).
+Stufe 1 (sechs Reiter, kein „Weiter“, nichts unten rechts in Prüfen) und Stufe 2 (im CAM nur das CAM und die Statusleiste) sind gebaut, getestet und gepusht (Abnahme siehe oben). **Stufe 3** (angedockte Hauptaktion je Panel) ist mit Entscheidung 31 freigegeben und kommt nach der Korrekturrunde.
+**Regeln des Betreibers:** vor jedem neuen Programmierpunkt Advisor-Plan; offene Fragen als Auswahl zum Anklicken – in der Nacht gilt Entscheidung 30; nie ein PR, nur grüne Stände.
+Offen: Mutation `start.ts:108` (braucht Test mit React-Rendering, Entscheidung 37), Wächter gegen Funkstille bei sichtbarem, aber ruhendem Steuer-Tab (10 s Übergabe, noch nicht geprüft).
 
 ## Offene Beobachtungen (nicht behoben, Betreiber informieren)
-**Veraltetes `stepAt` nach Abbruch** (`store/machine.ts`, Streaming): beim Abbruch wird `toolChange` geleert, `stepAt` nicht; „wartet“ bleibt wahr, Prüfen ist gesperrt, bis ein neuer Stream beginnt. Vorher schon so; nicht geprüft, ob der Streamer beim Anhalten im Einzelschritt „aborted“ meldet.
-**README:** beschreibt an mehreren Stellen noch die Job-Ansichten Vorbereiten/Prüfen/Fertigen/Extras (vor dem Umbau); die Bereichsliste, die Aktionsleiste, die Tasten und die Menü-Wege sind angepasst, der Rest nicht.
-**Absolute Jog-Ziele aus einem bis zu 200 ms alten Positionswert:** Ein Schritt-Jog (`store/machine.ts jog`, Weg „referenziert + Softlimits“) rechnet `Ziel = zuletzt gelesene Position + Schritt` und sendet es als absolute Fahrt (`$J=G53 …`). Tippt man unmittelbar nach dem Loslassen einer Dauerfahrt auf dieselbe Achse, kann die gelesene Position (Statusabfrage alle 200 ms) hinter der wirklichen liegen; die Maschine fährt dann um den Nachlaufweg zurück (bei 3000 mm/min höchstens in der Größenordnung von 10 mm). Der unter Last wackelnde Test `jogs continuously while held` (Tablet und Desktop) war ein Rennen im Test, das dieselbe Eigenschaft sichtbar machte; im Test wird jetzt auf die gelesene Position gewartet. Mögliche Abhilfe: vor dem Schritt-Jog auf einen frischen Statusbericht warten (`settled()`), oder relativ fahren. Entscheidung offen; nur an der Maschine prüfbar.
-
+**README:** beschreibt an mehreren Stellen noch die Job-Ansichten Vorbereiten/Prüfen/Fertigen/Extras (vor dem Umbau); wird mit Entscheidung 39 komplett umgeschrieben.
+**Schritt-Jog nach einer Dauerfahrt (Entscheidung 35):** ein Schritt wartet, wenn die Maschine noch fährt, auf den ersten Statusbericht „Idle“ (höchstens 1,5 s, sonst Hinweis); gebaut wurde ein eigener Helfer `atRest()` statt `settled()`. Nur im Simulator getestet; **an der Maschine prüfen**, besonders das schmale Fenster aus Fund 16.
+**Phone-Monitor:** meldet „Läuft“, während ein Stream auf den Werkzeugwechsel wartet, und zeigt dazu keine Karte (vorher schon so).

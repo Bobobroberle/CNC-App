@@ -745,6 +745,7 @@ export const de = {
     remaining: 'noch {distance}',
     atLimit: '{axis}: Grenze des Verfahrwegs erreicht – Jog nicht gesendet.',
     limited: '{axis}: Jog an der Grenze des Verfahrwegs gekürzt.',
+    notAtRest: '{axis}: Die Maschine kommt nicht zur Ruhe – Schritt nicht gesendet. Bitte noch einmal tippen.',
     homed: 'Referenzfahrt abgeschlossen ({axes}) – Software-Endschalter aktiv.',
     notHomed: 'Nicht referenziert – Position unbekannt, Endschalter inaktiv.',
     limitsOff: 'Software-Endschalter sind im Maschinenprofil ausgeschaltet.',

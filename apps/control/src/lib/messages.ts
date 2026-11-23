@@ -120,7 +120,7 @@ const INFO_KEYS = new Set([
 ]);
 
 /** Log lines of kind `info` that are advice: they stay in the centre, without a toast. */
-const HINT_KEYS = new Set(['drive.atLimit', 'drive.limited', 'goto.limited']);
+const HINT_KEYS = new Set(['drive.atLimit', 'drive.limited', 'goto.limited', 'drive.notAtRest']);
 
 /**
  * The level of a line of the app's log – or null when it is a line for the

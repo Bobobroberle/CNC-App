@@ -734,6 +734,7 @@ export const en: DictionaryShape = {
     remaining: '{distance} left',
     atLimit: '{axis}: travel limit reached – jog not sent.',
     limited: '{axis}: jog shortened at the travel limit.',
+    notAtRest: '{axis}: the machine does not come to rest – step not sent. Tap again.',
     homed: 'Homing complete ({axes}) – soft limits active.',
     notHomed: 'Not homed – position unknown, limits inactive.',
     limitsOff: 'Soft limits are switched off in the machine profile.',

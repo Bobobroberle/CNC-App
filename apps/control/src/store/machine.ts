@@ -352,6 +352,22 @@ function clearRetry() {
 let nextLogId = 1;
 /** Targets of jogs still in motion, so quick repeated taps add up correctly. */
 let jogTargets: Partial<Record<JogAxis, number>> = {};
+/**
+ * Counts every time what the machine was told is forgotten (a cancelled or new jog, a goto, a reset,
+ * an alarm): a step jog that still waits for the machine to rest must not go out after that.
+ */
+let jogEpoch = 0;
+/**
+ * A move went out after the last status report: that report – an Idle one too – may be older than
+ * the move, so a step jog does not count from it.
+ */
+let reportOld = false;
+/** Forgets the remembered targets; `moved` says that a move of the app's own went out with it. */
+function forgetJogTargets(moved = false) {
+  jogTargets = {};
+  jogEpoch += 1;
+  if (moved) reportOld = true;
+}
 let streamer: CharacterCountingStreamer | null = null;
 /** Joystick: current deflection, planned position and the 10 Hz timer. */
 const STICK_TICK = 0.1;
@@ -519,6 +535,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
     });
     c.on('sent', (line) => addLog('out', line));
     c.on('status', (status) => {
+      reportOld = false;
       // A jog target is done once the machine stands still on it.
       for (const axis of Object.keys(jogTargets) as JogAxis[]) {
         const pos = status.mpos[JOG_INDEX[axis]] ?? 0;
@@ -528,11 +545,11 @@ export const useMachine = create<MachineStore>((set, get) => ({
       set((s) => ({ status, alarm: status.state === 'Alarm' ? s.alarm : null }));
     });
     c.on('reset', () => {
-      jogTargets = {};
+      forgetJogTargets();
       set({ homed: false, homedAxes: '' });
     });
     c.on('alarm', (code) => {
-      jogTargets = {};
+      forgetJogTargets();
       set({ alarm: code, homed: false, homedAxes: '' });
       addLog(
         'error',
@@ -641,6 +658,8 @@ export const useMachine = create<MachineStore>((set, get) => ({
   },
 
   emergencyStop() {
+    // whatever waited to go out (a step jog) is not wanted after the stop – at once, not on the reset
+    forgetJogTargets(true);
     if (!connection || connection.state !== 'connected') {
       get().addLog('error', t('estop.notConnected'), 'estop.notConnected');
       return;
@@ -655,6 +674,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
   },
 
   feedHold() {
+    forgetJogTargets(true);
     sendStop(Realtime.FeedHold);
   },
 
@@ -718,15 +738,23 @@ export const useMachine = create<MachineStore>((set, get) => ({
       });
     };
     const remembered = jogTargets[axis];
-    if (remembered !== undefined || status.state === 'Idle') {
+    if (remembered !== undefined || (status.state === 'Idle' && !reportOld)) {
       send(remembered ?? status.mpos[JOG_INDEX[axis]] ?? 0);
       return;
     }
     // The machine still moves (a continuous jog just let go, running out): the position in the store
     // is older than the move, and a target counted from it would send the axis back by the run-out.
-    // Count from the report that says it has come to rest.
+    // Count from the report that says it has come to rest – unless the jog was cancelled, or another
+    // move sent, while it waited: then this step is not wanted any more.
+    const epoch = jogEpoch;
     void atRest().then((rest) => {
-      if (rest) send(jogTargets[axis] ?? rest.mpos[JOG_INDEX[axis]] ?? 0);
+      if (epoch !== jogEpoch) return;
+      if (!rest) {
+        // never silent: a tap that does nothing says why
+        addLog('info', t('drive.notAtRest', { axis }), 'drive.notAtRest');
+        return;
+      }
+      send(jogTargets[axis] ?? rest.mpos[JOG_INDEX[axis]] ?? 0);
     });
   },
 
@@ -740,9 +768,11 @@ export const useMachine = create<MachineStore>((set, get) => ({
   },
 
   jogCancel() {
-    jogTargets = {};
+    forgetJogTargets();
     // A watching device never started a jog: nothing to cancel, and no false "stop not sent".
     if (get().viewer) return;
+    // The axis runs out after the stop: the report that is in the store is older than that.
+    reportOld = true;
     sendStop(Realtime.JogCancel);
   },
 
@@ -845,6 +875,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
   },
 
   async stopJob() {
+    forgetJogTargets(true);
     if (!connection) return;
     connection.realtime(Realtime.FeedHold);
     // A reset while moving loses the position; wait for the hold to complete.
@@ -943,7 +974,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
       addLog('info', t('drive.atLimit', { axis }), 'drive.atLimit');
       return;
     }
-    jogTargets = {};
+    forgetJogTargets(true);
     void command(
       target.mode === 'machine'
         ? jogToMachine(axis, target.value, feed)
@@ -1219,7 +1250,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
     );
     if (!plan) return false;
     if (plan.limited) addLog('info', t('goto.limited'), 'goto.limited');
-    jogTargets = {};
+    forgetJogTargets(true);
     for (const line of plan.lines) if (!(await command(line))) return false;
     addLog('info', t('goto.moving', { x: target.x.toFixed(2), y: target.y.toFixed(2) }));
     return true;
@@ -1242,7 +1273,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
     }
     if (words.length === 0) return true;
     try {
-      jogTargets = {};
+      forgetJogTargets(true);
       await connection.command(`G90 G53 G1 ${words.join(' ')} F${Math.round(feed)}`, {
         timeoutMs: 0,
       });
@@ -1269,7 +1300,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
     const machineZ = workZ + (status.wco[2] ?? 0);
     const z = Math.min(profile.travel.z.max, Math.max(profile.travel.z.min, machineZ));
     if (Math.abs(z - machineZ) > 0.001) get().addLog('info', t('goto.limited'), 'goto.limited');
-    jogTargets = {};
+    forgetJogTargets(true);
     return command(jogToMachine('Z', z, feed));
   },
 
