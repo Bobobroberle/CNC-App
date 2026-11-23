@@ -19,6 +19,12 @@ Getroffen im Chat per Auswahl, nach `bericht.md`. Was hier steht, gilt; offene P
 | 13 | Arbeitsweise bei der Umsetzung | **Vor jedem neuen Programmierpunkt Advisor-Planung (Fable)**; ist er nicht erreichbar, vorher beim Betreiber nachfragen. Vorher nach „Stop“ immer erst fragen, wenn es so weit ist. |
 | 14 | B2 Relais, zwei Geräte | **Zweites Gerät nur Ansicht** (Relais lässt Befehlszeilen nur vom ersten Gerät durch; PAUSE, NOT-HALT und `?` für alle) |
 | 15 | B3 Dauerfahrt ohne Referenz | **Fahrt auf 200 mm begrenzen und Jog-Abbruch (0x85) im Pi-Relais bei Verbindungsende** |
+| 16 | B2 Zuschauer-Sperre in der App | **Zentrale Stelle im Store** (umgesetzt) |
+| 17 | Bereiche der Oberfläche | **Sechs Bereiche:** Job · Zeichnen/CAM · Einrichten & Fahren · Fräsen (mit Prüfen) · Service · Einstellungen |
+| 18 | Im CAM-Bereich sichtbar | **Nur CAM und Statusleiste** (PAUSE und NOT-HALT bleiben) |
+| 19 | Startbildschirm und „Weiter“-Kette | **Start bleibt, „Weiter“-Kette entfällt** |
+
+Plan: `plan-bereichs-oberflaeche.md` (wartet auf Freigabe von Stufe 0).
 
 ## Stand der Umsetzung
 Erledigt und gepusht: B1 (rote Meldung bei Stream-Abbruch), W1 (Leertaste), W3 (PAUSE/NOT-HALT ohne stille Ausnahme), Randwerttests (6 von 7 Mutationen; `start.ts:108` offen, braucht Test mit Rendering). B2 (Relais und Bibliothek) und B3 (200 mm / Z 50 mm, Jog-Abbruch im Relais) sind gebaut und getestet (desktop-e2e 119/119, `pnpm check` grün). B2 App-Seite (Entscheidung des Betreibers: zentrale Stelle im Store): Befehle, Uploads, Jobs und Streaming lehnt der Store im Zuschauer-Gerät ab, der Start zeigt den Grund „Nur Ansicht“ (Prüfskript `bewertung/skripte/sicherheit/viewer.spec.ts` hatte vorher Start nicht gesperrt und einen Upload vorbei an der Sperre gefunden; jetzt e2e `connection.spec.ts`). Als Nächstes: Bereichs-Oberfläche (nach Advisor-Plan und deiner Freigabe).
