@@ -1238,10 +1238,12 @@ test('the quick search by touch: big rows, above the keyboard, NOT-HALT still on
   await connect(page);
   const button = page.getByTestId('find-button');
   const estop = page.getByRole('button', { name: 'NOT-HALT' });
-  // Reachable beside state and NOT-HALT, a full target.
+  // Reachable in the row of the tabs, a full target.
   const target = (await button.boundingBox())!;
   expect(Math.min(target.width, target.height)).toBeGreaterThanOrEqual(48);
-  expect(target.x + target.width).toBeLessThanOrEqual((await estop.boundingBox())!.x);
+  // In the row of the tabs, below NOT-HALT: never beside it in the same row, never over it.
+  const bar = (await estop.boundingBox())!;
+  expect(target.y).toBeGreaterThanOrEqual(bar.y + bar.height);
   await button.tap();
   const sheet = page.getByTestId('find');
   const field = page.getByTestId('find-input');

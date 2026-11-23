@@ -21,7 +21,6 @@ const rows = (page: Page) => page.getByTestId('find-list').getByRole('option');
 // By the markup, not by the role: while a sheet is open, the steps behind it are hidden from
 // assistive technology (only PAUSE and NOT-HALT are not), and a role lookup would not see them.
 const step = (page: Page, id: string) => page.locator(`[data-testid="step-${id}"]`);
-const menuButton = (page: Page) => page.locator('[data-testid="menu-button"]');
 
 /** Types a query and takes the hit at the top. */
 async function find(page: Page, query: string, title: string, place: string) {
@@ -118,10 +117,10 @@ test('a wrong word or a typing mistake finds the function, and choosing it leads
   await find(page, 'nulpunkt', 'Nullpunkt', 'Bühne');
   await expect(stageTool(page, 'Nullpunkt')).toHaveAttribute('aria-pressed', 'true');
 
-  // A view of a side area; the menu button names the area.
+  // A view of an area; its tab is the current one.
   await find(page, 'kallibrieren', 'Kalibrieren', 'Service & Diagnose · Kalibrieren');
-  await expect(menuButton(page)).toHaveAttribute('aria-current', 'page');
-  await expect(menuButton(page)).toContainText('Service & Diagnose');
+  await expect(step(page, 'service')).toHaveAttribute('aria-current', 'step');
+  await expect(step(page, 'service')).toContainText('Service');
   await expect(page.getByTestId('jog-panel')).toHaveCount(0);
   await landed(page, 'accuracy');
   await expect(page.getByTestId('accuracy-check')).toBeVisible();
