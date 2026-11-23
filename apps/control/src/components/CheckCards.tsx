@@ -66,10 +66,10 @@ export function SimulationCards() {
   const done = useTrack((s) => s.done);
   const projection = useJob((s) => s.projection);
   const showRapids = useJob((s) => s.showRapids);
-  const place = useUi((s) => s.place);
+  const checking = useUi((s) => s.place === 'run' && s.views.run === 'check');
   if (!analysis) return null;
   // Under the 3D picture of ④ lies the timeline itself; anywhere else it is here.
-  const timelineOnStage = place === 'check' && job.view === '3d';
+  const timelineOnStage = checking && job.view === '3d';
   const total = analysis.timeline?.total ?? 0;
   return (
     <>

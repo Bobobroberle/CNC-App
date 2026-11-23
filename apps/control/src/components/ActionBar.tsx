@@ -180,7 +180,7 @@ function RunAction() {
   }
   if (start.blocked > 0) {
     return (
-      <Button size="lg" data-testid="primary-action" onClick={() => go('check')}>
+      <Button size="lg" data-testid="primary-action" onClick={() => go('run', 'check')}>
         {t('ready.toCheck')}
         <ArrowRightIcon aria-hidden="true" />
       </Button>

@@ -137,19 +137,6 @@ export function JobStep() {
   );
 }
 
-/** ② Werkzeuge – do I have the right one in? The job's tools against the tool list. */
-export function ToolsStep() {
-  const analysis = useJob((s) => s.analysis);
-  return (
-    <div className="flex flex-col gap-3">
-      <Flows />
-      {!analysis ? <NoProgram /> : null}
-      <JobToolsCard />
-      <Depth area="tools" more={<CuttingAdvisor />} />
-    </div>
-  );
-}
-
 /**
  * ③ Einrichten – where does the workpiece lie? The picture is the main area
  * (live camera or table, the path laid over it); here the one way to the
@@ -222,48 +209,58 @@ export function SetupStep() {
 }
 
 /**
- * ④ Prüfen – does it all fit? The 3D simulation is the main area, its
- * timeline under it; here the checklist read from the readiness list, with
- * the simulation's options, the travel and the reader's findings below.
- */
-export function CheckStep() {
-  const analysis = useJob((s) => s.analysis);
-  return (
-    <div className="flex flex-col gap-3">
-      <Flows />
-      {analysis ? (
-        <>
-          <ReadinessCard />
-          <Depth
-            area="check"
-            more={
-              <>
-                <SimulationCards />
-                <WorkspaceCheck />
-              </>
-            }
-            all={<DiagnosticsCard />}
-          />
-        </>
-      ) : (
-        <NoProgram />
-      )}
-    </div>
-  );
-}
-
-/**
- * ⑤ Fräsen – is it going well? Before the start what will run, while it runs
- * the figures readable from two metres and the overrides, at the end the
- * summary. The start itself is the action bar's hold.
+ * Fräsen – does it fit, and is it going well? Two views: *Prüfen* (the checklist read from the
+ * readiness list, the job's tools against the tool list, the simulation's options, the travel and
+ * the reader's findings; the 3D simulation is the main area, its timeline under it) and *Fräsen*
+ * (before the start what will run, while it runs the figures readable from two metres and the
+ * overrides, at the end the summary; the start itself is the action bar's hold). It opens on
+ * Fräsen: the check is one tap away ("Prüfen" on a locked start leads there).
  */
 export function RunStep() {
   const analysis = useJob((s) => s.analysis);
+  const view = useUi((s) => s.views.run);
+  const setView = useUi((s) => s.setView);
   return (
     <div className="flex flex-col gap-3">
-      <FlowCards />
-      {!analysis ? <NoProgram /> : null}
-      <RunScreen />
+      <SubNav
+        label="nav.views.run.label"
+        value={view}
+        onChange={(v) => setView('run', v)}
+        options={[
+          { id: 'cut', label: 'nav.views.run.cut' },
+          { id: 'check', label: 'nav.views.run.check' },
+        ]}
+      />
+      {view === 'check' ? (
+        <>
+          <Flows />
+          {analysis ? (
+            <>
+              <ReadinessCard />
+              <JobToolsCard />
+              <Depth
+                area="check"
+                more={
+                  <>
+                    <SimulationCards />
+                    <WorkspaceCheck />
+                    <CuttingAdvisor />
+                  </>
+                }
+                all={<DiagnosticsCard />}
+              />
+            </>
+          ) : (
+            <NoProgram />
+          )}
+        </>
+      ) : (
+        <>
+          <FlowCards />
+          {!analysis ? <NoProgram /> : null}
+          <RunScreen />
+        </>
+      )}
     </div>
   );
 }

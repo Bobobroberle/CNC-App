@@ -21,13 +21,11 @@ const READY: StepInput = {
   finished: false,
 };
 
-describe('the states of the five steps', () => {
+describe('the states of the three areas', () => {
   it('leaves everything open without a program', () => {
     expect(stepStates({ ...READY, program: false })).toEqual({
       job: 'open',
-      tools: 'open',
       setup: 'open',
-      check: 'open',
       run: 'open',
     });
   });
@@ -36,9 +34,7 @@ describe('the states of the five steps', () => {
     const states = stepStates(READY);
     expect(states).toEqual({
       job: 'done',
-      tools: 'done',
       setup: 'done',
-      check: 'done',
       run: 'open',
     });
     expect(openStep(states)).toBe('run');
@@ -58,8 +54,7 @@ describe('the states of the five steps', () => {
     expect(states.job).toBe('done');
     // A block outweighs a warning on the same step.
     expect(states.setup).toBe('block');
-    expect(states.check).toBe('block');
-    // Step ⑤ starts only when nothing blocks.
+    // Fräsen holds the check: what blocks there, blocks the start.
     expect(states.run).toBe('block');
     expect(openStep(states)).toBe('setup');
   });
@@ -69,12 +64,13 @@ describe('the states of the five steps', () => {
       ...READY,
       items: [item('homed', 'warn'), item('profile', 'warn')],
     });
-    expect(states).toMatchObject({ setup: 'warn', check: 'warn', run: 'open' });
+    // The check's warnings show on Fräsen, which holds it; they do not lock the start.
+    expect(states).toMatchObject({ setup: 'warn', run: 'warn' });
   });
 
   it('marks a tool the list does not know', () => {
-    expect(stepStates({ ...READY, tools: { used: 2, unknown: 1 } }).tools).toBe('warn');
-    expect(openStep(stepStates({ ...READY, tools: { used: 2, unknown: 1 } }))).toBe('tools');
+    expect(stepStates({ ...READY, tools: { used: 2, unknown: 1 } }).run).toBe('warn');
+    expect(openStep(stepStates({ ...READY, tools: { used: 2, unknown: 1 } }))).toBe('run');
   });
 
   it('does not count the running job itself as a block, and knows a finished one', () => {
@@ -87,7 +83,7 @@ describe('the states of the five steps', () => {
   it('gives every point of the readiness list its step', () => {
     for (const step of Object.values(STEP_OF)) expect(STEP_IDS).toContain(step);
     expect(STEP_OF.zero).toBe('setup');
-    expect(STEP_OF.travel).toBe('check');
+    expect(STEP_OF.travel).toBe('run');
     expect(
       openPoints(
         [item('zero', 'warn'), item('connection', 'block'), item('travel', 'block')],
@@ -97,7 +93,7 @@ describe('the states of the five steps', () => {
   });
 
   it('knows the order of the steps', () => {
-    expect(STEP_IDS.map(nextStep)).toEqual(['tools', 'setup', 'check', 'run', null]);
+    expect(STEP_IDS.map(nextStep)).toEqual(['setup', 'run', null]);
   });
 });
 

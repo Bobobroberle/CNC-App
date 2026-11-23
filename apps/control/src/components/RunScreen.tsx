@@ -101,7 +101,7 @@ function RunReady({ start }: { start: Start }) {
           tone="danger"
           testId="run-blocked"
           action={
-            <Button variant="outline" size="sm" onClick={() => go('check')}>
+            <Button variant="outline" size="sm" onClick={() => go('run', 'check')}>
               {t('ready.toCheck')}
             </Button>
           }

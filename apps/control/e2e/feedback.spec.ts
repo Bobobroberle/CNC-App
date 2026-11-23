@@ -90,7 +90,7 @@ test('the press shows at pointerdown, before anything else, and goes at pointeru
   page,
 }) => {
   await openApp(page);
-  const step = page.getByTestId('step-tools');
+  const step = page.getByTestId('step-setup');
   const box = (await step.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   const hover = await step.evaluate((el) => getComputedStyle(el).backgroundImage);

@@ -158,7 +158,7 @@ describe('the table of commands', () => {
         place,
       ).toBe(true);
     }
-    expect(STEPS).toEqual(['job', 'tools', 'setup', 'check', 'run']);
+    expect(STEPS).toEqual(['job', 'setup', 'run']);
     expect(AREAS).toEqual(['toollist', 'service', 'settings', 'console']);
     for (const [place, views] of Object.entries(VIEWS)) {
       for (const view of views) {
@@ -289,10 +289,10 @@ describe('what the search may do', () => {
     // A tool of the stage needs the picture: from a list area the way leads to ③ Einrichten …
     expect(useUi.getState().place).toBe('setup');
     // … and from a place that has the picture, the place stays.
-    useUi.getState().go('check');
+    useUi.getState().go('run', 'check');
     runCommand('toolGoto');
     expect(useStageTools.getState().active).toBe('goto');
-    expect(useUi.getState().place).toBe('check');
+    expect(useUi.getState().place).toBe('run');
     useUi.getState().go('service', 'calibrate');
     runCommand('toolClamp');
     expect(useUi.getState().place).toBe('service');
@@ -315,12 +315,12 @@ describe('what the search may do', () => {
   });
 
   it('opens the jog panel over the place for what lives there, and closes it on the way on', () => {
-    runCommand('placeCheck');
+    runCommand('placeRun');
     runCommand('homing');
-    // The jog panel is no place: the step behind it stays.
-    expect(useUi.getState()).toMatchObject({ place: 'check', jogOpen: true });
+    // The jog panel is no place: the area behind it stays.
+    expect(useUi.getState()).toMatchObject({ place: 'run', jogOpen: true });
     runCommand('jog');
-    expect(useUi.getState()).toMatchObject({ place: 'check', jogOpen: true });
+    expect(useUi.getState()).toMatchObject({ place: 'run', jogOpen: true });
     runCommand('placeStart');
     expect(useUi.getState()).toMatchObject({ place: 'start', jogOpen: false });
   });
@@ -332,7 +332,7 @@ describe('what the search may do', () => {
       runCommand('nextStep');
       seen.push(useUi.getState().place);
     }
-    expect(seen).toEqual(['job', 'tools', 'setup', 'check', 'run', 'run']);
+    expect(seen).toEqual(['job', 'setup', 'run', 'run', 'run', 'run']);
     runCommand('placeSettings');
     runCommand('nextStep');
     expect(useUi.getState().place).toBe('job');
@@ -358,7 +358,8 @@ describe('what the search may do', () => {
     expect(useUi.getState().place).toBe('job');
     useJob.getState().load('part.nc', 'G0 X1\n');
     runCommand('simulation');
-    expect(useUi.getState().place).toBe('check');
+    expect(useUi.getState()).toMatchObject({ place: 'run' });
+    expect(useUi.getState().views.run).toBe('check');
     useJob.getState().unload();
     // Expert tools: the switch for them, until it is on.
     runCommand('firmware');

@@ -2,8 +2,11 @@ import { create } from 'zustand';
 import { browserStorage, loadJson, saveJson } from '../lib/persist';
 import type { SheetLevel } from '../ui/sheet';
 
-/** The five steps of the main flow (DESIGN.md §3.2), in their order */
-export const STEPS = ['job', 'tools', 'setup', 'check', 'run'] as const;
+/**
+ * The areas of the work that run with the picture (DESIGN.md §3.2), in their order. Werkzeuge and
+ * Prüfen are no places of their own any more: they are the view "check" of `run` (Fräsen).
+ */
+export const STEPS = ['job', 'setup', 'run'] as const;
 export type Step = (typeof STEPS)[number];
 /** The areas beside the flow (§3.3); the jog panel is no place, it opens over any of them */
 export const AREAS = ['toollist', 'service', 'settings', 'console'] as const;
@@ -15,11 +18,14 @@ export const PLACES: readonly Place[] = ['start', ...STEPS, ...AREAS];
 /** The second level, where a place has one: at most two levels of navigation (§3.4) */
 export type JobView = 'prepare' | 'extras';
 export type SetupView = 'zero' | 'probe' | 'camera' | 'align';
+/** Fräsen: the cutting itself, or the check before it (readiness list, simulation, the job's tools) */
+export type RunView = 'cut' | 'check';
 export type ServiceView = 'diagnose' | 'messages' | 'history' | 'calibrate';
 export type SettingsView = 'connection' | 'machine' | 'camera' | 'expert';
 export interface PlaceViews {
   job: JobView;
   setup: SetupView;
+  run: RunView;
   service: ServiceView;
   settings: SettingsView;
 }
@@ -28,6 +34,7 @@ export type AnyView = PlaceViews[ViewedPlace];
 export const VIEWS: { readonly [P in ViewedPlace]: readonly PlaceViews[P][] } = {
   job: ['prepare', 'extras'],
   setup: ['zero', 'probe', 'camera', 'align'],
+  run: ['cut', 'check'],
   service: ['diagnose', 'messages', 'history', 'calibrate'],
   settings: ['connection', 'machine', 'camera', 'expert'],
 };
@@ -94,9 +101,7 @@ const validSheet = (value: unknown): Record<string, SheetLevel> | null => {
 export type StageView = 'table' | 'camera' | '3d';
 export const STEP_STAGE: Record<Step, StageView> = {
   job: 'table',
-  tools: 'table',
   setup: 'table',
-  check: '3d',
   run: '3d',
 };
 
@@ -148,7 +153,7 @@ interface UiStore {
 
 export const useUi = create<UiStore>((set) => ({
   place: 'start',
-  views: { job: 'prepare', setup: 'zero', service: 'diagnose', settings: 'connection' },
+  views: { job: 'prepare', setup: 'zero', run: 'cut', service: 'diagnose', settings: 'connection' },
   // Going anywhere brings the panel back: that is where a place's content is.
   go(place, view) {
     set((s) => ({

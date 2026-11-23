@@ -20,16 +20,14 @@ import type { ReadinessId, ReadinessItem } from './readiness';
 export type CommandPlace =
   | 'start'
   | 'job'
-  | 'tools'
   | 'setup'
-  | 'check'
   | 'run'
   | 'toollist'
   | 'service'
   | 'settings'
   | 'console';
 
-const FLOW: readonly CommandPlace[] = ['job', 'tools', 'setup', 'check', 'run'];
+const FLOW: readonly CommandPlace[] = ['job', 'setup', 'run'];
 
 /** Harmless things the search does itself: they change the view, nothing else. */
 export const VIEW_ACTIONS = [
@@ -138,10 +136,25 @@ const at =
   ) =>
     entry({ id, title, place, view, anchor, needs, icon });
 const job = at('job');
-const tools = at('tools');
 const setup = at('setup');
-const check = at('check');
-const run = at('run');
+// Fräsen has two views: what lives in the check (Prüfen) and what lives in the cutting itself.
+const check = (
+  id: string,
+  title: MessageKey,
+  view: string | undefined,
+  anchor: string | readonly string[],
+  needs?: CommandNeed,
+  icon?: CommandIcon,
+) => at('run')(id, title, view ?? 'check', anchor, needs, icon);
+const tools = check;
+const run = (
+  id: string,
+  title: MessageKey,
+  view: string | undefined,
+  anchor: string | readonly string[],
+  needs?: CommandNeed,
+  icon?: CommandIcon,
+) => at('run')(id, title, view ?? 'cut', anchor, needs, icon);
 const toollist = at('toollist');
 const service = at('service');
 const settings = at('settings');
@@ -208,9 +221,7 @@ export const COMMANDS: readonly Command[] = [
   // Start, the five steps and the side areas
   nav('placeStart', 'nav.start', 'start'),
   nav('placeJob', 'nav.steps.job', 'job'),
-  nav('placeTools', 'nav.steps.tools', 'tools'),
   nav('placeSetup', 'nav.steps.setup', 'setup'),
-  nav('placeCheck', 'nav.steps.check', 'check'),
   nav('placeRun', 'nav.steps.run', 'run'),
   nav('placeToollist', 'nav.areas.toollist', 'toollist'),
   nav('placeService', 'nav.areas.service', 'service'),

@@ -177,11 +177,12 @@ export async function followMoves(page: Page) {
 
 // ---------- the way through the app: Start, the five steps, the side areas, the jog panel ----------
 
+// Werkzeuge and Prüfen are no places of their own: they are the view "Prüfen" of Fräsen.
 const STEP_IDS = {
   Job: 'job',
-  Werkzeuge: 'tools',
+  Werkzeuge: 'run',
   Einrichten: 'setup',
-  Prüfen: 'check',
+  Prüfen: 'run',
   Fräsen: 'run',
 } as const;
 export type StepName = keyof typeof STEP_IDS;
@@ -205,6 +206,7 @@ export async function goTo(page: Page, place: 'Start' | StepName | AreaName, vie
       .click();
     await expect(page.getByTestId('menu')).toHaveCount(0);
   }
+  if (place === 'Werkzeuge' || place === 'Prüfen') view = 'Prüfen';
   if (view) {
     await page
       .getByRole('group', { name: /^Bereich/ })
@@ -215,7 +217,6 @@ export async function goTo(page: Page, place: 'Start' | StepName | AreaName, vie
   // work with what lies in them; `e2e/steps.spec.ts` checks the folding itself.
   if (place === 'Prüfen') await moreOptions(page, 'check', true);
   if (place === 'Fräsen') await moreOptions(page, 'run', true);
-  if (place === 'Werkzeuge') await moreOptions(page, 'tools');
   if (place === 'Einrichten' && view?.startsWith('Nullpunkt')) {
     await moreOptions(page, 'setup-zero', true);
   }

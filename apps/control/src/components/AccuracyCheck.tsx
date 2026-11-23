@@ -118,7 +118,7 @@ export function AccuracyCheck() {
     const name = `genauigkeit_${nominal.x}x${nominal.y}.nc`;
     useJob.getState().load(name, accuracyPattern(nominal.x, nominal.y, depth, toolDiameter));
     addLog('info', t('accuracy.loaded', { name }));
-    go('check');
+    go('run', 'check');
   };
 
   return (

@@ -7,7 +7,7 @@ import type { ReadinessId, ReadinessItem, ReadinessLevel } from './readiness';
  * the points that are dealt with on it – so the stepper, the start screen
  * and the start itself never disagree.
  */
-export const STEP_IDS = ['job', 'tools', 'setup', 'check', 'run'] as const;
+export const STEP_IDS = ['job', 'setup', 'run'] as const;
 export type StepId = (typeof STEP_IDS)[number];
 export type StepState = 'done' | 'warn' | 'block' | 'open';
 
@@ -22,13 +22,13 @@ export const STEP_OF: Record<ReadinessId, StepId> = {
   jig: 'setup',
   flip: 'setup',
   sections: 'setup',
-  travel: 'check',
-  collisions: 'check',
-  clamp: 'check',
-  profile: 'check',
-  depth: 'check',
-  limits: 'check',
-  tools: 'tools',
+  travel: 'run',
+  collisions: 'run',
+  clamp: 'run',
+  profile: 'run',
+  depth: 'run',
+  limits: 'run',
+  tools: 'run',
   busy: 'run',
 };
 
@@ -51,18 +51,22 @@ const worst = (levels: readonly ReadinessLevel[]): StepState =>
 /** The state of every step. Without a program everything is open. */
 export function stepStates(input: StepInput): Record<StepId, StepState> {
   const { program, items, tools, running, finished } = input;
-  if (!program) return { job: 'open', tools: 'open', setup: 'open', check: 'open', run: 'open' };
-  const of = (step: StepId) =>
-    worst(items.filter((i) => STEP_OF[i.id] === step).map((i) => i.level));
-  const blocked = items.some((i) => i.level === 'block' && i.id !== 'busy');
-  return {
-    job: of('job'),
-    tools: tools.unknown > 0 ? 'warn' : 'done',
-    setup: of('setup'),
-    check: of('check'),
-    // Step ⑤ starts only when nothing blocks; a job that runs or is finished is its own state.
-    run: finished ? 'done' : running ? 'open' : blocked ? 'block' : 'open',
-  };
+  if (!program) return { job: 'open', setup: 'open', run: 'open' };
+  const of = (step: StepId, skip?: ReadinessId) =>
+    worst(items.filter((i) => STEP_OF[i.id] === step && i.id !== skip).map((i) => i.level));
+  // Fräsen holds the check and the job's tools: it shows what blocks or warns there; with nothing
+  // to say it is open (cutting is still to come). A job that runs or is finished is its own state.
+  const check = of('run', 'busy');
+  const run: StepState = finished
+    ? 'done'
+    : running
+      ? 'open'
+      : check === 'block'
+        ? 'block'
+        : check === 'warn' || tools.unknown > 0
+          ? 'warn'
+          : 'open';
+  return { job: of('job'), setup: of('setup'), run };
 }
 
 /** The first step that is not done: where the work goes on. */

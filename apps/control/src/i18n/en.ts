@@ -147,6 +147,11 @@ export const en: DictionaryShape = {
         camera: 'Camera',
         align: 'Align',
       },
+      run: {
+        label: 'Part of Cut',
+        cut: 'Cut',
+        check: 'Check',
+      },
       service: {
         label: 'Part of Service',
         diagnose: 'Diagnosis',
@@ -2935,10 +2940,9 @@ export const en: DictionaryShape = {
       messages: 'messages, message, errors, notices, warnings, flag, notification, fault, alerts',
       placeStart: 'start, home, dashboard, overview, home screen, what next, main page',
       placeJob: 'job, program, step 1, what am i making, file, workpiece, material',
-      placeTools: 'tools, step 2, tool check, check the tool, right tool, bits',
       placeSetup: 'set up, setup, step 3, where is the workpiece, zero, probing, drive, align',
-      placeCheck: 'check, step 4, verify, checklist, does it fit, simulation, review',
-      placeRun: 'cut, run, step 5, mill, start, start job, go, machining',
+      placeRun:
+        'cut, run, check, tools, tool check, right tool, verify, checklist, does it fit, simulation, review, mill, start, start job, go, machining',
       nextStep: 'next step, next, forward, continue, go on, step forward',
       menu: 'menu, main menu, more, areas, side areas, hamburger, other',
       next: 'up next, recommendation, what to do, next thing, what now, hint, todo',

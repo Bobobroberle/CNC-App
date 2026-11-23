@@ -147,7 +147,7 @@ function ItemAction({ item }: { item: ReadinessItem }) {
     case 'tools':
     case 'limits':
       return (
-        <Button variant="outline" size="sm" onClick={() => go('tools')}>
+        <Button variant="outline" size="sm" onClick={() => go('run', 'check')}>
           {t('ready.toTools')}
         </Button>
       );

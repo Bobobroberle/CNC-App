@@ -275,7 +275,7 @@ test.describe('the bottom sheet of the machine screen (800 × 600)', () => {
     expect(await level(page)).toBe('peek');
     await page.getByTestId('step-job').click();
     expect(await level(page)).toBe('full');
-    await page.getByTestId('step-tools').click();
+    await page.getByTestId('step-run').click();
     await expect.poll(() => level(page)).toBe('half');
   });
 

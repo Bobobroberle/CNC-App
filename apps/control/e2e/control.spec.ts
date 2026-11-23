@@ -102,13 +102,7 @@ test('opens on Start: the state, one recommendation, the five steps, PAUSE and N
   await expect(page).toHaveTitle('LowRider Control');
   await expect(page.getByTestId('start-screen')).toBeVisible();
   // textContent, not what is shown: narrow, a step that is not the current one is its number.
-  expect(await stepNames(page).allTextContents()).toEqual([
-    'Job',
-    'Werkzeuge',
-    'Einrichten',
-    'Prüfen',
-    'Fräsen',
-  ]);
+  expect(await stepNames(page).allTextContents()).toEqual(['Job', 'Einrichten', 'Fräsen']);
   await expect(page.getByRole('button', { name: 'NOT-HALT' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'PAUSE' })).toBeVisible();
   await expect(page.getByTestId('machine-state')).toContainText('Nicht verbunden');
@@ -1278,13 +1272,7 @@ test('switches the interface to English and back', async ({ page }) => {
     .first()
     .click();
   await page.getByRole('button', { name: 'Deutsch' }).click();
-  expect(await stepNames(page).allTextContents()).toEqual([
-    'Job',
-    'Werkzeuge',
-    'Einrichten',
-    'Prüfen',
-    'Fräsen',
-  ]);
+  expect(await stepNames(page).allTextContents()).toEqual(['Job', 'Einrichten', 'Fräsen']);
 });
 
 test('Darstellung: a light theme beside the dark one, remembered, and the stage picture follows', async ({

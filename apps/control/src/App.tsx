@@ -13,7 +13,7 @@ import { Monitor } from './components/Monitor';
 import { NavRow } from './components/NavRow';
 import { NumpadLayer } from './components/NumpadLayer';
 import { ConsoleArea, ServiceArea, SettingsArea, ToolListArea } from './components/places/Areas';
-import { CheckStep, JobStep, RunStep, SetupStep, ToolsStep } from './components/places/Steps';
+import { JobStep, RunStep, SetupStep } from './components/places/Steps';
 import { ReasonLayer } from './components/ReasonLayer';
 import { RunBar } from './components/RunBar';
 import { Stage } from './components/Stage';
@@ -56,12 +56,8 @@ function PlaceContent({ place }: { place: Place }) {
   switch (place) {
     case 'job':
       return <JobStep />;
-    case 'tools':
-      return <ToolsStep />;
     case 'setup':
       return <SetupStep />;
-    case 'check':
-      return <CheckStep />;
     case 'run':
       return <RunStep />;
     case 'toollist':
@@ -157,6 +153,7 @@ export function App() {
   }, [place]);
 
   const stageView = useJob((s) => s.view);
+  const checking = useUi((s) => s.views.run === 'check');
   const start = place === 'start';
   // The side areas that are lists get the whole width; the jog panel brings the picture back.
   const wide = useUi((s) => !start && !s.jogOpen && !placeHasStage(place, s.views));
@@ -197,7 +194,9 @@ export function App() {
                 {/* ④ Prüfen: the simulation's timeline lies under its picture (3D). On the
                     table or the camera picture the room belongs to the tap tools; the
                     timeline is in the panel then ("Mehr Optionen"). */}
-                {place === 'check' && !jogOpen && stageView === '3d' ? <Timeline /> : null}
+                {place === 'run' && checking && !jogOpen && stageView === '3d' ? (
+                  <Timeline />
+                ) : null}
               </div>
             )}
             {showPanel ? (

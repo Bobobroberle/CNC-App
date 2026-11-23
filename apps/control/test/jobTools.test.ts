@@ -146,9 +146,9 @@ describe('the checks of step ④ in the readiness list', () => {
   });
 
   it('belongs to the step it is dealt with on, and never blocks the start', () => {
-    expect(STEP_OF.depth).toBe('check');
-    expect(STEP_OF.limits).toBe('check');
-    expect(STEP_OF.tools).toBe('tools');
+    expect(STEP_OF.depth).toBe('run');
+    expect(STEP_OF.limits).toBe('run');
+    expect(STEP_OF.tools).toBe('run');
     const items = jobReadiness({
       ...BASE,
       depth: { cut: 9, stock: 6 },
@@ -161,8 +161,7 @@ describe('the checks of step ④ in the readiness list', () => {
       running: false,
       finished: false,
     });
-    expect(states.check).toBe('warn');
-    expect(states.tools).toBe('warn');
-    expect(states.run).toBe('open');
+    // The job's tools are part of the check on Fräsen: a tool the list does not know warns there.
+    expect(states.run).toBe('warn');
   });
 });

@@ -150,6 +150,11 @@ export const de = {
         camera: 'Kamera',
         align: 'Ausrichten',
       },
+      run: {
+        label: 'Bereich in Fräsen',
+        cut: 'Fräsen',
+        check: 'Prüfen',
+      },
       service: {
         label: 'Bereich in Service',
         diagnose: 'Diagnose',
@@ -2977,13 +2982,10 @@ export const de = {
       placeStart:
         'start, startseite, dashboard, übersicht, home, anfang, was als nächstes, hauptseite',
       placeJob: 'job, auftrag, programm, schritt 1, was mache ich, datei, werkstück, material',
-      placeTools:
-        'werkzeuge, schritt 2, werkzeugabgleich, werkzeug prüfen, tools, richtiges werkzeug',
       placeSetup:
         'einrichten, schritt 3, wo liegt das werkstück, nullpunkt, antasten, fahren, ausrichten, setup',
-      placeCheck:
-        'prüfen, schritt 4, kontrolle, checkliste, passt alles, simulation, check, freigabe',
-      placeRun: 'fräsen, schritt 5, fertigen, starten, start, laufen, job starten, run, cut',
+      placeRun:
+        'fräsen, prüfen, werkzeuge, werkzeugabgleich, richtiges werkzeug, kontrolle, checkliste, passt alles, simulation, freigabe, fertigen, starten, start, laufen, job starten, run, cut, check',
       nextStep: 'nächster schritt, weiter, vor, weitergehen, next, fortfahren, schritt weiter',
       menu: 'menü, hauptmenü, mehr, bereiche, nebenbereiche, hamburger, menu, weitere',
       next: 'als nächstes, empfehlung, was tun, nächster schritt, was jetzt, hinweis, todo',
