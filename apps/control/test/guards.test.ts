@@ -44,6 +44,13 @@ describe('the machine store guards a move and a jog', () => {
     useMachine.setState({ viewer: false });
   });
 
+  it('says nothing when a jog is let go on a watching device – it never started one', () => {
+    useMachine.setState({ viewer: true });
+    useMachine.getState().jogCancel();
+    expect(useMachine.getState().log).toEqual([]);
+    useMachine.setState({ viewer: false });
+  });
+
   it('jogs as a relative move unless the machine is homed and has soft limits', () => {
     const command = vi.fn((_line: string) => Promise.resolve(true));
     const sent = (homed: boolean, soft: boolean) => {

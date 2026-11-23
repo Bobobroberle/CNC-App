@@ -711,6 +711,8 @@ export const useMachine = create<MachineStore>((set, get) => ({
 
   jogCancel() {
     jogTargets = {};
+    // A watching device never started a jog: nothing to cancel, and no false "stop not sent".
+    if (get().viewer) return;
     sendStop(Realtime.JogCancel);
   },
 
