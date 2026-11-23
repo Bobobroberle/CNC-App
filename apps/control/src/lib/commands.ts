@@ -38,7 +38,6 @@ export const VIEW_ACTIONS = [
   'fit',
   'wide',
   'shortcuts',
-  'nextStep',
 ] as const;
 export type ViewAction = (typeof VIEW_ACTIONS)[number];
 
@@ -227,15 +226,6 @@ export const COMMANDS: readonly Command[] = [
   nav('placeService', 'nav.areas.service', 'service'),
   nav('placeSettings', 'nav.areas.settings', 'settings'),
   nav('placeConsole', 'nav.areas.console', 'console', 'expert'),
-  entry({
-    id: 'nextStep',
-    title: 'nav.nextStep',
-    kind: 'view',
-    action: 'nextStep',
-    on: 'bar',
-    anchor: [],
-    icon: 'play',
-  }),
   entry({ id: 'menu', title: 'nav.menuTitle', on: 'nav', anchor: 'menu', icon: 'machine' }),
   entry({ id: 'next', title: 'start.nextLabel', place: 'start', anchor: 'next' }),
 

@@ -14,7 +14,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `ipad` (touch tests in `e2e/ipad.spec.ts`, real multi-touch through CDP; the two-sided flow on the
   simulator in `e2e/flip.spec.ts`, series and jigs in `e2e/series.spec.ts` / `e2e/jigs.spec.ts`, the quick search in
   `e2e/find.spec.ts`,
-  parts cut in sections on the simulator's long board in `e2e/sections.spec.ts`, the five steps –
+  parts cut in sections on the simulator's long board in `e2e/sections.spec.ts`, the areas of the work –
   the start, its confirmations, the overrides, a lost connection – in `e2e/steps.spec.ts`, the jog
   panel, the bottom sheet at 800 × 600, Service & Diagnose, the message centre and the phone in
   `e2e/areas.spec.ts`, the measured usability goal of DESIGN.md §11 in `e2e/usability.spec.ts`,
@@ -42,35 +42,45 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   coverage of the four libraries, the quick-search registry and `settled()` stays in force. The
   rebuild ran in three stages (11–13, done); `docs/umbau-guide.md` says where every old card lives
   now, where the app deviates from the guide and why, the acceptance per screen (§11) and what is left.
-- **Decided, being built in stages ("Umbau 2", `docs/umbau-guide.md`): six areas instead of the five steps.**
-  Tabs: Job · Zeichnen/CAM (`cam`, replaces `ui.drawing`) · Einrichten & Fahren (`setup`) · Fräsen (`run`, with the
-  views Prüfen and Fräsen; Werkzeuge of the job and the readiness list move into it) · Service · Einstellungen. Tool
-  list and console stay in the menu. `tools` and `check` stop being places (a stored one falls back to `run`). In
-  *Zeichnen/CAM* only the CAM and the status bar are shown (no jog button, no run bar, no camera inset, no flow cards,
-  no stage tools). There is **no "Weiter: …" chain** (`lib/next.ts`, Ctrl+→ go); the start screen stays. The primary
-  action sits only where an area has one (Job, Fräsen). The start lock stays: the readiness list and its "dealt
-  with here" mapping stay, only their home moves. **Until stage 1 is done the code and the next two bullets still
-  describe the five steps** – read them as the state of the code, not of the target.
-- Navigation (`store/ui.ts`): a `Place` is `start`, one of the five steps `job → tools → setup →
-check → run` (① Job, ② Werkzeuge, ③ Einrichten, ④ Prüfen, ⑤ Fräsen) or a side area (`toollist`,
-  `service`, `settings`, `console` – the console only with the expert switch). At most two levels:
-  a place may have views (`VIEWS`; `SubNav` – Service & Diagnose: Diagnose · Meldungen · Historie ·
+- **"Umbau 2" (`docs/umbau-guide.md`): six areas instead of the five steps – stage 1 is in the code, stages 2 and 3 are open.**
+  Tabs: Job · CAM (`cam`) · Einrichten (`setup`) · Fräsen (`run`, with the views Prüfen and Fräsen; the job's tools
+  and the readiness list live in Prüfen) · Service · Einstellungen. Tool list and console stay in the menu. `tools` and
+  `check` are no places any more (a stored one falls back to `run`). There is **no "Weiter: …" chain and no
+  Ctrl+→**; the start screen stays and keeps its "Als Nächstes" recommendation (`lib/next.ts`). The primary action sits
+  only where an area has one: Job without a program ("G-Code öffnen"), Fräsen (the start, pause, going on; "Prüfen"
+  while the start is blocked; **nothing in the Prüfen view**); Einrichten, CAM, Service, Einstellungen and the lists have
+  none. The start lock stays: the readiness list and its "dealt with here" mapping stay. **Still open:** stage 2 – in
+  the CAM only the CAM and the status bar are shown (no jog button, no run bar, no camera inset, no flow cards, no stage
+  tools) – and stage 3 – the primary action docked to each panel. Until then the CAM still shows the action bar.
+- Navigation (`store/ui.ts`): a `Place` is `start`, one of the three areas of the work `job`, `setup`, `run`
+  (Job, Einrichten, Fräsen), the drawing workspace `cam`, or an area `toollist`, `service`, `settings`, `console`
+  (the console only with the expert switch). **The one way into the CAM is `openCam()`** (`store/camPlace.ts`: an
+  empty drawing where there is none, the table from above – it never unloads a loaded program or a running job;
+  tab, "Zeichnen" button, quick search and the series flow all use it); `leaveCam()` goes back to the Job. The tab
+  row (`NavRow`) holds Job · CAM · Einrichten · Fräsen · Service · Einstellungen with the short names `nav.tabs`;
+  below 1100 px only the current tab keeps its name, the others keep theirs in the markup, clipped, so they stay
+  named for assistive technology; with an area of the menu open the menu button is wider and the quick search and the
+  names give way sooner. `e2e/areas.spec.ts` measures the row at 640–1400 px (no overlap, tappable, named). Fräsen has
+  the views Prüfen (`check`) and Fräsen (`cut`); `go('run')` without a view opens `cut`. At most two levels:
+  a place may have views (`VIEWS`; `SubNav` – Service: Diagnose · Meldungen · Historie ·
   Kalibrieren; Einstellungen: Verbindung · Maschine · Kamera · Experte). The jog panel is no place:
   `jogOpen` lays it over the context panel of any place. **A side area that is a list has no
   picture** (`placeHasStage`): its cards lie in a grid across the main area (`.area-panel`; a grid,
   not CSS columns – a card that unfolds must not make its neighbours jump); only calibrating and
   the camera's settings keep the stage, and the jog panel brings it back over any list. Whatever
-  must show everywhere (the alarm banner) is therefore not a child of the stage alone. Steps can be jumped to freely; each shows ✓ ⚠ ✕ ○ read from the one
-  readiness list (`lib/readiness.ts` → `lib/steps.ts`: a point belongs to the step it is dealt with
-  on), and ⑤ starts only when nothing blocks. The place contents are plain compositions of the
-  cards: `components/places/Steps.tsx`, `places/Areas.tsx`, `JogPanel.tsx`.
-- The five steps (DESIGN.md §5; `docs/umbau-guide.md` says what each shows and where it deviates):
-  each answers one question and brings its stage view (`STEP_STAGE` in `store/ui.ts`: ①② table,
-  ③ the live picture where a calibrated camera runs, ④⑤ 3D; a view chosen by hand stays that
-  step's, `stageViews`). **Depth per area** (§2) is `components/Depth.tsx`: what is needed every
+  must show everywhere (the alarm banner) is therefore not a child of the stage alone. Areas can be jumped to freely;
+  Job, Einrichten and Fräsen show ✓ ⚠ ✕ ○ read from the one readiness list (`lib/readiness.ts` → `lib/steps.ts`: a
+  point belongs to the area it is dealt with in – the check points, the tools and `busy` belong to `run`); CAM and
+  the side areas show no state. The start in Fräsen is possible only when nothing blocks. The place contents are plain
+  compositions of the cards: `components/places/Steps.tsx` (`JobStep`, `CamStep`, `SetupStep`, `RunStep`),
+  `places/Areas.tsx`, `JogPanel.tsx`.
+- The areas of the work (DESIGN.md §5; `docs/umbau-guide.md` says what each shows and where it deviates):
+  each answers one question and brings its stage view (`STEP_STAGE` in `store/ui.ts`: Job and CAM table,
+  Einrichten the live picture where a calibrated camera runs, Fräsen 3D; a view chosen by hand stays that
+  area's, `stageViews` – except the CAM, which always opens on the table). **Depth per area** (§2) is `components/Depth.tsx`: what is needed every
   time stands open, the rest goes under "Mehr Optionen" / "Alle Parameter" (`useUi.depth`,
   remembered); a recommended value carries `Recommended`, one that differs `Deviation`.
-  - **⑤ Fräsen** (`RunScreen.tsx`): **the start is the action bar's primary action and a hold**
+  - **Fräsen, view Fräsen** (`RunScreen.tsx`): **the start is the action bar's primary action and a hold**
     (`ActionBar` → `requestStart`); everything it hangs on is `useStart()` (`store/start.ts`), so
     bar, panel and confirmation never disagree. What must be confirmed before a start (§6.4: no
     zero, tool below the safe height while the program travels first, a probe as the tool) is
@@ -82,30 +92,31 @@ check → run` (① Job, ② Werkzeuge, ③ Einrichten, ④ Prüfen, ⑤ Fräsen
     nothing). A connection lost during a job sets `useMachine.lostInJob` → `CriticalLayer`
     (acknowledged by the operator; **after a connection lost during a job the app never reconnects by
     itself** – not until the operator has connected by hand; outside a job it may, see Connecting).
-  - **③ Einrichten**: `SetZeroCard` is the one way to the zero (tap shows the target → hold to
+  - **Einrichten**: `SetZeroCard` is the one way to the zero (tap shows the target → hold to
     drive → fine steps → hold to set); `ZeroHistoryCard` restores X/Y of the zeros a job was cut
     with; `ProbeTiles` are the probing assistants (a sketch with the direction each) – a cycle
     only measures, the result shows the deviation and is applied or discarded.
-  - **① Job**: `JobDashboard` (loaded job as a card, `lib/preview.ts` for its picture, the drop
+  - **Job**: `JobDashboard` (loaded job as a card, `lib/preview.ts` for its picture, the drop
     zone as the empty state), `store/recent.ts` ("Zuletzt verwendet", `openJobFiles` for one or
     several files, the zeros a job was started with), `WorkpieceCard` (material, stock).
-  - **② Werkzeuge**: `JobTools.tsx` over `useJobTools` (`store/jobTools.ts`) and the pure
+  - **Fräsen, view Prüfen – the job's tools**: `JobTools.tsx` over `useJobTools` (`store/jobTools.ts`) and the pure
     `lib/jobTools.ts` (state, issues, alternatives). `Tool.probe` marks a probe.
-  - **④ Prüfen**: `Timeline.tsx` under the 3D picture (in the panel while the stage shows
+  - **Fräsen, view Prüfen – the check**: `Timeline.tsx` under the 3D picture (in the panel while the stage shows
     something else), operations from `lib/operations.ts` – only what the program itself names,
     nothing guessed; the checklist is the readiness list (`depth`, `tools`, `limits` are its
-    checks of this step).
+    its checks).
 - Shell (`App.tsx`, DESIGN.md §4): `StatusBar` (the same on every screen: state badge with icon and
   word, X Y Z (A), spindle, feed, connection, messages flag, PAUSE, NOT-HALT) · `NavRow` (Start,
-  stepper, quick search, the menu with the side areas – its button carries the open area's name) ·
+  the six tabs, quick search, the menu with the tool list and the console – its button carries the open area's name) ·
   main area with the stage and the context panel ("Großbild" puts the panel away; 600–1023 px or
   upright: the panel is a `Sheet` along the bottom with three rests – `peek` (its handle), `half`
   (where it starts: below the picture, never over it) and `full` – moved by labelled buttons in the
   handle only, remembered per place (`useUi.sheet`), and refused while anything is held
   (`holdCount()`); < 600 px: `Monitor`, watching only: progress, state, position, the picture,
   abort through `AbortDialog`) ·
-  `ActionBar` (left: Jog; right: **exactly one** primary action that names its target – on Start
-  the "Als Nächstes" recommendation of `lib/next.ts` with its action, in ⑤ the start itself). The status bar must fit at
+  `ActionBar` (left: Jog; right: the primary action where the area has one, never more than one – on Start
+  the "Als Nächstes" recommendation of `lib/next.ts` with its action, in Fräsen the start itself; no "Weiter" and no
+  key for a next step). The status bar must fit at
   every width without squeezing PAUSE or NOT-HALT: the numbers give way first.
 - **PAUSE and NOT-HALT** sit top right in the status bar, ≥ 24 px apart. PAUSE (`PauseButton`) is
   feed hold: one tap, no question, never disabled, never covered; like NOT-HALT it acts on
@@ -210,6 +221,14 @@ check → run` (① Job, ② Werkzeuge, ③ Einrichten, ④ Prüfen, ⑤ Fräsen
   its frame) and a tap selects; inside a shape the finger moves the view. The toolpath is made anew
   when the finger lets go, not while it moves; a drawing with nothing to cut takes its job off the
   stage (`useJob.unload`).
+  **The drawing never changes the program under a job that is under way** (`jobUnderWay()` in
+  `store/underway.ts`: a part running from the SD card, a stream, an upload, a multi-tool job waiting between its
+  parts – the series flow uses the same answer): `generate()` and `offStage()` leave the table alone and set
+  `useCam.ahead`; the drawing can be worked on meanwhile. **A program that is not the drawing's own** (a file opened
+  since, the aligned back) is replaced only by `generate({ take: true })` / `remake({ take: true })` – the tap on
+  "Zeichnung auf den Tisch legen", the hand-over, the series closing – never by an edit. When a job ends, a drawing
+  that is `ahead` goes on the table by itself only where nothing is loaded; the program of a finished job stays until
+  that tap.
 - Two-sided parts ("Wenden"): the drawing shows both sides as seen from the front; the pure maths
   (flip line, mirrored back, registration holes, what the sides do to each other) is
   `packages/cam/src/flip.ts`, the plan and its hand-checked chain to the table `lib/flip.ts`, the
@@ -277,7 +296,7 @@ check → run` (① Job, ② Werkzeuge, ③ Einrichten, ④ Prüfen, ⑤ Fräsen
   keywords. The
   rule that keeps it harmless: an entry is `go` (lead to the place, unfold it, scroll to it,
   outline it for a moment – `lib/reveal.ts`; the operator then uses the control there) or `view`
-  (one of `VIEW_ACTIONS`: stage view, Einpassen, Großbild, key sheet, next step). The search never moves the
+  (one of `VIEW_ACTIONS`: stage view, Einpassen, Großbild, key sheet). The search never moves the
   machine, never starts, stops or changes a job, never clicks for the operator, and never puts
   the focus on a control; `store/find.ts` does not import the machine store (tested), and
   `e2e/find.spec.ts` checks that nothing reaches FluidNC. Matching is pure in `lib/search.ts`
@@ -288,7 +307,7 @@ check → run` (① Job, ② Werkzeuge, ③ Einrichten, ④ Prüfen, ⑤ Fräsen
   layer shrinks with the on-screen keyboard. The list keeps our own matcher and rows (not the
   Autocomplete of coss's Command).
 - Keys (DESIGN.md §8): all of them are listed in `lib/shortcuts.ts`, by scope – `global` keys
-  (search, Ctrl/Cmd+→ next step, stage views, Einpassen, `?`) only run a command of the search;
+  (search, stage views, Einpassen, `?` – there is no key for a next step) only run a command of the search;
   the two `machine` keys reach the machine and only to make it safer (`store/keys.ts`, kept apart
   from the search): **Space** = feed hold while something moves (whatever has the focus, dialog or
   not; at rest it keeps its meaning for the focused control), **Esc** = asks whether to abort the

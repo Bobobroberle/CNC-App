@@ -4,8 +4,9 @@
 > Widerspricht eine Anforderung diesem Guide: **erst nachfragen, nicht eigenmächtig abweichen.**
 >
 > **Stand:** Der Betreiber hat entschieden, die fünf festen Schritte durch **sechs Bereiche** zu ersetzen (§3.2). Dieser
-> Guide beschreibt das Zielbild; der Umbau läuft in Stufen (`docs/umbau-guide.md`, Abschnitt „Umbau 2“), der Code zeigt bis
-> zur Stufe 1 noch die fünf Schritte.
+> Guide beschreibt das Zielbild; der Umbau läuft in Stufen (`docs/umbau-guide.md`, Abschnitt „Umbau 2“). **Stufe 1 ist im
+> Code** (sechs Reiter, das CAM als eigener Bereich, keine Kette „Weiter“, keine Taste dafür); offen sind Stufe 2 (im CAM nur
+> das CAM – dort zeigt der Code noch die Aktionsleiste mit Jog-Knopf) und Stufe 3 (angedockte Hauptaktion).
 
 ---
 
@@ -64,6 +65,8 @@ Er reagiert kontextabhängig (z. B. nach Unterbrechung: „Job fortsetzen“; be
 Start │ Job │ Zeichnen/CAM │ Einrichten & Fahren │ Fräsen │ Service │ Einstellungen
 ```
 
+Im Reiter stehen kurze Namen: **Job · CAM · Einrichten · Fräsen · Service · Einstellungen**. Unter 1100 px behält nur der aktuelle Reiter sein Wort, die anderen sind ihr Zeichen (mit Namen für Screenreader).
+
 Keine vorgegebenen Schritte: jeder Bereich wird je nach Absicht angewählt. Im Bereich sieht man nur das, was dort gebraucht wird.
 
 | Bereich | Leitfrage | Enthält |
@@ -77,10 +80,10 @@ Keine vorgegebenen Schritte: jeder Bereich wird je nach Absicht angewählt. Im B
 
 - Jeder Bereich zeigt seinen Zustand (✓ erledigt · ⚠ Warnung · ✕ blockiert · ○ offen), wo es einen gibt – gelesen aus der einen Startklar-Liste: ein Punkt gehört zu dem Bereich, in dem man ihn behebt.
 - Bereiche sind frei anwählbar. Der **Start** in „Fräsen“ bleibt gesperrt, solange etwas **blockiert** (z. B. Verfahrweg verletzt, solange `soft_limits` in der Steuerung aus sind); Warnungen werden einmal bestätigt.
-- Es gibt **keine Kette „Weiter: …“**: kein Bereich schlägt den nächsten vor. Der Startbildschirm bleibt als Übersicht.
+- Es gibt **keine Kette „Weiter: …“** und keine Taste dafür: kein Bereich schlägt den nächsten vor. Der Startbildschirm bleibt als Übersicht und behält seine Empfehlung „Als Nächstes“. In der Ansicht *Prüfen* steht unten rechts nichts; zum Fräsen wechselt der Unterreiter.
 - Die Werkzeugliste und die Konsole (nur Experten) liegen im Hauptmenü.
 
-### 3.3 Nebenbereiche (außerhalb des Steppers)
+### 3.3 Nebenbereiche (außerhalb der Reiter)
 
 | Bereich | Zugang | Zweck |
 |---|---|---|
@@ -95,7 +98,7 @@ Die klassischen Rollen (Bediener, Einrichter, Service, Admin) sind hier **Aufgab
 ### 3.4 Regeln
 
 - Maximal **2 Navigationsebenen**; Häufiges in höchstens 2 Taps erreichbar.
-- Standort immer erkennbar (Stepper-Markierung bzw. Bereichstitel).
+- Standort immer erkennbar (Reiter-Markierung bzw. Bereichstitel).
 - Keine Hamburger-Menüs für Kernfunktionen; höchstens **ein** Dialog gleichzeitig.
 - Fachbegriffe nur, wo sie für die Aufgabe nötig sind.
 
@@ -126,7 +129,7 @@ Die klassischen Rollen (Bediener, Einrichter, Service, Admin) sind hier **Aufgab
 |---|---|
 | ≥ 1280 px | Volle Shell |
 | 1024–1279 px | Kontext-Panel schmaler, einklappbar |
-| 600–1023 px (Maschinen-Touch) | Panel als Bottom Sheet, Stepper als Icons + aktueller Schrittname |
+| 600–1023 px (Maschinen-Touch) | Panel als Bottom Sheet, Reiter als Icons + Name des aktuellen |
 | < 600 px (Smartphone) | Nur Überwachung: Status, Fortschritt, Kamerabild, Pause, Abbruch |
 
 ---
@@ -247,7 +250,6 @@ Jede Meldung enthält **Bezeichnung · Ursache · Auswirkung · nächste Maßnah
 | Job abbrechen | Esc (mit Bestätigung) |
 | Jog XY / Z | Pfeiltasten / Bild↑ Bild↓ |
 | Schrittweite | 1–5 |
-| Nächster Schritt | Strg + → |
 | Feinjog zuletzt bewegte Achse | Mausrad |
 | Kürzelübersicht | ? |
 

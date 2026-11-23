@@ -13,7 +13,7 @@ import { t, tDynamic } from '../i18n';
 import { formatNumber } from '../lib/format';
 import type { Next } from '../lib/next';
 import { blockers, warnings } from '../lib/readiness';
-import { nextStep } from '../lib/steps';
+import { entryView } from '../lib/steps';
 import { useJob } from '../store/job';
 import { useKeys } from '../store/keys';
 import { useMachine } from '../store/machine';
@@ -22,7 +22,7 @@ import { useReadiness } from '../store/readiness';
 import { useRun } from '../store/run';
 import { requestStart, useStart } from '../store/start';
 import { useNext, useSteps } from '../store/steps';
-import { isStep, useUi, type Place } from '../store/ui';
+import { useUi, type Place } from '../store/ui';
 import { Button } from '../ui/button';
 import { Reason } from '../ui/tooltip';
 import { HoldButton } from './HoldButton';
@@ -51,13 +51,12 @@ export function useNextText(next: Next): { title: string; text: string } {
 }
 
 /**
- * Goes to a step the recommendation or "Weiter" leads to. Fräsen holds the check and the job's
- * tools: when it has warnings the way leads to the check, where they are listed – the cutting
+ * Goes to the area the recommendation of the start screen leads to. Fräsen holds the check and the
+ * job's tools: when it has warnings the way leads to the check, where they are listed – the cutting
  * view shows only "bereit".
  */
 function enterStep(step: Place, states: ReturnType<typeof useSteps>['states']) {
-  const view = step === 'run' && states.run === 'warn' ? 'check' : undefined;
-  useUi.getState().go(step as never, view as never);
+  useUi.getState().go(step as never, entryView(step, states) as never);
 }
 
 /** The action of the one recommendation: a way somewhere, or – where the machine moves – a hold. */
@@ -156,20 +155,9 @@ function RunAction() {
   );
   const summary = useRun((s) => s.summary);
   const { feedHold, cycleStart } = useMachine.getState();
-  // The check offers no start: between parts the cutting view says which tool to change, and while a
-  // job waits it holds the field to go on. From the check the way leads to the cutting.
-  if (checking && !active && !waiting) {
-    return (
-      <Button
-        size="lg"
-        data-testid="primary-action"
-        onClick={() => useUi.getState().setView('run', 'cut')}
-      >
-        {t('nav.next', { step: t('nav.steps.run') })}
-        <ArrowRightIcon aria-hidden="true" />
-      </Button>
-    );
-  }
+  // The check offers no start and no way on: between parts the cutting view says which tool to
+  // change, and while a job waits it holds the field to go on. The switch of the views is above.
+  if (checking && !active && !waiting) return null;
   if (active) {
     if (holding) {
       // Going on moves the machine again: a short hold, never the second half of a double tap.
@@ -239,15 +227,15 @@ function RunAction() {
   );
 }
 
-/** A step: where the job stands, and the way to the next step. */
+/**
+ * An area's part of the bar: the job at a glance, where the job stands – and the area's own
+ * primary action where it has one: opening a program while there is none (Job), and in Fräsen the
+ * start with what goes with it. The other areas have none; there is no "Weiter" from one to the
+ * next – the tabs are the way.
+ */
 function StepActions({ place }: { place: Place }) {
-  const go = useUi((s) => s.go);
   const readiness = useReadiness();
   const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
-  const { open, states } = useSteps();
-  const step = isStep(place) ? place : null;
-  const cam = place === 'cam';
-  const next = step ? nextStep(step) : cam ? 'setup' : null;
   const blocked = readiness ? blockers(readiness.items).length : 0;
   const notes = readiness ? warnings(readiness.items).length : 0;
   const fileName = useJob((s) => s.fileName);
@@ -267,18 +255,8 @@ function StepActions({ place }: { place: Place }) {
       </p>
     );
   }
-  let primary: ReactNode;
-  if (cam && fileName === null) {
-    // The drawing has its own way to a program ("Ansehen und übergeben").
-    primary = (
-      <Reason reason={t('nav.drawingFirst')}>
-        <Button size="lg" data-testid="primary-action" disabled>
-          {t('nav.next', { step: t('nav.steps.setup') })}
-          <ArrowRightIcon aria-hidden="true" />
-        </Button>
-      </Reason>
-    );
-  } else if (step === 'job' && fileName === null) {
+  let primary: ReactNode = null;
+  if (place === 'job' && fileName === null) {
     // Nothing to go on with yet: the one thing to do is to get a program.
     primary = (
       <Button size="lg" data-testid="primary-action" onClick={() => requestOpenFile()}>
@@ -286,23 +264,8 @@ function StepActions({ place }: { place: Place }) {
         {t('job.open')}
       </Button>
     );
-  } else if (next) {
-    primary = (
-      <Button size="lg" data-testid="primary-action" onClick={() => enterStep(next, states)}>
-        {t('nav.next', { step: t(`nav.steps.${next}`) })}
-        <ArrowRightIcon aria-hidden="true" />
-      </Button>
-    );
-  } else if (step === 'run') {
+  } else if (place === 'run') {
     primary = <RunAction />;
-  } else {
-    // A side area: back into the flow, where the work goes on.
-    primary = (
-      <Button size="lg" data-testid="primary-action" onClick={() => go(open)}>
-        {t('nav.next', { step: t(`nav.steps.${open}`) })}
-        <ArrowRightIcon aria-hidden="true" />
-      </Button>
-    );
   }
   return (
     <>
@@ -349,8 +312,8 @@ function AbortAction() {
 
 /**
  * The action bar (DESIGN.md §4): secondary things on the left – the jog panel
- * from every screen – and on the right exactly one primary action that names
- * where it leads. (The context panel is put away with "Großbild" on the stage.)
+ * from every screen – and on the right the primary action where the area has one (never more
+ * than one; Start: the recommendation). (The context panel is put away with "Großbild" on the stage.)
  */
 export function ActionBar() {
   const place = useUi((s) => s.place);

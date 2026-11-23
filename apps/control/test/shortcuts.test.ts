@@ -163,9 +163,10 @@ describe('reading a key', () => {
     expect(globalShortcut(key('?'))?.id).toBe('shortcuts');
   });
 
-  it('reads the views from bare keys, in either case, and the next step from Ctrl+→', () => {
-    expect(globalShortcut(key('ArrowRight', { ctrlKey: true }))?.runs).toBe('nextStep');
-    expect(globalShortcut(key('ArrowRight', { metaKey: true }))?.runs).toBe('nextStep');
+  it('reads the views from bare keys, in either case – and no key goes "on" to a next step', () => {
+    // The tabs are the way between the areas; there is no chain, and so no key for it.
+    expect(globalShortcut(key('ArrowRight', { ctrlKey: true }))).toBeNull();
+    expect(globalShortcut(key('ArrowRight', { metaKey: true }))).toBeNull();
     expect(globalShortcut(key('ArrowRight'))).toBeNull();
     // The digits belong to the jog panel's step width, not to the places.
     expect(globalShortcut(key('1'))).toBeNull();
@@ -188,7 +189,7 @@ describe('reading a key', () => {
 
   it('knows the key of a command', () => {
     expect(shortcutFor('fit')?.caps).toEqual([['E']]);
-    expect(shortcutFor('nextStep')?.caps).toEqual([['mod', 'right']]);
+    expect(shortcutFor('nextStep')).toBeNull();
     expect(shortcutFor('pause')).toBeNull();
     expect(shortcutFor('homing')).toBeNull();
     expect(shortcutFor('camUndo')).toBeNull();

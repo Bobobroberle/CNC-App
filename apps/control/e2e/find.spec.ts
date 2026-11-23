@@ -276,7 +276,7 @@ test('the search never sends anything to the machine; NOT-HALT works while it is
   await expect.poll(() => sent(page)).toEqual(expect.arrayContaining(['!', '\u0018']));
 });
 
-test('keys: views by one key, the next step by Ctrl+→, not while typing; "?" shows them all', async ({
+test('keys: views by one key, none for a "next step", not while typing; "?" shows them all', async ({
   page,
 }) => {
   await installFakeFluidNC(page);
@@ -284,11 +284,12 @@ test('keys: views by one key, the next step by Ctrl+→, not while typing; "?" s
   await connect(page);
   await page.locator('body').click({ position: { x: 2, y: 2 } });
 
-  // Ctrl+→ walks the flow: from a side area to its first step, then on, and stops at the last.
-  for (const id of ['job', 'setup', 'run', 'run']) {
-    await page.keyboard.press('Control+ArrowRight');
-    await expect(step(page, id)).toHaveAttribute('aria-current', 'step');
-  }
+  // There is no chain of steps and so no key for it: Ctrl+→ goes nowhere, from any place.
+  await page.keyboard.press('Control+ArrowRight');
+  await expect(step(page, 'job')).not.toHaveAttribute('aria-current', 'step');
+  await goTo(page, 'Fräsen');
+  await page.keyboard.press('Control+ArrowRight');
+  await expect(step(page, 'run')).toHaveAttribute('aria-current', 'step');
   await page.keyboard.press('d');
   await expect(stageMode(page, '3D')).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('k');
@@ -346,6 +347,7 @@ test('keys: views by one key, the next step by Ctrl+→, not while typing; "?" s
   await page.keyboard.press('?');
   const keys = page.getByTestId('keys');
   await expect(keys).toBeVisible();
+  await expect(keys).not.toContainText('Nächster Schritt');
   for (const text of [
     'Allgemein',
     'Maschine',
@@ -353,7 +355,6 @@ test('keys: views by one key, the next step by Ctrl+→, not while typing; "?" s
     'Zeichnen',
     'Fahren',
     'Schnellsuche öffnen',
-    'Nächster Schritt',
     'Pause: Vorschub halten',
     'Job abbrechen (mit Rückfrage)',
     'Ansicht Kamera',
@@ -374,11 +375,12 @@ test('keys: views by one key, the next step by Ctrl+→, not while typing; "?" s
   await page.keyboard.press('Escape');
   await expect(keys).toBeHidden();
   await expect(width('10 mm')).toHaveAttribute('aria-pressed', 'true');
-  // Closed, the arrow jogs as before; with Ctrl it is the next step and jogs nothing.
+  // Closed, the arrow jogs as before; with Ctrl it does nothing at all (no next step, no jog).
   await page.keyboard.press('ArrowRight');
   await expect.poll(moved).toBe(1);
   await page.keyboard.press('Control+ArrowRight');
-  await expect(step(page, 'run')).toHaveAttribute('aria-current', 'step');
+  await page.waitForTimeout(200);
+  await expect(step(page, 'setup')).toHaveAttribute('aria-current', 'step');
   expect(await moved()).toBe(1);
 
   // The overview is also an entry of the search.

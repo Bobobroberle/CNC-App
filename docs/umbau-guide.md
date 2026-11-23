@@ -4,8 +4,9 @@
 
 Entscheidung des Betreibers nach der unabhängigen Bewertung (`bewertung/`): Die fünf festen Schritte werden durch sechs
 Bereiche ersetzt, im Zeichnen/CAM ist nur das CAM zu sehen, die Kette „Weiter: …“ entfällt, der Startbildschirm bleibt.
-Plan, Layout und Risiken: `bewertung/plan-bereichs-oberflaeche.md`. **Stand: Stufe 0 (nur Text) erledigt; Stufe 1 (Plätze) bis 3 stehen aus –
-solange zeigt der Code noch die fünf Schritte; die Tabellen weiter unten beschreiben diesen Code-Stand.**
+Plan, Layout und Risiken: `bewertung/plan-bereichs-oberflaeche.md`. **Stand: Stufe 0 (Text) und Stufe 1 (Plätze) sind erledigt;
+Stufe 2 und 3 stehen aus. Der Code zeigt sechs Reiter. Die Abschnitte „Etappe 11–13“ und „Wo liegt was?“ weiter unten
+nennen noch die Namen ①–⑤ des früheren Stands – die Tabelle oben sagt, wo diese jetzt liegen.**
 
 | Bisher (Code) | Künftig | Hinweis |
 |---|---|---|
@@ -21,6 +22,12 @@ solange zeigt der Code noch die fünf Schritte; die Tabellen weiter unten beschr
 Stufen: **0** Text (diese Änderung) · **1** Plätze (`cam` neu, Reiter statt Stepper, `tools`/`check` in `run`, gespeicherter Platz mit Rückfall,
 Kette „Weiter“ aus der Aktionsleiste, Schnellsuche und Tests nachgezogen) · **2** CAM-Fokus (Bühnenwerkzeuge, Ablauf-Karten, Jog-Knopf, Laufleiste, Kamera-Einblendung im CAM aus) ·
 **3** angedockte Hauptaktion je Panel. Jede Stufe nur nach Freigabe, mit eigenem Commit; alle e2e-Projekte (desktop, tablet, ipad) und `pnpm check` grün; Screenshots bei 1280 und 800 px.
+
+Umgesetzt in Stufe 1 (mit den Entscheidungen des Betreibers, `bewertung/entscheidungen.md` 21–24): kurze Reiternamen (Job · CAM ·
+Einrichten · Fräsen · Service · Einstellungen; unter 1100 px behält nur der aktuelle sein Wort); in der Ansicht *Prüfen* unten
+rechts keine Primäraktion; die Aktionsleiste kennt kein „Weiter“ mehr, Strg+→ ist weg; das CAM öffnet über `openCam()` und
+ändert nie das Programm unter einem laufenden Job (`store/underway.ts`) – ein fremdes Programm ersetzt nur der Knopf
+„Zeichnung auf den Tisch legen“.
 
 Abweichungen vom Guide, die damit entfallen oder sich ändern: „genau eine Primäraktion unten rechts“ (jetzt: wo es eine gibt), „⑤ startet erst, wenn nichts blockiert“
 (jetzt: der Start in Fräsen bleibt gesperrt, solange etwas blockiert), „Leertaste/Strg+→ nächster Schritt“ (die Taste entfällt mit der Kette).

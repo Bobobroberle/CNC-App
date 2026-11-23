@@ -229,7 +229,7 @@ test.describe('the bottom sheet of the machine screen (800 × 600)', () => {
       ];
       expect(panel.y).toBeGreaterThanOrEqual(nav.y + nav.height);
       expect(panel.y + panel.height).toBeLessThanOrEqual(bar.y + 1);
-      for (const control of ['[data-testid="pause"]', '.estop', '[data-testid="primary-action"]']) {
+      for (const control of ['[data-testid="pause"]', '.estop', '[data-testid="jog-toggle"]']) {
         expect(await reachable(page, control), control).toBe(true);
       }
     };
@@ -347,8 +347,9 @@ test.describe('Service & Diagnose', () => {
     ] as const) {
       await goTo(page, area, view);
       await expect(page.getByTestId('stage-canvas'), `${area} ${view}`).toHaveCount(stage ? 1 : 0);
-      // One primary action bottom right, status bar and PAUSE in sight – on every one of them.
-      await expect(page.getByTestId('primary-action')).toHaveCount(1);
+      // No primary action in an area of its own (no "Weiter"); status bar and PAUSE in sight – on
+      // every one of them.
+      await expect(page.getByTestId('primary-action')).toHaveCount(0);
       await expect(page.getByTestId('pause')).toBeInViewport({ ratio: 1 });
     }
     // The jog panel brings the picture back over a list.

@@ -112,7 +112,7 @@ describe('the table of commands', () => {
       }
     }
     expect([...VIEW_ACTIONS].sort()).toEqual(
-      ['fit', 'nextStep', 'shortcuts', 'stage3d', 'stageCamera', 'stageTable', 'wide'].sort(),
+      ['fit', 'shortcuts', 'stage3d', 'stageCamera', 'stageTable', 'wide'].sort(),
     );
   });
 
@@ -324,17 +324,9 @@ describe('what the search may do', () => {
     expect(useUi.getState()).toMatchObject({ place: 'start', jogOpen: false });
   });
 
-  it('steps through the flow with "next step" and stops at the last', () => {
-    runCommand('placeStart');
-    const seen: string[] = [];
-    for (let i = 0; i < 6; i += 1) {
-      runCommand('nextStep');
-      seen.push(useUi.getState().place);
-    }
-    expect(seen).toEqual(['job', 'setup', 'run', 'run', 'run', 'run']);
-    runCommand('placeSettings');
-    runCommand('nextStep');
-    expect(useUi.getState().place).toBe('job');
+  it('has no "next step": the tabs are the way between the areas', () => {
+    expect(commandById('nextStep')).toBeUndefined();
+    expect((VIEW_ACTIONS as readonly string[]).includes('nextStep')).toBe(false);
   });
 
   it('opens the drawing workspace for what lives there, and leaves it for the program', () => {
@@ -502,7 +494,7 @@ describe('finding a function with another word', () => {
     expect(placeOf(commandById('homing')!)).toBe('Jog / Manuell');
     expect(placeOf(commandById('wcs')!)).toBe('Einrichten · Nullpunkte');
     expect(placeOf(commandById('toolLibrary')!)).toBe('Werkzeugliste');
-    expect(placeOf(commandById('nextStep')!)).toBe('Aktionsleiste');
+    expect(placeOf(commandById('jogPanel')!)).toBe('Aktionsleiste');
     expect(titleOf(commandById('camHow')!)).toBe('Wie wird gefräst?');
   });
 

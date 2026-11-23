@@ -368,7 +368,8 @@ test('① job cards: several files at once, recently used with the zero, the emp
   const recent = page.getByTestId('recent-jobs');
   await expect(recent).toContainText('leiste.nc');
   await expect(recent).toContainText('Noch nicht gefräst');
-  await expect(page.getByTestId('primary-action')).toHaveText('Weiter: Einrichten');
+  // A program is loaded: the Job has nothing more to offer at the bottom right (no "Weiter").
+  await expect(page.getByTestId('primary-action')).toHaveCount(0);
   // The workpiece is set here: material and size.
   await expect(page.getByTestId('setup-material')).toContainText('Woraus wird gefräst?');
 
@@ -510,12 +511,9 @@ test('④ checking: 3D with the timeline and its operation marks, the checklist 
   await material.getByRole('button', { name: /^Maße übernehmen/ }).click();
   await goTo(page, 'Prüfen');
   await expect(list.locator('[data-check="depth"]')).toContainText('in die Opferplatte');
-  // The check offers no start (between parts the cutting view names the tool to change): it leads on.
-  await expect(page.getByTestId('primary-action')).toHaveText('Weiter: Fräsen');
-  // A warning leads to the check, where it is listed – not to the cutting view that says "bereit".
-  await goTo(page, 'Einrichten');
-  await page.getByTestId('primary-action').click();
-  await expect(page.getByTestId('assistant-checks')).toBeVisible();
+  // The check offers no start (between parts the cutting view names the tool to change) and no way
+  // on: the views of Fräsen are switched above, there is nothing bottom right.
+  await expect(page.getByTestId('primary-action')).toHaveCount(0);
 });
 
 test('depth per area: "Mehr Optionen" unfolds, and the app remembers it', async ({ page }) => {

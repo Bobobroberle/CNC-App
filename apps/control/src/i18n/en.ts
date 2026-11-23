@@ -183,14 +183,13 @@ export const en: DictionaryShape = {
     jogTitle: 'Jog / manual',
     jogClose: 'Close jog',
     next: 'Next: {step}',
-    nextStep: 'Next step',
     actions: 'Actions',
     panelShow: 'Unfold',
     panelHide: 'Fold',
     panelSmaller: 'Smaller',
     panelLarger: 'Larger',
     noProgram: 'This step needs a program.',
-    toJob: 'Next: Job',
+    toJob: 'To the job',
     drawingFirst: 'Hand the drawing over first: in the drawing under "Look and hand over".',
   },
   bar: {
@@ -2906,7 +2905,6 @@ export const en: DictionaryShape = {
     keys: {
       palette: 'Open the quick search',
       shortcuts: 'Show the keyboard shortcuts',
-      nextStep: 'Next step',
       pause: 'Pause: feed hold while something moves',
       abort: 'Abort the job (asks first)',
       jogStep: 'Step width: 0.01 · 0.1 · 1 · 10 mm · continuous',
@@ -2960,7 +2958,6 @@ export const en: DictionaryShape = {
       placeCam: 'cam area, drawing area, open cam, area draw',
       placeSetup: 'set up, setup, step 3, where is the workpiece, zero, probing, drive, align',
       placeRun: 'cut, run, mill, start, start job, go, machining',
-      nextStep: 'next step, next, forward, continue, go on, step forward',
       menu: 'menu, main menu, more, areas, side areas, hamburger, other',
       next: 'up next, recommendation, what to do, next thing, what now, hint, todo',
       recent:

@@ -1067,12 +1067,14 @@ test.describe('upright', () => {
     ];
     expect(stage.y + stage.height).toBeLessThanOrEqual(panel.y);
     expect(panel.y + panel.height).toBeLessThanOrEqual(bar.y);
-    // The action bar: across the width, at the bottom, its one primary action at the right.
+    // The action bar: across the width, at the bottom, the jog button at the left. The Job with a
+    // program loaded has no primary action to put at the right.
     expect(bar.y + bar.height).toBeGreaterThan(1180 - 24);
     expect(bar.y + bar.height).toBeLessThanOrEqual(1180);
     expect(bar.width).toBeGreaterThan(700);
-    const primary = await box('[data-testid="primary-action"]');
-    expect(primary.x + primary.width).toBeGreaterThan(bar.x + bar.width - 24);
+    const jog = await box('[data-testid="jog-toggle"]');
+    expect(jog.x).toBeLessThan(bar.x + 24);
+    await expect(page.getByTestId('primary-action')).toHaveCount(0);
     // The steps: five targets of at least 48 px, each a number, the current one with its name.
     const steps = await page
       .locator('[data-slot="stepper-step"]')
@@ -1118,7 +1120,7 @@ test.describe('upright', () => {
       await expect(page.getByTestId(`step-${id}`)).toBeInViewport({ ratio: 1 });
     }
     await expect(page.getByTestId('menu-button')).toBeInViewport({ ratio: 1 });
-    await expect(page.getByTestId('primary-action')).toBeInViewport({ ratio: 1 });
+    await expect(page.getByTestId('jog-toggle')).toBeInViewport({ ratio: 1 });
     // Nothing sticks out sideways.
     const overflow = await page.evaluate(() =>
       [...document.querySelectorAll('.app *')]

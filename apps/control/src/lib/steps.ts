@@ -76,9 +76,13 @@ export function openStep(states: Record<StepId, StepState>): StepId {
   return STEP_IDS.find((id) => states[id] !== 'done') ?? 'run';
 }
 
-/** The step after this one; null after the last. */
-export function nextStep(step: StepId): StepId | null {
-  return STEP_IDS[STEP_IDS.indexOf(step) + 1] ?? null;
+/**
+ * The view a way into an area lands on (the recommendation of the start screen): Fräsen holds the
+ * check and the job's tools – with warnings the way leads to the check, where they are listed; the
+ * cutting view shows only "bereit". Everything else opens on its own first view.
+ */
+export function entryView(place: string, states: Record<StepId, StepState>): 'check' | undefined {
+  return place === 'run' && states.run === 'warn' ? 'check' : undefined;
 }
 
 /** How many points of the list keep the start locked, and how many are worth a look, per step. */

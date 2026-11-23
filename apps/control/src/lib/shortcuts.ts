@@ -100,15 +100,6 @@ export const SHORTCUTS: readonly Shortcut[] = [
     runs: 'shortcuts',
   },
   {
-    id: 'nextStep',
-    group: 'general',
-    scope: 'global',
-    label: 'find.keys.nextStep',
-    caps: [['mod', 'right']],
-    keys: [{ key: 'ArrowRight', mod: true }],
-    runs: 'nextStep',
-  },
-  {
     id: 'pause',
     group: 'machine',
     scope: 'machine',

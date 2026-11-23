@@ -3,7 +3,7 @@ import { badgeKind, nextAction, type NextInput } from '../src/lib/next';
 import { pressKey, separatorOf, unitOf } from '../src/lib/numpad';
 import type { ReadinessId, ReadinessLevel } from '../src/lib/readiness';
 import {
-  nextStep,
+  entryView,
   openPoints,
   openStep,
   STEP_IDS,
@@ -100,8 +100,15 @@ describe('the states of the three areas', () => {
     ).toEqual({ block: 1, warn: 1 });
   });
 
-  it('knows the order of the steps', () => {
-    expect(STEP_IDS.map(nextStep)).toEqual(['setup', 'run', null]);
+  it('lands on the check where Fräsen has warnings, on the first view of everything else', () => {
+    const states = (run: 'open' | 'warn' | 'block' | 'done') =>
+      ({ job: 'done', setup: 'done', run }) as const;
+    expect(entryView('run', states('warn'))).toBe('check');
+    for (const run of ['open', 'block', 'done'] as const) {
+      expect(entryView('run', states(run))).toBeUndefined();
+    }
+    expect(entryView('setup', { job: 'done', setup: 'warn', run: 'warn' })).toBeUndefined();
+    expect(entryView('job', states('warn'))).toBeUndefined();
   });
 });
 

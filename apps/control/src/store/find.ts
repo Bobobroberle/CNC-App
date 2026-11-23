@@ -16,7 +16,7 @@ import { useCam } from './cam';
 import { showTable, useJob } from './job';
 import { useStageTools } from './tools';
 import { openCam } from './camPlace';
-import { placeHasStage, STEPS, useUi } from './ui';
+import { placeHasStage, useUi } from './ui';
 import { useWorkshop } from './workshop';
 
 const RECENT_KEY = 'lowrider-control.find-recent';
@@ -70,12 +70,6 @@ const VIEW: Record<ViewAction, () => void> = {
   },
   wide: () => useUi.getState().setPanelHidden(!useUi.getState().panelHidden),
   shortcuts: () => useFind.getState().show('keys'),
-  // The next step of the flow; from the start screen or a side area, its first.
-  nextStep: () => {
-    const ui = useUi.getState();
-    const at = (STEPS as readonly string[]).indexOf(ui.place);
-    ui.go(STEPS[Math.min(at + 1, STEPS.length - 1)]!);
-  },
 };
 
 /** Goes to where a command lives and returns what to show there. */

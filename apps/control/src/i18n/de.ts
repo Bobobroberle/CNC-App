@@ -187,14 +187,13 @@ export const de = {
     jogTitle: 'Jog / Manuell',
     jogClose: 'Jog schließen',
     next: 'Weiter: {step}',
-    nextStep: 'Nächster Schritt',
     actions: 'Aktionen',
     panelShow: 'Aufklappen',
     panelHide: 'Zuklappen',
     panelSmaller: 'Kleiner',
     panelLarger: 'Größer',
     noProgram: 'Für diesen Schritt fehlt ein Programm.',
-    toJob: 'Weiter: Job',
+    toJob: 'Zum Job',
     drawingFirst: 'Erst die Zeichnung übergeben: in der Zeichnung unter „Ansehen und übergeben“.',
   },
   bar: {
@@ -2947,7 +2946,6 @@ export const de = {
     keys: {
       palette: 'Schnellsuche öffnen',
       shortcuts: 'Tastenkürzel zeigen',
-      nextStep: 'Nächster Schritt',
       pause: 'Pause: Vorschub halten, solange sich etwas bewegt',
       abort: 'Job abbrechen (mit Rückfrage)',
       jogStep: 'Schrittweite: 0,01 · 0,1 · 1 · 10 mm · Dauerlauf',
@@ -3005,7 +3003,6 @@ export const de = {
       placeSetup:
         'einrichten, schritt 3, wo liegt das werkstück, nullpunkt, antasten, fahren, ausrichten, setup',
       placeRun: 'fräsen, fertigen, starten, start, laufen, job starten, run, cut',
-      nextStep: 'nächster schritt, weiter, vor, weitergehen, next, fortfahren, schritt weiter',
       menu: 'menü, hauptmenü, mehr, bereiche, nebenbereiche, hamburger, menu, weitere',
       next: 'als nächstes, empfehlung, was tun, nächster schritt, was jetzt, hinweis, todo',
       recent:
