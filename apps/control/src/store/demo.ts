@@ -206,6 +206,9 @@ export async function startFullDemo(): Promise<boolean> {
     const { moveMachine } = useMachine.getState();
     if (!(await moveMachine({ x: spindle.x, y: spindle.y }, 6000))) throw new Error('move');
     if (!(await moveMachine({ z }, 1200))) throw new Error('move');
+    // The programs below go onto the table only once the machine reports itself quiet: the report in
+    // the store can be older than the move, and a machine that is moving counts as under way.
+    if (!(await until(idle, 4000))) throw new Error('move');
 
     // Machine profile adopted, as after the setup assistant.
     const { profile, setProfileSettings } = useJob.getState();
