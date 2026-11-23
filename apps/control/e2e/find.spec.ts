@@ -379,7 +379,7 @@ test('keys: views by one key, the next step by Ctrl+→, not while typing; "?" s
   await page.keyboard.press('ArrowRight');
   await expect.poll(moved).toBe(1);
   await page.keyboard.press('Control+ArrowRight');
-  await expect(step(page, 'check')).toHaveAttribute('aria-current', 'step');
+  await expect(step(page, 'run')).toHaveAttribute('aria-current', 'step');
   expect(await moved()).toBe(1);
 
   // The overview is also an entry of the search.

@@ -358,7 +358,7 @@ test('① job cards: several files at once, recently used with the zero, the emp
   const recent = page.getByTestId('recent-jobs');
   await expect(recent).toContainText('leiste.nc');
   await expect(recent).toContainText('Noch nicht gefräst');
-  await expect(page.getByTestId('primary-action')).toHaveText('Weiter: Werkzeuge');
+  await expect(page.getByTestId('primary-action')).toHaveText('Weiter: Einrichten');
   // The workpiece is set here: material and size.
   await expect(page.getByTestId('setup-material')).toContainText('Woraus wird gefräst?');
 
@@ -406,7 +406,8 @@ test('② the tools of the job: state, an alternative with one tap, length in th
   }
   await expect(row).toHaveAttribute('data-state', 'ok');
   await expect(row.getByTestId('tool-state')).toHaveText('passt');
-  await expect(page.getByTestId('step-tools')).toContainText('erledigt');
+  // (The tools are part of the check on Fräsen now: their state shows in the row, and in the
+  // readiness list there – not as a step of their own.)
 });
 
 test('③ a tap only shows the target; the probing tiles measure, then take over or discard', async ({
@@ -499,15 +500,23 @@ test('④ checking: 3D with the timeline and its operation marks, the checklist 
   await material.getByRole('button', { name: /^Maße übernehmen/ }).click();
   await goTo(page, 'Prüfen');
   await expect(list.locator('[data-check="depth"]')).toContainText('in die Opferplatte');
-  // The primary action leads on.
-  await expect(page.getByTestId('primary-action')).toHaveText('Weiter: Fräsen');
+  // The start is one hold away in the check, too.
+  await expect(page.getByTestId('primary-action')).toContainText('Fräsen starten');
 });
 
 test('depth per area: "Mehr Optionen" unfolds, and the app remembers it', async ({ page }) => {
   await ready(page);
-  // By the buttons of the steps themselves: `goTo` would unfold the deeper levels.
+  // By the buttons of the areas themselves: `goTo` would unfold the deeper levels.
   const step = (id: string) => page.getByTestId(`step-${id}`).click();
-  await step('check');
+  // The check is a view of Fräsen: Fräsen opens on the cutting, the check is one tap further.
+  const check = async () => {
+    await step('run');
+    await page
+      .getByRole('group', { name: /^Bereich in Fräsen/ })
+      .getByRole('button', { name: /^Prüfen/ })
+      .click();
+  };
+  await check();
   await expect(page.getByTestId('workspace-check')).toBeHidden();
   await moreOptions(page, 'check');
   await expect(page.getByTestId('workspace-check')).toBeVisible();
@@ -515,15 +524,15 @@ test('depth per area: "Mehr Optionen" unfolds, and the app remembers it', async 
   await expect(page.locator('#job-diagnostics')).toBeHidden();
   await moreOptions(page, 'check', true);
   await expect(page.locator('#job-diagnostics')).toBeVisible();
-  // Another step is still simple; coming back, this one is as it was left.
-  await step('run');
-  await expect(page.getByTestId('run-card')).toBeHidden();
-  await step('check');
+  // Another area is still simple; coming back, this one is as it was left.
+  await step('setup');
+  await expect(page.getByTestId('setup-fixtures')).toBeVisible();
+  await check();
   await expect(page.getByTestId('workspace-check')).toBeVisible();
   await page.reload();
   await page.getByTestId('step-job').click();
   await loadJob(page);
-  await step('check');
+  await check();
   await expect(page.getByTestId('workspace-check')).toBeVisible();
   await expect(page.locator('#job-diagnostics')).toBeVisible();
 });

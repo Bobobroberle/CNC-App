@@ -121,6 +121,7 @@ function StartActions() {
  */
 function RunAction() {
   const go = useUi((s) => s.go);
+  const checking = useUi((s) => s.views.run === 'check');
   const start = useStart();
   const active = useMachine(
     (s) =>
@@ -178,7 +179,9 @@ function RunAction() {
       </Button>
     );
   }
-  if (start.blocked > 0) {
+  // Something blocks: the way to the check – unless the check is what is on screen, then the
+  // locked start below says why.
+  if (start.blocked > 0 && !checking) {
     return (
       <Button size="lg" data-testid="primary-action" onClick={() => go('run', 'check')}>
         {t('ready.toCheck')}

@@ -54,14 +54,16 @@ export function stepStates(input: StepInput): Record<StepId, StepState> {
   if (!program) return { job: 'open', setup: 'open', run: 'open' };
   const of = (step: StepId, skip?: ReadinessId) =>
     worst(items.filter((i) => STEP_OF[i.id] === step && i.id !== skip).map((i) => i.level));
-  // Fräsen holds the check and the job's tools: it shows what blocks or warns there; with nothing
-  // to say it is open (cutting is still to come). A job that runs or is finished is its own state.
+  // Fräsen starts only when nothing blocks – whatever the point, wherever it is dealt with – and it
+  // holds the check and the job's tools: their warnings show here; with nothing to say it is open
+  // (cutting is still to come). A job that runs or is finished is its own state.
+  const blocked = items.some((i) => i.level === 'block' && i.id !== 'busy');
   const check = of('run', 'busy');
   const run: StepState = finished
     ? 'done'
     : running
       ? 'open'
-      : check === 'block'
+      : blocked
         ? 'block'
         : check === 'warn' || tools.unknown > 0
           ? 'warn'
