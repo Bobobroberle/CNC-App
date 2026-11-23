@@ -264,7 +264,7 @@ Das erste Urteil steht unverändert in `00-erstes-urteil-blind.md`. Folgendes ha
 
 ---
 
-## Teil 4 – Änderungsliste (geordnet nach Aufwand und Nutzen, **wartet auf Freigabe**)
+## Teil 4 – Änderungsliste (geordnet nach Aufwand und Nutzen; **Umsetzung erst nach ausdrücklicher Freigabe im Chat – der Betreiber will vorher gefragt werden**)
 
 Aufwandsangaben sind Schätzungen (Vermutung), Bezug: ein Entwickler, der den Code kennt, Tests im Projektstil. **Nichts davon ist begonnen.**
 
@@ -288,6 +288,10 @@ Aufwandsangaben sind Schätzungen (Vermutung), Bezug: ein Entwickler, der den Co
 | 16 | **Strategien:** Wirbelfräsen M, Restmaterial M–L, adaptiv L–XL, 3D XL | mittel–hoch | siehe links | Begriffe klären; 3D nur nach Betreiberentscheidung |
 | 17 | **Aufräumen:** 26 ungenutzte und 137 nur-test-benutzte Exporte prüfen, Zahlformatierer zusammenführen, `store/machine.ts` teilen | niedrig–mittel | M | nach der Oberfläche, nicht vorher |
 | 18 | **Kleinkram:** zwei lose PNGs `apps/control/after-*.png`, Dokumentationsfehler in `01-fakten.md` (`sim/`, `e2e/`, `lowrider-pi.zip`) | niedrig | S | – |
+| 19 | **Design-Kritik 1:** Hauptaktion jedes Panels immer sichtbar (fest angedockt statt unter dem Rand: „Nullpunkt hier setzen“, „Antasten starten“; Schritt „Fein korrigieren“ abgeschnitten) | hoch (kritisch: gefährliche Aktionen versteckt) | S–M | geht in die Bereichs-Oberfläche (Nr. 8) ein |
+| 20 | **Design-Kritik 2:** Bühnenwerkzeuge (12 Knöpfe, unregelmäßig in zwei Zeilen, „Joystick“ allein) je Bereich ein-/ausblenden; ein Weg je Aufgabe (Bühnenknopf, Reiter und Karte „Nullpunkt“ zusammenführen) | hoch | M | Teil der Bereichs-Oberfläche; Suchtabelle/`commands.test.ts` mit anpassen |
+| 21 | **Design-Kritik 3:** Sperrgrund + „Zeigen“ in die Aktionsleiste; sperrende Punkte zuerst in „Prüfen“; erster Tipp nach dem Zeichnen setzt Auswahl zurück *und* das Ziel; gesperrter Haken „Nicht referenziert“ als Hinweiszeile statt Checkbox | mittel | S | – |
+| 22 | **Design-Kritik 4 (Konsistenz/Lesbarkeit):** Violett nur für Antasten (Auswahl neutral), Rot nur für Notfall (✕ der Schritte in Orange/neutral mit Wort), Mindestgröße für Beschriftungen (Statusleiste, Bühnenknöpfe, Legende, Z-Skala) | mittel | S–M | Theme-Test `theme.test.ts` anpassen; Abweichung steht bewusst in `umbau-guide.md`, also **Betreiberentscheidung** |
 
 ---
 
