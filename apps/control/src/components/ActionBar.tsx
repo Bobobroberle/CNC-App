@@ -20,6 +20,7 @@ import { useMachine } from '../store/machine';
 import { requestOpenFile } from '../store/recent';
 import { useReadiness } from '../store/readiness';
 import { useRun } from '../store/run';
+import { useRunView, useRunWaiting } from '../store/runView';
 import { requestStart, useStart } from '../store/start';
 import { useNext, useSteps } from '../store/steps';
 import { useUi, type Place } from '../store/ui';
@@ -55,8 +56,8 @@ export function useNextText(next: Next): { title: string; text: string } {
  * job's tools: when it has warnings the way leads to the check, where they are listed – the cutting
  * view shows only "bereit".
  */
-function enterStep(step: Place, states: ReturnType<typeof useSteps>['states']) {
-  useUi.getState().go(step as never, entryView(step, states) as never);
+function enterStep(step: Place, states: ReturnType<typeof useSteps>['states'], kind: Next['kind']) {
+  useUi.getState().go(step as never, entryView(step, states, kind) as never);
 }
 
 /** The action of the one recommendation: a way somewhere, or – where the machine moves – a hold. */
@@ -107,7 +108,7 @@ function NextAction({ next }: { next: Next }) {
         <Button
           size="lg"
           data-testid="primary-action"
-          onClick={() => enterStep(next.step ?? 'job', states)}
+          onClick={() => enterStep(next.step ?? 'job', states, next.kind)}
         >
           {t('nav.next', { step })}
           <ArrowRightIcon aria-hidden="true" />
@@ -140,7 +141,7 @@ function StartActions() {
  */
 function RunAction() {
   const go = useUi((s) => s.go);
-  const checking = useUi((s) => s.views.run === 'check');
+  const checking = useRunView() === 'check';
   const start = useStart();
   const active = useMachine(
     (s) =>
@@ -150,11 +151,13 @@ function RunAction() {
       s.status?.state === 'Hold',
   );
   const holding = useMachine((s) => s.status?.state.startsWith('Hold') === true);
+  // A stream waiting at a tool change or a single step: its field is above, and the pause has
+  // nothing to hold.
   const streamWaits = useMachine(
     (s) => (s.stream?.toolChange ?? null) !== null || (s.stream?.stepAt ?? null) !== null,
   );
   // Between two parts of a job of several tools the cutting view names the tool to change.
-  const waiting = streamWaits || start?.phase === 'between';
+  const waiting = useRunWaiting();
   const summary = useRun((s) => s.summary);
   const { feedHold, cycleStart } = useMachine.getState();
   // The check offers no start and no way on: between parts the cutting view says which tool to
@@ -171,7 +174,9 @@ function RunAction() {
         </span>
       );
     }
-    if (waiting) {
+    // The machine moves (on to the change position, a measuring move) between two parts: the
+    // pause is there for it, whatever the job waits for afterwards.
+    if (streamWaits) {
       return (
         <Reason reason={t('run5.waitingInPanel')}>
           <Button size="lg" data-testid="primary-action" disabled>
@@ -203,7 +208,9 @@ function RunAction() {
       </Button>
     );
   }
-  if (start.blocked > 0) {
+  // Between two parts the cutting view stays (the check is not shown while a job waits): the hold
+  // below says what stands against the start instead of leading to a list that cannot open.
+  if (start.blocked > 0 && !waiting) {
     return (
       <Button size="lg" data-testid="primary-action" onClick={() => go('run', 'check')}>
         {t('ready.toCheck')}

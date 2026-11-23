@@ -16,7 +16,7 @@ import { useCam } from './cam';
 import { showTable, useJob } from './job';
 import { useStageTools } from './tools';
 import { openCam } from './camPlace';
-import { placeHasStage, shellParts, useUi } from './ui';
+import { placeHasStage, shellParts, useUi, type Place, type StageView } from './ui';
 import { useWorkshop } from './workshop';
 
 const RECENT_KEY = 'lowrider-control.find-recent';
@@ -72,6 +72,24 @@ const VIEW: Record<ViewAction, () => void> = {
   shortcuts: () => useFind.getState().show('keys'),
 };
 
+/** The stage views the search and the keys T · K · D choose. */
+const STAGE_VIEW: Partial<Record<ViewAction, StageView>> = {
+  stageTable: 'table',
+  stageCamera: 'camera',
+  stage3d: '3d',
+};
+
+/**
+ * Does the key of a command act in this place? The keys of the stage's views belong to the places
+ * that show the stage's tools: in the drawing workspace a stray letter leads nowhere and sets
+ * nothing. (The same entries of the search do lead out – the operator chose them by name.)
+ */
+export function keyActs(id: string, place: Place): boolean {
+  const command = commandById(id);
+  const view = command?.kind === 'view' && command.action ? STAGE_VIEW[command.action] : undefined;
+  return view === undefined || shellParts(place).stageTools;
+}
+
 /** Goes to where a command lives and returns what to show there. */
 function goTo(command: Command): readonly string[] {
   const ui = useUi.getState();
@@ -97,6 +115,8 @@ function goTo(command: Command): readonly string[] {
     const toolless = !shellParts(place).stageTools && (command.on === 'stage' || command.tool);
     if (!placeHasStage(place, views) || toolless) ui.go('setup');
   }
+  // The action bar, with the jog button, is not in the drawing workspace either.
+  if (command.on === 'bar' && !shellParts(useUi.getState().place).actionBar) ui.go('setup');
   if (command.tool) {
     showTable();
     useStageTools.getState().select(command.tool);
@@ -117,6 +137,13 @@ export function runCommand(id: string): void {
   saveJson(browserStorage, RECENT_KEY, recent);
   useFind.setState({ open: null, recent });
   if (command.kind === 'view') {
+    // The drawing workspace shows the table and no views to choose from: a view of the stage is
+    // looked at in Einrichten, which keeps it as its own from then on.
+    const wanted = STAGE_VIEW[command.action!];
+    if (wanted && !shellParts(useUi.getState().place).stageTools) {
+      useUi.getState().go('setup');
+      useUi.getState().setStageView('setup', wanted);
+    }
     VIEW[command.action!]();
     reveal(command.anchor);
   } else {
@@ -155,6 +182,7 @@ export function startFind(): () => void {
       return;
     }
     if (open !== null || !keysFree(e.target, document)) return;
+    if (!keyActs(shortcut.runs!, useUi.getState().place)) return;
     e.preventDefault();
     runCommand(shortcut.runs!);
   };

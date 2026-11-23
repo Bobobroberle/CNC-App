@@ -1,3 +1,4 @@
+import type { NextKind } from './next';
 import type { ReadinessId, ReadinessItem, ReadinessLevel } from './readiness';
 
 /**
@@ -78,11 +79,16 @@ export function openStep(states: Record<StepId, StepState>): StepId {
 
 /**
  * The view a way into an area lands on (the recommendation of the start screen): Fräsen holds the
- * check and the job's tools – with warnings the way leads to the check, where they are listed; the
- * cutting view shows only "bereit". Everything else opens on its own first view.
+ * check and the job's tools – going on with a program, with warnings, leads to the check, where they
+ * are listed; the cutting view shows only "bereit". A job that runs, is paused or waits for a tool
+ * change is in the cutting view, whatever the list says. Everything else opens on its own first view.
  */
-export function entryView(place: string, states: Record<StepId, StepState>): 'check' | undefined {
-  return place === 'run' && states.run === 'warn' ? 'check' : undefined;
+export function entryView(
+  place: string,
+  states: Record<StepId, StepState>,
+  kind: NextKind,
+): 'check' | undefined {
+  return place === 'run' && kind === 'continue' && states.run === 'warn' ? 'check' : undefined;
 }
 
 /** How many points of the list keep the start locked, and how many are worth a look, per step. */

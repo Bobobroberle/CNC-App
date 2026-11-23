@@ -525,6 +525,13 @@
   min-height: 0;
 }
 
+/* A question the job asks, under the picture while the panel is away ("Großbild"). */
+.stage-prompt {
+  flex: none;
+  max-height: 55%;
+  overflow-y: auto;
+}
+
 .stage-wrap {
   position: relative;
   flex: 1;

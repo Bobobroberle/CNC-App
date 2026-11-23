@@ -103,12 +103,18 @@ describe('the states of the three areas', () => {
   it('lands on the check where Fräsen has warnings, on the first view of everything else', () => {
     const states = (run: 'open' | 'warn' | 'block' | 'done') =>
       ({ job: 'done', setup: 'done', run }) as const;
-    expect(entryView('run', states('warn'))).toBe('check');
+    expect(entryView('run', states('warn'), 'continue')).toBe('check');
     for (const run of ['open', 'block', 'done'] as const) {
-      expect(entryView('run', states(run))).toBeUndefined();
+      expect(entryView('run', states(run), 'continue')).toBeUndefined();
     }
-    expect(entryView('setup', { job: 'done', setup: 'warn', run: 'warn' })).toBeUndefined();
-    expect(entryView('job', states('warn'))).toBeUndefined();
+    expect(
+      entryView('setup', { job: 'done', setup: 'warn', run: 'warn' }, 'continue'),
+    ).toBeUndefined();
+    expect(entryView('job', states('warn'), 'continue')).toBeUndefined();
+    // a job that runs, is paused or waits for the tool change is in the cutting view, warnings or not
+    for (const kind of ['toolChange', 'running', 'paused', 'resume'] as const) {
+      expect(entryView('run', states('warn'), kind), kind).toBeUndefined();
+    }
   });
 });
 

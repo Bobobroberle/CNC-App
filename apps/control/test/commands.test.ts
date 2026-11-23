@@ -23,7 +23,7 @@ import {
   type Situation,
 } from '../src/lib/commands';
 import { useCam } from '../src/store/cam';
-import { runCommand, useFind } from '../src/store/find';
+import { keyActs, runCommand, useFind } from '../src/store/find';
 import { useJob } from '../src/store/job';
 import { useMachine } from '../src/store/machine';
 import { useStageTools } from '../src/store/tools';
@@ -352,6 +352,55 @@ describe('what the search may do', () => {
       expect(useUi.getState().jogOpen, id).toBe(id === 'jog' || id === 'homing');
     }
     useCam.getState().close();
+  });
+
+  it('leaves nothing silent in the drawing workspace: every entry leaves it or is its own', () => {
+    // What the drawing workspace itself shows: its own entries, the row of the tabs and the status
+    // bar, and the three things of the picture that stay (Einpassen, Großbild, the key sheet).
+    const stays = (c: (typeof COMMANDS)[number]) =>
+      c.place === 'cam' ||
+      c.on === 'nav' ||
+      c.on === 'top' ||
+      (c.kind === 'view' && ['fit', 'wide', 'shortcuts'].includes(c.action ?? ''));
+    const silent: string[] = [];
+    for (const c of COMMANDS) {
+      useUi.setState({ place: 'start', jogOpen: false, panelHidden: false });
+      useJob.getState().setView('table');
+      runCommand('shapeRect');
+      useFind.getState().close();
+      expect(useUi.getState().place).toBe('cam');
+      runCommand(c.id);
+      if (useUi.getState().place === 'cam' && !stays(c)) silent.push(c.id);
+      useFind.getState().close();
+    }
+    useUi.setState({ panelHidden: false });
+    useCam.getState().close();
+    expect(silent).toEqual([]);
+  });
+
+  it('takes the stage views from the drawing workspace to a place that has them', () => {
+    for (const [id, view] of [
+      ['stageCamera', 'camera'],
+      ['stage3d', '3d'],
+      ['stageTable', 'table'],
+    ] as const) {
+      runCommand('shapeRect');
+      runCommand(id);
+      expect(useUi.getState().place, id).toBe('setup');
+      expect(useUi.getState().stageViews.setup, id).toBe(view);
+      expect(useJob.getState().view, id).toBe(view);
+      useUi.setState({ stageViews: {} });
+    }
+    useCam.getState().close();
+  });
+
+  it('lets the keys of the stage views rest where the stage has no tools', () => {
+    for (const id of ['stageTable', 'stageCamera', 'stage3d']) {
+      expect(keyActs(id, 'cam'), id).toBe(false);
+      for (const place of PLACES.filter((p) => p !== 'cam')) expect(keyActs(id, place)).toBe(true);
+    }
+    // the others keep working everywhere
+    for (const id of ['fit', 'wide']) expect(keyActs(id, 'cam'), id).toBe(true);
   });
 
   it('lands where a place comes from while it is not there yet', () => {

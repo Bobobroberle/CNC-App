@@ -5,6 +5,7 @@ import { useJobTools } from './jobTools';
 import { useMachine } from './machine';
 import { useReadiness } from './readiness';
 import { useRun } from './run';
+import { useBetweenParts } from './runView';
 import { useTrack } from './track';
 import { useWorkshop } from './workshop';
 
@@ -63,7 +64,8 @@ export function useNext(): Next {
       s.status?.state.startsWith('Hold') === true,
   );
   const toolChange = useMachine((s) => (s.stream?.toolChange ?? null) !== null);
-  const between = useRun((s) => s.phase === 'between');
+  // Only the job that is still loaded waits between its parts (the start asks the same).
+  const between = useBetweenParts();
   const program = useJob((s) => s.fileName);
   const interrupted = useInterrupted();
   const { open } = useSteps();

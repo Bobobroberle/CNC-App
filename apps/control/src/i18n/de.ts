@@ -2374,9 +2374,9 @@ export const de = {
         'Die zwei gefundenen Löcher liegen {error} mm anders auseinander als gebohrt – vermutlich ist eines ein anderes Loch. Beide noch einmal suchen.',
     },
     located:
-      'Teil gefunden: {angle}° gedreht, der Lochabstand passt auf {error} mm. Die Rückseite liegt jetzt richtig – weiter mit Prüfen und Fertigen.',
+      'Teil gefunden: {angle}° gedreht, der Lochabstand passt auf {error} mm. Die Rückseite liegt jetzt richtig – weiter mit Prüfen und Fräsen.',
     onPins:
-      'Rückseite geladen, der Nullpunkt ist der der Vorderseite. Weiter mit Prüfen und Fertigen.',
+      'Rückseite geladen, der Nullpunkt ist der der Vorderseite. Weiter mit Prüfen und Fräsen.',
     otherJob: 'Geladen ist gerade ein anderes Programm, nicht die Rückseite.',
     findAgain: 'Teil neu suchen',
     backToTurn: 'Zurück zum Wenden',
@@ -2515,7 +2515,7 @@ export const de = {
       y: 'in Richtung −Y, auf dem Tisch-Bild nach unten',
     },
     cutHint:
-      'Abschnitt {n} von {total} fräst das Teil von {axis} {from} bis {to} mm. Wie jeden Job: Prüfen, dann Fertigen.',
+      'Abschnitt {n} von {total} fräst das Teil von {axis} {from} bis {to} mm. Wie jeden Job: Prüfen, dann Fräsen.',
     nothing: 'In diesem Abschnitt gibt es nichts zu fräsen – er kann als gefräst abgehakt werden.',
     seamNone:
       'Naht bei {axis} {at} mm (Strichpunktlinie auf dem Tisch-Bild): Dort wird kein Schnitt geteilt.',
@@ -2802,7 +2802,7 @@ export const de = {
     },
     depth: 'Tiefe (mm)',
     cutHint:
-      'Groß wählen (z. B. 500 × 400 auf einer planen Platte), Nullpunkt vorne links. Läuft wie jeder Job: Prüfen, Fertigen.',
+      'Groß wählen (z. B. 500 × 400 auf einer planen Platte), Nullpunkt vorne links. Läuft wie jeder Job: Prüfen, Fräsen.',
     cut: 'Als Job laden',
     loaded: 'Prüfmuster {name} geladen.',
     step2: '2. Messen und eintragen',

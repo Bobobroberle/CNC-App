@@ -7,6 +7,7 @@ import {
   installFakeFluidNC,
   moreOptions,
   openApp,
+  restingTable,
   sent,
   stageTool,
 } from './helpers';
@@ -615,13 +616,42 @@ test('the drawing workspace shows only the CAM and the status bar – and nothin
   await page.getByTestId('step-setup').click();
   await expect(page.getByTestId('tool-panel')).not.toHaveClass(/has-result/);
 
-  // The search leads to Einrichten for what lives there: the jog panel, the tap tools.
+  // The search leads to Einrichten for what lives there: the jog panel, the tap tools, the views
+  // of the stage and the jog button of the action bar – nothing it offers is silent here.
+  for (const [query, want] of [
+    ['Joggen', 'jog-panel'],
+    ['Kamera', 'tool-strip'],
+    ['manuell', 'jog-toggle'],
+  ] as const) {
+    await page.getByTestId('step-cam').click();
+    await expect(page.getByTestId('cam-draw')).toBeVisible();
+    await page.keyboard.press('Control+k');
+    await page.getByTestId('find-input').fill(query);
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('step-setup'), query).toHaveAttribute('aria-current', 'step');
+    await expect(page.getByTestId(want), query).toBeVisible();
+  }
+});
+
+test('Folgen does not follow the tool into the drawing workspace, which has no switch for it', async ({
+  page,
+}) => {
+  await ready(page);
   await page.getByTestId('step-cam').click();
-  await page.keyboard.press('Control+k');
-  await page.getByTestId('find-input').fill('Joggen');
-  await page.keyboard.press('Enter');
-  await expect(page.getByTestId('step-setup')).toHaveAttribute('aria-current', 'step');
-  await expect(page.getByTestId('jog-panel')).toBeVisible();
+  await expect(page.getByTestId('cam-draw')).toBeVisible();
+  const fitted = await restingTable(page);
+  // On in Einrichten …
+  await page.getByTestId('step-setup').click();
+  const follow = page.getByRole('button', { name: 'Folgen' });
+  await follow.click();
+  await expect(follow).toHaveAttribute('aria-pressed', 'true');
+  // … the table of the drawing stays where the drawing is.
+  await page.getByTestId('step-cam').click();
+  await expect(page.getByTestId('cam-draw')).toBeVisible();
+  const now = await restingTable(page);
+  expect(now.scale).toBeCloseTo(fitted.scale, 3);
+  expect(now.originX).toBeCloseTo(fitted.originX, 0);
+  expect(now.originY).toBeCloseTo(fitted.originY, 0);
 });
 
 test('a drawing is worked on while a job runs: the program that runs stays, the hint says why', async ({

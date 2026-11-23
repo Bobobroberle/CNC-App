@@ -5,6 +5,7 @@ import { useCam } from '../../store/cam';
 import { useJob } from '../../store/job';
 import { useMachine } from '../../store/machine';
 import { useStart } from '../../store/start';
+import { useRunView, useRunWaiting } from '../../store/runView';
 import { useJobTools } from '../../store/steps';
 import { useUi } from '../../store/ui';
 import { Button } from '../../ui/button';
@@ -224,23 +225,19 @@ export function SetupStep() {
  */
 export function RunStep() {
   const analysis = useJob((s) => s.analysis);
-  // While a job waits for the operator (a tool change, a single step, between two parts of a job
-  // of several tools) the cutting view holds the field to go on – and the way to give the job up:
-  // the check is not shown then.
-  const streamWaits = useMachine(
-    (s) => (s.stream?.toolChange ?? null) !== null || (s.stream?.stepAt ?? null) !== null,
-  );
-  const between = useStart()?.phase === 'between';
-  const waiting = streamWaits || between;
-  const chosen = useUi((s) => s.views.run);
-  const view = waiting ? 'cut' : chosen;
+  // While a job waits for the operator the cutting view holds the field to go on (`useRunView`).
+  const view = useRunView();
+  const waiting = useRunWaiting();
   const setView = useUi((s) => s.setView);
   return (
     <div className="flex flex-col gap-3">
       <SubNav
         label="nav.views.run.label"
         value={view}
-        onChange={(v) => setView('run', v)}
+        // A choice made while a job waits would only come true when it goes on: nothing is stored.
+        onChange={(v) => {
+          if (!waiting) setView('run', v);
+        }}
         options={[
           { id: 'cut', label: 'nav.views.run.cut' },
           { id: 'check', label: 'nav.views.run.check' },

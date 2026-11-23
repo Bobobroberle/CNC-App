@@ -26,10 +26,12 @@ const MODES: { mode: ViewMode; label: MessageKey }[] = [
  * material removal. One row of tap tools serves table and camera alike; the
  * corner inset always shows the other of the two and swaps on a tap.
  */
-export function Stage() {
+export function Stage({ monitor = false }: { monitor?: boolean }) {
   // The drawing workspace shows the table with the drawing and nothing else: the view is the
   // place's, not whatever the keys or the search set last, and none of the stage's tools show.
-  const tools = useUi((s) => shellParts(s.place).stageTools);
+  // The phone's monitor has no row of tabs to leave the drawing workspace by: it keeps the choice
+  // of the view whatever place the app was left in.
+  const tools = useUi((s) => monitor || shellParts(s.place).stageTools);
   const chosen = useJob((s) => s.view);
   const view: ViewMode = tools ? chosen : 'table';
   const showView = useJob((s) => s.setView);
@@ -131,7 +133,9 @@ export function Stage() {
         <div
           className={`stage-canvas${stick && view !== '3d' ? ' with-stick' : ''}${cameraOn && view !== '3d' ? ' with-inset' : ''}`}
         >
-          {view === 'table' ? <TableView follow={follow} onPan={() => setFollow(false)} /> : null}
+          {view === 'table' ? (
+            <TableView follow={follow && tools} onPan={() => setFollow(false)} />
+          ) : null}
           {view === '3d' ? <Stage3D /> : null}
           {view === 'camera' ? <CameraView /> : null}
           {/* One inset, always the other view: a tap swaps table and camera. */}

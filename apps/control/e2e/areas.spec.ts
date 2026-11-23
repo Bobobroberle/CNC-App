@@ -668,6 +668,21 @@ test.describe('the phone (< 600 px)', () => {
     await page.getByTestId('monitor-message').click();
     await expect(centre(page)).toContainText('Befehl abgelehnt');
   });
+
+  test('a phone left in the drawing workspace still chooses the view of its picture', async ({
+    page,
+  }) => {
+    await installFakeFluidNC(page);
+    // Opened wide, the app is in the drawing workspace; turned or narrowed to a phone it has no row
+    // of tabs to leave it by – so the monitor keeps its choice of view.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openApp(page);
+    await page.getByTestId('step-cam').click();
+    await expect(page.getByTestId('cam-draw')).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 780 });
+    await expect(page.getByTestId('monitor')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Ansicht der Bühne' })).toBeVisible();
+  });
 });
 
 test.describe('the row of tabs', () => {

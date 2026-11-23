@@ -29,6 +29,7 @@ import { useJob } from './store/job';
 import { useCamera } from './store/camera';
 import { cameraCalibrated } from './store/photomap';
 import { openJobFiles } from './store/recent';
+import { useRunView } from './store/runView';
 import {
   hasPicture,
   isStep,
@@ -168,7 +169,7 @@ export function App() {
   }, [place]);
 
   const stageView = useJob((s) => s.view);
-  const checking = useUi((s) => s.views.run === 'check');
+  const checking = useRunView() === 'check';
   const start = place === 'start';
   // The side areas that are lists get the whole width; the jog panel brings the picture back.
   const wide = useUi((s) => !start && !s.jogOpen && !placeHasStage(place, s.views));
@@ -207,6 +208,13 @@ export function App() {
                   <Stage />
                   <AlarmBanner />
                 </div>
+                {/* A tool change the job waits for is asked wherever the panel is: with "Großbild"
+                    it lies under the picture instead of going missing with the panel. */}
+                {!showPanel ? (
+                  <div className="stage-prompt">
+                    <ToolChangeCard />
+                  </div>
+                ) : null}
                 {/* ④ Prüfen: the simulation's timeline lies under its picture (3D). On the
                     table or the camera picture the room belongs to the tap tools; the
                     timeline is in the panel then ("Mehr Optionen"). */}

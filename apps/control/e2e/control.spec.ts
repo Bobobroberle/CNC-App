@@ -427,10 +427,23 @@ test('runs a real job from the SD card, one part per tool', async ({ page }) => 
   const change = page.getByTestId('tool-change');
   await expect(change).toContainText('T2');
   await expect.poll(() => sent(page)).toEqual(expect.arrayContaining(['M5', 'G91 G0 Z20']));
+  // The job waits: the cutting view stays – a tap on the check changes nothing and stores nothing
+  // for later, the readiness list is not shown, and the bar offers no way to a list that cannot open.
+  await page.locator('.subnav').getByRole('button', { name: 'Prüfen', exact: true }).click();
+  await expect(change).toBeVisible();
+  await expect(page.getByTestId('readiness')).toHaveCount(0);
+  await expect(page.getByTestId('primary-action')).not.toContainText('Prüfen');
   await hold(page, /Teil 2\/2 starten \(T2\)/, 1300);
   await expect
     .poll(() => sent(page))
     .toContain('$SD/Run=/fusion360-1003-adaptiv-kontur-parallel_2of2_T2.nc');
+  // Part 2 cuts: the figures and the overrides – not the check the tap above asked for.
+  await page.evaluate(() => {
+    (window as unknown as { __status: string }).__status =
+      '<Run|MPos:80.000,-3.644,-2.000|FS:400,0|SD:5.0,/sd/fusion360-1003-adaptiv-kontur-parallel_2of2_T2.nc>';
+  });
+  await expect(page.getByTestId('running-job')).toBeVisible();
+  await expect(page.getByTestId('readiness')).toHaveCount(0);
 
   // Stop: hold first, reset once the hold is complete.
   await page.evaluate(() => {
@@ -579,6 +592,14 @@ test('streams a job and holds at each tool change', async ({ page }) => {
   await expect(change).toContainText('Schaftfräser 8 mm');
   await expect.poll(() => sent(page)).toEqual(expect.arrayContaining(['G21G90G54', 'M5']));
   expect(await sent(page)).not.toContain('T1M6');
+
+  // "Großbild" puts the panel away – the question the job asks stays, under the picture.
+  await page.getByTestId('stage-wide').click();
+  await expect(page.locator('.panel-body')).toHaveCount(0);
+  await expect(change).toBeVisible();
+  await expect(change).toContainText('T1');
+  await page.getByTestId('stage-wide').click();
+  await expect(change).toBeVisible();
 
   await hold(page, /Job fortsetzen/);
   await expect(change).toContainText('T2');

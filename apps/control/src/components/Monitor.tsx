@@ -141,7 +141,7 @@ export function Monitor() {
         </button>
       ) : null}
       <div className="stage-wrap">
-        <Stage />
+        <Stage monitor />
         <AlarmBanner />
       </div>
       <p className="text-muted-foreground text-sm">{t('monitor.hint')}</p>
