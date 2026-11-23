@@ -50,6 +50,17 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 | 27 | Tasten und Suche für die Bühnenansichten im CAM | **Die Tasten T · K · D ruhen im CAM** (ein verirrter Buchstabe führt nirgends hin und setzt nichts); die **Einträge** „Tisch/Kamera/3D“ und „Jog / Manuell“ der Suche führen von dort nach Einrichten, wie die Werkzeug-Einträge (Festlegung bei der Umsetzung, bitte prüfen) |
 | 28 | Zeichnung nach einer reinen Bewegung der Steuerung | Meldet FluidNC Lauf oder Halt, ohne dass die App einen Job kennt (Seite neu geladen, Verbindung von Hand neu aufgebaut, eigene Fahrt der App), gilt das als „Job unterwegs“: das Programm wird nicht getauscht. **Endet nur eine solche Bewegung**, legt sich eine zurückgebliebene Zeichnung sofort auf den Tisch; **endet ein Job**, bleibt sein Programm samt Zusammenfassung, **solange die Zeichnung vorn liegt**, bis der Tipp es ersetzt (Festlegung bei der Umsetzung, bitte prüfen) |
 | 29 | Zwischen zwei Teilen und die Prüfen-Ansicht | Wartet ein Job (Werkzeugwechsel, Einzelschritt, zwischen zwei Teilen), zeigen Panel, Aktionsleiste **und** Bühne die Fräsen-Ansicht (ein Selektor, `useRunView`); ein Tipp auf „Prüfen“ speichert dann nichts, und die Leiste bietet keinen toten „Prüfen“-Knopf an |
+| 30 | Nachtmodus (Betreiber schläft) | **Bei einer Entscheidung nur für den Betreiber: sichere Empfehlung nehmen, hier als „Festlegung, bitte prüfen“ notieren, weiterarbeiten.** Nie ein PR, nie Force-Push, nur dieser Branch, nur grüne Stände (alle drei E2E-Projekte und `pnpm check`) |
+| 31 | Stufe 3 | **Freigegeben, komplett mit Prüfung:** Advisor-Plan, Bau in Teilen, je Teil eigener Commit, Prüf-Durchgang mit Gegenprüfern |
+| 32 | Start im Werkzeugwechsel-Feld (zwischen zwei Teilen) | **Gleiche Sperre und gleiche Bestätigung wie die Leiste** (gesperrt bei blockierender Bereitschaftsliste, mit Grund; Start über `requestStart`) |
+| 33 | Programm unter einem laufenden Job tauschen (Datei ablegen, Zuletzt verwendet, Beispiel, Vorderseite laden, Ausrichten übernehmen …) | **Zentrale Sperre in `store/job.ts`, Grund zeigen;** nichts geht verloren, die Datei kann nach dem Job geöffnet werden |
+| 34 | Veraltetes `stepAt` nach Abbruch | **Erst Test, bei Bestätigung beheben** (wie `toolChange` leeren) |
+| 35 | Absolute Schritt-Jog-Ziele aus altem Positionswert | **Vor dem Schritt auf frischen Statusbericht warten (`settled()`)**; im Simulator getestet, an der Maschine noch zu prüfen |
+| 36 | Lauf im CAM | **Bleibt:** im CAM nur CAM und Statusleiste, keine Laufleiste |
+| 37 | Testaufbau für `start.ts:108` | **React Testing Library + jsdom nur als Dev-Abhängigkeit;** scheitert die Installation am Netz, wird der Punkt übersprungen |
+| 38 | Änderungsliste nach Stufe 3 | **Alle vier Gruppen, in dieser Reihenfolge:** Schnittwerte & Lauf-Richtung · Merkpunkte & Werkzeugwechsel-Knopf · Projekte sichern · Kleinkram (Messprotokoll, Update-Knopf, Ausblend-Schalter, Farben); bei offenen Einzelheiten die einfachste, sichere Fassung |
+| 39 | README | **Komplett auf den Stand der sechs Bereiche umschreiben** (nur Text; Abgleich mit der Oberfläche) |
+| 40 | Festlegungen 27–29 | **Bestätigt** |
 
 ## Abnahme Stufe 1 (nach Teil 3)
 - **Tests:** alle drei E2E-Projekte grün (272 bestanden, 1 übersprungen; `usability.spec.ts` unverändert grün), `pnpm check` grün (control 579 Tests).
