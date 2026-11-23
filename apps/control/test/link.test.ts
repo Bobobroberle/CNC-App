@@ -227,6 +227,20 @@ describe('coming back by itself', () => {
     expect(useMachine.getState().link.lostDuringJob).toBe(false);
   });
 
+  it('a streamed job whose connection drops is the critical message, too', async () => {
+    useMachine.getState().setUrl('192.168.0.200');
+    ScriptedSocket.scripts = ['answer'];
+    await useMachine.getState().connect();
+    // FluidNC never answers the lines: the job is still running when the link drops.
+    const socket = ScriptedSocket.last!;
+    socket.send = (data) => void socket.sent.push(String(data));
+    expect(useMachine.getState().streamJob('t.nc', 'G1 X1\nG1 X2')).toBe(true);
+    expect(useMachine.getState().stream?.result).toBe('running');
+    socket.drop(1006, '');
+    expect(useMachine.getState().lostInJob).toMatchObject({ name: 't.nc', sd: false });
+    expect(useMachine.getState().stream?.result).toBe('aborted');
+  });
+
   it('"Verbinden abbrechen" ends a try that waits for FluidNC – quietly, without a retry', async () => {
     useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
     ScriptedSocket.scripts = ['silent'];

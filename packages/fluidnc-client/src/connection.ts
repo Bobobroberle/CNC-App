@@ -358,10 +358,12 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
     }
     this.socket = null;
     this.partial = '';
+    // Told before the streamer is aborted: a listener that asks "was a stream still running?"
+    // (the app's critical "lost in a job" message) must see it running.
+    if (this.connectionState !== 'disconnected') this.setState('disconnected');
     this.streamer?.abort();
     this.rejectPending(reason);
     this.tracker.reset();
-    if (this.connectionState !== 'disconnected') this.setState('disconnected');
   }
 
   private rejectPending(reason: string) {
