@@ -151,12 +151,10 @@ function RunAction() {
       s.status?.state === 'Hold',
   );
   const holding = useMachine((s) => s.status?.state.startsWith('Hold') === true);
-  // A stream waiting at a tool change or a single step: its field is above, and the pause has
-  // nothing to hold.
-  const streamWaits = useMachine(
-    (s) => (s.stream?.toolChange ?? null) !== null || (s.stream?.stepAt ?? null) !== null,
-  );
-  // Between two parts of a job of several tools the cutting view names the tool to change.
+  // A job waits for the operator (a tool change, a single step, between two parts): the field to go
+  // on is in the panel – or under the picture – and the pause has nothing to hold while the machine
+  // rests. Where the machine moves for it (to the change position, a measuring move) it is there.
+  const moving = useMachine((s) => s.status?.state === 'Run');
   const waiting = useRunWaiting();
   const summary = useRun((s) => s.summary);
   const { feedHold, cycleStart } = useMachine.getState();
@@ -174,9 +172,7 @@ function RunAction() {
         </span>
       );
     }
-    // The machine moves (on to the change position, a measuring move) between two parts: the
-    // pause is there for it, whatever the job waits for afterwards.
-    if (streamWaits) {
+    if (waiting && !moving) {
       return (
         <Reason reason={t('run5.waitingInPanel')}>
           <Button size="lg" data-testid="primary-action" disabled>

@@ -86,7 +86,7 @@ Tasten am Laptop (nie, solange in ein Feld getippt wird):
 | `Esc`             | Laufenden Job abbrechen – **mit Rückfrage**                                |
 | `Strg/Cmd+K`, `/` | Schnellsuche                                                               |
 | `?`               | Übersicht aller Tastenkürzel                                               |
-| `T` · `K` · `D`   | Bühne: Tisch · Kamera · 3D                                                 |
+| `T` · `K` · `D`   | Bühne: Tisch · Kamera · 3D (im CAM ruhen sie; die Suche führt von dort hin) |
 | `E`               | Einpassen                                                                  |
 | Pfeile, `Bild↑/↓` | Jog X/Y und Z – nur bei offenem Jog-Feld                                   |
 | `1` … `5`         | Jog-Schrittweite 0,01 · 0,1 · 1 · 10 mm · Dauerlauf – bei offenem Jog-Feld |
@@ -214,9 +214,11 @@ zeigt die App keine Tastenkürzel an.
      - Liegt auf dem Tisch gerade ein anderes Programm (etwa das ausgerichtete der Demo), sagt das
        ein Hinweis; die Zeichnung bleibt trotzdem im CAM zu sehen und zu bearbeiten, aber das fremde
        Programm ersetzt nie eine Änderung, sondern erst ein Tipp auf _Zeichnung auf den Tisch legen_.
-       Läuft gerade ein Job (oder wartet er zwischen zwei Teilen), ändert die Zeichnung sein Programm
-       nie; ein Hinweis nennt dann den Stand, und nach dem Job bleibt das fertige Programm samt
-       Zusammenfassung geladen, bis dieser Tipp es ersetzt.
+       Läuft gerade ein Job (auch einer, den nur die Steuerung meldet, oder einer, der zwischen zwei
+       Teilen wartet), ändert die Zeichnung sein Programm nie; ein Hinweis nennt dann den Stand. Hat
+       sich die Zeichnung während des Jobs geändert, bleibt nach dem Job das fertige Programm samt
+       Zusammenfassung geladen, bis dieser Tipp es ersetzt; sonst folgt das Programm den Änderungen
+       wie gewohnt. Eigene Fahrten der App (Antasten, Messen, Hinfahren) sind kein Job.
   2. _Wie wird gefräst?_ – je Teil _Außen_, _Innen_, _Linie gravieren_, _Tasche_ oder _Bohren_
      (passend: Peck, größer: Helix), eine eigene Tiefe, Haltestege und – wo es Innenecken gibt –
      _Ecken frei_ (Dogbone diagonal oder T-Bone längs, damit ein eckiges Teil hineinpasst). Darunter

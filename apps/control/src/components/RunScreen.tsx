@@ -9,7 +9,7 @@ import { useMachine } from '../store/machine';
 import { useJobProgress } from '../store/progress';
 import { useRecorder } from '../store/recorder';
 import { useRun } from '../store/run';
-import { useStart, type Start } from '../store/start';
+import { requestStart, useStart, type Start } from '../store/start';
 import { useTrack } from '../store/track';
 import { useUi } from '../store/ui';
 import { Alert } from '../ui/alert';
@@ -346,6 +346,35 @@ function RunDone() {
 }
 
 /**
+ * Between two parts of a job of several tools: the tool to change, measuring it, the way on and the
+ * way to give the job up. Going on is the start of the next part: locked while the readiness list
+ * blocks it, and through the same confirmations as the action bar's hold (`requestStart`). Shown in
+ * the panel of Fräsen – and under the picture while the panel is away ("Großbild").
+ */
+export function BetweenParts() {
+  const start = useStart();
+  const active = useMachine(
+    (s) =>
+      s.fileJob !== null ||
+      s.stream?.result === 'running' ||
+      s.status?.state === 'Run' ||
+      s.status?.state === 'Hold',
+  );
+  if (active || !start || start.phase !== 'between') return null;
+  return (
+    <ToolChangePanel
+      tool={start.part.tool}
+      continueLabel={start.label}
+      onContinue={async () => requestStart(start)}
+      continueReason={start.reason}
+      abortLabel={t('runPanel.abortParts')}
+      onAbort={useRun.getState().reset}
+      lengthOffset={!/G49/i.test(start.part.text)}
+    />
+  );
+}
+
+/**
  * ⑤ Fräsen – is it going well? Before the start what will run and what
  * stands in the way, while it runs the figures and the overrides, at the end
  * the summary. The job goes onto the SD card and starts there (the default);
@@ -371,18 +400,8 @@ export function RunScreen() {
 
   let main = null;
   if (active) main = <RunLive />;
-  else if (start && start.phase === 'between') {
-    main = (
-      <ToolChangePanel
-        tool={start.part.tool}
-        continueLabel={start.label}
-        onContinue={() => run.startPart(start.index)}
-        abortLabel={t('runPanel.abortParts')}
-        onAbort={run.reset}
-        lengthOffset={!/G49/i.test(start.part.text)}
-      />
-    );
-  } else if (start && start.phase === 'done' && run.summary) main = <RunDone />;
+  else if (start && start.phase === 'between') main = <BetweenParts />;
+  else if (start && start.phase === 'done' && run.summary) main = <RunDone />;
   else if (start) main = <RunReady start={start} />;
 
   return (

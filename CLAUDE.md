@@ -50,7 +50,10 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   only where an area has one: Job without a program ("G-Code öffnen"), Fräsen (the start, pause, going on; "Prüfen"
   while the start is blocked; **nothing in the Prüfen view** while no job runs or waits; a job that *waits* – a tool change, a single
   step, between two parts – forces the cutting view for everything that depends on the view (panel, action bar, the
-  picture's timeline: one selector, `useRunView` in `store/runView.ts`; a tap on Prüfen then stores nothing), while
+  picture's timeline: one selector, `useRunView` in `store/runView.ts`; while a job waits the stored view of Fräsen is held at `cut` by one subscription – a tap, the search or a link
+  inside a card cannot store the check then; a waiting job's tool-change card, the streamed one and the one between
+  parts (`BetweenParts`, whose start is locked and confirmed like the bar's), stays under the picture with
+  "Großbild"), while
   a job that merely runs can be looked at from Prüfen, where the action bar still offers the pause); Einrichten, CAM, Service, Einstellungen and the lists have
   none. The start lock stays: the readiness list and its "dealt with here" mapping stay. **In the CAM only the CAM and
   the status bar are shown** (no action bar and so no jog button, no run bar, no program card, no camera inset, no
@@ -229,8 +232,10 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   when the finger lets go, not while it moves; a drawing with nothing to cut takes its job off the
   stage (`useJob.unload`).
   **The drawing never changes the program under a job that is under way** (`jobUnderWay()` in
-  `store/underway.ts`: a part running from the SD card, a stream, an upload, a multi-tool job waiting between its
-  parts, a job the link was lost under until the operator has seen it – the series flow uses the same answer):
+  `store/underway.ts`, pure `underwayOf`: a part running from the SD card, a stream, an upload, a multi-tool job
+  waiting between its parts, a job the link was lost under until the operator has seen it, **or the controller itself
+  reporting an SD file running** (`status.sd` with Run/Hold/Door – a page reloaded under a job, a link made again by
+  hand; a move of the app's own is `Run` too, but has no SD file and is no job) – the series flow uses the same answer):
   `generate()` and `offStage()` leave the table alone and set `useCam.ahead` (only if the program would differ); the
   drawing can be worked on meanwhile, and `TableView` draws and edits it whatever program lies on the table. **What
   is "its own" program** is `ownsTable()` (the file the drawing last put there – `useCam.table`, which survives the
@@ -238,7 +243,9 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   aligned back) is replaced only by `generate({ take: true })` / `remake({ take: true })` – the tap on "Zeichnung auf
   den Tisch legen", the hand-over, the series closing over its own program – never by an edit. When a job ends, a
   drawing that is `ahead` goes on the table by itself only where nothing is loaded and the end was seen while
-  connected; the program of a finished job stays until that tap. The other loaders (opening or dropping a file, the
+  connected; the program of a finished job stays – with its summary, also when the drawing is emptied (`offStage`) –
+  until that tap, **as long as the drawing was ahead of it**; a drawing that did not change during the job follows
+  the edits as always. The other loaders (opening or dropping a file, the
   recent list, the flip's front, alignment) do not ask `jobUnderWay()` yet.
 - Two-sided parts ("Wenden"): the drawing shows both sides as seen from the front; the pure maths
   (flip line, mirrored back, registration holes, what the sides do to each other) is

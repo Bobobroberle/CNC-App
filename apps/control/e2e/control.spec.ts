@@ -418,6 +418,11 @@ test('runs a real job from the SD card, one part per tool', async ({ page }) => 
   await page.getByTestId('run-bar').getByRole('button', { name: 'Zum Job' }).click();
   await expect(page.getByTestId('step-run')).toHaveAttribute('aria-current', 'step');
 
+  // The check is looked at while part 1 cuts (it is allowed: only a waiting job forces the cutting view).
+  const subnav = page.locator('.subnav');
+  await subnav.getByRole('button', { name: 'Prüfen', exact: true }).click();
+  await expect(page.getByTestId('readiness')).toBeVisible();
+
   // Part 1 ends: spindle off, tool up, then the guided change to T2.
   await page.evaluate(() => {
     const w = window as unknown as { __status: string; __socket: { emit(l: string): void } };
@@ -427,12 +432,42 @@ test('runs a real job from the SD card, one part per tool', async ({ page }) => 
   const change = page.getByTestId('tool-change');
   await expect(change).toContainText('T2');
   await expect.poll(() => sent(page)).toEqual(expect.arrayContaining(['M5', 'G91 G0 Z20']));
-  // The job waits: the cutting view stays – a tap on the check changes nothing and stores nothing
-  // for later, the readiness list is not shown, and the bar offers no way to a list that cannot open.
-  await page.locator('.subnav').getByRole('button', { name: 'Prüfen', exact: true }).click();
+  // The job waits: the cutting view comes by itself – the check chosen before is put away, a tap
+  // on it changes nothing and stores nothing for later, and the bar offers no way to a list that
+  // cannot open.
+  await expect(page.getByTestId('readiness')).toHaveCount(0);
+  await expect(subnav.getByRole('button', { name: 'Fräsen', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await subnav.getByRole('button', { name: 'Prüfen', exact: true }).click();
   await expect(change).toBeVisible();
   await expect(page.getByTestId('readiness')).toHaveCount(0);
   await expect(page.getByTestId('primary-action')).not.toContainText('Prüfen');
+  const goOn = change.getByRole('button', { name: /Teil 2\/2 starten/ });
+  await expect(goOn).toBeEnabled();
+
+  // "Großbild" puts the panel away – the tool change stays, under the picture.
+  await page.getByTestId('stage-wide').click();
+  await expect(page.locator('.panel-body')).toHaveCount(0);
+  await expect(change).toBeVisible();
+  await expect(change).toContainText('T2');
+  await page.getByTestId('stage-wide').click();
+  await expect(change).toBeVisible();
+
+  // A start that the readiness list blocks stays locked here as well, with its reason: the zero
+  // moved so far that the job leaves the travel.
+  const blockedStatus = '<Idle|MPos:600.000,1200.000,-10.000|FS:0,0|WCO:0.000,0.000,-60.000>';
+  await page.evaluate((text) => {
+    (window as unknown as { __status: string }).__status = text;
+  }, blockedStatus);
+  await expect(goOn).toBeDisabled();
+  await expect(page.getByTestId('primary-action')).not.toContainText('Prüfen');
+  await page.evaluate(() => {
+    (window as unknown as { __status: string }).__status =
+      '<Idle|MPos:600.000,1200.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>';
+  });
+  await expect(goOn).toBeEnabled();
   await hold(page, /Teil 2\/2 starten \(T2\)/, 1300);
   await expect
     .poll(() => sent(page))
@@ -600,6 +635,21 @@ test('streams a job and holds at each tool change', async ({ page }) => {
   await expect(change).toContainText('T1');
   await page.getByTestId('stage-wide').click();
   await expect(change).toBeVisible();
+
+  // The pause is for a machine that moves: at rest the job waits for the field above and it has
+  // nothing to hold, on its way to the change position it is there.
+  const pause = page.getByTestId('primary-action');
+  await expect(pause).toBeDisabled();
+  await page.evaluate(() => {
+    (window as unknown as { __status: string }).__status =
+      '<Run|MPos:600.000,1200.000,-10.000|FS:900,0|WCO:600.000,1200.000,-60.000>';
+  });
+  await expect(pause).toBeEnabled();
+  await page.evaluate(() => {
+    (window as unknown as { __status: string }).__status =
+      '<Idle|MPos:600.000,1200.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>';
+  });
+  await expect(pause).toBeDisabled();
 
   await hold(page, /Job fortsetzen/);
   await expect(change).toContainText('T2');

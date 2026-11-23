@@ -565,3 +565,36 @@ test('key caps show only where a keyboard is likely', async ({ page }, info) => 
     await expect(palette(page).locator('.kbd-hint').first()).toBeVisible();
   }
 });
+
+test('an entry that lives on the table only lands on the table – even where Einrichten opens on the live picture', async ({
+  page,
+}) => {
+  await openDemo(page);
+  for (const from of ['Start', 'Einstellungen'] as const) {
+    await goTo(page, from);
+    await page.getByTestId('find-button').click();
+    await input(page).fill('Folgen');
+    await page.keyboard.press('Enter');
+    await expect(step(page, 'setup')).toHaveAttribute('aria-current', 'step');
+    await expect(page.getByRole('button', { name: 'Folgen' })).toBeVisible();
+  }
+});
+
+test("a view of the stage asked for by name shows once on arrival and is not kept as Einrichten's own", async ({
+  page,
+}) => {
+  await openDemo(page);
+  // From the drawing workspace the entry leads out, to the view asked for …
+  await step(page, 'cam').click();
+  await expect(page.getByTestId('cam-draw')).toBeVisible();
+  await page.getByTestId('find-button').click();
+  await input(page).fill('3D');
+  await page.keyboard.press('Enter');
+  await expect(step(page, 'setup')).toHaveAttribute('aria-current', 'step');
+  await expect(page.getByTestId('stage-3d')).toBeVisible();
+  // … and the next visit finds Einrichten as it is: on the live picture, with its tools.
+  await goTo(page, 'Job');
+  await goTo(page, 'Einrichten');
+  await expect(page.getByTestId('tool-strip')).toBeVisible();
+  await expect(page.getByTestId('stage-3d')).toHaveCount(0);
+});

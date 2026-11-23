@@ -160,6 +160,12 @@ interface UiStore {
   /** The stage view the operator chose in a step; without one the step's own (`STEP_STAGE`) */
   stageViews: Partial<Record<Step | typeof CAM, StageView>>;
   setStageView(step: Step | typeof CAM, view: StageView): void;
+  /**
+   * A view asked for by name (the quick search) for the place it leads to: the place shows it once
+   * on arrival, then its own again – nothing is remembered as the operator's choice.
+   */
+  arrival: { place: Place; view: StageView } | null;
+  setArrival(place: Place, view: StageView): void;
   /** "Drive here" lifts to the safe height first */
   liftBeforeMove: boolean;
   setLiftBeforeMove(lift: boolean): void;
@@ -234,6 +240,8 @@ export const useUi = create<UiStore>((set) => ({
     });
   },
   stageViews: {},
+  arrival: null,
+  setArrival: (place, view) => set({ arrival: { place, view } }),
   setStageView: (step, view) => set((s) => ({ stageViews: { ...s.stageViews, [step]: view } })),
   liftBeforeMove: true,
   setLiftBeforeMove: (liftBeforeMove) => set({ liftBeforeMove }),

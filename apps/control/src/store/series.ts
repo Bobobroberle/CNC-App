@@ -1,4 +1,5 @@
 import { toGcode, toolpaths, type CutSettings, type Move } from '@lowrider/cam';
+import { splitLines } from '@lowrider/gcode-core';
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { t } from '../i18n';
@@ -23,14 +24,14 @@ import {
   type TableBlank,
 } from '../lib/series';
 import { grabFrame } from './calibration';
-import { camToolDiameter, itemOperation, useCam } from './cam';
+import { camToolDiameter, itemOperation, sameLines, useCam } from './cam';
 import { cameraElement, naturalSize } from './camera';
 import { useFlip } from './flip';
 import { showTable, useJob } from './job';
 import { useMachine } from './machine';
 import { cameraCalibrated, freshFrame, mapPicture, usePhotoMap } from './photomap';
 import { settled, wait } from './settle';
-import { jobUnderWay, onUnderwayEnded } from './underway';
+import { jobUnderWay } from './underway';
 import { useWorkshop } from './workshop';
 
 /** Smallest side of a blank, mm: what is smaller is a chip or a speck */
@@ -429,7 +430,8 @@ export const useSeries = create<SeriesStore>((set, get) => ({
     });
     const job = useJob.getState();
     // The same program again (a tap taken back): the job on the table stays as it is.
-    if (job.fileName !== fileName || job.lines.join('\n') !== code) job.load(fileName, code);
+    if (job.fileName !== fileName || !sameLines(job.lines, splitLines(code)))
+      job.load(fileName, code);
     useFlip.getState().setPlan(null);
     useJob.getState().setToolDiameter(tool);
     set({ made: { fileName, zero, count: todo.length } });
@@ -442,13 +444,6 @@ export const useSeries = create<SeriesStore>((set, get) => ({
     return true;
   },
 }));
-
-// A move of the app's own, or a run it only learned of, has ended: what the blanks, the choices or
-// the zero asked for while the machine moved is made now. (Not for a job that ended – its program
-// stays until the operator has seen it.)
-onUnderwayEnded((ended) => {
-  if (ended === 'motion' && useSeries.getState().open) useSeries.getState().make();
-});
 
 /** The series program no longer fits the work zero it was written against. */
 export function seriesOffZero(): boolean {

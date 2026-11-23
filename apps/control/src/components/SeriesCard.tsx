@@ -8,6 +8,7 @@ import { useCam } from '../store/cam';
 import { crosshairPoint, useCamera } from '../store/camera';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
+import { useJobUnderWay } from '../store/underway';
 import { cameraCalibrated, minutes, scanPoints, usePhotoMap } from '../store/photomap';
 import { seriesMotif, useSeries, useSeriesPlan, type SeriesMode } from '../store/series';
 import { useUi } from '../store/ui';
@@ -285,7 +286,9 @@ function CheckStep() {
   const safeZ = useCam((s) => s.settings.safeZ);
   const idle = useMachine((s) => s.connection === 'connected' && s.status?.state === 'Idle');
   const cameraOn = useCamera((s) => s.source !== null && s.size !== null);
-  const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
+  // A job under way – one of the app's, a stretch between two parts, or one only the controller
+  // reports – keeps the series from putting its program on the table.
+  const running = useJobUnderWay();
   const connected = useMachine((s) => s.connection === 'connected' && s.status !== null);
   const settle = useWorkshop((s) => s.settings.calibration.settleMs);
   if (!plan || !project) return null;

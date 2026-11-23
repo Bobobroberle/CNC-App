@@ -1,5 +1,5 @@
 import { circle, rectangle, type Sketch } from '@lowrider/cam';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { jobNames, ownsTable, useCam } from '../src/store/cam';
 import { useFlip } from '../src/store/flip';
 import { useJob } from '../src/store/job';
@@ -299,28 +299,6 @@ describe('the drawing never changes the program under a running job', () => {
     useMachine.setState({ status: null });
   });
 
-  it('asks the series flow to make its program when a motion ends, not when a job does', () => {
-    const real = useSeries.getState().make;
-    const make = vi.fn(() => false);
-    const state = (s: string) => useMachine.setState({ status: { state: s } as never });
-    useSeries.setState({ open: true, make });
-    state('Run');
-    state('Idle');
-    expect(make).toHaveBeenCalledTimes(1);
-    running();
-    state('Run');
-    stopped();
-    state('Idle');
-    expect(make).toHaveBeenCalledTimes(1);
-    // a closed flow has nothing to make
-    useSeries.setState({ open: false });
-    state('Run');
-    state('Idle');
-    expect(make).toHaveBeenCalledTimes(1);
-    useSeries.setState({ make: real });
-    useMachine.setState({ status: null });
-  });
-
   it("still knows the drawing's own program while a plan of a two-sided job lingers", () => {
     cam().add([rectangle(0, 0, 200, 80), circle(60, 40, 30)]);
     cam().setTwoSided({ thickness: 12 });
@@ -375,32 +353,66 @@ describe('the drawing never changes the program under a running job', () => {
     expect(id()).toBeDefined();
   });
 
-  it('holds the guard for a run only the controller reports: a reload, a link made again', () => {
+  const SD = (percent = 42) => ({ percent, file: '/sd/schild.nc' });
+  const report = (state: string, sd?: { percent: number; file: string }) =>
+    useMachine.setState({ status: { state, ...(sd ? { sd } : {}) } as never });
+
+  it('holds the guard for a job only the controller reports: a reload, a link made again', () => {
     cam().addSketch(RECT);
     const text = useJob.getState().lines.join('\n');
-    const state = (s: string) => useMachine.setState({ status: { state: s } as never });
-    state('Run');
+    // the page was reloaded under a job: no job of the app's, but the report names the SD file
+    report('Run', SD());
     expect(jobUnderWay()).toBe(true);
     cam().addSketch(HOLE);
     expect(useJob.getState().lines.join('\n')).toBe(text);
     expect(cam().ahead).toBe(true);
-    // a hold is a job too; a report without a link says nothing
-    state('Hold:0');
+    // held or parked at the door, the file stays in the report: still a job
+    report('Hold:0', SD());
     expect(jobUnderWay()).toBe(true);
+    report('Door:1', SD());
+    expect(jobUnderWay()).toBe(true);
+    // a report without a link says nothing
     useMachine.setState({ connection: 'disconnected' });
     expect(jobUnderWay()).toBe(false);
-    useMachine.setState({ connection: 'connected' });
-    // it was no job of the app's: when it is over the drawing is put on the table at once
-    state('Idle');
-    expect(cam().ahead).toBe(false);
+    useMachine.setState({ connection: 'connected', status: null });
+  });
+
+  it('is no job when the app only moves the machine itself: the drawing goes on the table', () => {
+    cam().addSketch(RECT);
+    const text = useJob.getState().lines.join('\n');
+    // probing, driving to the zero, measuring: the controller reports Run – with no SD file
+    report('Run');
+    expect(jobUnderWay()).toBe(false);
+    cam().addSketch(HOLE);
     expect(useJob.getState().lines.join('\n')).not.toBe(text);
+    expect(cam().ahead).toBe(false);
+    report('Hold:0');
+    expect(jobUnderWay()).toBe(false);
     useMachine.setState({ status: null });
   });
 
-  it('keeps the guard after the operator has seen a lost link and made it again under a run', () => {
+  it("keeps a finished job's program when the machine moves afterwards", () => {
     cam().addSketch(RECT);
     const text = useJob.getState().lines.join('\n');
     running();
+    cam().addSketch(HOLE);
+    useRun.setState({ phase: 'done' });
+    stopped();
+    expect(cam().ahead).toBe(true);
+    // a measuring move, a macro, the way to the park position: nothing to do with the finished job
+    report('Run');
+    report('Idle');
+    expect(useJob.getState().lines.join('\n')).toBe(text);
+    expect(useRun.getState().phase).toBe('done');
+    expect(cam().ahead).toBe(true);
+    useMachine.setState({ status: null });
+  });
+
+  it('keeps the guard after a lost link is acknowledged and made again under a running file – and after it ends', () => {
+    cam().addSketch(RECT);
+    const text = useJob.getState().lines.join('\n');
+    running();
+    cam().addSketch(HOLE);
     useMachine.setState({
       connection: 'disconnected',
       lostInJob: { name: 'x.nc', sd: true, at: 0 },
@@ -409,26 +421,69 @@ describe('the drawing never changes the program under a running job', () => {
     useMachine.getState().acknowledgeLost();
     expect(jobUnderWay()).toBe(false);
     // connected by hand: the controller still cuts from its card
-    useMachine.setState({ connection: 'connected', status: { state: 'Run' } as never });
+    useMachine.setState({ connection: 'connected' });
+    report('Run', SD());
     expect(jobUnderWay()).toBe(true);
-    cam().addSketch(HOLE);
+    cam().addSketch({ type: 'circle', d: 8 });
     expect(useJob.getState().lines.join('\n')).toBe(text);
     expect(cam().ahead).toBe(true);
+    // the run ends: the program of that job stays until the tap
+    report('Idle');
+    expect(jobUnderWay()).toBe(false);
+    expect(useJob.getState().lines.join('\n')).toBe(text);
+    expect(cam().ahead).toBe(true);
+    cam().addSketch({ type: 'circle', d: 6 });
+    expect(useJob.getState().lines.join('\n')).toBe(text);
     useMachine.setState({ status: null });
   });
 
-  it('keeps the program of a job that ended, whatever the controller said about it', () => {
+  it("does not take a finished job's program off the table when the drawing is emptied – the tap does", () => {
     cam().addSketch(RECT);
-    const text = useJob.getState().lines.join('\n');
-    const state = (s: string) => useMachine.setState({ status: { state: s } as never });
+    const name = loaded();
     running();
-    state('Run');
     cam().addSketch(HOLE);
+    useRun.setState({ phase: 'done' });
     stopped();
-    state('Idle');
-    // a job of the app's was part of it: the finished program stays
-    expect(useJob.getState().lines.join('\n')).toBe(text);
+    cam().clear();
+    expect(loaded()).toBe(name);
+    expect(useRun.getState().phase).toBe('done');
     expect(cam().ahead).toBe(true);
+    // the tap on an empty drawing: nothing to put there, and the finished program goes
+    expect(cam().remake({ take: true })).toBe(false);
+    expect(loaded()).toBeNull();
+    expect(cam().ahead).toBe(false);
+  });
+
+  it('series: the same program again stays where it is – a finished series keeps its summary', () => {
+    cam().addSketch(RECT);
+    useMachine.setState({ status: { wco: [0, 0, 0] } as never });
+    const blank = {
+      id: 0,
+      kind: 'rect' as const,
+      x: 300,
+      y: 300,
+      length: 150,
+      width: 100,
+      angle: 0,
+      outline: [
+        { x: 225, y: 250 },
+        { x: 375, y: 250 },
+        { x: 375, y: 350 },
+        { x: 225, y: 350 },
+      ],
+      measured: true,
+    };
+    useSeries.setState({ open: true, blanks: [blank] });
+    expect(useSeries.getState().make()).toBe(true);
+    const name = loaded();
+    const lines = useJob.getState().lines;
+    useRun.setState({ phase: 'done' });
+    // asked again with nothing changed: no new program, so the summary of the finished one stays
+    expect(useSeries.getState().make()).toBe(true);
+    expect(loaded()).toBe(name);
+    expect(useJob.getState().lines).toBe(lines);
+    expect(useRun.getState().phase).toBe('done');
+    useSeries.setState({ open: false, made: null, blanks: [] });
     useMachine.setState({ status: null });
   });
 });
@@ -440,25 +495,30 @@ describe('who says a job is under way', () => {
     lost: false,
     connected: true,
     state: 'Idle',
+    sdFile: false,
     phase: 'idle',
     ownJob: false,
   };
-  it('tells a job of the app from a motion only the controller reports, and from nothing', () => {
-    expect(underwayOf(none)).toBeNull();
-    expect(underwayOf({ ...none, fileJob: true })).toBe('job');
-    expect(underwayOf({ ...none, streaming: true })).toBe('job');
-    expect(underwayOf({ ...none, lost: true, connected: false })).toBe('job');
+  it('counts what the app knows of, and what the controller reports with an SD file', () => {
+    expect(underwayOf(none)).toBe(false);
+    expect(underwayOf({ ...none, fileJob: true })).toBe(true);
+    expect(underwayOf({ ...none, streaming: true })).toBe(true);
+    expect(underwayOf({ ...none, lost: true, connected: false })).toBe(true);
     for (const phase of ['uploading', 'running', 'between']) {
-      expect(underwayOf({ ...none, phase, ownJob: true }), phase).toBe('job');
+      expect(underwayOf({ ...none, phase, ownJob: true }), phase).toBe(true);
       // a job that is no longer the loaded program waits for nothing
-      expect(underwayOf({ ...none, phase }), phase).toBeNull();
+      expect(underwayOf({ ...none, phase }), phase).toBe(false);
     }
-    expect(underwayOf({ ...none, state: 'Run' })).toBe('motion');
-    expect(underwayOf({ ...none, state: 'Hold:1' })).toBe('motion');
-    // Jog, Home and the rest are the operator's own doing, not a job
-    for (const state of ['Jog', 'Home', 'Alarm', 'Door:0', undefined]) {
-      expect(underwayOf({ ...none, state }), String(state)).toBeNull();
+    for (const state of ['Run', 'Hold:0', 'Hold:1', 'Door:0', 'Door:1']) {
+      expect(underwayOf({ ...none, state, sdFile: true }), state).toBe(true);
+      // a move of the app's own has the same states, but no SD file
+      expect(underwayOf({ ...none, state }), state).toBe(false);
     }
-    expect(underwayOf({ ...none, state: 'Run', connected: false })).toBeNull();
+    // an SD file in the report of a machine at rest, jogging, homing or in alarm is no job
+    for (const state of ['Idle', 'Jog', 'Home', 'Alarm', 'Check', undefined]) {
+      expect(underwayOf({ ...none, state, sdFile: true }), String(state)).toBe(false);
+    }
+    // no link, no report
+    expect(underwayOf({ ...none, state: 'Run', sdFile: true, connected: false })).toBe(false);
   });
 });

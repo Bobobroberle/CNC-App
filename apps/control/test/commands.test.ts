@@ -387,11 +387,27 @@ describe('what the search may do', () => {
       runCommand('shapeRect');
       runCommand(id);
       expect(useUi.getState().place, id).toBe('setup');
-      expect(useUi.getState().stageViews.setup, id).toBe(view);
+      // shown once on arrival – not remembered as the operator's own choice for Einrichten
+      expect(useUi.getState().arrival, id).toEqual({ place: 'setup', view });
+      expect(useUi.getState().stageViews.setup, id).toBeUndefined();
       expect(useJob.getState().view, id).toBe(view);
-      useUi.setState({ stageViews: {} });
+      useUi.setState({ arrival: null });
     }
     useCam.getState().close();
+  });
+
+  it('looks for what lives on the table only on the table, once, on arrival', () => {
+    for (const from of ['start', 'settings'] as const) {
+      useUi.setState({ place: from, arrival: null });
+      runCommand('follow');
+      expect(useUi.getState().place, from).toBe('setup');
+      expect(useUi.getState().arrival, from).toEqual({ place: 'setup', view: 'table' });
+    }
+    // where the stage is and the entry works, nothing is set for later
+    useUi.setState({ place: 'setup', arrival: null });
+    runCommand('follow');
+    expect(useUi.getState().arrival).toBeNull();
+    useUi.setState({ arrival: null });
   });
 
   it('lets the keys of the stage views rest where the stage has no tools', () => {

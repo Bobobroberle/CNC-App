@@ -113,7 +113,12 @@ function goTo(command: Command): readonly string[] {
   if ((command.on === 'stage' || command.tool || command.table) && !command.place && !command.jog) {
     const { place, views } = useUi.getState();
     const toolless = !shellParts(place).stageTools && (command.on === 'stage' || command.tool);
-    if (!placeHasStage(place, views) || toolless) ui.go('setup');
+    if (!placeHasStage(place, views) || toolless) {
+      ui.go('setup');
+      // What lives on the table only (Folgen, the joystick) is looked for there, not on the
+      // live picture Einrichten opens on where a calibrated camera runs.
+      if (command.table) ui.setArrival('setup', 'table');
+    }
   }
   // The action bar, with the jog button, is not in the drawing workspace either.
   if (command.on === 'bar' && !shellParts(useUi.getState().place).actionBar) ui.go('setup');
@@ -142,7 +147,7 @@ export function runCommand(id: string): void {
     const wanted = STAGE_VIEW[command.action!];
     if (wanted && !shellParts(useUi.getState().place).stageTools) {
       useUi.getState().go('setup');
-      useUi.getState().setStageView('setup', wanted);
+      useUi.getState().setArrival('setup', wanted);
     }
     VIEW[command.action!]();
     reveal(command.anchor);

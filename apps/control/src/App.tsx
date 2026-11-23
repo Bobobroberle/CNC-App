@@ -21,6 +21,7 @@ import { StartScreen } from './components/StartScreen';
 import { StatusBar } from './components/StatusBar';
 import { Timeline } from './components/Timeline';
 import { Toasts } from './components/Toasts';
+import { BetweenParts } from './components/RunScreen';
 import { ToolChangeCard } from './components/ToolChangeCard';
 import { useTabSwipe } from './components/useTabSwipe';
 import { t } from './i18n';
@@ -156,7 +157,11 @@ export function App() {
   // operator chose in a step stays that step's view.
   useEffect(() => {
     if (!hasPicture(place)) return;
-    const { stageViews } = useUi.getState();
+    const { stageViews, arrival } = useUi.getState();
+    // A view the quick search asked for by name shows once, on arrival (and is forgotten whether
+    // this was the place it meant or not).
+    const asked = arrival?.place === place ? arrival.view : null;
+    if (arrival) useUi.setState({ arrival: null });
     const { settings } = useWorkshop.getState();
     const live = useCamera.getState().source !== null && cameraCalibrated(settings.camera);
     // The drawing is always entered on the table, where it is drawn: a 3D view looked at inside it
@@ -164,7 +169,9 @@ export function App() {
     const view =
       place === 'cam'
         ? STEP_STAGE.cam
-        : (stageViews[place] ?? (place === 'setup' && live ? 'camera' : STEP_STAGE[place]));
+        : (asked ??
+          stageViews[place] ??
+          (place === 'setup' && live ? 'camera' : STEP_STAGE[place]));
     if (useJob.getState().view !== view) useJob.getState().setView(view);
   }, [place]);
 
@@ -213,6 +220,7 @@ export function App() {
                 {!showPanel ? (
                   <div className="stage-prompt">
                     <ToolChangeCard />
+                    <BetweenParts />
                   </div>
                 ) : null}
                 {/* ④ Prüfen: the simulation's timeline lies under its picture (3D). On the

@@ -88,7 +88,7 @@ import { useJob } from './job';
 import { useMachine } from './machine';
 import { cameraCalibrated } from './photomap';
 import { useRun } from './run';
-import { jobUnderWay, onUnderwayEnded } from './underway';
+import { jobUnderWay } from './underway';
 import { useWorkshop } from './workshop';
 
 export type { CamItem, Selection } from '../lib/camItems';
@@ -430,7 +430,7 @@ export const jobNames = (name: string) => ({
   back: `${name}_rueckseite.nc`,
 });
 
-const sameLines = (a: readonly string[], b: readonly string[]) =>
+export const sameLines = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((line, i) => line === b[i]);
 
 /**
@@ -501,8 +501,12 @@ export const useCam = create<CamStore>((set, get) => {
     }
     return mine || take;
   };
-  /** Takes the job of this drawing off the stage: there is nothing to cut. */
-  const offStage = () => {
+  /**
+   * Takes the job of this drawing off the stage: there is nothing to cut. Not the program of a job
+   * that is under way, and not that of a job that has ended while the drawing was ahead of it – it
+   * stays, with its summary, until the tap (`take`).
+   */
+  const offStage = (take = false) => {
     const { fileName } = useJob.getState();
     if (!ownsTable(fileName)) {
       if (get().ahead) set({ ahead: false });
@@ -513,6 +517,7 @@ export const useCam = create<CamStore>((set, get) => {
       set({ ahead: true });
       return;
     }
+    if (!take && get().ahead) return;
     set({ ahead: false, table: null });
     useJob.getState().unload();
     useFlip.getState().setPlan(null);
@@ -1131,7 +1136,7 @@ export const useCam = create<CamStore>((set, get) => {
       const parts = project ? partsOf(project.items) : [];
       if (!project || parts.length === 0) {
         set({ problems: [], flipNotes: [] });
-        offStage();
+        offStage(take);
         return false;
       }
       const tool = toolDiameter(settings);
@@ -1219,7 +1224,7 @@ export const useCam = create<CamStore>((set, get) => {
       });
       const moves = [...drilled, ...front.moves];
       if (moves.length === 0) {
-        offStage();
+        offStage(take);
         return false;
       }
       const program = (m: readonly Move[], name: string) =>
@@ -1249,18 +1254,21 @@ export const useCam = create<CamStore>((set, get) => {
   };
 });
 
-// What was under way ends. A job: seen while connected, not lost with the link, where nothing lies
-// on the table (a file run from the SD card list) a drawing that is ahead goes there by itself;
-// where the job's own program still lies there it stays – the operator may still want the summary
-// or the same piece again – until the tap on "Zeichnung auf den Tisch legen". A mere motion (a move
-// of the app's own, a run it only learned of): no program of a job is there to keep, so a drawing
-// that fell behind meanwhile goes onto the table at once, where its own program or none lies.
-onUnderwayEnded((ended) => {
-  const { ahead, project, remake } = useCam.getState();
-  const machine = useMachine.getState();
-  const seen = machine.connection === 'connected' && machine.lostInJob === null;
-  if (!seen || !ahead || !project) return;
-  const { fileName } = useJob.getState();
-  // (Its own program or none lies there – the tap's rule is the one that fits.)
-  if (fileName === null || (ended === 'motion' && ownsTable(fileName))) remake({ take: true });
-});
+// A job that ends – seen while connected, not lost with the link: where nothing lies on the table (a
+// file run from the SD card list) a drawing that is ahead goes there by itself. Where the job's own
+// program still lies there it stays – the operator may still want the summary or the same piece
+// again – until the tap on "Zeichnung auf den Tisch legen".
+let wasUnderWay = false;
+function afterJob(): void {
+  const now = jobUnderWay();
+  if (wasUnderWay && !now) {
+    const { ahead, project, remake } = useCam.getState();
+    const machine = useMachine.getState();
+    const seen = machine.connection === 'connected' && machine.lostInJob === null;
+    if (seen && ahead && project && useJob.getState().fileName === null) remake();
+  }
+  wasUnderWay = now;
+}
+useMachine.subscribe(afterJob);
+useRun.subscribe(afterJob);
+useJob.subscribe(afterJob);

@@ -8,6 +8,7 @@ import { useWorkshop } from '../store/workshop';
 import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
 import { Card, CardTitle } from '../ui/card';
+import { Reason } from '../ui/tooltip';
 
 /** The streamed job holds at M6: spindle off, tool up, change, measure, continue. */
 export function ToolChangeCard() {
@@ -40,6 +41,7 @@ export function ToolChangePanel({
   abortLabel,
   onAbort,
   lengthOffset,
+  continueReason = null,
 }: {
   tool: number | null | undefined;
   line?: number;
@@ -49,6 +51,8 @@ export function ToolChangePanel({
   onAbort: () => void;
   /** The tool length sensor applies G43.1; off where the program would cancel it (G49) */
   lengthOffset: boolean;
+  /** Why going on is locked (the start lock of the readiness list), or null */
+  continueReason?: string | null;
 }) {
   const idle = useMachine((s) => s.status?.state === 'Idle');
   const { runProbeRoutine, probeZ, command, addLog } = useMachine.getState();
@@ -132,13 +136,15 @@ export function ToolChangePanel({
       </HoldButton>
       <p className="text-muted-foreground text-sm">{t('toolChange.plateHint')}</p>
       {measured ? <Alert variant="success">{t('toolChange.measured')}</Alert> : null}
-      <HoldButton
-        variant="accent"
-        disabled={!idle || busy}
-        onConfirm={() => void onContinue().then(() => setMeasured(null))}
-      >
-        {continueLabel}
-      </HoldButton>
+      <Reason reason={continueReason} className="block w-full">
+        <HoldButton
+          variant="accent"
+          disabled={!idle || busy || continueReason !== null}
+          onConfirm={() => void onContinue().then(() => setMeasured(null))}
+        >
+          {continueLabel}
+        </HoldButton>
+      </Reason>
       <HoldButton variant="danger" onConfirm={onAbort}>
         {abortLabel}
       </HoldButton>
