@@ -2867,7 +2867,6 @@ export const en: DictionaryShape = {
       top: 'Status bar',
       nav: 'Navigation',
       bar: 'Action bar',
-      drawing: 'Drawing',
     },
     shortcuts: {
       title: 'Keyboard shortcuts',

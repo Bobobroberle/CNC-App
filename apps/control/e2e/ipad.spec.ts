@@ -1077,7 +1077,7 @@ test.describe('upright', () => {
     const steps = await page
       .locator('[data-slot="stepper-step"]')
       .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
-    expect(steps).toHaveLength(3);
+    expect(steps).toHaveLength(4);
     expect(Math.min(...steps)).toBeGreaterThanOrEqual(48);
     await expect(page.getByTestId('step-job')).toContainText('Job');
     // PAUSE and NOT-HALT are on screen and nothing lies over them.
@@ -1114,7 +1114,7 @@ test.describe('upright', () => {
     await expect(page.getByRole('button', { name: 'NOT-HALT' })).toBeInViewport({ ratio: 1 });
     await expect(page.getByTestId('pause')).toBeInViewport({ ratio: 1 });
     await expect(page.getByTestId('machine-state')).toBeInViewport({ ratio: 1 });
-    for (const id of ['job', 'setup', 'run']) {
+    for (const id of ['job', 'cam', 'setup', 'run']) {
       await expect(page.getByTestId(`step-${id}`)).toBeInViewport({ ratio: 1 });
     }
     await expect(page.getByTestId('menu-button')).toBeInViewport({ ratio: 1 });
