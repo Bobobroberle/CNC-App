@@ -1,5 +1,30 @@
 # Umbau nach DESIGN.md – Stand und Zuordnung
 
+## Umbau 2 (beschlossen, in Stufen): sechs Bereiche statt fünf Schritte
+
+Entscheidung des Betreibers nach der unabhängigen Bewertung (`bewertung/`): Die fünf festen Schritte werden durch sechs
+Bereiche ersetzt, im Zeichnen/CAM ist nur das CAM zu sehen, die Kette „Weiter: …“ entfällt, der Startbildschirm bleibt.
+Plan, Layout und Risiken: `bewertung/plan-bereichs-oberflaeche.md`. **Stand: Stufe 0 (nur Text) erledigt; Stufe 1 (Plätze) bis 3 stehen aus –
+solange zeigt der Code noch die fünf Schritte; die Tabellen weiter unten beschreiben diesen Code-Stand.**
+
+| Bisher (Code) | Künftig | Hinweis |
+|---|---|---|
+| ① Job | **Job** | Programm, Zuletzt verwendet, SD-Karte, Werkstück, Extras |
+| ① Job, Ansicht Zeichnen (`ui.drawing`) | **Zeichnen/CAM** (`cam`) | nur CAM und Statusleiste |
+| ② Werkzeuge | **Fräsen**, Ansicht Prüfen | Werkzeuge des Jobs |
+| ③ Einrichten | **Einrichten & Fahren** (`setup`) | Nullpunkt · Antasten · Kamera · Ausrichten |
+| ④ Prüfen | **Fräsen**, Ansicht Prüfen | Startklar-Liste, Simulation, Zeitleiste |
+| ⑤ Fräsen | **Fräsen**, Ansicht Fräsen (`run`) | Start bleibt Halten, Sperre bleibt |
+| Service & Diagnose, Einstellungen (Nebenbereiche) | **Service**, **Einstellungen** (Reiter) | Ansichten wie bisher |
+| Werkzeugliste, Konsole | Hauptmenü | unverändert |
+
+Stufen: **0** Text (diese Änderung) · **1** Plätze (`cam` neu, Reiter statt Stepper, `tools`/`check` in `run`, gespeicherter Platz mit Rückfall,
+Kette „Weiter“ aus der Aktionsleiste, Schnellsuche und Tests nachgezogen) · **2** CAM-Fokus (Bühnenwerkzeuge, Ablauf-Karten, Jog-Knopf, Laufleiste, Kamera-Einblendung im CAM aus) ·
+**3** angedockte Hauptaktion je Panel. Jede Stufe nur nach Freigabe, mit eigenem Commit; alle e2e-Projekte (desktop, tablet, ipad) und `pnpm check` grün; Screenshots bei 1280 und 800 px.
+
+Abweichungen vom Guide, die damit entfallen oder sich ändern: „genau eine Primäraktion unten rechts“ (jetzt: wo es eine gibt), „⑤ startet erst, wenn nichts blockiert“
+(jetzt: der Start in Fräsen bleibt gesperrt, solange etwas blockiert), „Leertaste/Strg+→ nächster Schritt“ (die Taste entfällt mit der Kette).
+
 Die Oberfläche wird nach dem UX-/HMI-Guide [`DESIGN.md`](../DESIGN.md) umgebaut. Stores, Bibliotheken
 und Pakete bleiben; umgebaut werden Informationsarchitektur, Rahmen (Shell) und Designsystem. Der
 Umbau lief in drei Etappen (11, 12 und 13 – alle gebaut). Dieses Dokument sagt, **wo jede bisherige

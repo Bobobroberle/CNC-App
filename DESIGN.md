@@ -2,6 +2,10 @@
 
 > Verbindliche Gestaltungs- und Bedienregeln für dieses Projekt. Gilt für jede neue oder geänderte Oberfläche.
 > Widerspricht eine Anforderung diesem Guide: **erst nachfragen, nicht eigenmächtig abweichen.**
+>
+> **Stand:** Der Betreiber hat entschieden, die fünf festen Schritte durch **sechs Bereiche** zu ersetzen (§3.2). Dieser
+> Guide beschreibt das Zielbild; der Umbau läuft in Stufen (`docs/umbau-guide.md`, Abschnitt „Umbau 2“), der Code zeigt bis
+> zur Stufe 1 noch die fünf Schritte.
 
 ---
 
@@ -54,34 +58,39 @@ Einstiegsscreen und Arbeitsoberfläche, keine Funktionssammlung. Beantwortet dre
 **Wie ist der Maschinenzustand? Was ist als Nächstes zu tun? Wie erreiche ich meine wichtigste Aufgabe?**
 Er reagiert kontextabhängig (z. B. nach Unterbrechung: „Job fortsetzen“; bei Alarm: Lösungsweg zuerst). Inhalt in §5.
 
-### 3.2 Hauptablauf (Stepper)
+### 3.2 Bereiche (Reiter)
 
 ```
-① Job  →  ② Werkzeuge  →  ③ Einrichten  →  ④ Prüfen  →  ⑤ Fräsen
+Start │ Job │ Zeichnen/CAM │ Einrichten & Fahren │ Fräsen │ Service │ Einstellungen
 ```
 
-| Schritt | Leitfrage | Enthält |
+Keine vorgegebenen Schritte: jeder Bereich wird je nach Absicht angewählt. Im Bereich sieht man nur das, was dort gebraucht wird.
+
+| Bereich | Leitfrage | Enthält |
 |---|---|---|
-| ① **Job** | Was mache ich? | Datei/Programm wählen, Werkstück & Material definieren, CAM öffnen |
-| ② **Werkzeuge** | Habe ich das Richtige drin? | Abgleich Job ↔ Werkzeugliste, Alternativen, Längenmessung |
-| ③ **Einrichten** | Wo liegt das Werkstück? | Kamerabild, Nullpunkt, Antasten, Winkelkompensation, Drehachse |
-| ④ **Prüfen** | Passt alles? | Simulation, Plausibilitäts- und Grenzchecks, Freigaben |
-| ⑤ **Fräsen** | Läuft es gut? | Fortschritt, Status, Overrides, Pause/Abbruch |
+| **Job** | Was mache ich? | Datei/Programm wählen, Zuletzt verwendet, SD-Karte, Werkstück |
+| **Zeichnen/CAM** | Was zeichne ich? | Das CAM – und nur das (Statusleiste mit PAUSE und NOT-HALT bleibt) |
+| **Einrichten & Fahren** | Wo liegt das Werkstück? | Kamerabild, Nullpunkt, Antasten, Ausrichten, Jog |
+| **Fräsen** | Passt es und läuft es gut? | Ansicht *Prüfen* (Startklar-Liste, Simulation, Werkzeuge des Jobs) und Ansicht *Fräsen* (Fortschritt, Overrides, Pause/Abbruch) |
+| **Service** | Was sagt die Maschine? | Diagnose, Meldungen, Historie, Kalibrieren |
+| **Einstellungen** | Wie ist alles eingerichtet? | Verbindung, Maschine, Kamera, Experte |
 
-- Jeder Schritt zeigt seinen Status: ✓ erledigt · ⚠ Warnung · ✕ blockiert · ○ offen – sowie fehlende Voraussetzungen.
-- Schritte sind frei anspringbar. ⑤ startet erst, wenn nichts **blockiert**; Warnungen werden einmal bestätigt.
+- Jeder Bereich zeigt seinen Zustand (✓ erledigt · ⚠ Warnung · ✕ blockiert · ○ offen), wo es einen gibt – gelesen aus der einen Startklar-Liste: ein Punkt gehört zu dem Bereich, in dem man ihn behebt.
+- Bereiche sind frei anwählbar. Der **Start** in „Fräsen“ bleibt gesperrt, solange etwas **blockiert** (z. B. Verfahrweg verletzt, solange `soft_limits` in der Steuerung aus sind); Warnungen werden einmal bestätigt.
+- Es gibt **keine Kette „Weiter: …“**: kein Bereich schlägt den nächsten vor. Der Startbildschirm bleibt als Übersicht.
+- Die Werkzeugliste und die Konsole (nur Experten) liegen im Hauptmenü.
 
 ### 3.3 Nebenbereiche (außerhalb des Steppers)
 
 | Bereich | Zugang | Zweck |
 |---|---|---|
-| **Jog / Manuell** | Einblendbares Panel aus jedem Screen | Achsen fahren, Schnellaktionen |
-| **Werkzeugliste** | Aus ② und Hauptmenü | Werkzeuge anlegen/pflegen |
-| **Service & Diagnose** | Hauptmenü | Endschalter-/Achstest, Log, Wartungszähler |
-| **Einstellungen** | Zahnrad | Maschine, Verbindung, Kamera-Kalibrierung, Darstellung |
-| **Konsole** | Eingeklappt, Experten | G-Code/MDI, Rohlog |
+| **Jog / Manuell** | Einblendbares Panel aus jedem Bereich außer Zeichnen/CAM | Achsen fahren, Schnellaktionen |
+| **Werkzeugliste** | Hauptmenü | Werkzeuge anlegen/pflegen (Schnittwerte je Werkzeug) |
+| **Konsole** | Hauptmenü, nur Experten | G-Code/MDI, Rohlog |
 
-Die klassischen Rollen (Bediener, Einrichter, Service, Admin) sind hier **Aufgabenbereiche**, keine Berechtigungen: Bedienen = Start + ⑤ · Einrichten = ①–④ · Service = Service & Diagnose · Konfiguration = Einstellungen.
+Service und Einstellungen sind Bereiche (§3.2), keine Nebenbereiche mehr.
+
+Die klassischen Rollen (Bediener, Einrichter, Service, Admin) sind hier **Aufgabenbereiche**, keine Berechtigungen: Bedienen = Fräsen · Einrichten = Job, Zeichnen/CAM, Einrichten & Fahren · Service = Service · Konfiguration = Einstellungen.
 
 ### 3.4 Regeln
 
@@ -99,7 +108,7 @@ Die klassischen Rollen (Bediener, Einrichter, Service, Admin) sind hier **Aufgab
 │ STATUSLEISTE: Zustand │ X Y Z A │ Spindel │ Vorschub │ Verbindung  │
 │                                         Meldungen ⚑   [ PAUSE ]  │
 ├──────────────────────────────────────────────────────────────────┤
-│ STEPPER / BEREICHSTITEL                                          │
+│ REITER (Bereiche), der aktive markiert                           │
 ├────────────────────────────────────────────┬─────────────────────┤
 │ HAUPTFLÄCHE (≥ 60 % Breite)                │ KONTEXT-PANEL       │
 │ 3D-/2D-Ansicht, Kamerabild, Listen         │ Eigenschaften,      │
@@ -111,7 +120,7 @@ Die klassischen Rollen (Bediener, Einrichter, Service, Admin) sind hier **Aufgab
 
 - **Statusleiste** auf jedem Screen identisch. **PAUSE** (Vorschub halten) oben rechts, nie verdeckt, nie deaktiviert, solange sich etwas bewegt.
 - **Kontext-Panel** einklappbar; die Visualisierung hat Vorrang.
-- **Aktionsleiste:** links sekundär, rechts genau eine Primäraktion mit Ziel im Text („Weiter: Einrichten“, „Fräsen starten“).
+- **Aktionsleiste:** links sekundär (Jog), rechts die Primäraktion des Bereichs, **wo es eine gibt** („G-Code öffnen“ in Job, „Fräsen starten“/„Fortsetzen“ in Fräsen); Einrichten, Zeichnen/CAM, Service und Einstellungen haben keine. Im **Zeichnen/CAM** gibt es keine Aktionsleiste und keinen Jog-Knopf: dort ist nur das CAM zu sehen.
 
 | Breite | Verhalten |
 |---|---|
@@ -123,6 +132,8 @@ Die klassischen Rollen (Bediener, Einrichter, Service, Admin) sind hier **Aufgab
 ---
 
 ## 5. Screens
+
+> Die Beschreibungen ①–⑤ gelten als **Inhalte der Bereiche** nach §3.2: ① Job → *Job* und *Zeichnen/CAM*, ② Werkzeuge → in *Fräsen* (Ansicht Prüfen), ③ Einrichten → *Einrichten & Fahren*, ④ Prüfen und ⑤ Fräsen → *Fräsen* (zwei Ansichten). Karten und Reihenfolge innerhalb eines Bereichs ändern sich dadurch nicht.
 
 **Start** – Maschinenzustand groß; „Als Nächstes“-Karte mit genau einer Handlungsempfehlung (z. B. „Referenzfahrt nötig“, „Job ‚Schild‘ bei 62 % unterbrochen – fortsetzen“); aktueller/letzter Job mit Fortschritt; Werkzeug- und Materialstatus; letzte Meldung mit Handlungsbedarf; Schnellzugriffe: Neuer Job, Zuletzt verwendet, Jog, Referenzfahrt.
 
@@ -282,7 +293,7 @@ Jede Meldung enthält **Bezeichnung · Ursache · Auswirkung · nächste Maßnah
 
 | Kriterium | Ziel |
 |---|---|
-| Effizienz | Bekannter Job von Start bis „Fräsen starten“ ≤ 8 Interaktionen; Pause = 1 Interaktion |
+| Effizienz | Bekannter Job von Start bis „Fräsen starten“ ≤ 8 Interaktionen; Pause = 1 Interaktion. **Einzelstück** (G-Code laden, Nullpunkt X/Y, Z antasten, Start; frischer Zustand, nicht referenziert): gemessen 10 Tipps/Halten + 1 Dateiauswahl + 2 Scrolls – darf nicht schlechter werden |
 | Verständlichkeit | Jeder Schritt ohne Erklärung beim ersten Versuch lösbar |
 | Orientierung | Auf jedem Screen klar: Wo bin ich, was fehlt, was kommt als Nächstes |
 | Fehlertoleranz | Ungültige Eingaben nicht übernehmbar; jede Einrichtung korrigierbar ohne Neustart des Ablaufs |

@@ -42,6 +42,15 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   coverage of the four libraries, the quick-search registry and `settled()` stays in force. The
   rebuild ran in three stages (11–13, done); `docs/umbau-guide.md` says where every old card lives
   now, where the app deviates from the guide and why, the acceptance per screen (§11) and what is left.
+- **Decided, being built in stages ("Umbau 2", `docs/umbau-guide.md`): six areas instead of the five steps.**
+  Tabs: Job · Zeichnen/CAM (`cam`, replaces `ui.drawing`) · Einrichten & Fahren (`setup`) · Fräsen (`run`, with the
+  views Prüfen and Fräsen; Werkzeuge of the job and the readiness list move into it) · Service · Einstellungen. Tool
+  list and console stay in the menu. `tools` and `check` stop being places (a stored one falls back to `run`). In
+  *Zeichnen/CAM* only the CAM and the status bar are shown (no jog button, no run bar, no camera inset, no flow cards,
+  no stage tools). There is **no "Weiter: …" chain** (`lib/next.ts`, Ctrl+→ go); the start screen stays. The primary
+  action sits only where an area has one (Job, Fräsen). The start lock stays: the readiness list and its "dealt
+  with here" mapping stay, only their home moves. **Until stage 1 is done the code and the next two bullets still
+  describe the five steps** – read them as the state of the code, not of the target.
 - Navigation (`store/ui.ts`): a `Place` is `start`, one of the five steps `job → tools → setup →
 check → run` (① Job, ② Werkzeuge, ③ Einrichten, ④ Prüfen, ⑤ Fräsen) or a side area (`toollist`,
   `service`, `settings`, `console` – the console only with the expert switch). At most two levels:
