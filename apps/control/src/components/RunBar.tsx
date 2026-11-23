@@ -15,11 +15,13 @@ export function RunBar({ here = false }: { here?: boolean } = {}) {
   const place = useUi((s) => s.place);
   const jogOpen = useUi((s) => s.jogOpen);
   const go = useUi((s) => s.go);
+  const checking = useUi((s) => s.views.run === 'check');
   const { feedHold, cycleStart } = useMachine.getState();
   // The shell shows it on Start, in the side areas and over the jog panel; a step shows its
-  // own (`here`) – all but ⑤, which is the job's full view.
+  // own (`here`) – all but Fräsen's cutting view, which is the job's full view.
   const onStep = isStep(place) && !jogOpen;
-  if (!progress || (here ? !onStep || place === 'run' : onStep)) return null;
+  const full = place === 'run' && !checking;
+  if (!progress || (here ? !onStep || full : onStep)) return null;
   return (
     <div className="run-bar" data-testid="run-bar">
       <div className="run-bar-info">

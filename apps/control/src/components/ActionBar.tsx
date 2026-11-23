@@ -50,9 +50,20 @@ export function useNextText(next: Next): { title: string; text: string } {
   };
 }
 
+/**
+ * Goes to a step the recommendation or "Weiter" leads to. Fräsen holds the check and the job's
+ * tools: when it has warnings the way leads to the check, where they are listed – the cutting
+ * view shows only "bereit".
+ */
+function enterStep(step: Place, states: ReturnType<typeof useSteps>['states']) {
+  const view = step === 'run' && states.run === 'warn' ? 'check' : undefined;
+  useUi.getState().go(step as never, view as never);
+}
+
 /** The action of the one recommendation: a way somewhere, or – where the machine moves – a hold. */
 function NextAction({ next }: { next: Next }) {
   const go = useUi((s) => s.go);
+  const { states } = useSteps();
   const online = useMachine((s) => s.connection === 'connected');
   const step = next.step ? t(`nav.steps.${next.step}`) : '';
   const to = (place: Place, label: string) => (
@@ -93,7 +104,16 @@ function NextAction({ next }: { next: Next }) {
     case 'resume':
       return to('run', t('start.next.resume.action'));
     default:
-      return to(next.step ?? 'job', t('nav.next', { step }));
+      return (
+        <Button
+          size="lg"
+          data-testid="primary-action"
+          onClick={() => enterStep(next.step ?? 'job', states)}
+        >
+          {t('nav.next', { step })}
+          <ArrowRightIcon aria-hidden="true" />
+        </Button>
+      );
   }
 }
 
@@ -136,6 +156,20 @@ function RunAction() {
   );
   const summary = useRun((s) => s.summary);
   const { feedHold, cycleStart } = useMachine.getState();
+  // The check offers no start: between parts the cutting view says which tool to change, and while a
+  // job waits it holds the field to go on. From the check the way leads to the cutting.
+  if (checking && !active && !waiting) {
+    return (
+      <Button
+        size="lg"
+        data-testid="primary-action"
+        onClick={() => useUi.getState().setView('run', 'cut')}
+      >
+        {t('nav.next', { step: t('nav.steps.run') })}
+        <ArrowRightIcon aria-hidden="true" />
+      </Button>
+    );
+  }
   if (active) {
     if (holding) {
       // Going on moves the machine again: a short hold, never the second half of a double tap.
@@ -179,9 +213,7 @@ function RunAction() {
       </Button>
     );
   }
-  // Something blocks: the way to the check – unless the check is what is on screen, then the
-  // locked start below says why.
-  if (start.blocked > 0 && !checking) {
+  if (start.blocked > 0) {
     return (
       <Button size="lg" data-testid="primary-action" onClick={() => go('run', 'check')}>
         {t('ready.toCheck')}
@@ -212,7 +244,7 @@ function StepActions({ place }: { place: Place }) {
   const go = useUi((s) => s.go);
   const readiness = useReadiness();
   const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
-  const { open } = useSteps();
+  const { open, states } = useSteps();
   const step = isStep(place) ? place : null;
   const next = step ? nextStep(step) : null;
   const blocked = readiness ? blockers(readiness.items).length : 0;
@@ -241,7 +273,7 @@ function StepActions({ place }: { place: Place }) {
     primary = (
       <Reason reason={t('nav.drawingFirst')}>
         <Button size="lg" data-testid="primary-action" disabled>
-          {t('nav.next', { step: t('nav.steps.tools') })}
+          {t('nav.next', { step: t('nav.steps.setup') })}
           <ArrowRightIcon aria-hidden="true" />
         </Button>
       </Reason>
@@ -256,7 +288,7 @@ function StepActions({ place }: { place: Place }) {
     );
   } else if (next) {
     primary = (
-      <Button size="lg" data-testid="primary-action" onClick={() => go(next)}>
+      <Button size="lg" data-testid="primary-action" onClick={() => enterStep(next, states)}>
         {t('nav.next', { step: t(`nav.steps.${next}`) })}
         <ArrowRightIcon aria-hidden="true" />
       </Button>

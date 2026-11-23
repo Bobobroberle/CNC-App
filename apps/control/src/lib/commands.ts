@@ -266,7 +266,7 @@ export const COMMANDS: readonly Command[] = [
   draw('series', 'series.open', 'series'),
 
   // ② Werkzeuge
-  tools('jobTools', 'toolsStep.title', undefined, 'job-tools', undefined, 'tool'),
+  tools('jobTools', 'toolsStep.title', undefined, 'job-tools', 'program', 'tool'),
 
   // ③ Einrichten
   setup('setupZero', 'zeroFlow.title', 'zero', 'setup-zero', undefined, 'zero'),

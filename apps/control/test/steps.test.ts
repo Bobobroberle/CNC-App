@@ -59,6 +59,14 @@ describe('the states of the three areas', () => {
     expect(openStep(states)).toBe('setup');
   });
 
+  it('shows Fräsen blocked when a point of another area locks the start, whatever warns there', () => {
+    const states = stepStates({
+      ...READY,
+      items: [item('zero', 'block'), item('clamp', 'warn')],
+    });
+    expect(states).toMatchObject({ setup: 'block', run: 'block' });
+  });
+
   it('warns without blocking the start', () => {
     const states = stepStates({
       ...READY,

@@ -500,8 +500,12 @@ test('④ checking: 3D with the timeline and its operation marks, the checklist 
   await material.getByRole('button', { name: /^Maße übernehmen/ }).click();
   await goTo(page, 'Prüfen');
   await expect(list.locator('[data-check="depth"]')).toContainText('in die Opferplatte');
-  // The start is one hold away in the check, too.
-  await expect(page.getByTestId('primary-action')).toContainText('Fräsen starten');
+  // The check offers no start (between parts the cutting view names the tool to change): it leads on.
+  await expect(page.getByTestId('primary-action')).toHaveText('Weiter: Fräsen');
+  // A warning leads to the check, where it is listed – not to the cutting view that says "bereit".
+  await goTo(page, 'Einrichten');
+  await page.getByTestId('primary-action').click();
+  await expect(page.getByTestId('assistant-checks')).toBeVisible();
 });
 
 test('depth per area: "Mehr Optionen" unfolds, and the app remembers it', async ({ page }) => {
@@ -525,8 +529,8 @@ test('depth per area: "Mehr Optionen" unfolds, and the app remembers it', async 
   await moreOptions(page, 'check', true);
   await expect(page.locator('#job-diagnostics')).toBeVisible();
   // Another area is still simple; coming back, this one is as it was left.
-  await step('setup');
-  await expect(page.getByTestId('setup-fixtures')).toBeVisible();
+  await step('run');
+  await expect(page.getByTestId('run-card')).toBeHidden();
   await check();
   await expect(page.getByTestId('workspace-check')).toBeVisible();
   await page.reload();

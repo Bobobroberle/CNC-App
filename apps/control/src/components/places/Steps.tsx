@@ -218,7 +218,13 @@ export function SetupStep() {
  */
 export function RunStep() {
   const analysis = useJob((s) => s.analysis);
-  const view = useUi((s) => s.views.run);
+  // While a job waits for the operator (a tool change, a single step) the cutting view holds the
+  // field to go on: the check is not shown then.
+  const waiting = useMachine(
+    (s) => (s.stream?.toolChange ?? null) !== null || (s.stream?.stepAt ?? null) !== null,
+  );
+  const chosen = useUi((s) => s.views.run);
+  const view = waiting ? 'cut' : chosen;
   const setView = useUi((s) => s.setView);
   return (
     <div className="flex flex-col gap-3">

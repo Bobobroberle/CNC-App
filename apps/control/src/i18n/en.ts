@@ -546,7 +546,7 @@ export const en: DictionaryShape = {
     tooLarge: 'The program was too large to remember – please open the file again.',
     drop: 'Drop G-code files here or open them at the bottom right – several at once, too.',
     openOther: 'Open another file',
-    tools: '{count} tools – see step 2',
+    tools: '{count} tools – see Cut › Check',
   },
   zeroFlow: {
     title: 'Set the zero',
@@ -2941,8 +2941,7 @@ export const en: DictionaryShape = {
       placeStart: 'start, home, dashboard, overview, home screen, what next, main page',
       placeJob: 'job, program, step 1, what am i making, file, workpiece, material',
       placeSetup: 'set up, setup, step 3, where is the workpiece, zero, probing, drive, align',
-      placeRun:
-        'cut, run, check, tools, tool check, right tool, verify, checklist, does it fit, simulation, review, mill, start, start job, go, machining',
+      placeRun: 'cut, run, mill, start, start job, go, machining',
       nextStep: 'next step, next, forward, continue, go on, step forward',
       menu: 'menu, main menu, more, areas, side areas, hamburger, other',
       next: 'up next, recommendation, what to do, next thing, what now, hint, todo',

@@ -555,7 +555,7 @@ export const de = {
     tooLarge: 'Das Programm war zu groß zum Merken – die Datei bitte neu öffnen.',
     drop: 'G-Code-Dateien hierher ziehen oder unten rechts öffnen – auch mehrere auf einmal.',
     openOther: 'Andere Datei öffnen',
-    tools: '{count} Werkzeuge – siehe Schritt 2',
+    tools: '{count} Werkzeuge – siehe Fräsen › Prüfen',
   },
   zeroFlow: {
     title: 'Nullpunkt setzen',
@@ -2984,8 +2984,7 @@ export const de = {
       placeJob: 'job, auftrag, programm, schritt 1, was mache ich, datei, werkstück, material',
       placeSetup:
         'einrichten, schritt 3, wo liegt das werkstück, nullpunkt, antasten, fahren, ausrichten, setup',
-      placeRun:
-        'fräsen, prüfen, werkzeuge, werkzeugabgleich, richtiges werkzeug, kontrolle, checkliste, passt alles, simulation, freigabe, fertigen, starten, start, laufen, job starten, run, cut, check',
+      placeRun: 'fräsen, fertigen, starten, start, laufen, job starten, run, cut',
       nextStep: 'nächster schritt, weiter, vor, weitergehen, next, fortfahren, schritt weiter',
       menu: 'menü, hauptmenü, mehr, bereiche, nebenbereiche, hamburger, menu, weitere',
       next: 'als nächstes, empfehlung, was tun, nächster schritt, was jetzt, hinweis, todo',
