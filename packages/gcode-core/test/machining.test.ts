@@ -79,6 +79,8 @@ describe('resumeFrom', () => {
 
   it('rejects lines outside the program', () => {
     expect(() => resumeFrom('G0 X1', 3, { safeMachineZ: 0 })).toThrow(RangeError);
+    // The first line after the end is outside, too (not a TypeError further in).
+    expect(() => resumeFrom('G0 X1', 1, { safeMachineZ: 0 })).toThrow(RangeError);
     expect(() => resumeFrom('G0 X1', -1, { safeMachineZ: 0 })).toThrow(RangeError);
   });
 });

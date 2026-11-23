@@ -21,6 +21,10 @@ describe('job readiness', () => {
     expect(items.map((i) => i.id)).toEqual(['connection', 'homed', 'errors', 'travel', 'zero']);
   });
 
+  it('blocks the start already for one error in the program', () => {
+    expect(blockers(jobReadiness({ ...base, errors: 1 })).map((i) => i.id)).toEqual(['errors']);
+  });
+
   it('blocks on what would go wrong at the machine, warns on what may be intended', () => {
     const items = jobReadiness({
       ...base,

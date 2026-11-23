@@ -120,6 +120,12 @@ describe('CharacterCountingStreamer', () => {
     expect(errors).toEqual([]);
   });
 
+  it('takes a line that fills the buffer exactly and rejects one byte more', () => {
+    // 'G1X1' is 4 characters plus the newline: 5 bytes.
+    expect(() => setup(['G1 X1'], { rxBufferSize: 5 })).not.toThrow();
+    expect(() => setup(['G1 X1'], { rxBufferSize: 4 })).toThrow(/line 1/i);
+  });
+
   it('rejects lines longer than the buffer', () => {
     expect(() => setup(['G1 X1000000 Y1000000'], { rxBufferSize: 10 })).toThrow(/line 1/i);
   });

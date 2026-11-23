@@ -242,6 +242,13 @@ describe('toolpaths', () => {
     expect(circle(0, 0, 0.01).points.length).toBe(4);
   });
 
+  it('lets a cutter into a hole up to 0.1 mm narrower than itself, no further', () => {
+    const drill = (diameter: number) =>
+      toolpaths([circle(0, 0, diameter)], [{ contour: 0, kind: 'drill' }], s).problems;
+    expect(drill(5.9)).toEqual([]); // 6 mm cutter, radius 0.05 short: still taken
+    expect(drill(5.7)).toEqual([{ contour: 0, code: 'hole-too-small' }]);
+  });
+
   it('reports what it cannot cut and skips "none"', () => {
     const tiny = rectangle(0, 0, 4, 4);
     const open = {
