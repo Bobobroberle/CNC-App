@@ -37,7 +37,7 @@ import {
 } from '../render/draw';
 import { LayerCache } from '../render/layer';
 import { buildPaths, projection, type Extent, type JobPaths } from '../render/paths';
-import { jobNames, useCam } from '../store/cam';
+import { useCam } from '../store/cam';
 import { useClampHits, useWorkFixtures } from '../store/clamps';
 import { cameraElement, pictureSize, useCamera } from '../store/camera';
 import { useJigs } from '../store/jigs';
@@ -146,7 +146,6 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   const drawingOpen = useUi((s) => s.place === 'cam');
   const project = useCam((s) => s.project);
   const selected = useCam((s) => s.selected);
-  const fileName = useJob((s) => s.fileName);
   /** What a finger is doing to the selected part of the drawing right now */
   const [held, setHeld] = useState<'size' | 'turn' | 'move' | null>(null);
 
@@ -164,11 +163,10 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     return { minU: x.min - ox, maxU: x.max - ox, minV: v.r.min - v.o, maxV: v.r.max - v.o };
   }, [wco, view, profile]);
 
-  // The drawing being edited, as long as the job on the stage is its own.
+  // The drawing being edited, whatever program lies on the table: it is drawn over the picture and
+  // taken by the finger as long as the drawing workspace shows – also while another program runs.
   const drawing = useMemo(() => {
     if (!drawingOpen || !project || !top) return null;
-    const names = jobNames(project.name);
-    if (fileName !== null && fileName !== names.single && fileName !== names.front) return null;
     const outline = (items: typeof project.items) => {
       const path = new Path2D();
       for (const item of items) {
@@ -237,7 +235,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
           : null,
       extent: all ? boundsExtent(all) : null,
     };
-  }, [drawingOpen, project, selected, top, fileName, held]);
+  }, [drawingOpen, project, selected, top, held]);
   const drawingRef = useRef(drawing);
   drawingRef.current = drawing;
 

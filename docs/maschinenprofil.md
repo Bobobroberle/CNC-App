@@ -1,7 +1,7 @@
 # Maschinenprofil der LowRider v4 erfassen
 
 Grundlage ist die `config.yaml` der Maschine ([`machine/config.yaml`](../machine/config.yaml)).
-Die App liest sie ein (_Menü → Einstellungen → Maschine → Maschinenprofil_: Datei laden oder per `$CD` von der Maschine) und
+Die App liest sie ein (_Reiter Einstellungen → Maschine → Maschinenprofil_: Datei laden oder per `$CD` von der Maschine) und
 übernimmt daraus Verfahrweg, Geschwindigkeiten, Beschleunigungen und das Verhalten der Steuerung
 (Soft-Limits, M6, Zeilennummern). Ohne Import gelten die Werte der V1E-Standard-Config.
 
@@ -22,8 +22,8 @@ Die Maschine hat **keine A-Achse**. G-Code mit A-Wörtern wird als Fehler markie
 | Bogen-Toleranz                                   | `arc_tolerance_mm`                                                     | Bogenzerlegung wie in der Firmware                    |
 | Tastblock-Dicke                                  | messen (Messschieber) → _Einrichten → Antasten → Z antasten_           | Z-Antasten, Ecken-Tastzyklus                          |
 | Position Werkzeuglängensensor                    | anfahren → _Einrichten → Antasten → Werkzeuglänge → Aktuelle Position_ | Werkzeugwechsel mit Längenkorrektur                   |
-| Werkzeugwechsel-Position, sichere Höhe           | _Menü → Einstellungen → Maschine_                                      | Werkzeugwechsel, Rahmen, Wiederaufnahme               |
-| Spindel-Drehzahlbereich                          | Typenschild des Fräsmotors → _Menü → Einstellungen → Maschine_         | Schnittwert-Vorschlag                                 |
+| Werkzeugwechsel-Position, sichere Höhe           | _Reiter Einstellungen → Maschine_                                      | Werkzeugwechsel, Rahmen, Wiederaufnahme               |
+| Spindel-Drehzahlbereich                          | Typenschild des Fräsmotors → _Reiter Einstellungen → Maschine_         | Schnittwert-Vorschlag                                 |
 | Portal-Unterkante über der Werkzeugspitze        | messen (siehe offene Fragen, Punkt 11)                                 | Kollisionsprüfung                                     |
 | Spindel-Anlauf/Auslauf                           | `spinup_ms` / `spindown_ms` der Spindel                                | Zeitschätzung                                         |
 

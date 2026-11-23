@@ -49,7 +49,7 @@ export function nextAction(s: NextInput): Next {
   if (s.connection === 'connected' && s.alarm) return { kind: 'alarm' };
   if (s.connection === 'disconnected') return { kind: 'connect' };
   if (s.connection === 'connecting') return { kind: 'connecting' };
-  if (s.toolChange) return { kind: 'toolChange' };
+  if (s.toolChange) return { kind: 'toolChange', step: 'run', name: s.program ?? undefined };
   if (s.running) {
     return { kind: s.holding ? 'paused' : 'running', step: 'run', name: s.program ?? undefined };
   }

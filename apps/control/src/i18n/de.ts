@@ -40,7 +40,7 @@ export const de = {
     zoomReset: 'Zoom {zoom}× – ganzes Bild',
     wide: 'Großbild',
     wideHint:
-      'Die Bühne über die ganze Breite. Ein Raum in der Leiste bringt das Bedienfeld zurück.',
+      'Die Bühne über die ganze Breite. Ein Reiter in der Leiste bringt das Bedienfeld zurück.',
   },
   stageTools: {
     label: 'Antippen auf Tisch oder Kamerabild',
@@ -194,7 +194,6 @@ export const de = {
     panelLarger: 'Größer',
     noProgram: 'Für diesen Schritt fehlt ein Programm.',
     toJob: 'Zum Job',
-    drawingFirst: 'Erst die Zeichnung übergeben: in der Zeichnung unter „Ansehen und übergeben“.',
   },
   bar: {
     label: 'Statusleiste',
@@ -460,8 +459,7 @@ export const de = {
       stream: {
         cause: 'Beim Senden des Programms Zeile für Zeile ist etwas schiefgegangen.',
         effect: 'Der gestreamte Job steht. Das Werkstück ist nur bis zu dieser Zeile gefräst.',
-        action:
-          'Unter ⑤ Fräsen → Alle Parameter ab der letzten Zeile fortsetzen – oder neu starten.',
+        action: 'Unter Fräsen → Alle Parameter ab der letzten Zeile fortsetzen – oder neu starten.',
       },
       motion: {
         cause: 'Eine Bewegung wurde nicht ausgeführt oder abgebrochen.',
@@ -681,7 +679,7 @@ export const de = {
   reason: {
     connecting: 'Die Verbindung wird gerade aufgebaut – einen Moment.',
     alarm: 'Die Steuerung ist im Alarm: erst entsperren oder neu referenzieren.',
-    hold: 'Die Maschine ist pausiert: erst fortsetzen oder den Job abbrechen (⑤ Fräsen).',
+    hold: 'Die Maschine ist pausiert: erst fortsetzen oder den Job abbrechen (Fräsen).',
     viewer: 'Nur Ansicht: ein anderes Gerät steuert die Maschine. PAUSE und NOT-HALT gehen weiter.',
     missing: 'Dafür fehlt noch eine Voraussetzung – sie steht in dieser Karte.',
   },
@@ -690,7 +688,7 @@ export const de = {
     reason: {
       offline: 'Nicht verbunden: erst unter Einstellungen → Verbindung verbinden.',
       busy: 'Geht nur, wenn die Maschine steht (Zustand „Bereit“).',
-      noZero: 'Noch kein Nullpunkt gesetzt (Schritt ③ Einrichten).',
+      noZero: 'Noch kein Nullpunkt gesetzt (Reiter Einrichten).',
       notHomed: 'Erst die Referenzfahrt: ohne sie kennt die Maschine ihre Position nicht.',
       noPark: 'Noch keine Parkposition gemerkt (hier unter „Mehr Optionen“).',
     },
@@ -1953,15 +1951,15 @@ export const de = {
       long: 'Langes Brett',
     },
     jigValue:
-      'Ein Rahmen mit einem Untersetzer und zwei Markern (Nr. 1 und 2, 40 mm). Er liegt jedes Mal etwas anders – verschoben und verdreht. Weiter im Raum Job: Dort wird die Vorrichtung erkannt.',
+      'Ein Rahmen mit einem Untersetzer und zwei Markern (Nr. 1 und 2, 40 mm). Er liegt jedes Mal etwas anders – verschoben und verdreht. Weiter im Reiter Job: Dort wird die Vorrichtung erkannt.',
     moveJig: 'Vorrichtung woanders hinlegen',
     jigMoved: 'Simulator: Die Vorrichtung liegt jetzt woanders ({angle}° gedreht).',
     sceneChanged: 'Simulator: Tisch umgeräumt ({scene}).',
     blanksValue:
-      '{count} Stück: Anhänger, ein runder und ein quadratischer Untersetzer, ein langes Schild – zwei Anhänger liegen aufeinander. Weiter mit Job → Zeichnen → „Serie: auf Rohlinge verteilen“.',
+      '{count} Stück: Anhänger, ein runder und ein quadratischer Untersetzer, ein langes Schild – zwei Anhänger liegen aufeinander. Weiter im Reiter CAM → „Serie: auf Rohlinge verteilen“.',
     reset: 'Tisch zurücksetzen (Spuren und Nullpunkte löschen)',
     longValue:
-      'Ein Brett von 2,6 m – mehr als doppelt so lang, wie die Maschine in X fährt. Der Beispieljob passt nicht in den Verfahrweg; unter Job → Prüfen bietet die App an, ihn in Abschnitten zu fräsen. Marker kleben und Brett weiterschieben macht der Simulator im Ablauf selbst – jedes Mal etwas ungenau und leicht verdreht.',
+      'Ein Brett von 2,6 m – mehr als doppelt so lang, wie die Maschine in X fährt. Der Beispieljob passt nicht in den Verfahrweg; unter Job bietet die App an, ihn in Abschnitten zu fräsen. Marker kleben und Brett weiterschieben macht der Simulator im Ablauf selbst – jedes Mal etwas ungenau und leicht verdreht.',
     loadLong: 'Beispiel „Regalseite“ laden und Nullpunkt setzen',
     longLoaded:
       'Simulator: Regalseite (2,48 m) geladen, X/Y-Nullpunkt auf dem langen Brett gesetzt.',
@@ -2096,14 +2094,18 @@ export const de = {
     otherJob:
       'Auf dem Tisch liegt gerade „{file}“, nicht diese Zeichnung. Das Programm bleibt, wie es ist – erst der Knopf legt die Zeichnung dorthin. Ein ausgerichtetes Programm danach neu ausrichten.',
     otherJobRunning:
-      'Auf dem Tisch liegt gerade „{file}“, und ein Job läuft. Du kannst weiterzeichnen – die Zeichnung kommt erst nach dem Job auf den Tisch.',
+      'Auf dem Tisch liegt gerade „{file}“, und ein Job läuft. Du kannst weiterzeichnen – das Programm bleibt, wie es ist. Nach dem Job legt ein Tipp die Zeichnung auf den Tisch.',
     ahead: {
       running:
-        'Ein Job läuft. Das Programm „{file}“ bleibt, wie es ist – Änderungen an der Zeichnung kommen erst danach auf den Tisch.',
+        'Ein Job läuft. Das Programm „{file}“ bleibt, wie es ist – nach dem Job legt ein Tipp die Änderungen auf den Tisch.',
       done: 'Die Zeichnung wurde geändert, während der Job lief. Auf dem Tisch liegt noch „{file}“ von vorher.',
       nothing:
-        'Ein Job läuft. Die Zeichnung kommt von selbst auf den Tisch, sobald er zu Ende ist.',
+        'Ein Job läuft. Die Zeichnung kommt von selbst auf den Tisch, sobald er zu Ende ist – riss die Verbindung ab, legt sie ein Tipp dorthin.',
+      empty:
+        'Die Zeichnung wurde geändert, während der Job lief. Auf dem Tisch liegt noch nichts davon.',
     },
+    aheadReason:
+      'Die Zeichnung ist weiter als das Programm auf dem Tisch – erst auf den Tisch legen, dann herunterladen.',
     jobRuns: 'Ein Job läuft – das Programm auf dem Tisch bleibt, bis er zu Ende ist.',
     showDrawing: 'Zeichnung auf den Tisch legen',
     undo: 'Rückgängig',
@@ -2297,7 +2299,7 @@ export const de = {
     backText:
       'Text auf der Rückseite steht in der Zeichnung spiegelverkehrt – so ist er am gewendeten Teil lesbar.',
     twoPrograms:
-      'Es entstehen zwei Programme: Vorderseite (mit den Passlöchern) und Rückseite. Der Job-Raum führt durchs Wenden.',
+      'Es entstehen zwei Programme: Vorderseite (mit den Passlöchern) und Rückseite. Der Reiter Job führt durchs Wenden.',
     notes: {
       meet: 'Kontur {front} (Vorderseite) und Kontur {back} (Rückseite) sind dieselbe Form und treffen sich im Material: Sie geht von beiden Seiten durch.',
       through:
@@ -2336,7 +2338,7 @@ export const de = {
     alreadyCutHint:
       'Nur wenn sie mit dem jetzigen Nullpunkt gefräst wurde: Von ihm aus kennt die App die Passlöcher.',
     markCut: 'Weiter zum Wenden',
-    frontDone: 'Vorderseite fertig – jetzt das Teil wenden (Job-Raum).',
+    frontDone: 'Vorderseite fertig – jetzt das Teil wenden (Reiter Job).',
     turn: {
       x: 'Wie eine Buchseite umblättern: Die linke Kante kommt nach rechts, vorn bleibt vorn.',
       y: 'Über die Vorderkante kippen: Die vordere Kante kommt nach hinten, links bleibt links.',
@@ -2628,11 +2630,11 @@ export const de = {
     log: {
       made: 'In {count} Abschnitte geteilt; dazwischen wird das Teil um etwa {slide} mm weitergeschoben.',
       undone: 'Der Nullpunkt wurde versetzt: Der Job ist wieder am Stück geladen.',
-      failed: 'Passmarken: Das hat nicht geklappt – der Job-Raum sagt, warum.',
-      marks: '{count} Passmarke(n) eingemessen – jetzt das Teil weiterschieben (Job-Raum).',
+      failed: 'Passmarken: Das hat nicht geklappt – der Reiter Job sagt, warum.',
+      marks: '{count} Passmarke(n) eingemessen – jetzt das Teil weiterschieben (Reiter Job).',
       found:
         'Teil wiedergefunden ({mm} mm geschoben, {angle}° gedreht): Abschnitt {n} ist geladen.',
-      cut: 'Abschnitt {n} fertig – jetzt Passmarken aufkleben und das Teil weiterschieben (Job-Raum).',
+      cut: 'Abschnitt {n} fertig – jetzt Passmarken aufkleben und das Teil weiterschieben (Reiter Job).',
       allDone: '{name}: Alle Abschnitte sind gefräst.',
     },
   },
@@ -2929,7 +2931,7 @@ export const de = {
       title: 'Tastenkürzel',
       hint: 'Tastenkürzel: ? drücken',
       intro:
-        'Die Tasten gelten, solange in kein Feld getippt wird. Keine davon startet einen Job; gefahren wird nur mit den Pfeiltasten im Raum Fahren.',
+        'Die Tasten gelten, solange in kein Feld getippt wird. Keine davon startet einen Job; gefahren wird nur mit den Pfeiltasten bei offenem Jog-Feld.',
       groups: {
         general: 'Allgemein',
         machine: 'Maschine',
@@ -2939,7 +2941,7 @@ export const de = {
       },
       notes: {
         drawing: 'Solange die Zeichnung offen ist.',
-        drive: 'Nur im Raum Fahren unter „Joggen“, mit der Schrittweite dort.',
+        drive: 'Nur bei offenem Jog-Feld, mit der Schrittweite dort.',
       },
       or: 'oder',
     },
@@ -2979,7 +2981,6 @@ export const de = {
       arrows: 'Pfeiltasten',
       pageUp: 'Bild ↑',
       space: 'Leertaste',
-      right: '→',
       pageDown: 'Bild ↓',
       wheel: 'Mausrad (Taste gehalten)',
     },

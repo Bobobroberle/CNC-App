@@ -4,6 +4,7 @@ import { formatNumber } from '../../lib/format';
 import { useCam } from '../../store/cam';
 import { useJob } from '../../store/job';
 import { useMachine } from '../../store/machine';
+import { useStart } from '../../store/start';
 import { useJobTools } from '../../store/steps';
 import { useUi } from '../../store/ui';
 import { Button } from '../../ui/button';
@@ -226,11 +227,14 @@ export function SetupStep() {
  */
 export function RunStep() {
   const analysis = useJob((s) => s.analysis);
-  // While a job waits for the operator (a tool change, a single step) the cutting view holds the
-  // field to go on: the check is not shown then.
-  const waiting = useMachine(
+  // While a job waits for the operator (a tool change, a single step, between two parts of a job
+  // of several tools) the cutting view holds the field to go on – and the way to give the job up:
+  // the check is not shown then.
+  const streamWaits = useMachine(
     (s) => (s.stream?.toolChange ?? null) !== null || (s.stream?.stepAt ?? null) !== null,
   );
+  const between = useStart()?.phase === 'between';
+  const waiting = streamWaits || between;
   const chosen = useUi((s) => s.views.run);
   const view = waiting ? 'cut' : chosen;
   const setView = useUi((s) => s.setView);

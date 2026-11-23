@@ -80,7 +80,7 @@ Keine vorgegebenen Schritte: jeder Bereich wird je nach Absicht angewählt. Im B
 
 - Jeder Bereich zeigt seinen Zustand (✓ erledigt · ⚠ Warnung · ✕ blockiert · ○ offen), wo es einen gibt – gelesen aus der einen Startklar-Liste: ein Punkt gehört zu dem Bereich, in dem man ihn behebt.
 - Bereiche sind frei anwählbar. Der **Start** in „Fräsen“ bleibt gesperrt, solange etwas **blockiert** (z. B. Verfahrweg verletzt, solange `soft_limits` in der Steuerung aus sind); Warnungen werden einmal bestätigt.
-- Es gibt **keine Kette „Weiter: …“** und keine Taste dafür: kein Bereich schlägt den nächsten vor. Der Startbildschirm bleibt als Übersicht und behält seine Empfehlung „Als Nächstes“. In der Ansicht *Prüfen* steht unten rechts nichts; zum Fräsen wechselt der Unterreiter.
+- Es gibt **keine Kette „Weiter: …“** und keine Taste dafür: kein Bereich schlägt den nächsten vor. Der Startbildschirm bleibt als Übersicht und behält seine Empfehlung „Als Nächstes“. In der Ansicht *Prüfen* steht unten rechts nichts, solange kein Job läuft oder wartet; zum Fräsen wechselt der Unterreiter.
 - Die Werkzeugliste und die Konsole (nur Experten) liegen im Hauptmenü.
 
 ### 3.3 Nebenbereiche (außerhalb der Reiter)

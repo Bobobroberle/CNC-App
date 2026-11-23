@@ -38,7 +38,7 @@ export const en: DictionaryShape = {
     cameraOn: 'Switch the camera on',
     zoomReset: 'Zoom {zoom}× – whole picture',
     wide: 'Wide view',
-    wideHint: 'The stage across the full width. A room on the rail brings the panel back.',
+    wideHint: 'The stage across the full width. A tab on the rail brings the panel back.',
   },
   stageTools: {
     label: 'Tapping the table or the camera picture',
@@ -190,7 +190,6 @@ export const en: DictionaryShape = {
     panelLarger: 'Larger',
     noProgram: 'This step needs a program.',
     toJob: 'To the job',
-    drawingFirst: 'Hand the drawing over first: in the drawing under "Look and hand over".',
   },
   bar: {
     label: 'Status bar',
@@ -452,7 +451,7 @@ export const en: DictionaryShape = {
       stream: {
         cause: 'Something went wrong while sending the program line by line.',
         effect: 'The streamed job stands. The workpiece is cut up to this line only.',
-        action: 'Resume from the last line under ⑤ Cut → All parameters – or start anew.',
+        action: 'Resume from the last line under Cut → All parameters – or start anew.',
       },
       motion: {
         cause: 'A move was not carried out or was cancelled.',
@@ -669,7 +668,7 @@ export const en: DictionaryShape = {
   reason: {
     connecting: 'The connection is being set up – a moment.',
     alarm: 'The controller is in alarm: unlock or home first.',
-    hold: 'The machine is paused: resume or abort the job first (⑤ Cut).',
+    hold: 'The machine is paused: resume or abort the job first (Cut).',
     viewer: 'View only: another device controls the machine. PAUSE and E-STOP still work.',
     missing: 'A precondition is still missing – this card says which.',
   },
@@ -678,7 +677,7 @@ export const en: DictionaryShape = {
     reason: {
       offline: 'Not connected: connect under Settings → Connection first.',
       busy: 'Only while the machine is at rest (state “Ready”).',
-      noZero: 'No work zero set yet (step ③ Set up).',
+      noZero: 'No work zero set yet (tab Set up).',
       notHomed: 'Home first: without it the machine does not know where it is.',
       noPark: 'No park position stored yet (here under “More options”).',
     },
@@ -1928,15 +1927,15 @@ export const en: DictionaryShape = {
       long: 'Long board',
     },
     jigValue:
-      'A frame with a coaster and two markers (no. 1 and 2, 40 mm). It lies a little differently every time – shifted and turned. Go on in the Job room: the jig is recognised there.',
+      'A frame with a coaster and two markers (no. 1 and 2, 40 mm). It lies a little differently every time – shifted and turned. Go on in the Job tab: the jig is recognised there.',
     moveJig: 'Put the jig somewhere else',
     jigMoved: 'Simulator: the jig lies somewhere else now (turned by {angle}°).',
     sceneChanged: 'Simulator: table rearranged ({scene}).',
     blanksValue:
-      '{count} pieces: tags, a round and a square coaster, a long sign – two tags lie on each other. Go on with Job → Draw → “Series: spread over blanks”.',
+      '{count} pieces: tags, a round and a square coaster, a long sign – two tags lie on each other. Go on in the CAM tab → “Series: spread over blanks”.',
     reset: 'Reset table (clear marks and zeros)',
     longValue:
-      'A board of 2.6 m – more than twice what the machine travels in X. The example job does not fit the travel; under Job → Check the app offers to cut it in sections. Sticking on the markers and sliding the board along is done by the simulator in the flow – a little off and slightly turned each time.',
+      'A board of 2.6 m – more than twice what the machine travels in X. The example job does not fit the travel; under Job the app offers to cut it in sections. Sticking on the markers and sliding the board along is done by the simulator in the flow – a little off and slightly turned each time.',
     loadLong: 'Load the example "shelf side" and set the zero',
     longLoaded: 'Simulator: shelf side (2.48 m) loaded, X/Y zero set on the long board.',
     wasReset: 'Simulator reset – please home again.',
@@ -2066,13 +2065,17 @@ export const en: DictionaryShape = {
     otherJob:
       'The table shows "{file}" right now, not this drawing. That program stays as it is – only the button puts the drawing there. Align an aligned program anew afterwards.',
     otherJobRunning:
-      'The table shows "{file}" right now, and a job is running. Keep drawing – the drawing goes on the table only after the job.',
+      'The table shows "{file}" right now, and a job is running. Keep drawing – that program stays as it is. After the job a tap puts the drawing on the table.',
     ahead: {
       running:
-        'A job is running. The program "{file}" stays as it is – changes to the drawing go on the table only afterwards.',
+        'A job is running. The program "{file}" stays as it is – after the job a tap puts the changes on the table.',
       done: 'The drawing was changed while the job ran. The table still shows "{file}" from before.',
-      nothing: 'A job is running. The drawing goes on the table by itself as soon as it has ended.',
+      nothing:
+        'A job is running. The drawing goes on the table by itself as soon as it has ended – if the link was lost, a tap puts it there.',
+      empty: 'The drawing was changed while the job ran. Nothing of it lies on the table yet.',
     },
+    aheadReason:
+      'The drawing is ahead of the program on the table – put it on the table first, then download.',
     jobRuns: 'A job is running – the program on the table stays until it has ended.',
     showDrawing: 'Put the drawing on the table',
     undo: 'Undo',
@@ -2266,7 +2269,7 @@ export const en: DictionaryShape = {
     backText:
       'Text on the back stands mirrored in the drawing – that way it reads right on the turned part.',
     twoPrograms:
-      'Two programs are made: the front (with the registration holes) and the back. The Job room leads through the turn.',
+      'Two programs are made: the front (with the registration holes) and the back. The Job tab leads through the turn.',
     notes: {
       meet: 'Contour {front} (front) and contour {back} (back) are the same shape and meet in the material: it goes through from both sides.',
       through:
@@ -2305,7 +2308,7 @@ export const en: DictionaryShape = {
     alreadyCutHint:
       'Only if it was cut with the zero as it is now: from it the app knows where the registration holes are.',
     markCut: 'On to the turn',
-    frontDone: 'Front done – now turn the part over (Job room).',
+    frontDone: 'Front done – now turn the part over (Job tab).',
     turn: {
       x: 'Turn it like the page of a book: the left edge goes to the right, the front stays in front.',
       y: 'Tip it over its front edge: the front edge goes to the back, the left stays left.',
@@ -2594,10 +2597,10 @@ export const en: DictionaryShape = {
     log: {
       made: 'Divided into {count} sections; in between the part is slid along by about {slide} mm.',
       undone: 'The zero was moved: the job is loaded in one piece again.',
-      failed: 'Register marks: that did not work – the Job room says why.',
-      marks: '{count} register mark(s) measured – now slide the part along (Job room).',
+      failed: 'Register marks: that did not work – the Job tab says why.',
+      marks: '{count} register mark(s) measured – now slide the part along (Job tab).',
       found: 'Part found again (slid {mm} mm, turned {angle}°): section {n} is loaded.',
-      cut: 'Section {n} done – now stick on register marks and slide the part along (Job room).',
+      cut: 'Section {n} done – now stick on register marks and slide the part along (Job tab).',
       allDone: '{name}: all sections are cut.',
     },
   },
@@ -2888,7 +2891,7 @@ export const en: DictionaryShape = {
       title: 'Keyboard shortcuts',
       hint: 'Keyboard shortcuts: press ?',
       intro:
-        'The keys apply while nothing is typed into a field. None of them starts a job; only the arrow keys in the Drive room move the machine.',
+        'The keys apply while nothing is typed into a field. None of them starts a job; only the arrow keys with the jog panel open move the machine.',
       groups: {
         general: 'General',
         machine: 'Machine',
@@ -2898,7 +2901,7 @@ export const en: DictionaryShape = {
       },
       notes: {
         drawing: 'While the drawing is open.',
-        drive: 'Only in the Drive room under “Jog”, with the step chosen there.',
+        drive: 'Only with the jog panel open, with the step chosen there.',
       },
       or: 'or',
     },
@@ -2938,7 +2941,6 @@ export const en: DictionaryShape = {
       arrows: 'Arrow keys',
       pageUp: 'Page ↑',
       space: 'Space',
-      right: '→',
       pageDown: 'Page ↓',
       wheel: 'Mouse wheel (button held)',
     },

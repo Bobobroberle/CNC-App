@@ -49,7 +49,6 @@ export type Cap =
   | 'pageUp'
   | 'pageDown'
   | 'space'
-  | 'right'
   | 'wheel'
   | (string & {});
 

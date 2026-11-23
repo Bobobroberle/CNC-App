@@ -598,6 +598,8 @@ test('a drawing is worked on while a job runs: the program that runs stays, the 
   await expect(page.getByTestId('cam-draw')).toBeVisible();
   await drawShape(page, 'Rechteck');
   await drawShape(page, 'Kreis');
+  // … with its picture on the table, though another program runs there …
+  await expect(page.getByTestId('table-view')).toHaveAttribute('data-drawing-frame', /.+/);
   // … the hint says what lies on the table and why the drawing does not go there …
   const hint = page.getByTestId('cam-other-job');
   await expect(hint).toContainText('Job läuft');

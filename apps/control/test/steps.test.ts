@@ -144,6 +144,29 @@ describe('the one recommendation of the start screen', () => {
     expect(nextAction({ ...IDLE, running: true, toolChange: true }).kind).toBe('toolChange');
   });
 
+  it('names a place to go to wherever the action bar has no action of its own for it', () => {
+    // alarm, home, connect and connecting have their own actions; every other kind leads to an area
+    const own = new Set(['alarm', 'home', 'connect', 'connecting']);
+    const cases: NextInput[] = [
+      IDLE,
+      { ...IDLE, program: 'a.nc', open: 'setup' },
+      { ...IDLE, running: true, program: 'a.nc' },
+      { ...IDLE, running: true, holding: true },
+      { ...IDLE, toolChange: true, program: 'a.nc' },
+      { ...IDLE, toolChange: true },
+      { ...IDLE, interrupted: { name: 'a.nc', percent: 3 } },
+    ];
+    for (const input of cases) {
+      const next = nextAction(input);
+      if (!own.has(next.kind)) expect(next.step, next.kind).toBeDefined();
+    }
+    expect(nextAction({ ...IDLE, toolChange: true, program: 'a.nc' })).toEqual({
+      kind: 'toolChange',
+      step: 'run',
+      name: 'a.nc',
+    });
+  });
+
   it('offers to take up an interrupted job, before homing and before the next step', () => {
     expect(
       nextAction({ ...IDLE, homed: false, interrupted: { name: 'schild.nc', percent: 62 } }),

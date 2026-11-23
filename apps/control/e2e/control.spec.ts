@@ -2659,16 +2659,15 @@ test('the demo: the aligned program lies on the table until the drawing is put t
   // The demo's sign is drawn by its measures: its plate can be changed like one drawn by hand.
   await cam.getByRole('button', { name: '1. Rechteck 280 × 160 mm' }).click();
   await expect(cam.getByTestId('cam-arrange').getByLabel('Eckenradius (mm)')).toHaveValue('10');
-  // The table still shows the program turned onto the board – said in words, with the way out.
+  // The program turned onto the board stays on the table – said in words, with the way out – and
+  // the drawing is drawn over it all the same, so it can be worked on with the finger.
   const notice = cam.getByTestId('cam-other-job');
+  const frame = '40.00,20.00;320.00,20.00;320.00,180.00;40.00,180.00';
   await expect(notice).toContainText('demo-schild_ausgerichtet.nc');
-  await expect(table).not.toHaveAttribute('data-drawing-frame');
+  await expect(table).toHaveAttribute('data-drawing-frame', frame);
   await notice.getByRole('button', { name: 'Zeichnung auf den Tisch legen' }).click();
   await expect(notice).toHaveCount(0);
-  await expect(table).toHaveAttribute(
-    'data-drawing-frame',
-    '40.00,20.00;320.00,20.00;320.00,180.00;40.00,180.00',
-  );
+  await expect(table).toHaveAttribute('data-drawing-frame', frame);
   // Nothing was changed by that: there is nothing to take back.
   await expect(cam.getByRole('button', { name: 'Rückgängig' })).toBeDisabled();
 });

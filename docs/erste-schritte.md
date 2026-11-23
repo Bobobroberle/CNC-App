@@ -2,7 +2,7 @@
 
 Reihenfolge laut Projektbeschreibung: erst leerer Jackpot auf dem Tisch, dann Maschine mit Spindel
 aus, dann im Material. Hand am Hardware-Not-Aus. Jeden Punkt abhaken; was anders läuft als
-beschrieben, mit Protokoll-Auszug (_Menü → Service & Diagnose → Protokoll_) notieren.
+beschrieben, mit Protokoll-Auszug (_Reiter Service → Protokoll_) notieren.
 
 **Etwas nicht gefunden?** Oben _Suchen_ antippen (am Laptop `Strg+K`) und ein Wort tippen – auch
 ein anderes als das auf dem Bildschirm („Zwinge“, „homing“, „zu lang“). Die Suche führt zur Stelle
@@ -16,14 +16,14 @@ draußen, bis er neu startet. Die App sagt das so: „Pi erreicht den Jackpot ni
 dann den Jackpot aus- und wieder einschalten. Solange kein Job läuft, versucht die App es von selbst
 weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jobs nie.
 
-- [ ] Mit dem Pi: Browser auf `http://<Pi>:8080`, _Menü → Einstellungen → Verbindung → Über den Pi
+- [ ] Mit dem Pi: Browser auf `http://<Pi>:8080`, _Reiter Einstellungen → Verbindung → Über den Pi
       verbinden_. Die Karte zeigt den Weg (dieses Gerät → Pi → Jackpot) und was sie gerade tut.
 - [ ] Ohne Pi: `lowrider-control.html` per Doppelklick öffnen (nicht über https), _Menü →
       Einstellungen → Verbindung:_ IP des Jackpot, _Verbinden_.
 - [ ] Probe: Jackpot ausschalten – die Karte sagt, welches Gerät fehlt, und zählt den nächsten Versuch
       herunter; Jackpot wieder an – die App verbindet von selbst. _Aufhören_ beendet die Versuche.
 - [ ] Konsole: `$I` – Ausgabe notieren.
-- [ ] _Menü → Einstellungen → Maschine → Maschinenprofil → Von der Maschine lesen ($CD)_: Verfahrweg und Geschwindigkeiten
+- [ ] _Reiter Einstellungen → Maschine → Maschinenprofil → Von der Maschine lesen ($CD)_: Verfahrweg und Geschwindigkeiten
       übernehmen.
 - [ ] _Maschinenprofil → Grenzen der Steuerung:_ Höchstgeschwindigkeit und Beschleunigung je Achse
       stehen da (aus der config.yaml). Die _Tippgeschwindigkeit der App_ darüber ist die eigene der
@@ -33,9 +33,9 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
       Sicherung `config.yaml.bak` gespeichert – **erst an der Maschine prüfen:** nach dem Schreiben
       _Experte → config.yaml komplett bearbeiten → Von der Maschine lesen_ und vergleichen, dann den
       Jackpot neu starten und die Werte erneut lesen.
-- [ ] _Menü → Einstellungen → Experte → config.yaml komplett bearbeiten → Von der Maschine lesen →
+- [ ] _Reiter Einstellungen → Experte → config.yaml komplett bearbeiten → Von der Maschine lesen →
       Original herunterladen_ und aufheben.
-- [ ] _Menü → Einstellungen → Experte → $-Einstellungen → Von der Maschine lesen ($S)_: Liste und
+- [ ] _Reiter Einstellungen → Experte → $-Einstellungen → Von der Maschine lesen ($S)_: Liste und
       Erklärungen ansehen (nichts ändern).
 - [ ] Zwei Browserfenster verbinden: siehe [offene-fragen.md](offene-fragen.md) („mehrere Clients“).
 
@@ -56,7 +56,7 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
       (e2e `connection.spec.ts`: „a device that only watches …“, gegen den Simulator – am echten Pi offen.)
 - [ ] Tastatur (Pfeile, Bild↑/↓), ggf. Gamepad, Handrad. `?` zeigt alle Tastenkürzel; solange die
       Übersicht oder die Suche offen ist, joggen die Pfeiltasten nicht.
-- [ ] Falsche Grenzen? _Menü → Einstellungen → Experte_: `max_travel_mm` (vor allem Z!) und `soft_limits`
+- [ ] Falsche Grenzen? _Reiter Einstellungen → Experte_: `max_travel_mm` (vor allem Z!) und `soft_limits`
       setzen, _Sichern und schreiben_, Neustart, neu referenzieren.
 
 ## 3. Nullpunkte und Antasten
@@ -86,11 +86,11 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
   - [ ] _Abbrechen_ (halten): Maschine hält an, danach kein Neu-Referenzieren nötig.
 - [ ] _Wiederaufnahme ab Zeile:_ abgebrochenen Job ab einer Zeile fortsetzen.
 - [ ] Zweite Startart: _Vom iPad streamen_ mit _Einzelschritt_ (ein Satz pro Tipp).
-- [ ] _Menü → Service & Diagnose → Historie:_ der Job steht mit Dauer, Abweichung und Ergebnis drin.
+- [ ] _Reiter Service → Historie:_ der Job steht mit Dauer, Abweichung und Ergebnis drin.
 
 ## 4a. Eigenes Teil zeichnen (CAM)
 
-- [ ] _Job → Zeichnen / DXF:_ unter _1 · Zeichnen_ auf _Rechteck_ tippen – es liegt sofort auf dem
+- [ ] _Reiter CAM:_ unter _1 · Zeichnen_ auf _Rechteck_ tippen – es liegt sofort auf dem
       Tisch (100 × 60, Ecke auf dem Nullpunkt). Dann _Kreis_: er landet mitten im Rechteck.
 - [ ] Das gewählte Teil auf dem Tisch an einem Griff größer ziehen, am Punkt darüber drehen, an der
       Linie verschieben – oder seine Maße und _X_ / _Y_ unter den Formen eintippen. _Rückgängig_
@@ -99,7 +99,7 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
       einstellen, _Werte aus Werkzeug und Material vorschlagen_.
 - [ ] Ein Schild: auf _Text_ tippen und gleich das Wort schreiben – er landet mittig und wird 1 mm
       tief graviert (Tiefe steht in seiner Zeile); die Schrifthöhe steht darunter oder am Griff.
-- [ ] Bühne zeigt die Bahnen; _G-Code erzeugen_, dann _Prüfen_ und _Fertigen_ wie oben – zuerst in der
+- [ ] Bühne zeigt die Bahnen; _G-Code erzeugen_, dann _Fräsen → Prüfen_ und _Fräsen_ wie oben – zuerst in der
       Luft.
 - [ ] Eine DXF- oder SVG-Datei aus Fusion oder Inkscape laden; nicht Übernommenes (Text, Bilder,
       Blöcke) wird genannt. Bei SVG ein Maß nachmessen: Die Größe kommt aus der Datei.
@@ -118,7 +118,7 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
 - [ ] **Teil wenden** wie im Bild, wieder spannen, bestätigen. Mit Kamera: _Passloch 1/2 anfahren und
       suchen_ halten – danach liegt die Rückseite gedreht und verschoben richtig. Mit Passstiften: zwei
       Stifte im Bohrdurchmesser in die Löcher im Tisch, Teil daraufstecken.
-- [ ] Unter _Prüfen_ die Spannmittel gegen die Rückseite ansehen, dann _Fertigen_. Am ersten Teil
+- [ ] Unter _Fräsen → Prüfen_ die Spannmittel gegen die Rückseite ansehen, dann _Fräsen_. Am ersten Teil
       nachmessen, ob eine Bohrung von vorn und hinten sich trifft – erst dann etwas Wertvolles.
 
 ## 4c. Eine Serie auf verstreuten Rohlingen (zuerst im Simulator, dann in Restholz)
@@ -153,13 +153,13 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
       Marker aufkleben.
 - [ ] Probe: Vorrichtung wegnehmen, verdreht wieder auflegen, Kamera über den Marker fahren (oder
       Tisch scannen). _Einmessen und Job laden_ halten – der Fräser muss frei über die Vorrichtung
-      kommen. Danach **Z-Nullpunkt setzen** (den kennt der Marker nicht), _Prüfen_, und beim ersten
+      kommen. Danach **Z-Nullpunkt setzen** (den kennt der Marker nicht), _Fräsen → Prüfen_, und beim ersten
       Mal mit Stift statt Fräser oder 0,2 mm tief: Sitzt der Job, wo er beim Anlernen saß?
 
 ## 4e. Ein Teil, das länger ist als der Tisch (zuerst im Simulator, dann in Restholz)
 
 - [ ] Im Simulator: _Einstellungen → Verbindung → Auf dem Tisch → Langes Brett_, _Beispiel
-      „Regalseite“ laden und Nullpunkt setzen_ halten, Zeitraffer 50×. Im Raum _Prüfen_
+      „Regalseite“ laden und Nullpunkt setzen_ halten, Zeitraffer 50×. In _Fräsen → Prüfen_
       steht bei „Liegt im Verfahrweg“ _Teil ist länger als der Tisch_ – **In Abschnitten fräsen**.
 - [ ] Der Karte folgen: Abschnitt 1 prüfen und fräsen, _Passmarken einmessen_ halten, _Teil ist
       weitergeschoben und fest_, _Passmarken finden_ halten, nächster Abschnitt. Auf dem Tisch-Bild
@@ -204,8 +204,8 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
 - [ ] Werkzeug _Messen_: zwei Löcher mit bekanntem Abstand im Kamerabild antippen, Abstand und
       Durchmesser mit dem Messschieber vergleichen.
 - [ ] Werkzeug _Spannmittel_: jede Zwinge antippen, Höhe über dem Werkstück eintragen; unter
-      _Prüfen_ darf kein Spannmittel in der Fräsbahn stehen.
-- [ ] _Menü → Service & Diagnose → Kalibrieren_ mit Punktetafel: Maßstab, Rechtwinkligkeit, Umkehrspiel, Z-Schiefe
+      _Fräsen → Prüfen_ darf kein Spannmittel in der Fräsbahn stehen.
+- [ ] _Reiter Service → Kalibrieren_ mit Punktetafel: Maßstab, Rechtwinkligkeit, Umkehrspiel, Z-Schiefe
       ([Anleitung](kalibrierung.md)); Korrektur schreiben, neu starten, referenzieren, nachmessen.
 - [ ] Autolevel auf einer Platte mit Alufolie: Raster 3 × 3, Höhenunterschiede plausibel.
 - [ ] Fotokarte: auf Kamerahöhe ein paar Stellen anfahren – auf der Bühne _Tisch_ erscheinen die
@@ -220,7 +220,7 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
 
 ## 7. Firmware (nur wenn nötig)
 
-- [ ] _Menü → Einstellungen → Experte → Firmware:_ config.yaml herunterladen, Release-ZIP wählen, Variante WLAN,
+- [ ] _Reiter Einstellungen → Experte → Firmware:_ config.yaml herunterladen, Release-ZIP wählen, Variante WLAN,
       USB verbinden, _Flashen_ (halten). Danach muss die Config unverändert sein.
 
 ## 8. Feierabend: Pi ausschalten (mit Companion)

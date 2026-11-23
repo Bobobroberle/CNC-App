@@ -1,11 +1,12 @@
 import type { Sketch } from '@lowrider/cam';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { jobNames, useCam } from '../src/store/cam';
+import { jobNames, ownsTable, useCam } from '../src/store/cam';
 import { useFlip } from '../src/store/flip';
 import { useJob } from '../src/store/job';
 import { useMachine } from '../src/store/machine';
 import { openCam } from '../src/store/camPlace';
 import { useRun } from '../src/store/run';
+import { useSeries } from '../src/store/series';
 import { jobUnderWay } from '../src/store/underway';
 import { useUi } from '../src/store/ui';
 
@@ -16,6 +17,9 @@ const loaded = () => useJob.getState().fileName;
 const own = () => jobNames(cam().project!.name);
 const running = () => useMachine.setState({ fileJob: { name: 'x.nc', startedAt: 0 } });
 const stopped = () => useMachine.setState({ fileJob: null });
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="40mm" viewBox="0 0 80 40">
+  <rect x="0" y="0" width="80" height="40"/><circle cx="40" cy="20" r="3"/>
+</svg>`;
 
 /**
  * "Zeichnen während etwas gefräst wird": the drawing can always be worked on, but the program
@@ -29,10 +33,12 @@ describe('the drawing never changes the program under a running job', () => {
     useFlip.getState().setPlan(null);
     useRun.getState().reset();
     stopped();
+    useMachine.setState({ connection: 'connected', lostInJob: null, status: null });
     cam().setSettings({ toolId: 't2', depth: 6, allowance: 0, engraveDepth: 1 });
     openCam();
   });
   afterEach(() => {
+    useMachine.setState({ lostInJob: null, connection: 'disconnected' });
     stopped();
     useRun.getState().reset();
     cam().close();
@@ -161,6 +167,101 @@ describe('the drawing never changes the program under a running job', () => {
     cam().addSketch(RECT);
     expect(cam().ahead).toBe(false);
     stopped();
+    expect(loaded()).toBe('part.nc');
+  });
+
+  it('keeps following the drawing when the first import gives it a new name', () => {
+    cam().addSketch(RECT);
+    expect(loaded()).toBe('zeichnung.nc');
+    cam().importFile('schild.svg', SVG);
+    expect(cam().project!.name).toBe('schild');
+    // the program that lay there was the drawing's own: it follows the drawing, under its new name
+    expect(loaded()).toBe('schild.nc');
+    expect(ownsTable('schild.nc')).toBe(true);
+    expect(cam().ahead).toBe(false);
+    expect(useJob.getState().lines.join('\n')).toContain('G1');
+    // and it is taken off the table again when nothing is left to cut
+    cam().clear();
+    expect(loaded()).toBeNull();
+  });
+
+  it('leaves no orphan on the table when the drawing is cleared after a rename', () => {
+    cam().addSketch(RECT);
+    cam().importFile('schild.svg', SVG);
+    cam().clear();
+    expect(loaded()).toBeNull();
+    expect(useJob.getState().analysis).toBeNull();
+  });
+
+  it('knows its own program only while it lies there', () => {
+    cam().addSketch(RECT);
+    const name = own().single;
+    expect(ownsTable(name)).toBe(true);
+    expect(ownsTable('part.nc')).toBe(false);
+    cam().close();
+    expect(ownsTable(name)).toBe(false);
+  });
+
+  it('does not say the drawing changed when the program would be the same', () => {
+    cam().addSketch(RECT);
+    running();
+    expect(cam().remake()).toBe(false);
+    expect(cam().ahead).toBe(false);
+    cam().addSketch(HOLE);
+    expect(cam().ahead).toBe(true);
+    stopped();
+    expect(cam().remake({ take: true })).toBe(true);
+    expect(cam().ahead).toBe(false);
+  });
+
+  it('holds the guard while a job is lost with the link, until the operator has seen it', () => {
+    cam().addSketch(RECT);
+    const text = useJob.getState().lines.join('\n');
+    running();
+    // the connection drops under the job: the store learns first, then the job's promise ends
+    useMachine.setState({
+      connection: 'disconnected',
+      lostInJob: { name: 'x.nc', sd: true, at: 0 },
+    });
+    stopped();
+    expect(jobUnderWay()).toBe(true);
+    cam().addSketch(HOLE);
+    expect(useJob.getState().lines.join('\n')).toBe(text);
+    expect(cam().ahead).toBe(true);
+    useMachine.getState().acknowledgeLost();
+    expect(jobUnderWay()).toBe(false);
+  });
+
+  it('puts nothing on the table by itself when the job ended with the link lost', () => {
+    running();
+    cam().addSketch(RECT);
+    expect(loaded()).toBeNull();
+    useMachine.setState({
+      connection: 'disconnected',
+      lostInJob: { name: 'x.nc', sd: true, at: 0 },
+    });
+    stopped();
+    useMachine.getState().acknowledgeLost();
+    expect(loaded()).toBeNull();
+    expect(cam().ahead).toBe(true);
+  });
+
+  it('the series closes over its own program only', () => {
+    cam().addSketch(RECT);
+    useSeries.setState({
+      open: true,
+      made: { fileName: 'serie-3.nc', zero: { x: 0, y: 0 }, count: 3 },
+    });
+    useJob.getState().load('serie-3.nc', 'G0 X3\n');
+    useSeries.getState().close();
+    expect(loaded()).toBe(own().single);
+    // another program opened since stays where it is
+    useSeries.setState({
+      open: true,
+      made: { fileName: 'serie-3.nc', zero: { x: 0, y: 0 }, count: 3 },
+    });
+    useJob.getState().load('part.nc', 'G0 X1\n');
+    useSeries.getState().close();
     expect(loaded()).toBe('part.nc');
   });
 });

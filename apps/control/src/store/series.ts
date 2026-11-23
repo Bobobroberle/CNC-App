@@ -217,7 +217,8 @@ export const useSeries = create<SeriesStore>((set, get) => ({
   },
 
   close() {
-    const had = get().made !== null;
+    // Over the series' own program only: another program opened since stays where it is.
+    const had = get().made?.fileName === useJob.getState().fileName;
     set({ open: false, made: null });
     // The drawing's own job is on the table again – in place of the series' program, if that lay there.
     useCam.getState().remake({ take: had });
@@ -399,8 +400,9 @@ export const useSeries = create<SeriesStore>((set, get) => ({
     if (todo.length === 0) {
       // Nothing to engrave (any more): the drawing's own job is on the table again.
       if (get().made) {
+        const there = get().made?.fileName === useJob.getState().fileName;
         set({ made: null });
-        useCam.getState().remake({ take: true });
+        useCam.getState().remake({ take: there });
       }
       return false;
     }

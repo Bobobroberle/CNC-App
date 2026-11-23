@@ -662,10 +662,14 @@ test.describe('the row of tabs', () => {
   test('never overlaps, stays tappable and keeps every name – in every width and with a side area open', async ({
     page,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(300_000);
     await installFakeFluidNC(page);
     await openApp(page);
-    for (const width of [640, 800, 1024, 1140, 1280, 1400]) {
+    // Every breakpoint of the row (620, 760, 776, 1100, 1150, 1240, 1290) on both sides, and between.
+    for (const width of [
+      600, 620, 621, 640, 759, 760, 761, 775, 776, 777, 800, 1024, 1099, 1100, 1101, 1149, 1150,
+      1151, 1239, 1240, 1241, 1289, 1290, 1291, 1400,
+    ]) {
       await page.setViewportSize({ width, height: 800 });
       for (const current of [...TABS.map(([id]) => id), 'toollist'] as const) {
         const where = `${width} px, ${current}`;

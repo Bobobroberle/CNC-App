@@ -117,20 +117,20 @@ darin. Das Jog-Feld ist kein Ort: es legt sich aus jedem Bildschirm über das Ko
 | Bisher                                                        | Jetzt                                             |
 | ------------------------------------------------------------- | ------------------------------------------------- |
 | Werkzeuge: Werkzeug- und Materialbibliothek, Schnittwerte     | **Menü → Werkzeugliste** (Schnittwerte auch in ②) |
-| Historie                                                      | **Menü → Service & Diagnose → Historie**          |
-| – (neu) Laufzeit der aufgezeichneten Jobs                     | **Menü → Service & Diagnose → Historie**          |
-| – (neu) Achstest, Verbindungsdaten                            | **Menü → Service & Diagnose → Diagnose**          |
-| – (neu) Meldungshistorie                                      | **Menü → Service & Diagnose → Meldungen**         |
-| Verbindung: Verbinden, Simulator, Companion                   | **Menü → Einstellungen → Verbindung**             |
-| Verbindung: Protokoll                                         | **Menü → Service & Diagnose → Diagnose**          |
+| Historie                                                      | **Reiter Service → Historie**          |
+| – (neu) Laufzeit der aufgezeichneten Jobs                     | **Reiter Service → Historie**          |
+| – (neu) Achstest, Verbindungsdaten                            | **Reiter Service → Diagnose**          |
+| – (neu) Meldungshistorie                                      | **Reiter Service → Meldungen**         |
+| Verbindung: Verbinden, Simulator, Companion                   | **Reiter Einstellungen → Verbindung**             |
+| Verbindung: Protokoll                                         | **Reiter Service → Diagnose**          |
 | Verbindung: Konsole (Experten)                                | **Menü → Konsole** (nur mit Expertenfunktionen)   |
-| Einrichtung: Maschinenprofil, Steuerung, Profil teilen        | **Menü → Einstellungen → Maschine**               |
-| Einrichtung: Kalibrieren (Genauigkeit, Kamera-Kalibrierung)   | **Menü → Service & Diagnose → Kalibrieren**       |
-| Einrichtung: Kamera einrichten                                | **Menü → Einstellungen → Kamera**                 |
-| Einrichtung: Werkstatt, Benachrichtigungen, Makros            | **Menü → Einstellungen → Maschine**               |
-| Einrichtung: Expertenfunktionen anzeigen                      | **Menü → Einstellungen → Maschine**               |
-| Experte: config.yaml, Datei-Editor, $-Einstellungen, Firmware | **Menü → Einstellungen → Experte**                |
-| – (neu)                                                       | **Menü → Einstellungen → Maschine → Darstellung** |
+| Einrichtung: Maschinenprofil, Steuerung, Profil teilen        | **Reiter Einstellungen → Maschine**               |
+| Einrichtung: Kalibrieren (Genauigkeit, Kamera-Kalibrierung)   | **Reiter Service → Kalibrieren**       |
+| Einrichtung: Kamera einrichten                                | **Reiter Einstellungen → Kamera**                 |
+| Einrichtung: Werkstatt, Benachrichtigungen, Makros            | **Reiter Einstellungen → Maschine**               |
+| Einrichtung: Expertenfunktionen anzeigen                      | **Reiter Einstellungen → Maschine**               |
+| Experte: config.yaml, Datei-Editor, $-Einstellungen, Firmware | **Reiter Einstellungen → Experte**                |
+| – (neu)                                                       | **Reiter Einstellungen → Maschine → Darstellung** |
 
 ### Rund um die Bühne
 

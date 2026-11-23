@@ -23,26 +23,28 @@ Zuordnung alt → neu in [docs/umbau-guide.md](docs/umbau-guide.md)):
   Meldungen ⚑ – und rechts **PAUSE** (Vorschub halten: ein Tipp, keine Rückfrage, nie verdeckt,
   nie gesperrt) und daneben mit Abstand **NOT-HALT**.
 - **Start**: der Zustand groß, **eine** Empfehlung „Als Nächstes“ aus dem echten Zustand (verbinden,
-  Alarm beheben, Referenzfahrt, unterbrochenen Job fortsetzen, weiter beim offenen Schritt), der
+  Alarm beheben, Referenzfahrt, unterbrochenen Job fortsetzen, weiter beim offenen Bereich), der
   aktuelle oder letzte Job, Werkzeug und Material, die letzte Meldung, Schnellzugriffe.
-- **Ablauf in fünf Schritten**, frei anspringbar, jeder mit seinem Zustand ✓ ⚠ ✕ ○ aus der einen
-  Startklar-Liste: **① Job** (Programm öffnen, zeichnen, Werkstück) → **② Werkzeuge** (Abgleich Job
-  ↔ Werkzeugliste) → **③ Einrichten** (Nullpunkte, Antasten, Kamera, Ausrichten) → **④ Prüfen**
-  (Startklar-Liste, Simulation, Verfahrweg, Diagnose) → **⑤ Fräsen** (Start, Fortschritt, Pause,
-  Fortsetzen).
-- **Nebenbereiche** im _Menü_: _Werkzeugliste_, _Service & Diagnose_ (Diagnose · Meldungen ·
-  Historie · Kalibrieren), _Einstellungen_ (Verbindung · Maschine mit **Darstellung: dunkel oder
-  hell** · Kamera), _Konsole_ (nur mit Expertenfunktionen). Was eine Liste ist, bekommt die ganze
-  Breite; nur Kalibrieren und die Kamera-Einrichtung behalten das Bild.
-  **Jog / Manuell** öffnet sich aus jedem Bildschirm über _Jog_ unten links.
+- **Sechs Reiter**, frei anzuwählen: **Job** (Programm öffnen, Zuletzt verwendet, Werkstück) ·
+  **CAM** (zeichnen) · **Einrichten** (Nullpunkte, Antasten, Kamera, Ausrichten) · **Fräsen** mit
+  den Ansichten _Prüfen_ (Startklar-Liste, Werkzeuge des Jobs, Simulation, Verfahrweg, Diagnose) und
+  _Fräsen_ (Start, Fortschritt, Pause, Fortsetzen) · **Service** (Diagnose · Meldungen · Historie ·
+  Kalibrieren) · **Einstellungen** (Verbindung · Maschine mit **Darstellung: dunkel oder hell** ·
+  Kamera · Experte). Job, Einrichten und Fräsen zeigen ihren Zustand ✓ ⚠ ✕ ○ aus der einen
+  Startklar-Liste. Unter 1100 px behält nur der aktuelle Reiter sein Wort.
+- Im **Menü**: _Werkzeugliste_ und _Konsole_ (nur mit Expertenfunktionen). Was eine Liste ist,
+  bekommt die ganze Breite; nur Kalibrieren und die Kamera-Einrichtung behalten das Bild.
+  **Jog / Manuell** öffnet sich aus jedem Bildschirm über _Jog_ unten links (nicht im CAM).
 - **Meldungen** in fünf Stufen (⚑ in der Statusleiste öffnet das Meldungszentrum): _Information_
   (kurz eingeblendet), _Hinweis_ (bleibt im Zentrum), _Warnung_ (bestätigen, sperrt nichts),
   _Störung_ (Alarm: sperrt Fahren und Start, mit Lösungsweg) und _Kritisch_ (Verbindung im Job
   verloren: über die ganze Arbeitsfläche bis zur Quittierung). Jede Meldung nennt Ursache,
   Auswirkung und nächste Maßnahme; der Code der Steuerung steht klein dahinter.
 - **Gesperrte Schaltflächen sagen bei Antippen, warum** (nicht verbunden, Alarm, Maschine fährt …).
-- **Aktionsleiste** unten: links _Jog_, rechts genau **eine** Hauptaktion mit ihrem Ziel im Text
-  („Weiter: Einrichten“).
+- **Aktionsleiste** unten: links _Jog_, rechts die Hauptaktion, **wo der Bereich eine hat**: auf
+  Start die Empfehlung „Als Nächstes“, im Job ohne Programm _G-Code öffnen_, in Fräsen der Start
+  (ein Halten) – dann Pause und Fortsetzen. Einrichten, CAM, Service, Einstellungen und die
+  Ansicht _Prüfen_ haben keine; ein „Weiter“ von Bereich zu Bereich gibt es nicht.
 - Breiten: ab 1024 px Bild links und Bedienfeld rechts; 600–1023 px (Touchscreen an der Maschine)
   Bedienfeld als Blatt unten in drei Stellungen – zugeklappt, halb (so beginnt es: das Bild bleibt
   frei darüber) und ganz –, 56-px-Ziele; unter 600 px (Telefon) nur Überwachung: Zustand,
@@ -63,7 +65,7 @@ Material“ ist blau (Rot gehört allein Störung, Alarm und NOT-HALT). Ein lauf
 und brauchen einen Tipp; alles Gefährliche (Start, Referenzfahrt, Flashen, Konfiguration schreiben)
 braucht Halten.
 
-**Schnellsuche und Tastenkürzel.** In der Zeile der Schritte steht _Suchen_ (Lupe; am
+**Schnellsuche und Tastenkürzel.** In der Reiterzeile steht _Suchen_ (Lupe; am
 Laptop auch `Strg/Cmd+K` oder `/`). Ein Feld, in das man irgendein Wort tippt – auch das „falsche“
 oder eines mit Tippfehler: „Zwinge“ findet _Spannmittel_, „homing“ die _Referenzfahrt_, „nulpunkt“
 den _Nullpunkt_, „zu lang“ _In Abschnitten fräsen_, „Skizze“ das Zeichnen. Jede Zeile sagt, wo die
@@ -82,7 +84,6 @@ Tasten am Laptop (nie, solange in ein Feld getippt wird):
 | ----------------- | -------------------------------------------------------------------------- |
 | `Leertaste`       | **Pause** (Vorschub halten), solange sich etwas bewegt – auch im Dialog    |
 | `Esc`             | Laufenden Job abbrechen – **mit Rückfrage**                                |
-| `Strg/Cmd+→`      | Nächster Schritt                                                           |
 | `Strg/Cmd+K`, `/` | Schnellsuche                                                               |
 | `?`               | Übersicht aller Tastenkürzel                                               |
 | `T` · `K` · `D`   | Bühne: Tisch · Kamera · 3D                                                 |
@@ -94,7 +95,7 @@ Dazu wie bisher die Tasten der Zeichnung (Entf, Pfeile, Strg+Z …); die Übersi
 Für NOT-HALT, Start und Referenzfahrt gibt es absichtlich keine Taste. Auf dem iPad ohne Tastatur
 zeigt die App keine Tastenkürzel an.
 
-**Jog / Manuell und ③ Einrichten** (früher „Fahren“)
+**Jog / Manuell und Einrichten** (früher „Fahren“)
 
 - _Joggen:_ XY-Kreuz mit _Stopp_ in der Mitte, Z daneben (A bei Drehachse), Achsen in ihren Farben;
   Schrittweiten 0,01 · 0,1 · 1 · 10 mm und _Dauer_ (Halten, bis zur Verfahrweg-Grenze). Darunter
@@ -114,7 +115,7 @@ zeigt die App keine Tastenkürzel an.
   selbst und setzt den Nullpunkt X/Y (ohne Antasten, auch bei Holz). Darunter eingeklappt, was
   seltener gebraucht wird: _Zwei Bohrungen_ (Nullpunkt und Drehung, der Job wird passend gedreht),
   _Fläche scannen_ (Fotokarte) und _Mitschnitt_. Bildquelle, Kamerahöhe und Kalibrierung stehen
-  einmalig unter _Menü → Einstellungen → Maschine → Kamera einrichten_; eine Zeile mit _ändern_ führt
+  einmalig unter _Reiter Einstellungen → Maschine → Kamera einrichten_; eine Zeile mit _ändern_ führt
   dorthin. Ohne eingerichtete Kamera gibt es genau einen Knopf: _Kamera einrichten_.
 - _Werkzeuge auf der Bühne_ (Tisch und Kamera gleich): _Hinfahren_ – Stelle antippen, _Kamera
   hierhin_ oder _Fräser hierhin_ halten (vorher auf sichere Höhe, begrenzt auf den Verfahrweg);
@@ -156,7 +157,7 @@ zeigt die App keine Tastenkürzel an.
 - _Demo: eingerichtete Maschine_ (gleicher Ort, `…#demo` oder `release/lowrider-demo.html` per
   Doppelklick): der Simulator wie fertig eingerichtet – referenziert, Nullpunkt auf Bohrung 1, Kamera
   kalibriert, Fläche als Fotokarte gescannt, Beispieljob ausgerichtet auf dem Brett; sie beginnt im
-  Startseite; ein Tipp auf ① Job zeigt den Tisch auf der Bühne. Zum Vorführen;
+  Startseite; ein Tipp auf den Reiter Job zeigt den Tisch auf der Bühne. Zum Vorführen;
   die Demo speichert nichts und lässt echte Einstellungen und den Companion unberührt.
 
 **Als App auf dem iPad**
@@ -168,7 +169,7 @@ zeigt die App keine Tastenkürzel an.
   Maschine. Anleitung: [`docs/ipad.md`](docs/ipad.md); eine native Hülle ist in
   [`apps/ios`](apps/ios/README.md) beschrieben, nicht gebaut.
 
-**Menü → Service & Diagnose → Kalibrieren**
+**Reiter Service → Kalibrieren**
 
 - Maschine mit Kamera und Punktetafel vermessen: Maßstab X/Y, Rechtwinkligkeit, Umkehrspiel,
   Z-Schiefe; Korrektur von `steps_per_mm` und Portal-Ausrichtung (`pulloff_mm` je Y-Motor) direkt
@@ -257,7 +258,7 @@ zeigt die App keine Tastenkürzel an.
      des Livebilds, etwa 0,1 mm. Rohlinge, die größer sind als ein Kamerabild, behalten die Lage
      vom Tisch-Bild.
   3. _Serie erzeugen_ – ein Programm (`…_serie_5x.nc`, die Zahl der Rohlinge steht im Namen und
-     damit in der Historie) für den Ablauf (① Job → ⑤ Fräsen), mit Prüfliste und Spannmittel-Prüfung wie jeder Job.
+     damit in der Historie) für den Ablauf (Job → Fräsen), mit Prüfliste und Spannmittel-Prüfung wie jeder Job.
      Ein Nullpunkt je Rohling ist nicht nötig: Die Rohlinge liegen auf dem Tisch
      (Maschinenkoordinaten), das Programm zählt vom X/Y-Nullpunkt, wie er gerade ist – wird er
      danach neu gesetzt, rechnet die App das Programm neu, und die Prüfliste sperrt den Start,
@@ -437,7 +438,7 @@ pnpm bundle         # release/lowrider-control.html und release/companion.mjs
 `lowrider-control.html` ist **eine einzige Datei**: per Doppelklick (`file://`), von jedem Webserver
 oder vom Companion. Nicht über `https` ausliefern – Browser blockieren dann `ws://` zum Jackpot.
 
-Verbinden: _Menü → Einstellungen → Verbindung_ → IP des Jackpot (z. B. `192.168.178.40`, Port 81 wird ergänzt)
+Verbinden: _Reiter Einstellungen → Verbindung_ → IP des Jackpot (z. B. `192.168.178.40`, Port 81 wird ergänzt)
 → _Verbinden_.
 
 ## Struktur

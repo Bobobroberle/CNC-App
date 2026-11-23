@@ -356,6 +356,7 @@ test('keys: views by one key, none for a "next step", not while typing; "?" show
     'Fahren',
     'Schnellsuche öffnen',
     'Pause: Vorschub halten',
+    'Leertaste',
     'Job abbrechen (mit Rückfrage)',
     'Ansicht Kamera',
     'Auswahl löschen',

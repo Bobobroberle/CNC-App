@@ -48,7 +48,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `check` are no places any more (a stored one falls back to `run`). There is **no "Weiter: …" chain and no
   Ctrl+→**; the start screen stays and keeps its "Als Nächstes" recommendation (`lib/next.ts`). The primary action sits
   only where an area has one: Job without a program ("G-Code öffnen"), Fräsen (the start, pause, going on; "Prüfen"
-  while the start is blocked; **nothing in the Prüfen view**); Einrichten, CAM, Service, Einstellungen and the lists have
+  while the start is blocked; **nothing in the Prüfen view** while no job runs or waits – a running or waiting job
+  forces the cutting view); Einrichten, CAM, Service, Einstellungen and the lists have
   none. The start lock stays: the readiness list and its "dealt with here" mapping stay. **Still open:** stage 2 – in
   the CAM only the CAM and the status bar are shown (no jog button, no run bar, no camera inset, no flow cards, no stage
   tools) – and stage 3 – the primary action docked to each panel. Until then the CAM still shows the action bar.
@@ -223,12 +224,16 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   stage (`useJob.unload`).
   **The drawing never changes the program under a job that is under way** (`jobUnderWay()` in
   `store/underway.ts`: a part running from the SD card, a stream, an upload, a multi-tool job waiting between its
-  parts – the series flow uses the same answer): `generate()` and `offStage()` leave the table alone and set
-  `useCam.ahead`; the drawing can be worked on meanwhile. **A program that is not the drawing's own** (a file opened
-  since, the aligned back) is replaced only by `generate({ take: true })` / `remake({ take: true })` – the tap on
-  "Zeichnung auf den Tisch legen", the hand-over, the series closing – never by an edit. When a job ends, a drawing
-  that is `ahead` goes on the table by itself only where nothing is loaded; the program of a finished job stays until
-  that tap.
+  parts, a job the link was lost under until the operator has seen it – the series flow uses the same answer):
+  `generate()` and `offStage()` leave the table alone and set `useCam.ahead` (only if the program would differ); the
+  drawing can be worked on meanwhile, and `TableView` draws and edits it whatever program lies on the table. **What
+  is "its own" program** is `ownsTable()` (the file the drawing last put there – `useCam.table`, which survives the
+  rename its first import gives it – or its names now); **a program that is not its own** (a file opened since, the
+  aligned back) is replaced only by `generate({ take: true })` / `remake({ take: true })` – the tap on "Zeichnung auf
+  den Tisch legen", the hand-over, the series closing over its own program – never by an edit. When a job ends, a
+  drawing that is `ahead` goes on the table by itself only where nothing is loaded and the end was seen while
+  connected; the program of a finished job stays until that tap. The other loaders (opening or dropping a file, the
+  recent list, the flip's front, alignment) do not ask `jobUnderWay()` yet.
 - Two-sided parts ("Wenden"): the drawing shows both sides as seen from the front; the pure maths
   (flip line, mirrored back, registration holes, what the sides do to each other) is
   `packages/cam/src/flip.ts`, the plan and its hand-checked chain to the table `lib/flip.ts`, the

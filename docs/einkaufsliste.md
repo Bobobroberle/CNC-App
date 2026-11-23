@@ -59,7 +59,7 @@ flexibles USB-Kabel, LED-Ring, Tastplatten (Amazon/AliExpress).
 |     | Z-Tastplatte mit Klemme                                                      | Z antasten                                                                                                                                                      | vermutlich vorhanden (WebUI-Werte) | –      |
 |     | XYZ-Ecken-Tastplatte aus Alu                                                 | Ecke/Kante bei Holz – Holz leitet nicht, die Platte schon                                                                                                       | Amazon, AliExpress                 | 20–35  |
 |     | Werkzeuglängensensor, Schließer (NO) – optional                              | Werkzeugwechsel ohne Platte                                                                                                                                     | Amazon, AliExpress                 | 20–40  |
-|     | Glas-Kalibrierplatte mit Punkteraster, ca. 200 × 200 mm, ±0,01 mm – optional | Maßstab und Winkel der Maschine mit der Kamera (_Menü → Service & Diagnose → Kalibrieren_); für den Winkel allein genügt der Ausdruck `docs/kalibriertafel.svg` | AliExpress, Optik-Händler          | 30–100 |
+|     | Glas-Kalibrierplatte mit Punkteraster, ca. 200 × 200 mm, ±0,01 mm – optional | Maßstab und Winkel der Maschine mit der Kamera (_Reiter Service → Kalibrieren_); für den Winkel allein genügt der Ausdruck `docs/kalibriertafel.svg` | AliExpress, Optik-Händler          | 30–100 |
 
 Tastplatte und Längensensor kommen parallel an den Probe-Eingang des Jackpot (`gpio.36` laut
 `machine/config.yaml`). Für die XYZ-Platte im Tastassistenten _Ecken-Tastplatte_ wählen und

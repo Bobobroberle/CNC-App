@@ -53,6 +53,7 @@ import {
   type Tabs,
   type TextOptions,
 } from '@lowrider/cam';
+import { splitLines } from '@lowrider/gcode-core';
 import { suggestCutting } from '@lowrider/workshop';
 import { create } from 'zustand';
 import {
@@ -283,6 +284,11 @@ interface CamStore {
    * nothing was loaded, then it goes there by itself when the job ends.
    */
   ahead: boolean;
+  /**
+   * The file name of the program the drawing itself last put on the table (`ownsTable`): the
+   * drawing can be renamed by its first import while its program is still loaded under the old name.
+   */
+  table: string | null;
 }
 
 /** `take`: the operator asked for the drawing to be on the table, whatever lies there now */
@@ -424,6 +430,21 @@ export const jobNames = (name: string) => ({
   back: `${name}_rueckseite.nc`,
 });
 
+const sameLines = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((line, i) => line === b[i]);
+
+/**
+ * Is this program the drawing's own – the one it put on the table last, or one under the names it
+ * has now (its program, or its front)? Nothing loaded is nobody's.
+ */
+export function ownsTable(fileName: string | null): boolean {
+  if (fileName === null) return false;
+  const { project, table } = useCam.getState();
+  if (fileName === table) return true;
+  const names = project && jobNames(project.name);
+  return names !== null && (fileName === names.single || fileName === names.front);
+}
+
 /** A text flipped in place, so it reads right on the other side. */
 function mirrored(item: CamItem, axis: FlipAxis): CamItem {
   const b = itemsBounds([item]);
@@ -450,22 +471,24 @@ export const useCam = create<CamStore>((set, get) => {
     lastField = field;
     set((s) => ({ past: [...s.past, before].slice(-HISTORY), future: [] }));
   };
-  /** Is this program the drawing's own (one program, or its front)? Nothing loaded counts as none. */
-  const isOwn = (fileName: string | null): boolean => {
-    const { project } = get();
-    const names = project && jobNames(project.name);
-    return names !== null && (fileName === names.single || fileName === names.front);
-  };
   /**
    * May the drawing's program go on the table now? Never under a job that is under way (the
-   * drawing is then ahead of the table, to be put there afterwards); over a program that is not
-   * its own – a file opened since, the aligned back – only when the operator asked (`take`).
+   * drawing is then ahead of the table – if its program would differ from what lies there –, to be
+   * put there afterwards); over a program that is not its own – a file opened since, the aligned
+   * back – only when the operator asked (`take`).
    */
-  const mayLoad = (take: boolean): boolean => {
-    const { fileName } = useJob.getState();
-    const mine = fileName === null || isOwn(fileName);
+  const mayLoad = (take: boolean, texts: { front: string; back: string | null }): boolean => {
+    const { fileName, lines } = useJob.getState();
+    const mine = fileName === null || ownsTable(fileName);
     if (jobUnderWay()) {
-      if (get().ahead !== mine) set({ ahead: mine });
+      const plan = useFlip.getState().plan;
+      const same =
+        fileName !== null &&
+        mine &&
+        sameLines(lines, splitLines(texts.front)) &&
+        (texts.back === null || plan?.back.text === texts.back);
+      const ahead = mine && !same;
+      if (get().ahead !== ahead) set({ ahead });
       return false;
     }
     return mine || take;
@@ -473,7 +496,7 @@ export const useCam = create<CamStore>((set, get) => {
   /** Takes the job of this drawing off the stage: there is nothing to cut. */
   const offStage = () => {
     const { fileName } = useJob.getState();
-    if (!isOwn(fileName)) {
+    if (!ownsTable(fileName)) {
       if (get().ahead) set({ ahead: false });
       return;
     }
@@ -482,7 +505,7 @@ export const useCam = create<CamStore>((set, get) => {
       set({ ahead: true });
       return;
     }
-    set({ ahead: false });
+    set({ ahead: false, table: null });
     useJob.getState().unload();
     useFlip.getState().setPlan(null);
   };
@@ -727,8 +750,9 @@ export const useCam = create<CamStore>((set, get) => {
     flipNotes: [],
     selected: null,
     ahead: false,
+    table: null,
     open() {
-      if (!get().project) set({ project: EMPTY, selected: null, ahead: false });
+      if (!get().project) set({ project: EMPTY, selected: null, ahead: false, table: null });
     },
     close: () =>
       set({
@@ -739,6 +763,7 @@ export const useCam = create<CamStore>((set, get) => {
         past: [],
         future: [],
         ahead: false,
+        table: null,
       }),
     importFile(name, text) {
       const svg = /\.svg$/i.test(name) || /<svg[\s>]/i.test(text.slice(0, 2000));
@@ -1189,22 +1214,25 @@ export const useCam = create<CamStore>((set, get) => {
         offStage();
         return false;
       }
-      if (!mayLoad(take)) return false;
       const program = (m: readonly Move[], name: string) =>
         toGcode(m, { name, rpm: settings.rpm, safeZ: settings.safeZ });
       const names = jobNames(project.name);
-      if (plan && back) {
-        const code = program(moves, `${project.name} Vorderseite`);
-        useJob.getState().load(names.front, code);
+      const sides = plan && back ? { plan, back } : null;
+      const frontCode = program(moves, sides ? `${project.name} Vorderseite` : project.name);
+      const backCode = sides ? program(sides.back.moves, `${project.name} Rueckseite`) : null;
+      if (!mayLoad(take, { front: frontCode, back: backCode })) return false;
+      if (sides) {
+        useJob.getState().load(names.front, frontCode);
         useFlip.getState().setPlan({
-          ...plan,
-          front: { fileName: names.front, text: code },
-          back: { fileName: names.back, text: program(back.moves, `${project.name} Rueckseite`) },
+          ...sides.plan,
+          front: { fileName: names.front, text: frontCode },
+          back: { fileName: names.back, text: backCode! },
         });
       } else {
-        useJob.getState().load(names.single, program(moves, project.name));
+        useJob.getState().load(names.single, frontCode);
         useFlip.getState().setPlan(null);
       }
+      set({ table: sides ? names.front : names.single });
       // The tool circle on the stage is the drawing's cutter.
       useJob.getState().setToolDiameter(tool);
       set({ ahead: false });
@@ -1213,15 +1241,18 @@ export const useCam = create<CamStore>((set, get) => {
   };
 });
 
-// A job that ends: where nothing lies on the table (the page was reloaded under the job) a drawing
-// that is ahead goes there by itself. Where the job's own program still lies there it stays – the
-// operator may still want the summary or the same piece again – until the tap on "Zeichnung zeigen".
+// A job that ends – seen while connected, not lost with the link: where nothing lies on the table (a
+// file run from the SD card list) a drawing that is ahead goes there by itself. Where the job's own
+// program still lies there it stays – the operator may still want the summary or the same piece
+// again – until the tap on "Zeichnung auf den Tisch legen".
 let wasUnderWay = false;
 function afterJob(): void {
   const now = jobUnderWay();
   if (wasUnderWay && !now) {
     const { ahead, project, remake } = useCam.getState();
-    if (ahead && project && useJob.getState().fileName === null) remake();
+    const machine = useMachine.getState();
+    const seen = machine.connection === 'connected' && machine.lostInJob === null;
+    if (seen && ahead && project && useJob.getState().fileName === null) remake();
   }
   wasUnderWay = now;
 }

@@ -11,6 +11,9 @@ import { useRun } from './run';
 export function jobUnderWay(): boolean {
   const machine = useMachine.getState();
   if (machine.fileJob !== null || machine.stream?.result === 'running') return true;
+  // A job the link was lost under still counts until the operator has seen the message: the
+  // controller may well cut on from its SD card.
+  if (machine.lostInJob !== null) return true;
   const { phase, jobKey } = useRun.getState();
   if (phase !== 'uploading' && phase !== 'running' && phase !== 'between') return false;
   // The run's own job; another program loaded since leaves nothing waiting.
@@ -20,7 +23,9 @@ export function jobUnderWay(): boolean {
 
 /** The same for a component: it follows the machine, the run and the loaded program. */
 export function useJobUnderWay(): boolean {
-  const onMachine = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
+  const onMachine = useMachine(
+    (s) => s.fileJob !== null || s.stream?.result === 'running' || s.lostInJob !== null,
+  );
   const phase = useRun((s) => s.phase);
   const jobKey = useRun((s) => s.jobKey);
   const key = useJob((s) => (s.fileName === null ? null : `${s.fileName}:${s.lines.length}`));

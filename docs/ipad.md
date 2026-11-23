@@ -60,12 +60,12 @@ geht. NOT-HALT reagiert beim Aufsetzen des Fingers und bleibt auch mit Bildschir
 Browser bieten das offizielle „Bildschirm anlassen“ nur auf https-Seiten an; die App kommt vom Pi
 aber über http. Deshalb spielt sie, solange die Maschine verbunden ist, ein **stilles, unsichtbares
 Video** ab – das hält das iPad wach. Es startet mit der ersten Berührung nach dem Verbinden.
-_Menü → Einstellungen → Verbindung_ zeigt, was gerade gilt.
+_Reiter Einstellungen → Verbindung_ zeigt, was gerade gilt.
 
 - Läuft Musik oder ein Hörbuch auf dem iPad, kann das stille Video sie unterbrechen.
 - Sicher und ohne Trick: am iPad _Einstellungen → Anzeige & Helligkeit → Automatische Sperre → Nie_
   (für die Werkstattzeit).
-- Abschalten: _Menü → Einstellungen → Maschine → Werkstatt → Bildschirm anlassen, solange verbunden_.
+- Abschalten: _Reiter Einstellungen → Maschine → Werkstatt → Bildschirm anlassen, solange verbunden_.
 
 ## Was die App ohne https nicht kann – und was https kosten würde
 

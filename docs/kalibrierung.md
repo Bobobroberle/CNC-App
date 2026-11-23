@@ -1,6 +1,6 @@
 # Maschine mit der Kamera vermessen
 
-_Menü → Service & Diagnose → Kalibrieren_ misst mit der Kamera am Fräskopf und einer Punktetafel:
+_Reiter Service → Kalibrieren_ misst mit der Kamera am Fräskopf und einer Punktetafel:
 
 - **Maßstab X und Y**: Fährt die Maschine 1000 mm, wenn 1000 mm befohlen sind?
 - **Rechtwinkligkeit**: Stehen X und Y im rechten Winkel zueinander?
@@ -41,7 +41,7 @@ Dunkle Punkte auf hellem Grund, gleichmäßiges Licht (LED-Ring), Kamera scharf 
    Bühne.
 2. Maschine referenzieren. Tafel flach auflegen, möglichst parallel zu X (±1°). Fräser über der
    Tafeloberfläche – gemessen wird in der aktuellen Höhe, Z bewegt sich dabei nicht.
-3. _Menü → Service & Diagnose → Kalibrieren_: Art der Tafel, Messfeld (Abstand der äußeren Punkte; die
+3. _Reiter Service → Kalibrieren_: Art der Tafel, Messfeld (Abstand der äußeren Punkte; die
    mitgelieferte Tafel: 180 × 180 mm) und Anzahl der Punkte wählen.
 4. Kamera mit dem Joystick über den **Punkt unten links** fahren – die Anzeige meldet „Marke
    erkannt“. _Raster messen_ (halten). Die App fährt alle Punkte ab und kehrt zum ersten zurück.

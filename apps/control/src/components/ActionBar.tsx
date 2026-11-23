@@ -150,9 +150,11 @@ function RunAction() {
       s.status?.state === 'Hold',
   );
   const holding = useMachine((s) => s.status?.state.startsWith('Hold') === true);
-  const waiting = useMachine(
+  const streamWaits = useMachine(
     (s) => (s.stream?.toolChange ?? null) !== null || (s.stream?.stepAt ?? null) !== null,
   );
+  // Between two parts of a job of several tools the cutting view names the tool to change.
+  const waiting = streamWaits || start?.phase === 'between';
   const summary = useRun((s) => s.summary);
   const { feedHold, cycleStart } = useMachine.getState();
   // The check offers no start and no way on: between parts the cutting view says which tool to

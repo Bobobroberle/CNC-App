@@ -8,6 +8,7 @@ import { formatNumber } from '../lib/format';
 import {
   blocksFlip,
   jobNames,
+  ownsTable,
   useCam,
   type CamFlipNote,
   type CamItem,
@@ -229,14 +230,9 @@ function Drawing() {
   const fileName = useJob((s) => s.fileName);
   const running = useJobUnderWay();
   if (!project) return null;
-  const names = jobNames(project.name);
   // Another program lies on the table (this drawing's job, aligned; a file opened since): the
   // drawing changes nothing there – one tap puts it there, and not while a job is under way.
-  const other =
-    fileName !== null &&
-    fileName !== names.single &&
-    fileName !== names.front &&
-    partsOf(project.items).length > 0;
+  const other = fileName !== null && !ownsTable(fileName) && partsOf(project.items).length > 0;
   // The drawing's own program lies there, but the drawing has moved on while a job was under way.
   const behind = ahead && !other;
   const why = other
@@ -244,7 +240,7 @@ function Drawing() {
       ? t('cam.otherJobRunning', { file: fileName })
       : t('cam.otherJob', { file: fileName })
     : fileName === null
-      ? t('cam.ahead.nothing')
+      ? t(running ? 'cam.ahead.nothing' : 'cam.ahead.empty')
       : running
         ? t('cam.ahead.running', { file: fileName })
         : t('cam.ahead.done', { file: fileName });
@@ -258,17 +254,15 @@ function Drawing() {
           data-testid="cam-other-job"
         >
           <p>{why}</p>
-          {fileName === null ? null : (
-            <Button
-              variant="outline"
-              disabled={running}
-              reason={t('cam.jobRuns')}
-              data-testid="cam-show-drawing"
-              onClick={() => useCam.getState().remake({ take: true })}
-            >
-              {t('cam.showDrawing')}
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            disabled={running}
+            reason={t('cam.jobRuns')}
+            data-testid="cam-show-drawing"
+            onClick={() => useCam.getState().remake({ take: true })}
+          >
+            {t('cam.showDrawing')}
+          </Button>
         </Alert>
       ) : null}
       <CamAdd />
@@ -297,6 +291,7 @@ export function CamCard() {
   const lines = useJob((s) => s.lines);
   const fileName = useJob((s) => s.fileName);
   const seriesOpen = useSeries((s) => s.open);
+  const ahead = useCam((s) => s.ahead);
   const running = useJobUnderWay();
   const canUndo = useCam((s) => s.past.length > 0);
   const canRedo = useCam((s) => s.future.length > 0);
@@ -312,8 +307,9 @@ export function CamCard() {
   const back = () => useUi.getState().leaveCam();
   const names = jobNames(project.name);
   // A job for both sides is two programs: the front is the one on the table.
-  const both = flipPlan !== null && fileName === names.front ? flipPlan : null;
-  const made = fileName === names.single || both !== null;
+  const both = flipPlan !== null && fileName === flipPlan.front.fileName ? flipPlan : null;
+  // The drawing's own program lies on the table (not the aligned back, not a file opened since).
+  const made = ownsTable(fileName) && (both !== null || flipPlan === null);
   const parts = partsOf(project.items);
   const relieved = parts.some((i) => i.relief !== null && hasCorners(i));
   const backText = parts.some((i) => i.side === 'back' && i.text !== undefined);
@@ -536,11 +532,11 @@ export function CamCard() {
           {t('cam.generate')}
         </Button>
         <Button
-          reason="missing"
+          reason={ahead ? t('cam.aheadReason') : 'missing'}
           variant="outline"
-          disabled={!made}
+          disabled={!made || ahead}
           onClick={() => {
-            if (!both) downloadText(names.single, lines.join('\n'));
+            if (!both) downloadText(fileName ?? names.single, lines.join('\n'));
             else for (const side of [both.front, both.back]) downloadText(side.fileName, side.text);
           }}
         >

@@ -68,7 +68,7 @@ Jackpot 2 / LowRider). Dateiangaben beziehen sich auf `FluidNC/src/`.
 ### Konfiguration auslesen
 
 - `$CD` (Config/Dump) gibt die laufende Konfiguration als YAML aus (`ProcessSettings.cpp`). Die App
-  liest sie damit direkt von der Maschine (_Menü → Einstellungen → Maschine → Maschinenprofil → Von der Maschine lesen_).
+  liest sie damit direkt von der Maschine (_Reiter Einstellungen → Maschine → Maschinenprofil → Von der Maschine lesen_).
 
 ### Planer-Werte
 

@@ -211,5 +211,5 @@ ist nötig, damit Zeitraffer-Bilder gespeichert werden dürfen. Eine Kamera dire
 ## Benachrichtigungen
 
 ntfy-Server auf dem Pi (oder ntfy.sh), App „ntfy“ auf dem Handy, Thema abonnieren. In der App:
-_Menü → Einstellungen → Maschine → Werkstatt und Benachrichtigungen → Über den Companion_ → Thema-Adresse eintragen,
+_Reiter Einstellungen → Maschine → Werkstatt und Benachrichtigungen → Über den Companion_ → Thema-Adresse eintragen,
 _Im Companion speichern_, _Testnachricht senden_.

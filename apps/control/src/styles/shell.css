@@ -389,9 +389,20 @@
   flex: none;
 }
 
-/* The tabs never shrink into each other: what does not fit is taken from the names, below */
+/* The tabs never shrink into each other: what does not fit is taken from the names, below. Where
+   even that is not enough (a larger font than the budget below was measured with) the strip of
+   tabs scrolls – the quick search and the menu stay on the screen. The padding lets the focus
+   ring show inside the scrolling box. */
 .nav-stepper {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 3px;
+  margin: -3px;
+}
+.nav-stepper::-webkit-scrollbar {
+  display: none;
 }
 .nav-stepper [data-slot='stepper-item'] {
   flex-shrink: 0;
@@ -447,9 +458,27 @@
 }
 
 @media (max-width: 620px) {
-  /* No room for the current name either: its tab is told by its fill and its sign */
+  /* No room for the current name either: its tab is told by its fill and its sign. The name stays
+     in the markup, clipped – it takes no room there and is read out. */
   .nav-stepper [data-slot='stepper-step'][aria-current='step'] [data-slot='stepper-label'] {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+/* Start and the menu are their signs from here: with the tool list open (the menu button then
+   carries its long name) the row needs 776 px at the machine screen's 56 px targets. */
+@media (max-width: 776px) {
+  .nav-start span,
+  .nav-menu span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 }
 
@@ -460,14 +489,6 @@
   }
   .navrow {
     gap: 0.25rem;
-  }
-  .nav-start span,
-  .nav-menu span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
   .nav-stepper [data-slot='stepper-step'] {
     padding: 0 0.375rem;
