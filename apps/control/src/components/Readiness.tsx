@@ -2,6 +2,7 @@ import { CheckIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { t, tDynamic } from '../i18n';
 import { reveal } from '../lib/reveal';
 import type { ReadinessItem } from '../lib/readiness';
+import { openCam } from '../store/camPlace';
 import { useJigs } from '../store/jigs';
 import { showTable, useJob } from '../store/job';
 import { useMachine } from '../store/machine';
@@ -129,8 +130,7 @@ function ItemAction({ item }: { item: ReadinessItem }) {
           variant="outline"
           size="sm"
           onClick={() => {
-            go('job', 'prepare');
-            useUi.getState().setDrawing(true);
+            openCam();
           }}
         >
           {t('ready.toSeries')}

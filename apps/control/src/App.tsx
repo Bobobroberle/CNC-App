@@ -13,7 +13,7 @@ import { Monitor } from './components/Monitor';
 import { NavRow } from './components/NavRow';
 import { NumpadLayer } from './components/NumpadLayer';
 import { ConsoleArea, ServiceArea, SettingsArea, ToolListArea } from './components/places/Areas';
-import { JobStep, RunStep, SetupStep } from './components/places/Steps';
+import { CamStep, JobStep, RunStep, SetupStep } from './components/places/Steps';
 import { ReasonLayer } from './components/ReasonLayer';
 import { RunBar } from './components/RunBar';
 import { Stage } from './components/Stage';
@@ -29,7 +29,7 @@ import { useJob } from './store/job';
 import { useCamera } from './store/camera';
 import { cameraCalibrated } from './store/photomap';
 import { openJobFiles } from './store/recent';
-import { isStep, placeHasStage, STEP_STAGE, useUi, type Place } from './store/ui';
+import { hasPicture, isStep, placeHasStage, STEP_STAGE, useUi, type Place } from './store/ui';
 import { useWorkshop } from './store/workshop';
 import { DialogLayer } from './ui/dialog';
 import { Button } from './ui/button';
@@ -56,6 +56,8 @@ function PlaceContent({ place }: { place: Place }) {
   switch (place) {
     case 'job':
       return <JobStep />;
+    case 'cam':
+      return <CamStep />;
     case 'setup':
       return <SetupStep />;
     case 'run':
@@ -77,7 +79,7 @@ function PlaceContent({ place }: { place: Place }) {
 function usePlaceTitle(place: Place, jog: boolean): string {
   if (jog) return t('nav.jogTitle');
   if (place === 'start') return t('nav.start');
-  return isStep(place) ? t(`nav.steps.${place}`) : t(`nav.areas.${place}`);
+  return hasPicture(place) ? t(`nav.steps.${place}`) : t(`nav.areas.${place}`);
 }
 
 /**
@@ -89,7 +91,7 @@ function PanelBody({ place, jogOpen, title }: { place: Place; jogOpen: boolean; 
   // A new place starts at its top; a new view inside a place starts right under
   // the place's (sticky) view switch instead of somewhere down the old view.
   const panel = useRef<HTMLDivElement>(null);
-  const subView = useUi((s) => `${Object.values(s.views).join('|')}|${s.drawing}`);
+  const subView = useUi((s) => `${Object.values(s.views).join('|')}|${s.place}`);
   useLayoutEffect(() => {
     if (panel.current) panel.current.scrollTop = 0;
   }, [place, jogOpen]);
@@ -126,7 +128,7 @@ export function App() {
   const sheet = useMediaQuery(SHEET);
   const phone = useMediaQuery(PHONE);
   const title = usePlaceTitle(place, jogOpen);
-  const subView = useUi((s) => `${Object.values(s.views).join('|')}|${s.drawing}`);
+  const subView = useUi((s) => `${Object.values(s.views).join('|')}|${s.place}`);
   // The sheet's rest belongs to the place (the jog panel has its own) and is remembered.
   const sheetKey = jogOpen ? 'jog' : place;
   const sheetLevel = useUi((s) => s.sheet[sheetKey] ?? 'half');
@@ -144,7 +146,7 @@ export function App() {
   // setting up – where there is a calibrated one –, 3D for checking and cutting. A view the
   // operator chose in a step stays that step's view.
   useEffect(() => {
-    if (!isStep(place)) return;
+    if (!hasPicture(place)) return;
     const { stageViews } = useUi.getState();
     const { settings } = useWorkshop.getState();
     const live = useCamera.getState().source !== null && cameraCalibrated(settings.camera);

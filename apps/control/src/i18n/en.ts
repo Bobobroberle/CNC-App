@@ -111,6 +111,7 @@ export const en: DictionaryShape = {
     stepper: 'Flow',
     steps: {
       job: 'Job',
+      cam: 'Draw/CAM',
       tools: 'Tools',
       setup: 'Set up',
       check: 'Check',
@@ -2939,7 +2940,8 @@ export const en: DictionaryShape = {
       pause: 'pause, hold, feed hold, stop, halt, interrupt, space bar, freeze',
       messages: 'messages, message, errors, notices, warnings, flag, notification, fault, alerts',
       placeStart: 'start, home, dashboard, overview, home screen, what next, main page',
-      placeJob: 'job, program, step 1, what am i making, file, workpiece, material',
+      placeJob: 'job, program, what am i making, file, workpiece, material',
+      placeCam: 'cam area, drawing area, open cam, area draw',
       placeSetup: 'set up, setup, step 3, where is the workpiece, zero, probing, drive, align',
       placeRun: 'cut, run, mill, start, start job, go, machining',
       nextStep: 'next step, next, forward, continue, go on, step forward',

@@ -20,6 +20,7 @@ import type { ReadinessId, ReadinessItem } from './readiness';
 export type CommandPlace =
   | 'start'
   | 'job'
+  | 'cam'
   | 'setup'
   | 'run'
   | 'toollist'
@@ -27,7 +28,7 @@ export type CommandPlace =
   | 'settings'
   | 'console';
 
-const FLOW: readonly CommandPlace[] = ['job', 'setup', 'run'];
+const FLOW: readonly CommandPlace[] = ['job', 'cam', 'setup', 'run'];
 
 /** Harmless things the search does itself: they change the view, nothing else. */
 export const VIEW_ACTIONS = [
@@ -79,8 +80,6 @@ export interface Command {
   /** The place it lives in, and the view of that place */
   place?: CommandPlace;
   view?: string;
-  /** It lives in the drawing workspace of step ① */
-  drawing?: boolean;
   /** It lives in the jog panel, which opens over any place */
   jog?: boolean;
   /**
@@ -111,7 +110,7 @@ function entry(e: Entry): Command {
     kind: e.kind ?? 'go',
     icon:
       e.icon ??
-      (e.drawing
+      (e.place === 'cam'
         ? 'rect'
         : e.jog
           ? 'drive'
@@ -161,7 +160,7 @@ const settings = at('settings');
 const jog = (id: string, title: MessageKey, anchor: string) =>
   entry({ id, title, jog: true, anchor });
 const draw = (id: string, title: MessageKey, anchor: string, icon?: CommandIcon) =>
-  entry({ id, title, place: 'job', drawing: true, anchor, icon });
+  entry({ id, title, place: 'cam', anchor, icon });
 const look = (
   id: string,
   title: MessageKey,
@@ -221,6 +220,7 @@ export const COMMANDS: readonly Command[] = [
   // Start, the five steps and the side areas
   nav('placeStart', 'nav.start', 'start'),
   nav('placeJob', 'nav.steps.job', 'job'),
+  nav('placeCam', 'nav.steps.cam', 'cam'),
   nav('placeSetup', 'nav.steps.setup', 'setup'),
   nav('placeRun', 'nav.steps.run', 'run'),
   nav('placeToollist', 'nav.areas.toollist', 'toollist'),
@@ -413,8 +413,7 @@ export function placeKeys(c: Command): string[] {
   if (c.jog) return ['nav.jogTitle'];
   const place = c.place ?? 'job';
   const keys = [placeLabelKey(place)];
-  if (c.drawing) keys.push('find.places.drawing');
-  else if (c.view) keys.push(viewLabelKey(place, c.view));
+  if (c.view) keys.push(viewLabelKey(place, c.view));
   return keys;
 }
 

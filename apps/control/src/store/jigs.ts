@@ -613,7 +613,7 @@ function loadJigJob(jig: Jig, rotation: number) {
   useJob.getState().setToolDiameter(jig.job.toolDiameter);
   // Another program: a two-sided job that has not been started ends here.
   useFlip.getState().setPlan(null);
-  useUi.getState().setDrawing(false);
+  useUi.getState().leaveCam();
 }
 
 /** Tiles laid onto the table picture in one go from which it is worth a search (a scan, the demo's map) */

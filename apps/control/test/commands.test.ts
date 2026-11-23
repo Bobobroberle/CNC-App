@@ -104,7 +104,7 @@ describe('the table of commands', () => {
       expect(['go', 'view'], c.id).toContain(c.kind);
       if (c.kind === 'view') {
         expect(VIEW_ACTIONS, c.id).toContain(c.action);
-        expect(c.place ?? c.tool ?? c.drawing ?? c.jog ?? c.needs, c.id).toBeUndefined();
+        expect(c.place ?? c.tool ?? c.jog ?? c.needs, c.id).toBeUndefined();
       } else {
         expect(c.action, c.id).toBeUndefined();
         // It lives in a place, in the jog panel, on the stage or in one of the bars.
@@ -130,7 +130,6 @@ describe('the table of commands', () => {
         expect(VIEWS[c.place as keyof typeof VIEWS], c.id).toContain(c.view);
         expect(hasKey(viewLabelKey(c.place, c.view)), c.id).toBe(true);
       }
-      if (c.drawing) expect(c.place, c.id).toBe('job');
     }
     for (const need of Object.values(NEED_FALLBACK)) expect(onPage(need.anchor)).toBe(true);
   });
@@ -159,6 +158,7 @@ describe('the table of commands', () => {
       ).toBe(true);
     }
     expect(STEPS).toEqual(['job', 'setup', 'run']);
+    expect(PLACES).toContain('cam');
     expect(AREAS).toEqual(['toollist', 'service', 'settings', 'console']);
     for (const [place, views] of Object.entries(VIEWS)) {
       for (const view of views) {
@@ -223,7 +223,6 @@ describe('the table of commands', () => {
 describe('what the search may do', () => {
   beforeEach(() => {
     useUi.getState().go('job', 'prepare');
-    useUi.setState({ drawing: false });
     useWorkshop.getState().setSettings({ expertMode: false });
   });
 
@@ -340,13 +339,14 @@ describe('what the search may do', () => {
 
   it('opens the drawing workspace for what lives there, and leaves it for the program', () => {
     runCommand('shapeRect');
-    expect(useUi.getState()).toMatchObject({ place: 'job', drawing: true });
+    expect(useUi.getState().place).toBe('cam');
     expect(useCam.getState().project).not.toBeNull();
-    // The step alone keeps what it shows.
+    // The Job is the Job: going there leaves the workspace; the drawing itself stays.
     runCommand('placeJob');
-    expect(useUi.getState().drawing).toBe(true);
+    expect(useUi.getState().place).toBe('job');
+    expect(useCam.getState().project).not.toBeNull();
     runCommand('jigs');
-    expect(useUi.getState()).toMatchObject({ place: 'job', drawing: false });
+    expect(useUi.getState().place).toBe('job');
     expect(useUi.getState().views.job).toBe('extras');
     useCam.getState().close();
   });
@@ -495,7 +495,7 @@ describe('finding a function with another word', () => {
     expect(first('spannmittel')).toBe('toolClamp');
     expect(placeOf(commandById('toolClamp')!)).toBe('Bühne');
     expect(placeOf(commandById('fixtures')!)).toBe('Einrichten · Nullpunkte');
-    expect(placeOf(commandById('shapeRect')!)).toBe('Job · Zeichnen');
+    expect(placeOf(commandById('shapeRect')!)).toBe('Zeichnen/CAM');
     expect(placeOf(commandById('estop')!)).toBe('Statusleiste');
     expect(placeOf(commandById('pause')!)).toBe('Statusleiste');
     expect(placeOf(commandById('placeSetup')!)).toBe('Navigation');

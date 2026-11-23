@@ -455,8 +455,7 @@ function CheckStep() {
               'info',
               t('series.made', { name: project.name, blanks: blanksText(cut.length) }),
             );
-          useUi.getState().setView('job', 'prepare');
-          useUi.getState().setDrawing(false);
+          useUi.getState().go('job', 'prepare');
         }}
       >
         {cut.length > 0

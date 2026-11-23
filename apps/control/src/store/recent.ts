@@ -185,7 +185,6 @@ export async function openJobFiles(files: readonly File[]): Promise<void> {
     load(job.name, job.text);
     useRecent.getState().rememberLoaded();
   }
-  useUi.getState().setDrawing(false);
   useUi.getState().go('job');
   if (read.length > 1) {
     addLog('info', t('recent.several', { count: read.length, name: read[0]!.name }));
@@ -198,6 +197,6 @@ export function openRecent(name: string): boolean {
   if (!job?.text) return false;
   useJob.getState().load(job.name, job.text);
   useRecent.getState().rememberLoaded();
-  useUi.getState().setDrawing(false);
+  useUi.getState().leaveCam();
   return true;
 }

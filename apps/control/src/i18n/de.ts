@@ -114,6 +114,7 @@ export const de = {
     stepper: 'Ablauf',
     steps: {
       job: 'Job',
+      cam: 'Zeichnen/CAM',
       tools: 'Werkzeuge',
       setup: 'Einrichten',
       check: 'Prüfen',
@@ -2905,7 +2906,6 @@ export const de = {
       top: 'Statusleiste',
       nav: 'Navigation',
       bar: 'Aktionsleiste',
-      drawing: 'Zeichnen',
     },
     shortcuts: {
       title: 'Tastenkürzel',
@@ -2981,7 +2981,8 @@ export const de = {
         'meldungen, meldung, fehler, hinweise, warnungen, flagge, benachrichtigung, störung, messages, meldungszentrum',
       placeStart:
         'start, startseite, dashboard, übersicht, home, anfang, was als nächstes, hauptseite',
-      placeJob: 'job, auftrag, programm, schritt 1, was mache ich, datei, werkstück, material',
+      placeJob: 'job, auftrag, programm, was mache ich, datei, werkstück, material',
+      placeCam: 'cam bereich, zeichenbereich, cam öffnen, bereich zeichnen',
       placeSetup:
         'einrichten, schritt 3, wo liegt das werkstück, nullpunkt, antasten, fahren, ausrichten, setup',
       placeRun: 'fräsen, fertigen, starten, start, laufen, job starten, run, cut',

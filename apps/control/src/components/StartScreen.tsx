@@ -224,7 +224,6 @@ function QuickCard() {
           variant="outline"
           size="lg"
           onClick={() => {
-            useUi.getState().setDrawing(false);
             go('job');
             reveal(['program']);
           }}
@@ -236,7 +235,6 @@ function QuickCard() {
           variant="outline"
           size="lg"
           onClick={() => {
-            useUi.getState().setDrawing(false);
             // The jobs used last stand on ① Job, each with the zero it was cut with.
             go('job');
             reveal(['recent', 'program']);

@@ -143,7 +143,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   const points = useStageTools((s) => s.points);
   const toolId = useStageTools((s) => s.active);
   const zone = useStageTools((s) => s.zone);
-  const drawingOpen = useUi((s) => s.drawing);
+  const drawingOpen = useUi((s) => s.place === 'cam');
   const project = useCam((s) => s.project);
   const selected = useCam((s) => s.selected);
   const fileName = useJob((s) => s.fileName);

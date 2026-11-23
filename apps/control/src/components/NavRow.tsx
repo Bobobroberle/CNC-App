@@ -1,8 +1,8 @@
-import { HouseIcon, MenuIcon } from 'lucide-react';
+import { HouseIcon, MenuIcon, PencilRulerIcon } from 'lucide-react';
 import { useState } from 'react';
 import { t } from '../i18n';
 import { useSteps } from '../store/steps';
-import { AREAS, STEPS, useUi, type Area } from '../store/ui';
+import { AREAS, STEPS, useUi, type Area, type Step } from '../store/ui';
 import { useWorkshop } from '../store/workshop';
 import { Button } from '../ui/button';
 import {
@@ -17,6 +17,9 @@ import {
 import { Stepper, StepperStep } from '../ui/stepper';
 import { AreaIcon } from './AreaIcon';
 import { FindButton } from './Find';
+
+/** The tabs of the work, in their order: the CAM sits after the Job, before the set-up. */
+const TABS: readonly (Step | 'cam')[] = ['job', 'cam', 'setup', 'run'];
 
 /** The side areas the menu offers: the console only with the expert functions switched on. */
 export function useAreas(): Area[] {
@@ -50,19 +53,31 @@ export function NavRow() {
         <span>{t('nav.start')}</span>
       </Button>
       <Stepper aria-label={t('nav.stepper')} className="nav-stepper">
-        {STEPS.map((step, i) => (
-          <StepperStep
-            key={step}
-            number={i + 1}
-            label={t(`nav.steps.${step}`)}
-            state={states[step]}
-            stateLabel={t(`nav.states.${states[step]}`)}
-            current={place === step}
-            data-find={`place-${step}`}
-            data-testid={`step-${step}`}
-            onClick={() => go(step)}
-          />
-        ))}
+        {TABS.map((tab) =>
+          tab === 'cam' ? (
+            <StepperStep
+              key={tab}
+              icon={<PencilRulerIcon aria-hidden="true" />}
+              label={t('nav.steps.cam')}
+              current={place === 'cam'}
+              data-find="place-cam"
+              data-testid="step-cam"
+              onClick={() => go('cam')}
+            />
+          ) : (
+            <StepperStep
+              key={tab}
+              number={STEPS.indexOf(tab) + 1}
+              label={t(`nav.steps.${tab}`)}
+              state={states[tab]}
+              stateLabel={t(`nav.states.${states[tab]}`)}
+              current={place === tab}
+              data-find={`place-${tab}`}
+              data-testid={`step-${tab}`}
+              onClick={() => go(tab)}
+            />
+          ),
+        )}
       </Stepper>
       <span className="nav-space" />
       <FindButton />

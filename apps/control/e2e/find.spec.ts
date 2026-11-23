@@ -139,7 +139,7 @@ test('a wrong word or a typing mistake finds the function, and choosing it leads
   await landed(page, 'pause');
 
   // The drawing workspace.
-  await find(page, 'skizze', 'Zeichnen', 'Job · Zeichnen');
+  await find(page, 'skizze', 'Zeichnen', 'Zeichnen/CAM');
   await expect(page.getByTestId('cam-card')).toBeVisible();
   await landed(page, 'cam-draw');
   // Nothing was drawn by going there.

@@ -11,9 +11,14 @@ export type Step = (typeof STEPS)[number];
 /** The areas beside the flow (§3.3); the jog panel is no place, it opens over any of them */
 export const AREAS = ['toollist', 'service', 'settings', 'console'] as const;
 export type Area = (typeof AREAS)[number];
-/** Where the operator is: the start screen, a step of the flow or a side area */
-export type Place = 'start' | Step | Area;
-export const PLACES: readonly Place[] = ['start', ...STEPS, ...AREAS];
+/**
+ * The drawing workspace (CAM): a place of its own with the table picture but no state of the
+ * readiness list – so it is no `Step`.
+ */
+export const CAM = 'cam' as const;
+/** Where the operator is: the start screen, a step of the flow, the CAM or a side area */
+export type Place = 'start' | Step | typeof CAM | Area;
+export const PLACES: readonly Place[] = ['start', ...STEPS, CAM, ...AREAS];
 
 /** The second level, where a place has one: at most two levels of navigation (§3.4) */
 export type JobView = 'prepare' | 'extras';
@@ -39,7 +44,11 @@ export const VIEWS: { readonly [P in ViewedPlace]: readonly PlaceViews[P][] } = 
   settings: ['connection', 'machine', 'camera', 'expert'],
 };
 
+/** A step of the flow: it has a state in the readiness list */
 export const isStep = (place: Place): place is Step => (STEPS as readonly string[]).includes(place);
+/** The places that work with the picture: the steps and the CAM */
+export const hasPicture = (place: Place): place is Step | typeof CAM =>
+  isStep(place) || place === CAM;
 
 /**
  * Whether a place works with the picture. The steps do; of the side areas
@@ -50,7 +59,7 @@ export const isStep = (place: Place): place is Step => (STEPS as readonly string
 export function placeHasStage(place: Place, views: PlaceViews): boolean {
   if (place === 'service') return views.service === 'calibrate';
   if (place === 'settings') return views.settings === 'camera';
-  return isStep(place);
+  return hasPicture(place);
 }
 export const hasViews = (place: Place): place is ViewedPlace => place in VIEWS;
 
@@ -99,8 +108,9 @@ const validSheet = (value: unknown): Record<string, SheetLevel> | null => {
 
 /** What the stage shows in a step when the operator has not chosen otherwise (DESIGN.md §5) */
 export type StageView = 'table' | 'camera' | '3d';
-export const STEP_STAGE: Record<Step, StageView> = {
+export const STEP_STAGE: Record<Step | typeof CAM, StageView> = {
   job: 'table',
+  cam: 'table',
   setup: 'table',
   run: '3d',
 };
@@ -127,8 +137,8 @@ interface UiStore {
   sheet: Record<string, SheetLevel>;
   setSheet(place: string, level: SheetLevel): void;
   /** The stage view the operator chose in a step; without one the step's own (`STEP_STAGE`) */
-  stageViews: Partial<Record<Step, StageView>>;
-  setStageView(step: Step, view: StageView): void;
+  stageViews: Partial<Record<Step | typeof CAM, StageView>>;
+  setStageView(step: Step | typeof CAM, view: StageView): void;
   /** "Drive here" lifts to the safe height first */
   liftBeforeMove: boolean;
   setLiftBeforeMove(lift: boolean): void;
@@ -141,9 +151,8 @@ interface UiStore {
   /** The context panel is put away: the stage has the whole width ("Großbild") */
   panelHidden: boolean;
   setPanelHidden(hidden: boolean): void;
-  /** Step ① shows the drawing workspace (CAM) instead of the program */
-  drawing: boolean;
-  setDrawing(open: boolean): void;
+  /** Leaves the CAM for the Job – only where the CAM is what shows (a program loaded elsewhere changes nothing) */
+  leaveCam(): void;
   /** Goes to the part of the settings a link asked for (Einstellungen → Kamera) */
   openSetup(section: SetupSection): void;
   /** Which coordinates the position shows; a tap on it switches */
@@ -205,8 +214,7 @@ export const useUi = create<UiStore>((set) => ({
   setFollow: (follow) => set({ follow }),
   panelHidden: false,
   setPanelHidden: (panelHidden) => set({ panelHidden }),
-  drawing: false,
-  setDrawing: (drawing) => set({ drawing }),
+  leaveCam: () => set((s) => (s.place === CAM ? { place: 'job' } : {})),
   openSetup: (section) =>
     set((s) => ({
       place: 'settings',

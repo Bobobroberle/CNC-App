@@ -15,6 +15,7 @@ import { globalShortcut, keysFree, PALETTE, typingInto } from '../lib/shortcuts'
 import { useCam } from './cam';
 import { showTable, useJob } from './job';
 import { useStageTools } from './tools';
+import { openCam } from './camPlace';
 import { placeHasStage, STEPS, useUi } from './ui';
 import { useWorkshop } from './workshop';
 
@@ -88,19 +89,12 @@ function goTo(command: Command): readonly string[] {
     // The place is not there yet: land where it comes from.
     const instead = NEED_FALLBACK[command.needs!];
     ui.go(instead.place, instead.view as never);
-    if (instead.place === 'job') ui.setDrawing(false);
     return [instead.anchor];
   }
-  if (command.place) ui.go(command.place, command.view as never);
+  // The CAM is entered as the button "Zeichnen" does it: the workspace, the table from above.
+  if (command.place === 'cam') openCam();
+  else if (command.place) ui.go(command.place, command.view as never);
   if (command.jog) ui.setJogOpen(true);
-  if (command.drawing) {
-    // As the button "Zeichnen" does it: the workspace, the table from above.
-    useCam.getState().open();
-    ui.setDrawing(true);
-    useJob.getState().setProjection('top');
-  } else if (command.place === 'job' && command.on !== 'nav') {
-    ui.setDrawing(false);
-  }
   // What lives on the picture needs a place that has one: from Start or a list area
   // (Werkzeugliste, Einstellungen …) the way leads to ③ Einrichten, where the tap tools are used.
   if ((command.on === 'stage' || command.tool || command.table) && !command.place && !command.jog) {

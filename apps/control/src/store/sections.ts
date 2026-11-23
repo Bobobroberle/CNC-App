@@ -304,7 +304,7 @@ export const useSections = create<SectionsStore>((set, get) => {
     loadPart(job, 0, 0);
     // Another program: a two-sided job that has not been started ends here.
     useFlip.getState().setPlan(null);
-    useUi.getState().setDrawing(false);
+    useUi.getState().leaveCam();
     save();
   };
 

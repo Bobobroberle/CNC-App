@@ -36,6 +36,7 @@ export function Stepper({ className, ...props }: React.ComponentProps<'ol'>): Re
 
 export function StepperStep({
   number,
+  icon,
   label,
   state,
   stateLabel,
@@ -43,11 +44,14 @@ export function StepperStep({
   className,
   ...props
 }: Omit<React.ComponentProps<'button'>, 'children'> & {
-  number: number;
+  /** Its number in the flow; or `icon` where the entry is no step of the flow */
+  number?: number;
+  icon?: React.ReactElement;
   label: string;
-  state: StepperState;
+  /** Without a state (the CAM has none in the readiness list) no sign is shown */
+  state?: StepperState;
   /** The state in words ("erledigt", "blockiert" …) */
-  stateLabel: string;
+  stateLabel?: string;
   current: boolean;
 }): React.ReactElement {
   return (
@@ -67,15 +71,20 @@ export function StepperStep({
           aria-hidden="true"
           className="flex size-7 shrink-0 items-center justify-center rounded-full border border-current font-semibold text-sm tabular-nums group-aria-[current=step]/step:border-primary group-aria-[current=step]/step:bg-primary group-aria-[current=step]/step:text-primary-foreground"
         >
-          {number}
+          {icon ?? number}
         </span>
         <span className="stepper-label min-w-0 truncate" data-slot="stepper-label">
           {label}
         </span>
-        <span className={cn('shrink-0 [&_svg]:size-4', SIGN_COLOR[state])} data-slot="stepper-sign">
-          {SIGN[state]}
-        </span>
-        <span className="sr-only">{stateLabel}</span>
+        {state ? (
+          <span
+            className={cn('shrink-0 [&_svg]:size-4', SIGN_COLOR[state])}
+            data-slot="stepper-sign"
+          >
+            {SIGN[state]}
+          </span>
+        ) : null}
+        {stateLabel ? <span className="sr-only">{stateLabel}</span> : null}
       </button>
     </li>
   );

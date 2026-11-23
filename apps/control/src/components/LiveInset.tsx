@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { t } from '../i18n';
 import { mountCamera, useCamera } from '../store/camera';
 import { useJob } from '../store/job';
-import { isStep, useUi } from '../store/ui';
+import { hasPicture, useUi } from '../store/ui';
 
 /**
  * The live camera picture, small in the corner of the table view. A tap
@@ -25,7 +25,7 @@ export function LiveInset() {
       title={t('stage.liveInset')}
       onClick={() => {
         const { place, setStageView } = useUi.getState();
-        if (isStep(place)) setStageView(place, 'camera');
+        if (hasPicture(place)) setStageView(place, 'camera');
         setView('camera');
       }}
     >

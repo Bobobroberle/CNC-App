@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { t } from '../../i18n';
 import { formatNumber } from '../../lib/format';
 import { useCam } from '../../store/cam';
@@ -82,28 +83,35 @@ function NoProgram() {
 }
 
 /**
+ * Zeichnen/CAM – what do I draw? The drawing workspace, a place of its own. (Its content is still
+ * what the drawing mode of the Job room showed; stage 2 of "Umbau 2" strips it to the CAM alone.)
+ */
+export function CamStep() {
+  const hasDrawing = useCam((s) => s.project !== null);
+  const leave = useUi((s) => s.leaveCam);
+  // A drawing that was closed leaves nothing to show here: back to the Job.
+  useEffect(() => {
+    if (!hasDrawing) leave();
+  }, [hasDrawing, leave]);
+  if (!hasDrawing) return null;
+  return (
+    <div className="flex flex-col gap-3 job-room">
+      <JobFileInput />
+      <JobDashboard compact />
+      <RunBar here />
+      <CamCard />
+    </div>
+  );
+}
+
+/**
  * ① Job – what am I making? The program as a card (recently used on top, a
- * place to drop files while nothing is loaded), the workpiece, and the
- * drawing workspace in place of the cards.
+ * place to drop files while nothing is loaded) and the workpiece.
  */
 export function JobStep() {
   const analysis = useJob((s) => s.analysis);
   const view = useUi((s) => s.views.job);
   const setView = useUi((s) => s.setView);
-  const hasDrawing = useCam((s) => s.project !== null);
-  const drawing = useUi((s) => s.drawing) && hasDrawing;
-
-  // Drawing takes the place of the program; a running job comes first in any case.
-  if (drawing) {
-    return (
-      <div className="flex flex-col gap-3 job-room">
-        <JobFileInput />
-        <JobDashboard compact />
-        <RunBar here />
-        <CamCard />
-      </div>
-    );
-  }
   return (
     <div className="flex flex-col gap-3 job-room">
       <JobFileInput />

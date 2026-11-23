@@ -94,7 +94,7 @@ function useSituation(): Situation {
   const homed = useMachine((s) => s.homed);
   const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
   const program = useJob((s) => s.analysis !== null);
-  const drawing = useUi((s) => s.drawing);
+  const drawing = useUi((s) => s.place === 'cam');
   const expert = useWorkshop((s) => s.settings.expertMode);
   const readiness = useReadiness();
   return useMemo(

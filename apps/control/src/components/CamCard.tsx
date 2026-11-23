@@ -286,7 +286,7 @@ export function CamCard() {
     cam.setSettings(patch);
     cam.remake();
   };
-  const back = () => useUi.getState().setDrawing(false);
+  const back = () => useUi.getState().leaveCam();
   const names = jobNames(project.name);
   // A job for both sides is two programs: the front is the one on the table.
   const both = flipPlan !== null && fileName === names.front ? flipPlan : null;

@@ -246,11 +246,11 @@ function StepActions({ place }: { place: Place }) {
   const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
   const { open, states } = useSteps();
   const step = isStep(place) ? place : null;
-  const next = step ? nextStep(step) : null;
+  const cam = place === 'cam';
+  const next = step ? nextStep(step) : cam ? 'setup' : null;
   const blocked = readiness ? blockers(readiness.items).length : 0;
   const notes = readiness ? warnings(readiness.items).length : 0;
   const fileName = useJob((s) => s.fileName);
-  const drawing = useUi((s) => s.drawing);
   let status: ReactNode = null;
   if (readiness && !running) {
     status = (
@@ -268,7 +268,7 @@ function StepActions({ place }: { place: Place }) {
     );
   }
   let primary: ReactNode;
-  if (step === 'job' && fileName === null && drawing) {
+  if (cam && fileName === null) {
     // The drawing has its own way to a program ("Ansehen und übergeben").
     primary = (
       <Reason reason={t('nav.drawingFirst')}>

@@ -6,6 +6,7 @@ import { PREVIEW_BOX, previewPath } from '../lib/preview';
 import { toolForJob } from '../lib/setup';
 import demo from '../samples/demo.nc?raw';
 import { useCam } from '../store/cam';
+import { openCam } from '../store/camPlace';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
 import {
@@ -48,9 +49,7 @@ const sizeText = (size: RecentJob['size']) =>
 
 /** Opens the drawing workspace (CAM) on the table, seen from above. */
 function openDrawing() {
-  useCam.getState().open();
-  useUi.getState().setDrawing(true);
-  useJob.getState().setProjection('top');
+  openCam();
 }
 
 /**

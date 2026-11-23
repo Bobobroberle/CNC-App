@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { t, type MessageKey } from '../i18n';
 import { useCamera } from '../store/camera';
 import { useJob, type ViewMode } from '../store/job';
-import { isStep, useUi } from '../store/ui';
+import { hasPicture, useUi } from '../store/ui';
 import { CameraView } from './CameraView';
 import { Icon } from './Icon';
 import { LiveInset } from './LiveInset';
@@ -32,7 +32,7 @@ export function Stage() {
   // A view chosen by hand in a step is that step's view from then on.
   const setView = (mode: ViewMode) => {
     const { place, setStageView } = useUi.getState();
-    if (isStep(place)) setStageView(place, mode);
+    if (hasPicture(place)) setStageView(place, mode);
     showView(mode);
   };
   const requestFit = useJob((s) => s.requestFit);

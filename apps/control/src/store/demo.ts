@@ -150,7 +150,7 @@ export async function loadLongDemo(): Promise<boolean> {
   useJob.getState().setToolDiameter(tool);
   // The clamp marked for the other board holds nothing here.
   useWorkshop.getState().setSetup({ fixtures: [], fixtureFrame: 'machine' });
-  useUi.getState().setDrawing(false);
+  useUi.getState().leaveCam();
   useMachine.getState().addLog('info', t('sim.longLoaded'));
   return true;
 }
@@ -289,7 +289,7 @@ export async function startFullDemo(): Promise<boolean> {
 
     // The app opens on the start screen, which says where this set-up machine and its job
     // stand; the demo leaves the operator wherever they have gone meanwhile.
-    useUi.getState().setDrawing(false);
+    useUi.getState().leaveCam();
     useJob.getState().setProjection('top');
     useMachine.getState().addLog('info', t('demo.ready'));
     return true;
