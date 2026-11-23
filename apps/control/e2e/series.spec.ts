@@ -61,8 +61,12 @@ async function drawnBlanks(page: Page) {
     });
 }
 
-/** The name of the program on the table, as the action bar of every step shows it. */
-const fileName = (page: Page) => page.getByTestId('job-name');
+/**
+ * The name of the program on the table: the action bar of every step shows it – except the drawing
+ * workspace, where the series card says it itself while the flow is open.
+ */
+const fileName = (page: Page) =>
+  page.getByTestId('series-program').or(page.getByTestId('job-name'));
 
 /** The demo with the blanks on the table, time running fast, and an empty drawing. */
 async function openSeriesScene(page: Page) {
@@ -160,7 +164,7 @@ test('a series from the table picture: blanks found, one refused, one left out, 
   await expect(series).toContainText('Kein Nullpunkt je Rohling');
   await expect(series).toContainText('Nur Z0 muss auf der Oberfläche eines Rohlings stehen');
   // The program is on the table already, named as a series.
-  await expect(fileName(page)).toHaveText('demo-schild_serie_6x.nc');
+  await expect(fileName(page)).toContainText('demo-schild_serie_6x.nc');
 
   // A tap on the square coaster (the fourth) leaves it out: the ones after it move up.
   const square = drawn.find((b) => b.id === 3)!;
@@ -170,7 +174,7 @@ test('a series from the table picture: blanks found, one refused, one left out, 
   await expect(page.getByTestId('series-blank-3')).toHaveAttribute('data-state', 'excluded');
   await expect(page.getByTestId('series-blank-3')).toContainText('ausgelassen');
   await expect(page.getByTestId('series-blank-4').locator('.series-n')).toHaveText('4');
-  await expect(fileName(page)).toHaveText('demo-schild_serie_5x.nc');
+  await expect(fileName(page)).toContainText('demo-schild_serie_5x.nc');
   expect((await drawnBlanks(page)).find((b) => b.id === 3)!.state).toBe('out');
   // The view stayed where it was: the next tap hits what it shows.
   expect(await tableSpot(page, square)).toEqual(spot);
@@ -189,7 +193,7 @@ test('a series from the table picture: blanks found, one refused, one left out, 
   // One program for the Job room; the readiness list knows it is a series.
   await page.getByTestId('series-make').click();
   await expect(series).toHaveCount(0);
-  await expect(fileName(page)).toHaveText('demo-schild_serie_5x.nc');
+  await expect(fileName(page)).toContainText('demo-schild_serie_5x.nc');
   await jobView(page, 'Prüfen');
   const ready = page.getByTestId('readiness');
   await expect(ready.locator('[data-check="series"]')).toHaveText(
@@ -278,7 +282,7 @@ test('a series with a name on every blank: scanned anew, measured with the camer
   await expect(page.getByTestId('series-notes')).toContainText(
     'Kein Name mehr für 1 Rohling – ohne Gravur.',
   );
-  await expect(fileName(page)).toHaveText('demo-schild_serie_3x.nc');
+  await expect(fileName(page)).toContainText('demo-schild_serie_3x.nc');
   // A name too long for its blank is named, not cut over the edge without a word.
   await series.getByTestId('series-names').fill('Anna\nBenedikt-Maximilian\nClara');
   await expect(page.getByTestId('series-notes')).toContainText(

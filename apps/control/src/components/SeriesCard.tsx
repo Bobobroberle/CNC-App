@@ -273,6 +273,7 @@ function CheckStep() {
   const series = useSeries.getState();
   const plan = useSeriesPlan();
   const refused = useSeries((s) => s.refused);
+  const onTable = useSeries((s) => s.made?.fileName ?? null);
   const mode = useSeries((s) => s.mode);
   const names = useSeries((s) => s.names);
   const firstNumber = useSeries((s) => s.firstNumber);
@@ -441,6 +442,12 @@ function CheckStep() {
       )}
 
       <p className="text-muted-foreground text-sm">{t('series.zero', { mm: mm(safeZ) })}</p>
+      {/* The bar of the program on the table is not shown in the drawing workspace: say it here. */}
+      {onTable !== null ? (
+        <p className="text-sm tabular-nums" data-testid="series-program">
+          {t('series.onTable', { name: onTable })}
+        </p>
+      ) : null}
       {!connected ? <Alert variant="warning">{t('series.offline')}</Alert> : null}
       <Button
         reason="machine"

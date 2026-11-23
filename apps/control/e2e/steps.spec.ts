@@ -598,7 +598,10 @@ test('the drawing workspace shows only the CAM and the status bar – and nothin
     (await page.locator('.panel').first().boundingBox())!,
     page.viewportSize()!,
   ];
-  expect(window.height - (panel.y + panel.height)).toBeLessThan(24);
+  const padding = await page.evaluate(
+    () => parseFloat(getComputedStyle(document.querySelector('.app')!).paddingBottom) || 0,
+  );
+  expect(window.height - (panel.y + panel.height)).toBeLessThanOrEqual(padding + 1);
 
   // The keys of the stage views and a tap on the table reach nothing here.
   const before = (await sent(page)).length;

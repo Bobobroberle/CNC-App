@@ -1131,6 +1131,38 @@ test.describe('upright', () => {
     expect(overflow).toEqual([]);
   });
 
+  test('the drawing workspace: the table only, the sheet down to the bottom edge, no action bar', async ({
+    page,
+  }) => {
+    await openApp(page);
+    await page.getByTestId('step-cam').click();
+    await expect(page.getByTestId('cam-draw')).toBeVisible();
+    await expect(page.locator('.actionbar')).toHaveCount(0);
+    for (const gone of ['jog-toggle', 'tool-strip', 'live-inset']) {
+      await expect(page.getByTestId(gone), gone).toHaveCount(0);
+    }
+    await expect(page.getByRole('group', { name: 'Ansicht der Bühne' })).toHaveCount(0);
+    const [stage, panel] = [
+      (await page.locator('.stage-wrap').boundingBox())!,
+      (await page.locator('.panel').boundingBox())!,
+    ];
+    // The picture above, the sheet below it – and the sheet reaches the bottom edge: no band is left
+    // where the action bar was.
+    expect(stage.y + stage.height).toBeLessThanOrEqual(panel.y);
+    const padding = await page.evaluate(
+      () => parseFloat(getComputedStyle(document.querySelector('.app')!).paddingBottom) || 0,
+    );
+    expect(1180 - (panel.y + panel.height)).toBeLessThanOrEqual(padding + 1);
+    await expect(page.getByTestId('pause')).toBeInViewport({ ratio: 1 });
+    await expect(page.getByRole('button', { name: 'NOT-HALT' })).toBeInViewport({ ratio: 1 });
+    // The first shape a finger can draw is there: the table is the picture.
+    await page
+      .getByTestId('cam-add')
+      .getByRole('button', { name: 'Rechteck', exact: true })
+      .click();
+    await expect(page.getByTestId('table-view')).toHaveAttribute('data-drawing-frame', /.+/);
+  });
+
   test('a phone only watches: state, progress, the picture, PAUSE, abort – and NOT-HALT', async ({
     page,
   }) => {

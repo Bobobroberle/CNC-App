@@ -214,6 +214,27 @@ test.describe('the bottom sheet of the machine screen (800 × 600)', () => {
 
   const level = (page: Page) => page.locator('[data-slot="sheet"]').getAttribute('data-level');
 
+  test('in the drawing workspace the sheet reaches the bottom edge: there is no action bar', async ({
+    page,
+  }) => {
+    await openApp(page);
+    await page.getByTestId('step-cam').click();
+    await expect(page.getByTestId('cam-draw')).toBeVisible();
+    await expect(page.locator('.actionbar')).toHaveCount(0);
+    const [stage, panel] = [await box(page, '.stage-wrap'), await box(page, '.panel')];
+    expect(stage.y + stage.height).toBeLessThanOrEqual(panel.y);
+    // Down to the padding of the app and no further: no band is left where the bar was.
+    const padding = await page.evaluate(
+      () => parseFloat(getComputedStyle(document.querySelector('.app')!).paddingBottom) || 0,
+    );
+    expect(600 - (panel.y + panel.height)).toBeLessThanOrEqual(padding + 1);
+    for (const control of ['[data-testid="pause"]', '.estop']) {
+      expect(await reachable(page, control), control).toBe(true);
+    }
+    // The three rests still work there.
+    await expect.poll(() => level(page)).toBe('half');
+  });
+
   test('starts below the picture, has three rests and never reaches PAUSE, NOT-HALT or the action bar', async ({
     page,
   }) => {

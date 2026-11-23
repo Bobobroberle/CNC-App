@@ -522,11 +522,13 @@ test('in the drawing its own keys go on working beside the global ones', async (
   const parts = page.getByTestId('cam-contours').locator('li');
   await expect(parts).toHaveCount(1);
   await page.locator('body').click({ position: { x: 2, y: 2 } });
-  // Ctrl+D duplicates (the drawing), D alone shows 3D (global): no key means two things.
+  // Ctrl+D duplicates (the drawing), D alone is a global view key: no key means two things.
   await page.keyboard.press('Control+d');
   await expect(parts).toHaveCount(2);
   await page.keyboard.press('d');
-  await expect(stageMode(page, '3D')).toHaveAttribute('aria-pressed', 'true');
+  // The drawing workspace has no other views of the stage: the table stays, nothing is duplicated.
+  await expect(page.getByTestId('table-view')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Ansicht der Bühne' })).toHaveCount(0);
   await expect(parts).toHaveCount(2);
   await page.keyboard.press('t');
   // While the search is open, the keys of the drawing rest: Entf deletes text, not the part.

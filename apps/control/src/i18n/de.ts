@@ -2491,6 +2491,7 @@ export const de = {
     offline:
       'Ohne Verbindung zur Maschine lässt sich die Serie nicht erzeugen: Die Rohlinge liegen in Maschinenkoordinaten.',
     programName: '{name} Serie {count} Rohlinge',
+    onTable: 'Auf dem Tisch liegt: {name}',
     made: 'Serie {name} für {blanks} erzeugt. Z0 gehört auf die Oberfläche eines Rohlings.',
     log: {
       found: 'Tisch-Bild: {count} Rohlinge gefunden, {refused} Stellen nicht übernommen.',

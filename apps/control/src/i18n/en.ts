@@ -2460,6 +2460,7 @@ export const en: DictionaryShape = {
     offline:
       'Without a connection to the machine the series cannot be made: the blanks lie in machine coordinates.',
     programName: '{name} series {count} blanks',
+    onTable: 'On the table: {name}',
     made: 'Series {name} made for {blanks}. Z0 belongs on the surface of a blank.',
     log: {
       found: 'Table picture: {count} blanks found, {refused} places not taken.',
