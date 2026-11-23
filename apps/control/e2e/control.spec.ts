@@ -650,6 +650,9 @@ test('jogs continuously while held and stops on release', async ({ page }) => {
     (window as unknown as { __status: string }).__status =
       '<Idle|MPos:100.000,100.000,-10.000|FS:0,0|WCO:0.000,0.000,0.000>';
   });
+  // The jog counts from the position the app last read: wait until it has read this one (a status
+  // report comes every 200 ms; on a fast machine the whole test is quicker than that).
+  await expect(page.getByTestId('position-tile')).toContainText('100.000');
   await page.getByRole('button', { name: 'Dauer' }).click();
   const button = page.getByRole('button', { name: /^X\+/ });
   await button.scrollIntoViewIfNeeded();
