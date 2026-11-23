@@ -21,7 +21,9 @@ Getroffen im Chat per Auswahl, nach `bericht.md`. Was hier steht, gilt; offene P
 | 15 | B3 Dauerfahrt ohne Referenz | **Fahrt auf 200 mm begrenzen und Jog-Abbruch (0x85) im Pi-Relais bei Verbindungsende** |
 
 ## Stand der Umsetzung
-Erledigt und gepusht: B1 (rote Meldung bei Stream-Abbruch), W1 (Leertaste), W3 (PAUSE/NOT-HALT ohne stille Ausnahme), Randwerttests (6 von 7 Mutationen; `start.ts:108` offen, braucht Test mit Rendering). Offen, wartet auf Advisor-Planung: B2, B3, danach Bereichs-Oberfläche.
+Erledigt und gepusht: B1 (rote Meldung bei Stream-Abbruch), W1 (Leertaste), W3 (PAUSE/NOT-HALT ohne stille Ausnahme), Randwerttests (6 von 7 Mutationen; `start.ts:108` offen, braucht Test mit Rendering). B2 (Relais und Bibliothek) und B3 (200 mm / Z 50 mm, Jog-Abbruch im Relais) sind gebaut und getestet (desktop-e2e 119/119, `pnpm check` grün). **Offen bei B2:** die Knöpfe des Zuschauer-Geräts sind noch nicht gesperrt (`bewertung/skripte/sicherheit/viewer.spec.ts`: Start nicht gesperrt, Upload geht an der Sperre vorbei). Danach Bereichs-Oberfläche.
+
+B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Grenze 50 mm, X/Y 200 mm.
 
 ## Folgen
 - Die Entscheidungen 1 und 4 ändern Vorgaben aus `DESIGN.md` (§3.2, §6.4) und `usability.spec.ts`; beides wird mit angepasst.

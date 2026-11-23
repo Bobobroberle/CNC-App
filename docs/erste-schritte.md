@@ -50,8 +50,10 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
       SD-Job **nicht** stört: Job von der SD-Karte starten, ein zweites Gerät schließen (oder das steuernde
       Gerät): der Job muss weiterlaufen. (Nach der Grbl-Dokumentation wirkt `0x85` nur im Jog-Zustand –
       für FluidNC ungeprüft.)
-- [ ] _Zwei Geräte:_ PC und iPad gleichzeitig verbinden: das zweite zeigt „Nur Ansicht“ (Halteknöpfe
-      gesperrt, PAUSE und NOT-HALT gehen). PC schließen: das iPad steuert danach.
+- [ ] _Zwei Geräte:_ PC und iPad gleichzeitig verbinden: das zweite darf nichts senden außer Status,
+      PAUSE und NOT-HALT; PC schließen: das iPad steuert danach. **Stand der App:** Die Bibliothek und das
+      Relais sperren das Senden; die Knöpfe sind im Zuschauer-Gerät aber noch nicht gesperrt (ein Start
+      lädt die Datei noch direkt auf die SD-Karte und meldet dann Fehler) – das ist offen.
 - [ ] Tastatur (Pfeile, Bild↑/↓), ggf. Gamepad, Handrad. `?` zeigt alle Tastenkürzel; solange die
       Übersicht oder die Suche offen ist, joggen die Pfeiltasten nicht.
 - [ ] Falsche Grenzen? _Menü → Einstellungen → Experte_: `max_travel_mm` (vor allem Z!) und `soft_limits`
