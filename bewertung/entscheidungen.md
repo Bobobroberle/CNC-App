@@ -23,6 +23,7 @@ Getroffen im Chat per Auswahl, nach `bericht.md`. Was hier steht, gilt; offene P
 | 17 | Bereiche der Oberfläche | **Sechs Bereiche:** Job · Zeichnen/CAM · Einrichten & Fahren · Fräsen (mit Prüfen) · Service · Einstellungen |
 | 18 | Im CAM-Bereich sichtbar | **Nur CAM und Statusleiste** (PAUSE und NOT-HALT bleiben) |
 | 19 | Startbildschirm und „Weiter“-Kette | **Start bleibt, „Weiter“-Kette entfällt** |
+| 20 | Empfehlung „Als Nächstes“ auf dem Start | **Alles bleibt**, auch „weiter bei …“; die Kette entfällt nur aus der Aktionsleiste der Bereiche |
 
 Plan: `plan-bereichs-oberflaeche.md` (wartet auf Freigabe von Stufe 0).
 
