@@ -104,9 +104,11 @@ test('opens on Start: the state, one recommendation, the five steps, PAUSE and N
   // textContent, not what is shown: narrow, a step that is not the current one is its number.
   expect(await stepNames(page).allTextContents()).toEqual([
     'Job',
-    'Zeichnen/CAM',
+    'CAM',
     'Einrichten',
     'Fräsen',
+    'Service',
+    'Einstellungen',
   ]);
   await expect(page.getByRole('button', { name: 'NOT-HALT' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'PAUSE' })).toBeVisible();
@@ -1260,18 +1262,14 @@ test('switches the interface to English and back', async ({ page }) => {
   await openApp(page);
   await machineSetup(page, 'Werkstatt und Benachrichtigungen');
   await page.getByRole('button', { name: 'English' }).click();
-  const english = ['Job', 'Draw/CAM', 'Set up', 'Cut'];
+  const english = ['Job', 'CAM', 'Set up', 'Cut', 'Service', 'Settings'];
   expect(await stepNames(page).allTextContents()).toEqual(english);
   await expect(page.getByRole('button', { name: 'E-STOP' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'PAUSE' })).toBeVisible();
   await page.reload();
   expect(await stepNames(page).allTextContents()).toEqual(english);
   await expect(page.getByTestId('next-card')).toContainText('Up next');
-  await page.getByTestId('menu-button').click();
-  await page
-    .getByTestId('menu')
-    .getByRole('button', { name: /^Settings/ })
-    .click();
+  await page.getByTestId('step-settings').click();
   await page.getByRole('button', { name: 'Machine', exact: true }).click();
   await page
     .locator('.section[data-fold]')
@@ -1282,9 +1280,11 @@ test('switches the interface to English and back', async ({ page }) => {
   await page.getByRole('button', { name: 'Deutsch' }).click();
   expect(await stepNames(page).allTextContents()).toEqual([
     'Job',
-    'Zeichnen/CAM',
+    'CAM',
     'Einrichten',
     'Fräsen',
+    'Service',
+    'Einstellungen',
   ]);
 });
 

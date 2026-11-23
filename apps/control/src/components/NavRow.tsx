@@ -1,8 +1,17 @@
-import { HouseIcon, MenuIcon, PencilRulerIcon } from 'lucide-react';
+import {
+  ActivityIcon,
+  CrosshairIcon,
+  FileTextIcon,
+  HouseIcon,
+  MenuIcon,
+  PencilRulerIcon,
+  PlayIcon,
+  SettingsIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { t } from '../i18n';
 import { useSteps } from '../store/steps';
-import { AREAS, STEPS, useUi, type Area, type Step } from '../store/ui';
+import { AREAS, useUi, type Area, type Place, type Step } from '../store/ui';
 import { useWorkshop } from '../store/workshop';
 import { Button } from '../ui/button';
 import {
@@ -18,13 +27,26 @@ import { Stepper, StepperStep } from '../ui/stepper';
 import { AreaIcon } from './AreaIcon';
 import { FindButton } from './Find';
 
-/** The tabs of the work, in their order: the CAM sits after the Job, before the set-up. */
-const TABS: readonly (Step | 'cam')[] = ['job', 'cam', 'setup', 'run'];
+/**
+ * The tabs, in their order (DESIGN.md §3.2): the three areas of the work with a state in the
+ * readiness list, the CAM between the Job and the set-up (no state), and Service and Einstellungen.
+ * A sign stands where the number stood: the tabs are no steps of a fixed flow.
+ */
+const TABS: readonly { id: Step | 'cam' | 'service' | 'settings'; icon: typeof FileTextIcon }[] = [
+  { id: 'job', icon: FileTextIcon },
+  { id: 'cam', icon: PencilRulerIcon },
+  { id: 'setup', icon: CrosshairIcon },
+  { id: 'run', icon: PlayIcon },
+  { id: 'service', icon: ActivityIcon },
+  { id: 'settings', icon: SettingsIcon },
+];
+const hasState = (id: Place): id is Step => id === 'job' || id === 'setup' || id === 'run';
 
-/** The side areas the menu offers: the console only with the expert functions switched on. */
+/** The areas the menu keeps: the tool list, and the console with the expert functions switched on. */
+const MENU_AREAS = AREAS.filter((a) => a === 'toollist' || a === 'console');
 export function useAreas(): Area[] {
   const expert = useWorkshop((s) => s.settings.expertMode);
-  return AREAS.filter((area) => area !== 'console' || expert);
+  return MENU_AREAS.filter((area) => area !== 'console' || expert);
 }
 
 /**
@@ -53,31 +75,19 @@ export function NavRow() {
         <span>{t('nav.start')}</span>
       </Button>
       <Stepper aria-label={t('nav.stepper')} className="nav-stepper">
-        {TABS.map((tab) =>
-          tab === 'cam' ? (
-            <StepperStep
-              key={tab}
-              icon={<PencilRulerIcon aria-hidden="true" />}
-              label={t('nav.steps.cam')}
-              current={place === 'cam'}
-              data-find="place-cam"
-              data-testid="step-cam"
-              onClick={() => go('cam')}
-            />
-          ) : (
-            <StepperStep
-              key={tab}
-              number={STEPS.indexOf(tab) + 1}
-              label={t(`nav.steps.${tab}`)}
-              state={states[tab]}
-              stateLabel={t(`nav.states.${states[tab]}`)}
-              current={place === tab}
-              data-find={`place-${tab}`}
-              data-testid={`step-${tab}`}
-              onClick={() => go(tab)}
-            />
-          ),
-        )}
+        {TABS.map(({ id, icon: Sign }) => (
+          <StepperStep
+            key={id}
+            icon={<Sign aria-hidden="true" />}
+            label={t(`nav.tabs.${id}`)}
+            state={hasState(id) ? states[id] : undefined}
+            stateLabel={hasState(id) ? t(`nav.states.${states[id]}`) : undefined}
+            current={place === id}
+            data-find={`place-${id}`}
+            data-testid={`step-${id}`}
+            onClick={() => go(id)}
+          />
+        ))}
       </Stepper>
       <span className="nav-space" />
       <FindButton />

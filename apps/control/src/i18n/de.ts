@@ -112,6 +112,15 @@ export const de = {
     label: 'Navigation',
     start: 'Start',
     stepper: 'Ablauf',
+    // The short names of the tabs (they must fit in the row; the long names are the titles)
+    tabs: {
+      job: 'Job',
+      cam: 'CAM',
+      setup: 'Einrichten',
+      run: 'Fräsen',
+      service: 'Service',
+      settings: 'Einstellungen',
+    },
     steps: {
       job: 'Job',
       cam: 'Zeichnen/CAM',

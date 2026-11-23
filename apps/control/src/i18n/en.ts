@@ -109,6 +109,14 @@ export const en: DictionaryShape = {
     label: 'Navigation',
     start: 'Start',
     stepper: 'Flow',
+    tabs: {
+      job: 'Job',
+      cam: 'CAM',
+      setup: 'Set up',
+      run: 'Cut',
+      service: 'Service',
+      settings: 'Settings',
+    },
     steps: {
       job: 'Job',
       cam: 'Draw/CAM',

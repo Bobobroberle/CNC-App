@@ -184,6 +184,10 @@ const STEP_IDS = {
   Einrichten: 'setup',
   Prüfen: 'run',
   Fräsen: 'run',
+  // Service and Einstellungen are tabs of their own; only the tool list and the console are in the menu.
+  'Service & Diagnose': 'service',
+  Einstellungen: 'settings',
+  CAM: 'cam',
 } as const;
 export type StepName = keyof typeof STEP_IDS;
 export type AreaName = 'Werkzeugliste' | 'Service & Diagnose' | 'Einstellungen' | 'Konsole';
