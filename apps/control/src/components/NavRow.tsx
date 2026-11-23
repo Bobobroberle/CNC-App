@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { t } from '../i18n';
+import { openCam } from '../store/camPlace';
 import { useSteps } from '../store/steps';
 import { AREAS, useUi, type Area, type Place, type Step } from '../store/ui';
 import { useWorkshop } from '../store/workshop';
@@ -85,7 +86,7 @@ export function NavRow() {
             current={place === id}
             data-find={`place-${id}`}
             data-testid={`step-${id}`}
-            onClick={() => go(id)}
+            onClick={() => (id === 'cam' ? openCam() : go(id))}
           />
         ))}
       </Stepper>

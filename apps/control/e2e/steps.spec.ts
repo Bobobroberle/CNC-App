@@ -540,3 +540,20 @@ test('depth per area: "Mehr Optionen" unfolds, and the app remembers it', async 
   await expect(page.getByTestId('workspace-check')).toBeVisible();
   await expect(page.locator('#job-diagnostics')).toBeVisible();
 });
+
+test('the CAM tab opens the drawing workspace, and a loaded program survives going in and out', async ({
+  page,
+}) => {
+  await installFakeFluidNC(page);
+  await openApp(page);
+  // A fresh app has no drawing: the tab opens one (it must not bounce back to the Job).
+  await page.getByTestId('step-cam').click();
+  await expect(page.getByTestId('step-cam')).toHaveAttribute('aria-current', 'step');
+  await expect(page.getByTestId('cam-draw')).toBeVisible();
+  await page.getByTestId('step-job').click();
+  await loadJob(page);
+  await page.getByTestId('step-cam').click();
+  await expect(page.getByTestId('cam-draw')).toBeVisible();
+  await page.getByTestId('step-job').click();
+  await expect(page.getByTestId('job-loaded')).toContainText('schild.nc');
+});
