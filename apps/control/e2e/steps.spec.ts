@@ -8,7 +8,7 @@ import {
   moreOptions,
   openApp,
   sent,
-  stageMode,
+  stageTool,
 } from './helpers';
 
 // The five steps of the flow as DESIGN.md §5 asks for them: what each one must
@@ -566,18 +566,59 @@ test('the CAM tab opens the drawing workspace, and a loaded program survives goi
   await expect(page.getByTestId('job-loaded')).toContainText('schild.nc');
 });
 
-test('the CAM tab always opens on the table, also after a look at 3D inside it', async ({
+test('the drawing workspace shows only the CAM and the status bar – and nothing of the stage reaches in', async ({
   page,
 }) => {
-  await installFakeFluidNC(page);
-  await openApp(page);
+  await ready(page);
+  // Einrichten with a tap tool in the hand and the jog panel open …
+  await goTo(page, 'Einrichten');
+  await stageTool(page, 'Hinfahren').click();
+  await expect(stageTool(page, 'Hinfahren')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('jog-toggle').click();
+  // … the CAM tab leaves the jog panel behind and shows no part of the shell around the picture.
   await page.getByTestId('step-cam').click();
-  await expect(stageMode(page, 'Tisch')).toHaveAttribute('aria-pressed', 'true');
-  await stageMode(page, '3D').click();
-  await expect(stageMode(page, '3D')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('cam-draw')).toBeVisible();
+  await expect(page.getByTestId('jog-panel')).toHaveCount(0);
+  for (const gone of ['jog-toggle', 'tool-strip', 'live-inset']) {
+    await expect(page.getByTestId(gone), gone).toHaveCount(0);
+  }
+  await expect(page.locator('.actionbar')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Ansicht der Bühne' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Folgen' })).toHaveCount(0);
+  await expect(page.getByTestId('run-bar')).toHaveCount(0);
+  // The status bar stays: PAUSE and NOT-HALT in sight.
+  await expect(page.getByTestId('pause')).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole('button', { name: 'NOT-HALT' })).toBeInViewport({ ratio: 1 });
+  // What is left of the stage: the table, Einpassen, Großbild.
+  await expect(page.getByTestId('table-view')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Einpassen' })).toBeVisible();
+  await expect(page.getByTestId('stage-wide')).toBeVisible();
+  // No empty band where the action bar was: the panel reaches the bottom edge of the window.
+  const [panel, window] = [
+    (await page.locator('.panel').first().boundingBox())!,
+    page.viewportSize()!,
+  ];
+  expect(window.height - (panel.y + panel.height)).toBeLessThan(24);
+
+  // The keys of the stage views and a tap on the table reach nothing here.
+  const before = (await sent(page)).length;
+  for (const key of ['d', 'k', 't']) await page.keyboard.press(key);
+  await expect(page.getByTestId('table-view')).toBeVisible();
+  const stage = page.getByTestId('stage-canvas');
+  await stage.click({ position: { x: 40, y: 40 } });
+  await page.waitForTimeout(300);
+  expect((await sent(page)).length).toBe(before);
+  // Back in Einrichten the tool holds no point from that tap.
   await page.getByTestId('step-setup').click();
+  await expect(page.getByTestId('tool-panel')).not.toHaveClass(/has-result/);
+
+  // The search leads to Einrichten for what lives there: the jog panel, the tap tools.
   await page.getByTestId('step-cam').click();
-  await expect(stageMode(page, 'Tisch')).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Control+k');
+  await page.getByTestId('find-input').fill('Joggen');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('step-setup')).toHaveAttribute('aria-current', 'step');
+  await expect(page.getByTestId('jog-panel')).toBeVisible();
 });
 
 test('a drawing is worked on while a job runs: the program that runs stays, the hint says why', async ({

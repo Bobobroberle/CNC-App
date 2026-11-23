@@ -51,6 +51,27 @@ export const hasPicture = (place: Place): place is Step | typeof CAM =>
   isStep(place) || place === CAM;
 
 /**
+ * What the shell shows around a place. The drawing workspace shows only itself and the status bar
+ * (DESIGN.md §4): no action bar with the jog button, no bar of a running job, no jog panel over
+ * it and none of the stage's tools (tap tools, joystick, the live inset, the other views). Every
+ * piece of the shell that is left out there asks this one function.
+ */
+export interface ShellParts {
+  /** The bar at the bottom: jog button, the job at a glance, the area's primary action */
+  actionBar: boolean;
+  /** The bar of a running job at the top of the panel */
+  runBar: boolean;
+  /** The jog panel may lie over the place */
+  jog: boolean;
+  /** The stage's tools: mode switch, tap tools, joystick, live inset, follow, the Z gauge */
+  stageTools: boolean;
+}
+export function shellParts(place: Place): ShellParts {
+  const bare = place === CAM;
+  return { actionBar: !bare, runBar: !bare, jog: !bare, stageTools: !bare };
+}
+
+/**
  * Whether a place works with the picture. The steps do; of the side areas
  * only the two that measure in it – calibrating and setting up the camera.
  * The others are lists and get the whole width (DESIGN.md §4: the main area
@@ -180,7 +201,15 @@ export const useUi = create<UiStore>((set) => ({
   },
   setView: (place, view) => set((s) => ({ views: { ...s.views, [place]: view } })),
   jogOpen: false,
-  setJogOpen: (jogOpen) => set(jogOpen ? { jogOpen, panelHidden: false } : { jogOpen }),
+  // Where the place has no jog panel (the drawing workspace) it opens over Einrichten.
+  setJogOpen: (jogOpen) =>
+    set((s) =>
+      !jogOpen
+        ? { jogOpen }
+        : shellParts(s.place).jog
+          ? { jogOpen, panelHidden: false }
+          : { place: 'setup', jogOpen, panelHidden: false },
+    ),
   theme: loadJson(browserStorage, THEME_KEY, validTheme, 'dark'),
   setTheme(theme) {
     saveJson(browserStorage, THEME_KEY, theme);

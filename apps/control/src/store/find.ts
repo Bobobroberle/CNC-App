@@ -16,7 +16,7 @@ import { useCam } from './cam';
 import { showTable, useJob } from './job';
 import { useStageTools } from './tools';
 import { openCam } from './camPlace';
-import { placeHasStage, useUi } from './ui';
+import { placeHasStage, shellParts, useUi } from './ui';
 import { useWorkshop } from './workshop';
 
 const RECENT_KEY = 'lowrider-control.find-recent';
@@ -90,10 +90,12 @@ function goTo(command: Command): readonly string[] {
   else if (command.place) ui.go(command.place, command.view as never);
   if (command.jog) ui.setJogOpen(true);
   // What lives on the picture needs a place that has one: from Start or a list area
-  // (Werkzeugliste, Einstellungen …) the way leads to ③ Einrichten, where the tap tools are used.
+  // (Werkzeugliste, Einstellungen …) the way leads to Einrichten, where the tap tools are used –
+  // and from the drawing workspace, which shows the table but none of the stage's tools.
   if ((command.on === 'stage' || command.tool || command.table) && !command.place && !command.jog) {
     const { place, views } = useUi.getState();
-    if (!placeHasStage(place, views)) ui.go('setup');
+    const toolless = !shellParts(place).stageTools && (command.on === 'stage' || command.tool);
+    if (!placeHasStage(place, views) || toolless) ui.go('setup');
   }
   if (command.tool) {
     showTable();

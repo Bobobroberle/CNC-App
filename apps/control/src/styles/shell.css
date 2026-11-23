@@ -498,6 +498,11 @@
 
 /* ---------- main area ---------- */
 
+/* The drawing workspace has no action bar: the main area takes its row, and no band stays empty */
+.app[data-bare] > .main {
+  grid-row: main-start / actions-end;
+}
+
 /* "Großbild": the picture alone */
 .main {
   grid-area: main;

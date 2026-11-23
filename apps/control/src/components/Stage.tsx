@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { t, type MessageKey } from '../i18n';
 import { useCamera } from '../store/camera';
 import { useJob, type ViewMode } from '../store/job';
-import { hasPicture, useUi } from '../store/ui';
+import { hasPicture, shellParts, useUi } from '../store/ui';
 import { CameraView } from './CameraView';
 import { Icon } from './Icon';
 import { LiveInset } from './LiveInset';
@@ -27,7 +27,11 @@ const MODES: { mode: ViewMode; label: MessageKey }[] = [
  * corner inset always shows the other of the two and swaps on a tap.
  */
 export function Stage() {
-  const view = useJob((s) => s.view);
+  // The drawing workspace shows the table with the drawing and nothing else: the view is the
+  // place's, not whatever the keys or the search set last, and none of the stage's tools show.
+  const tools = useUi((s) => shellParts(s.place).stageTools);
+  const chosen = useJob((s) => s.view);
+  const view: ViewMode = tools ? chosen : 'table';
   const showView = useJob((s) => s.setView);
   // A view chosen by hand in a step is that step's view from then on.
   const setView = (mode: ViewMode) => {
@@ -36,8 +40,8 @@ export function Stage() {
     showView(mode);
   };
   const requestFit = useJob((s) => s.requestFit);
-  const cameraOn = useCamera((s) => s.source !== null);
-  const stick = useUi((s) => s.stageStick);
+  const cameraOn = useCamera((s) => s.source !== null) && tools;
+  const stick = useUi((s) => s.stageStick) && tools;
   const panelHidden = useUi((s) => s.panelHidden);
   const setPanelHidden = useUi((s) => s.setPanelHidden);
   const follow = useUi((s) => s.follow);
@@ -65,18 +69,20 @@ export function Stage() {
       <div className="stage-main">
         {/* Two rows where the stage is narrow, one where it has the width. */}
         <div className="stage-head">
-          <SegmentedControl className="stage-modes" role="group" aria-label={t('stage.mode')}>
-            {MODES.map((m) => (
-              <SegmentedControlItem
-                key={m.mode}
-                pressed={view === m.mode}
-                data-find={`stage-${m.mode}`}
-                onClick={() => setView(m.mode)}
-              >
-                {t(m.label)}
-              </SegmentedControlItem>
-            ))}
-          </SegmentedControl>
+          {tools ? (
+            <SegmentedControl className="stage-modes" role="group" aria-label={t('stage.mode')}>
+              {MODES.map((m) => (
+                <SegmentedControlItem
+                  key={m.mode}
+                  pressed={view === m.mode}
+                  data-find={`stage-${m.mode}`}
+                  onClick={() => setView(m.mode)}
+                >
+                  {t(m.label)}
+                </SegmentedControlItem>
+              ))}
+            </SegmentedControl>
+          ) : null}
           <div className="stage-options">
             {/* Only what does something in this mode. */}
             {view !== 'camera' ? (
@@ -93,7 +99,7 @@ export function Stage() {
                 </span>
               </Button>
             ) : null}
-            {view === 'table' ? (
+            {view === 'table' && tools ? (
               <Button
                 variant="outline"
                 className="chip"
@@ -120,7 +126,7 @@ export function Stage() {
               <span className="stage-wide-label">{t('stage.wide')}</span>
             </Button>
           </div>
-          {view !== '3d' ? <ToolStrip /> : null}
+          {view !== '3d' && tools ? <ToolStrip /> : null}
         </div>
         <div
           className={`stage-canvas${stick && view !== '3d' ? ' with-stick' : ''}${cameraOn && view !== '3d' ? ' with-inset' : ''}`}
@@ -130,12 +136,12 @@ export function Stage() {
           {view === 'camera' ? <CameraView /> : null}
           {/* One inset, always the other view: a tap swaps table and camera. */}
           {/* On the 3D view the live picture is the picture in the picture (§5 ⑤). */}
-          {view === 'table' || view === '3d' ? <LiveInset /> : null}
+          {tools && (view === 'table' || view === '3d') ? <LiveInset /> : null}
           {view === 'camera' && cameraOn ? <MiniMap /> : null}
-          {view !== '3d' ? <StageDock /> : null}
+          {view !== '3d' && tools ? <StageDock /> : null}
         </div>
       </div>
-      <ZGauge />
+      {tools ? <ZGauge /> : null}
     </section>
   );
 }

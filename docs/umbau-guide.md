@@ -4,8 +4,8 @@
 
 Entscheidung des Betreibers nach der unabhängigen Bewertung (`bewertung/`): Die fünf festen Schritte werden durch sechs
 Bereiche ersetzt, im Zeichnen/CAM ist nur das CAM zu sehen, die Kette „Weiter: …“ entfällt, der Startbildschirm bleibt.
-Plan, Layout und Risiken: `bewertung/plan-bereichs-oberflaeche.md`. **Stand: Stufe 0 (Text) und Stufe 1 (Plätze) sind erledigt;
-Stufe 2 und 3 stehen aus. Der Code zeigt sechs Reiter. Die Abschnitte „Etappe 11–13“ und „Wo liegt was?“ weiter unten
+Plan, Layout und Risiken: `bewertung/plan-bereichs-oberflaeche.md`. **Stand: Stufe 0 (Text), Stufe 1 (Plätze) und Stufe 2 (CAM-Fokus) sind erledigt;
+Stufe 3 steht aus. Der Code zeigt sechs Reiter. Die Abschnitte „Etappe 11–13“ und „Wo liegt was?“ weiter unten
 nennen noch die Namen ①–⑤ des früheren Stands – die Tabelle oben sagt, wo diese jetzt liegen.**
 
 | Bisher (Code) | Künftig | Hinweis |

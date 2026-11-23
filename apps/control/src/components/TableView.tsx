@@ -237,6 +237,9 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     };
   }, [drawingOpen, project, selected, top, held]);
   const drawingRef = useRef(drawing);
+  // In the drawing workspace the tap tools and the clamps are out of reach of the finger.
+  const drawingOpenRef = useRef(drawingOpen);
+  drawingOpenRef.current = drawingOpen;
   drawingRef.current = drawing;
 
   // The blanks of a series: while it is being put together, and while its program is the job.
@@ -324,7 +327,8 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     if (!top) return [];
     const hit = new Set(clampHits.map((h) => h.fixture));
     return fixtures.map((f, i) => {
-      const selected = toolId === 'clamp' && zone === i;
+      // The drawing workspace has no tools in the hand: a clamp is shown, never taken.
+      const selected = !drawingOpen && toolId === 'clamp' && zone === i;
       return {
         name: f.name,
         box: boxExtent(f),
@@ -334,14 +338,14 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
         handles: selected ? zoneHandles(f).map((h) => [h.x, h.y] as [number, number]) : undefined,
       };
     });
-  }, [top, fixtures, clampHits, toolId, zone]);
+  }, [top, fixtures, clampHits, toolId, zone, drawingOpen]);
   const warned = useMemo(() => clampHits.flatMap((h) => h.segments), [clampHits]);
 
   const [ox = 0, oy = 0] = wco ?? [];
   const toWork = (p: { x: number; y: number }): [number, number] => [p.x - ox, p.y - oy];
   const picture = cameraOn ? cameraElement() : null;
   const footprint =
-    top && wco && picture && mposX !== undefined && mposY !== undefined
+    !drawingOpen && top && wco && picture && mposX !== undefined && mposY !== undefined
       ? cameraCalibrated(calibration)
         ? frameCorners(calibration, { x: mposX, y: mposY }, pictureSize(picture), 1).map(toWork)
         : null
@@ -360,9 +364,10 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     live: track.live,
     toolDiameter,
     workspace,
-    marks: top && wco ? points.map(toWork) : [],
-    marksLine: activeTool(toolId).line,
-    marksLabel: activeTool(toolId).lineLabel?.(points),
+    // The points a tap tool holds belong to Einrichten: the drawing workspace shows none.
+    marks: top && wco && !drawingOpen ? points.map(toWork) : [],
+    marksLine: drawingOpen ? undefined : activeTool(toolId).line,
+    marksLabel: drawingOpen ? undefined : activeTool(toolId).lineLabel?.(points),
     photos:
       top && wco && tiles > 0 ? { chunks: mapChunks, chunkMm: CHUNK_MM, offset: [ox, oy] } : null,
     footprint,
@@ -579,7 +584,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
           return () => useCam.getState().select(before);
         }
       }
-      if (!top || !status?.wco) return;
+      if (drawingOpenRef.current || !top || !status?.wco) return;
       // Taken back if this tap turns out to be the first of a double tap.
       return tapStage(
         { x: u + (status.wco[0] ?? 0), y: v + (status.wco[1] ?? 0) },
@@ -637,7 +642,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
           };
         }
       }
-      if (!top || !status?.wco) return null;
+      if (drawingOpenRef.current || !top || !status?.wco) return null;
       const [wx = 0, wy = 0] = status.wco;
       const machine = (q: { x: number; y: number }) => {
         const [u, v] = screenToWorld(vp, q.x, q.y);

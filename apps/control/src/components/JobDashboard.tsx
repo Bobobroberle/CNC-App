@@ -186,26 +186,11 @@ function RecentJobs() {
  * ① Job, the program: "Zuletzt verwendet" on top, the loaded job as its card
  * – or, with nothing loaded, the place to drop a file with one sentence – and
  * the ways to a program: open G-code (several files at once), draw one.
- * `compact` is the one-line form for the drawing workspace.
  */
-export function JobDashboard({ compact = false }: { compact?: boolean }) {
+export function JobDashboard() {
   const fileName = useJob((s) => s.fileName);
   const analysis = useJob((s) => s.analysis);
   const load = useJob((s) => s.load);
-
-  // In the drawing workspace: one line, so the drawing has the room.
-  if (compact) {
-    return (
-      <div className="dash-line" data-testid="job-dashboard">
-        <span className="dash-title">{fileName ?? t('dash.noProgram')}</span>
-        {analysis ? (
-          <span className="text-muted-foreground text-sm tabular-nums">
-            {formatDuration(analysis.timeline?.total ?? 0)}
-          </span>
-        ) : null}
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-3" data-testid="job-dashboard" data-find="program">

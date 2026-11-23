@@ -436,24 +436,6 @@
   gap: 0.5rem;
 }
 
-/* The program in one line (drawing workspace) */
-.dash-line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--gap);
-  padding: 0 0.25rem;
-}
-
-.dash-line .dash-title {
-  min-width: 0;
-  font-size: var(--text-base);
-}
-
-.dash-line .text-muted-foreground {
-  flex: none;
-}
-
 .start-row {
   display: grid;
   grid-template-columns: 2fr 1fr;

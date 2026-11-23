@@ -4,9 +4,9 @@
 > Widerspricht eine Anforderung diesem Guide: **erst nachfragen, nicht eigenmächtig abweichen.**
 >
 > **Stand:** Der Betreiber hat entschieden, die fünf festen Schritte durch **sechs Bereiche** zu ersetzen (§3.2). Dieser
-> Guide beschreibt das Zielbild; der Umbau läuft in Stufen (`docs/umbau-guide.md`, Abschnitt „Umbau 2“). **Stufe 1 ist im
-> Code** (sechs Reiter, das CAM als eigener Bereich, keine Kette „Weiter“, keine Taste dafür); offen sind Stufe 2 (im CAM nur
-> das CAM – dort zeigt der Code noch die Aktionsleiste mit Jog-Knopf) und Stufe 3 (angedockte Hauptaktion).
+> Guide beschreibt das Zielbild; der Umbau läuft in Stufen (`docs/umbau-guide.md`, Abschnitt „Umbau 2“). **Stufen 1 und 2 sind
+> im Code** (sechs Reiter, das CAM als eigener Bereich und dort nur das CAM mit der Statusleiste, keine Kette „Weiter“, keine
+> Taste dafür); offen ist Stufe 3 (angedockte Hauptaktion).
 
 ---
 
@@ -123,7 +123,7 @@ Die klassischen Rollen (Bediener, Einrichter, Service, Admin) sind hier **Aufgab
 
 - **Statusleiste** auf jedem Screen identisch. **PAUSE** (Vorschub halten) oben rechts, nie verdeckt, nie deaktiviert, solange sich etwas bewegt.
 - **Kontext-Panel** einklappbar; die Visualisierung hat Vorrang.
-- **Aktionsleiste:** links sekundär (Jog), rechts die Primäraktion des Bereichs, **wo es eine gibt** („G-Code öffnen“ in Job, „Fräsen starten“/„Fortsetzen“ in Fräsen); Einrichten, Zeichnen/CAM, Service und Einstellungen haben keine. Im **Zeichnen/CAM** gibt es keine Aktionsleiste und keinen Jog-Knopf: dort ist nur das CAM zu sehen.
+- **Aktionsleiste:** links sekundär (Jog), rechts die Primäraktion des Bereichs, **wo es eine gibt** („G-Code öffnen“ in Job, „Fräsen starten“/„Fortsetzen“ in Fräsen); Einrichten, Zeichnen/CAM, Service und Einstellungen haben keine. Im **Zeichnen/CAM** gibt es keine Aktionsleiste und keinen Jog-Knopf: dort ist nur das CAM zu sehen. Die Bühne zeigt dort nur den Tisch mit der Zeichnung (Einpassen und Großbild bleiben); keine Bühnenwerkzeuge, keine Kamera-Einblendung, keine Laufleiste. PAUSE und NOT-HALT, der Alarm und die kritische Meldung bleiben.
 
 | Breite | Verhalten |
 |---|---|

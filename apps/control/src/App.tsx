@@ -29,7 +29,15 @@ import { useJob } from './store/job';
 import { useCamera } from './store/camera';
 import { cameraCalibrated } from './store/photomap';
 import { openJobFiles } from './store/recent';
-import { hasPicture, isStep, placeHasStage, STEP_STAGE, useUi, type Place } from './store/ui';
+import {
+  hasPicture,
+  isStep,
+  placeHasStage,
+  shellParts,
+  STEP_STAGE,
+  useUi,
+  type Place,
+} from './store/ui';
 import { useWorkshop } from './store/workshop';
 import { DialogLayer } from './ui/dialog';
 import { Button } from './ui/button';
@@ -110,7 +118,7 @@ function PanelBody({ place, jogOpen, title }: { place: Place; jogOpen: boolean; 
   return (
     <div className="panel-body" role="region" aria-label={title} ref={panel}>
       <ToolChangeCard />
-      <RunBar />
+      {shellParts(place).runBar ? <RunBar /> : null}
       <div key={jogOpen ? 'jog' : place} className="room-switch">
         {jogOpen ? <JogPanel /> : <PlaceContent place={place} />}
       </div>
@@ -171,6 +179,7 @@ export function App() {
     <div
       className={`app${panelHidden ? ' panel-hidden' : ''}${phone ? ' phone' : ''}`}
       data-place={place}
+      data-bare={!phone && !shellParts(place).actionBar ? '' : undefined}
       data-jog={jogOpen ? '' : undefined}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
@@ -246,7 +255,7 @@ export function App() {
               )
             ) : null}
           </main>
-          <ActionBar />
+          {shellParts(place).actionBar ? <ActionBar /> : null}
         </>
       )}
       <Toasts />

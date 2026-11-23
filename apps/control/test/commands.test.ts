@@ -343,6 +343,17 @@ describe('what the search may do', () => {
     useCam.getState().close();
   });
 
+  it('takes tools, the stage views and the jog panel out of the drawing workspace to Einrichten', () => {
+    for (const id of ['toolGoto', 'toolClamp', 'jog', 'homing']) {
+      runCommand('shapeRect');
+      expect(useUi.getState().place, id).toBe('cam');
+      runCommand(id);
+      expect(useUi.getState().place, id).toBe('setup');
+      expect(useUi.getState().jogOpen, id).toBe(id === 'jog' || id === 'homing');
+    }
+    useCam.getState().close();
+  });
+
   it('lands where a place comes from while it is not there yet', () => {
     // No program: step ④ has nothing to check – the program card of step ① is the way.
     runCommand('placeStart');

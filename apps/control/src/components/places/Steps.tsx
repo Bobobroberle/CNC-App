@@ -84,8 +84,8 @@ function NoProgram() {
 }
 
 /**
- * Zeichnen/CAM – what do I draw? The drawing workspace, a place of its own. (Its content is still
- * what the drawing mode of the Job room showed; stage 2 of "Umbau 2" strips it to the CAM alone.)
+ * Zeichnen/CAM – what do I draw? The drawing workspace, a place of its own: only the CAM, with the
+ * status bar around it – no program card, no bar of a running job, no jog button (`shellParts`).
  */
 export function CamStep() {
   const hasDrawing = useCam((s) => s.project !== null);
@@ -97,9 +97,6 @@ export function CamStep() {
   if (!hasDrawing) return null;
   return (
     <div className="flex flex-col gap-3 job-room">
-      <JobFileInput />
-      <JobDashboard compact />
-      <RunBar here />
       <CamCard />
     </div>
   );

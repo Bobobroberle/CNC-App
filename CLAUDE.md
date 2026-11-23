@@ -42,7 +42,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   coverage of the four libraries, the quick-search registry and `settled()` stays in force. The
   rebuild ran in three stages (11–13, done); `docs/umbau-guide.md` says where every old card lives
   now, where the app deviates from the guide and why, the acceptance per screen (§11) and what is left.
-- **"Umbau 2" (`docs/umbau-guide.md`): six areas instead of the five steps – stage 1 is in the code, stages 2 and 3 are open.**
+- **"Umbau 2" (`docs/umbau-guide.md`): six areas instead of the five steps – stages 1 and 2 are in the code, stage 3 is open.**
   Tabs: Job · CAM (`cam`) · Einrichten (`setup`) · Fräsen (`run`, with the views Prüfen and Fräsen; the job's tools
   and the readiness list live in Prüfen) · Service · Einstellungen. Tool list and console stay in the menu. `tools` and
   `check` are no places any more (a stored one falls back to `run`). There is **no "Weiter: …" chain and no
@@ -50,9 +50,13 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   only where an area has one: Job without a program ("G-Code öffnen"), Fräsen (the start, pause, going on; "Prüfen"
   while the start is blocked; **nothing in the Prüfen view** while no job runs or waits – a running or waiting job
   forces the cutting view); Einrichten, CAM, Service, Einstellungen and the lists have
-  none. The start lock stays: the readiness list and its "dealt with here" mapping stay. **Still open:** stage 2 – in
-  the CAM only the CAM and the status bar are shown (no jog button, no run bar, no camera inset, no flow cards, no stage
-  tools) – and stage 3 – the primary action docked to each panel. Until then the CAM still shows the action bar.
+  none. The start lock stays: the readiness list and its "dealt with here" mapping stay. **In the CAM only the CAM and
+  the status bar are shown** (no action bar and so no jog button, no run bar, no program card, no camera inset, no
+  mode switch or stage tools; Einpassen and Großbild stay): `shellParts(place)` in `store/ui.ts` is the one predicate
+  every piece of the shell asks (`App`, `Stage`, `setJogOpen` – which from the CAM opens the jog panel over Einrichten –,
+  the search's `goTo`, `TableView`: no tap tool and no clamp reaches the finger there, no tool marks are drawn). The
+  PAUSE and NOT-HALT, the alarm banner, the tool-change card and the critical message stay everywhere. **Still open:**
+  stage 3 – the primary action docked to each panel.
 - Navigation (`store/ui.ts`): a `Place` is `start`, one of the three areas of the work `job`, `setup`, `run`
   (Job, Einrichten, Fräsen), the drawing workspace `cam`, or an area `toollist`, `service`, `settings`, `console`
   (the console only with the expert switch). **The one way into the CAM is `openCam()`** (`store/camPlace.ts`: an
