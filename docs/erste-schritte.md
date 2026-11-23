@@ -2,7 +2,7 @@
 
 Reihenfolge laut Projektbeschreibung: erst leerer Jackpot auf dem Tisch, dann Maschine mit Spindel
 aus, dann im Material. Hand am Hardware-Not-Aus. Jeden Punkt abhaken; was anders läuft als
-beschrieben, mit Protokoll-Auszug (_Reiter Service → Protokoll_) notieren.
+beschrieben, mit Protokoll-Auszug (_Reiter Service → Diagnose_) notieren.
 
 **Etwas nicht gefunden?** Oben _Suchen_ antippen (am Laptop `Strg+K`) und ein Wort tippen – auch
 ein anderes als das auf dem Bildschirm („Zwinge“, „homing“, „zu lang“). Die Suche führt zur Stelle
@@ -18,7 +18,7 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
 
 - [ ] Mit dem Pi: Browser auf `http://<Pi>:8080`, _Reiter Einstellungen → Verbindung → Über den Pi
       verbinden_. Die Karte zeigt den Weg (dieses Gerät → Pi → Jackpot) und was sie gerade tut.
-- [ ] Ohne Pi: `lowrider-control.html` per Doppelklick öffnen (nicht über https), _Menü →
+- [ ] Ohne Pi: `lowrider-control.html` per Doppelklick öffnen (nicht über https), _Reiter
       Einstellungen → Verbindung:_ IP des Jackpot, _Verbinden_.
 - [ ] Probe: Jackpot ausschalten – die Karte sagt, welches Gerät fehlt, und zählt den nächsten Versuch
       herunter; Jackpot wieder an – die App verbindet von selbst. _Aufhören_ beendet die Versuche.
@@ -75,8 +75,8 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
 - [ ] _Vorbereiten:_ Material, Werkzeug je T, Nullpunkt.
 - [ ] _Prüfen:_ Liste ist grün oder gelb; rote Punkte mit dem Knopf daneben beheben. Die Startleiste
       unten zeigt „Startklar“.
-- [ ] _Fertigen → Rahmen abfahren_ (halten): fährt in sicherer Höhe um den Job.
-- [ ] _Fertigen → Teil 1/2 starten_ bzw. _Starten_ (halten), Spindel aus, Z-Nullpunkt 20 mm über dem
+- [ ] _Fräsen → Rahmen abfahren_ (halten): fährt in sicherer Höhe um den Job.
+- [ ] _Fräsen → Teil 1/2 starten_ bzw. _Starten_ (halten), Spindel aus, Z-Nullpunkt 20 mm über dem
       Tisch. Die Datei landet auf der SD-Karte und startet dort (wie mit der WebUI):
   - [ ] Bühne verfolgt live, Abweichung plausibel; Laufleiste auf der Startseite, im Jog-Feld und in den Nebenbereichen sichtbar.
   - [ ] WLAN am iPad kurz aus: der Job läuft weiter.
@@ -134,12 +134,12 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
 - [ ] Liegt das Motiv auf jedem Rohling richtig herum? Sonst _Drehen_; einen Rohling antippen lässt
       ihn aus. Für Namen: _Ein Name je Rohling_ und die Liste in der Reihenfolge der Nummern.
 - [ ] _Mit der Kamera nachmessen_ halten, dann _Serie erzeugen_ – weiter wie bei jedem Job: Prüfen,
-      Fertigen. Beim ersten Mal mit Stift statt Fräser oder 0,2 mm tief: Sitzt jede Gravur mittig?
+      Fräsen. Beim ersten Mal mit Stift statt Fräser oder 0,2 mm tief: Sitzt jede Gravur mittig?
 
 ## 4d. Eine Vorrichtung mit Marker (zuerst im Simulator)
 
 - [ ] Im Simulator: _Einstellungen → Verbindung → Auf dem Tisch → Vorrichtung mit Markern_, dann in den
-      Raum _Job_: Die Demo kennt die Vorrichtung schon – _Einmessen und Job laden_ halten, zusehen.
+      Reiter _Job_: Die Demo kennt die Vorrichtung schon – _Einmessen und Job laden_ halten, zusehen.
       Mit _Vorrichtung woanders hinlegen_ (Simulator-Karte) liegt sie anders; wieder einmessen.
 - [ ] Für die eigene Vorrichtung: _Job → Extras → Vorrichtungen mit Markern → Marker drucken_. Mit
       100 % drucken und die 50-mm-Linie nachmessen. Für kleine Vorrichtungen reicht ein Marker

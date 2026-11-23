@@ -38,7 +38,7 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 - Entscheidung 3 widerspricht dem Ziel „Fortsetzen: ein Tipp“ (02-ziele §7) bewusst; zu streichen oder zu ändern, falls der Betreiber das ändert.
 - Nicht entschieden und nicht begonnen: Messprotokoll-Inhalt, Projekte speichern/Sicherung auf dem Pi, Merkpunkte, Werkzeugwechsel-Knopf, Aufräumen.
 
-## Weitere Entscheidungen während der Umsetzung (Stufe 1)
+## Weitere Entscheidungen während der Umsetzung (Stufe 1 und 2)
 | Nr. | Frage | Entscheidung |
 |---|---|---|
 | 21 | Reiterzeile | **Kurze Namen:** Job · CAM · Einrichten · Fräsen · Service · Einstellungen (`nav.tabs`); unter 1100 px behalten nur der aktuelle Reiter seinen Namen und der Rest sein Zeichen |
@@ -47,6 +47,9 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 | 24 | Fremdes Programm geladen (geöffnete Datei, ausgerichtete Rückseite) | **Nur über den Knopf** „Zeichnung auf den Tisch legen“; eine Änderung in der Zeichnung ersetzt es nie von selbst |
 | 25 | Bild im CAM bei fremdem Programm | **Die Zeichnung ist im CAM immer zu sehen und mit dem Finger zu bearbeiten**, auch wenn ein fremdes Programm geladen ist oder läuft (zweiter Prüf-Durchgang, vom Betreiber entschieden) |
 | 26 | Nach dem Job | **Per Tipp, nichts geht verloren:** das fertige Programm samt Zusammenfassung bleibt geladen, ein Hinweis im CAM bietet „Zeichnung auf den Tisch legen“ an. Von selbst geht die Zeichnung nur dorthin, wo gar nichts geladen ist und das Ende bei stehender Verbindung gesehen wurde. (Das ist enger als der Wortlaut aus der ersten Bestätigung; der Betreiber hat die Fassung „per Tipp“ gewählt.) |
+| 27 | Tasten und Suche für die Bühnenansichten im CAM | **Die Tasten T · K · D ruhen im CAM** (ein verirrter Buchstabe führt nirgends hin und setzt nichts); die **Einträge** „Tisch/Kamera/3D“ und „Jog / Manuell“ der Suche führen von dort nach Einrichten, wie die Werkzeug-Einträge (Festlegung bei der Umsetzung, bitte prüfen) |
+| 28 | Zeichnung nach einer reinen Bewegung der Steuerung | Meldet FluidNC Lauf oder Halt, ohne dass die App einen Job kennt (Seite neu geladen, Verbindung von Hand neu aufgebaut, eigene Fahrt der App), gilt das als „Job unterwegs“: das Programm wird nicht getauscht. **Endet nur eine solche Bewegung**, legt sich eine zurückgebliebene Zeichnung sofort auf den Tisch; **endet ein Job**, bleibt sein Programm samt Zusammenfassung, **solange die Zeichnung vorn liegt**, bis der Tipp es ersetzt (Festlegung bei der Umsetzung, bitte prüfen) |
+| 29 | Zwischen zwei Teilen und die Prüfen-Ansicht | Wartet ein Job (Werkzeugwechsel, Einzelschritt, zwischen zwei Teilen), zeigen Panel, Aktionsleiste **und** Bühne die Fräsen-Ansicht (ein Selektor, `useRunView`); ein Tipp auf „Prüfen“ speichert dann nichts, und die Leiste bietet keinen toten „Prüfen“-Knopf an |
 
 ## Abnahme Stufe 1 (nach Teil 3)
 - **Tests:** alle drei E2E-Projekte grün (272 bestanden, 1 übersprungen; `usability.spec.ts` unverändert grün), `pnpm check` grün (control 579 Tests).
@@ -55,7 +58,7 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 - **Reviews:** Teil 2: 19 Funde, 9 bestätigt (6 Sachfehler: laufendes Programm unter der Zeichnung, Reiter ohne Namen, Überlappung bei schmaler Zeile, Menü-Knopf mit langem Namen, CAM öffnet auf 3D, nextStep im CAM) – behoben, nextStep durch Teil 3 erledigt. Teil 3 (zweiter Durchgang): 22 Funde, 17 bestätigt. Behoben: Umbenennung beim ersten Import (das eigene Programm galt als fremd – eine Regression des ersten Fixes), Zeichnung im CAM bei fremdem Programm unsichtbar, Verbindungsabbruch unter dem Job, Serie nahm fremdes Programm mit `take`, veralteter Download, „geändert“ ohne Änderung, Name des aktuellen Reiters unter 620 px, Reiterstreifen bei großer Schrift (jetzt scrollbar), 761–775 px mit Werkzeugliste, Werkzeugwechsel-Empfehlung „Weiter: “ ohne Ziel, Prüfen-Ansicht zwischen zwei Teilen, README/Docs/UI-Texte (Strg+→, Menü-Wege, ③/⑤, „Raum“), verwaiste Texte, Taste „Leertaste“ im Tastenblatt. Nicht angefasst (siehe unten): andere Wege, ein Programm unter einem Job zu laden; veraltetes `stepAt` nach Abbruch.
 
 ## Stand der Bereichs-Oberfläche
-Stufe 1, Teile 1 und 2 (+ Review-Korrekturen) sind gebaut, getestet und gepusht. Teil 3 (Weiter-Kette und Strg+→ entfernen) wird als Nächstes gemacht, danach Stufe 2 (CAM-Fokus) und Stufe 3 (angedockte Hauptaktion).
+Stufe 1 (sechs Reiter, kein „Weiter“, nichts unten rechts in Prüfen) und Stufe 2 (im CAM nur das CAM und die Statusleiste) sind gebaut, getestet und gepusht; die Abnahme steht unten. **Offen: Stufe 3** (angedockte Hauptaktion je Panel) – wartet auf dein Go.
 **Regeln des Betreibers:** nicht programmieren, bevor er es freigibt; vor jedem neuen Programmierpunkt Advisor-Plan, sonst nachfragen; offene Fragen immer als Auswahl zum Anklicken stellen.
 Offen: Mutation `start.ts:108` (braucht Test mit React-Rendering), Wächter gegen Funkstille bei sichtbarem, aber ruhendem Steuer-Tab (10 s Übergabe, noch nicht geprüft).
 

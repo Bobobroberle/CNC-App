@@ -212,7 +212,11 @@ zeigt die App keine Tastenkürzel an.
      - Text: Einlinien-Schrift mit ÄÖÜß, Ziffern und Satzzeichen, mehrere Zeilen; Ausrichtung,
        Buchstaben- und Zeilenabstand unter _Schrift_.
      - Liegt auf dem Tisch gerade ein anderes Programm (etwa das ausgerichtete der Demo), sagt das
-       ein Hinweis; _Zeichnung auf den Tisch legen_ zeigt sie dort – auch die erste Änderung tut das.
+       ein Hinweis; die Zeichnung bleibt trotzdem im CAM zu sehen und zu bearbeiten, aber das fremde
+       Programm ersetzt nie eine Änderung, sondern erst ein Tipp auf _Zeichnung auf den Tisch legen_.
+       Läuft gerade ein Job (oder wartet er zwischen zwei Teilen), ändert die Zeichnung sein Programm
+       nie; ein Hinweis nennt dann den Stand, und nach dem Job bleibt das fertige Programm samt
+       Zusammenfassung geladen, bis dieser Tipp es ersetzt.
   2. _Wie wird gefräst?_ – je Teil _Außen_, _Innen_, _Linie gravieren_, _Tasche_ oder _Bohren_
      (passend: Peck, größer: Helix), eine eigene Tiefe, Haltestege und – wo es Innenecken gibt –
      _Ecken frei_ (Dogbone diagonal oder T-Bone längs, damit ein eckiges Teil hineinpasst). Darunter

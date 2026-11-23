@@ -35,7 +35,7 @@ abgleichen_; das Maschinenprofil über _Profil teilen_.
 |                            | wie immer die Ansicht. Das gewählte Teil hat Griffe: Ecke/Seite ändert die     |
 |                            | Größe, der Punkt darüber dreht; ein zweiter Finger lässt den Griff los         |
 | Bedienfeld rechts / unten  | hoch/runter rollt, seitlich wischen wechselt die Ansicht im Schritt            |
-| _Großbild_ (über dem Bild) | Bühne über die ganze Breite; ein Raum in der Leiste holt das Bedienfeld zurück |
+| _Großbild_ (über dem Bild) | Bühne über die ganze Breite; ein Reiter in der Leiste holt das Bedienfeld zurück |
 | _Suchen_ (oben, Lupe)      | Schnellsuche: ein Wort tippen, eine Zeile antippen – die App geht zur Stelle   |
 
 Ein kurzer Tipp gibt dem gewählten Werkzeug (_Hinfahren_, _Nullpunkt_, _Messen_, _Spannmittel_)

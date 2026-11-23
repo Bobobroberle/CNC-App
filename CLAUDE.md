@@ -48,8 +48,10 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `check` are no places any more (a stored one falls back to `run`). There is **no "Weiter: …" chain and no
   Ctrl+→**; the start screen stays and keeps its "Als Nächstes" recommendation (`lib/next.ts`). The primary action sits
   only where an area has one: Job without a program ("G-Code öffnen"), Fräsen (the start, pause, going on; "Prüfen"
-  while the start is blocked; **nothing in the Prüfen view** while no job runs or waits – a running or waiting job
-  forces the cutting view); Einrichten, CAM, Service, Einstellungen and the lists have
+  while the start is blocked; **nothing in the Prüfen view** while no job runs or waits; a job that *waits* – a tool change, a single
+  step, between two parts – forces the cutting view for everything that depends on the view (panel, action bar, the
+  picture's timeline: one selector, `useRunView` in `store/runView.ts`; a tap on Prüfen then stores nothing), while
+  a job that merely runs can be looked at from Prüfen, where the action bar still offers the pause); Einrichten, CAM, Service, Einstellungen and the lists have
   none. The start lock stays: the readiness list and its "dealt with here" mapping stay. **In the CAM only the CAM and
   the status bar are shown** (no action bar and so no jog button, no run bar, no program card, no camera inset, no
   mode switch or stage tools; Einpassen and Großbild stay): `shellParts(place)` in `store/ui.ts` is the one predicate
