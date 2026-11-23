@@ -86,6 +86,8 @@ import { useFlip } from './flip';
 import { useJob } from './job';
 import { useMachine } from './machine';
 import { cameraCalibrated } from './photomap';
+import { useRun } from './run';
+import { jobUnderWay } from './underway';
 import { useWorkshop } from './workshop';
 
 export type { CamItem, Selection } from '../lib/camItems';
@@ -264,13 +266,28 @@ interface CamStore {
   setSettings(patch: Partial<CamSettings>): void;
   /** Cutting values from the tool and material libraries */
   suggest(): void;
-  /** Turns the drawing into G-code and loads it as the job (after every change to the drawing) */
-  generate(): boolean;
+  /**
+   * Turns the drawing into G-code and loads it as the job (after every change to the drawing) –
+   * where it may: never under a job that is under way, and over a program that is not the
+   * drawing's own (a file opened since, the aligned back) only with `take`, the operator's tap.
+   */
+  generate(opts?: TakeOptions): boolean;
   /**
    * Like `generate`, after something outside the drawing changed that the
    * registration holes depend on (the cutter, the stock); false without a job.
    */
-  remake(): boolean;
+  remake(opts?: TakeOptions): boolean;
+  /**
+   * The drawing has changed while a job was under way and its program is not on the table yet:
+   * what lies there is the one from before. Only a tap puts the drawing there (`take`) – unless
+   * nothing was loaded, then it goes there by itself when the job ends.
+   */
+  ahead: boolean;
+}
+
+/** `take`: the operator asked for the drawing to be on the table, whatever lies there now */
+export interface TakeOptions {
+  take?: boolean;
 }
 
 const TABS: Tabs = { count: 4, width: 6, height: 2 };
@@ -433,12 +450,39 @@ export const useCam = create<CamStore>((set, get) => {
     lastField = field;
     set((s) => ({ past: [...s.past, before].slice(-HISTORY), future: [] }));
   };
+  /** Is this program the drawing's own (one program, or its front)? Nothing loaded counts as none. */
+  const isOwn = (fileName: string | null): boolean => {
+    const { project } = get();
+    const names = project && jobNames(project.name);
+    return names !== null && (fileName === names.single || fileName === names.front);
+  };
+  /**
+   * May the drawing's program go on the table now? Never under a job that is under way (the
+   * drawing is then ahead of the table, to be put there afterwards); over a program that is not
+   * its own – a file opened since, the aligned back – only when the operator asked (`take`).
+   */
+  const mayLoad = (take: boolean): boolean => {
+    const { fileName } = useJob.getState();
+    const mine = fileName === null || isOwn(fileName);
+    if (jobUnderWay()) {
+      if (get().ahead !== mine) set({ ahead: mine });
+      return false;
+    }
+    return mine || take;
+  };
   /** Takes the job of this drawing off the stage: there is nothing to cut. */
   const offStage = () => {
-    const { project } = get();
     const { fileName } = useJob.getState();
-    const names = project && jobNames(project.name);
-    if (!names || (fileName !== names.single && fileName !== names.front)) return;
+    if (!isOwn(fileName)) {
+      if (get().ahead) set({ ahead: false });
+      return;
+    }
+    // The program that runs, or waits for its next part, stays where it is.
+    if (jobUnderWay()) {
+      set({ ahead: true });
+      return;
+    }
+    set({ ahead: false });
     useJob.getState().unload();
     useFlip.getState().setPlan(null);
   };
@@ -479,7 +523,11 @@ export const useCam = create<CamStore>((set, get) => {
     return { items: [...parts, ...holes], auto };
   };
   /** Replaces the items and makes the job anew; false when there is nothing to cut. */
-  const update = (items: CamItem[], selected: Selection = get().selected): boolean => {
+  const update = (
+    items: CamItem[],
+    selected: Selection = get().selected,
+    take = false,
+  ): boolean => {
     const p = get().project;
     if (!p) return false;
     const held = withHoles(items, p.twoSided);
@@ -492,7 +540,7 @@ export const useCam = create<CamStore>((set, get) => {
       },
       selected: gone ? null : selected,
     });
-    return get().generate();
+    return get().generate({ take });
   };
   /**
    * After the selection has been moved: a registration hole taken on its own
@@ -678,11 +726,20 @@ export const useCam = create<CamStore>((set, get) => {
     problems: [],
     flipNotes: [],
     selected: null,
+    ahead: false,
     open() {
-      if (!get().project) set({ project: EMPTY, selected: null });
+      if (!get().project) set({ project: EMPTY, selected: null, ahead: false });
     },
     close: () =>
-      set({ project: null, problems: [], flipNotes: [], selected: null, past: [], future: [] }),
+      set({
+        project: null,
+        problems: [],
+        flipNotes: [],
+        selected: null,
+        past: [],
+        future: [],
+        ahead: false,
+      }),
     importFile(name, text) {
       const svg = /\.svg$/i.test(name) || /<svg[\s>]/i.test(text.slice(0, 2000));
       const drawing = svg
@@ -1031,11 +1088,12 @@ export const useCam = create<CamStore>((set, get) => {
         stepover: Number((s.stepover / tool.diameter).toFixed(2)),
       });
     },
-    remake() {
+    remake(opts) {
       const p = get().project;
-      return p ? update(p.items) : false;
+      return p ? update(p.items, get().selected, opts?.take === true) : false;
     },
-    generate() {
+    generate(opts) {
+      const take = opts?.take === true;
       const { project, settings } = get();
       const parts = project ? partsOf(project.items) : [];
       if (!project || parts.length === 0) {
@@ -1131,6 +1189,7 @@ export const useCam = create<CamStore>((set, get) => {
         offStage();
         return false;
       }
+      if (!mayLoad(take)) return false;
       const program = (m: readonly Move[], name: string) =>
         toGcode(m, { name, rpm: settings.rpm, safeZ: settings.safeZ });
       const names = jobNames(project.name);
@@ -1148,7 +1207,24 @@ export const useCam = create<CamStore>((set, get) => {
       }
       // The tool circle on the stage is the drawing's cutter.
       useJob.getState().setToolDiameter(tool);
+      set({ ahead: false });
       return true;
     },
   };
 });
+
+// A job that ends: where nothing lies on the table (the page was reloaded under the job) a drawing
+// that is ahead goes there by itself. Where the job's own program still lies there it stays – the
+// operator may still want the summary or the same piece again – until the tap on "Zeichnung zeigen".
+let wasUnderWay = false;
+function afterJob(): void {
+  const now = jobUnderWay();
+  if (wasUnderWay && !now) {
+    const { ahead, project, remake } = useCam.getState();
+    if (ahead && project && useJob.getState().fileName === null) remake();
+  }
+  wasUnderWay = now;
+}
+useMachine.subscribe(afterJob);
+useRun.subscribe(afterJob);
+useJob.subscribe(afterJob);

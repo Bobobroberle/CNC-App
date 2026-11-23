@@ -30,6 +30,7 @@ import { showTable, useJob } from './job';
 import { useMachine } from './machine';
 import { cameraCalibrated, freshFrame, mapPicture, usePhotoMap } from './photomap';
 import { settled, wait } from './settle';
+import { jobUnderWay } from './underway';
 import { useWorkshop } from './workshop';
 
 /** Smallest side of a blank, mm: what is smaller is a chip or a speck */
@@ -216,9 +217,10 @@ export const useSeries = create<SeriesStore>((set, get) => ({
   },
 
   close() {
+    const had = get().made !== null;
     set({ open: false, made: null });
-    // The drawing's own job is on the table again.
-    useCam.getState().remake();
+    // The drawing's own job is on the table again – in place of the series' program, if that lay there.
+    useCam.getState().remake({ take: had });
   },
 
   find() {
@@ -391,15 +393,14 @@ export const useSeries = create<SeriesStore>((set, get) => ({
     const { project, settings } = useCam.getState();
     const wco = useMachine.getState().status?.wco;
     const todo = plan?.entries.filter((e) => e.state === 'cut') ?? [];
-    const machine = useMachine.getState();
-    // Never another program under a job that is running.
-    if (machine.fileJob !== null || machine.stream?.result === 'running') return false;
+    // Never another program under a job that is under way.
+    if (jobUnderWay()) return false;
     if (!project || !wco) return false;
     if (todo.length === 0) {
       // Nothing to engrave (any more): the drawing's own job is on the table again.
       if (get().made) {
         set({ made: null });
-        useCam.getState().remake();
+        useCam.getState().remake({ take: true });
       }
       return false;
     }

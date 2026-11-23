@@ -38,13 +38,20 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 - Entscheidung 3 widerspricht dem Ziel „Fortsetzen: ein Tipp“ (02-ziele §7) bewusst; zu streichen oder zu ändern, falls der Betreiber das ändert.
 - Nicht entschieden und nicht begonnen: Messprotokoll-Inhalt, Projekte speichern/Sicherung auf dem Pi, Merkpunkte, Werkzeugwechsel-Knopf, Aufräumen.
 
-## Übergabe (Stopp für Modellwechsel)
-Letzter Stand: Stufe 1, Teil 1 der Bereichs-Oberfläche ist committet und gepusht (Werkzeuge und Prüfen sind die Ansicht „Prüfen“ von Fräsen; Plätze `job`, `setup`, `run`; Unit-Tests grün: control 564).
-**Offen:**
-1. Der Desktop-E2E-Lauf dieses Stands lief beim Stopp noch; Fehlschläge beheben (Kandidaten: `find.spec.ts:150` und `:425`, Tests mit „Weiter: …“ in `control.spec.ts`, Nennungen von Schritt ②/④ in Texten). Danach tablet und ipad laufen lassen. **Bekannt vorher schon rot (auch auf dem unveränderten Import):** Tablet `control.spec.ts:650` „jogs continuously while held“ (3 von 4 Läufen).
-2. Stufe 1, Teil 2: Reiter statt Stepper in `NavRow`, `cam` als Platz (ersetzt `ui.drawing`, ca. 18 Stellen), Service und Einstellungen als Reiter. Teil 3: Kette „Weiter“ aus der Aktionsleiste (`ActionBar`, `Strg+→`, `find.ts nextStep`), Empfehlung auf dem Start bleibt (Entscheidung 20). Danach Stufe 2 (CAM-Fokus) und 3 (angedockte Hauptaktion).
-3. Offene Mutation `start.ts:108` (braucht Test mit React-Rendering), Wächter gegen Funkstille bei sichtbarem, aber ruhendem Steuer-Tab (10 s Übergabe, noch nicht geprüft).
+## Weitere Entscheidungen während der Umsetzung (Stufe 1)
+| Nr. | Frage | Entscheidung |
+|---|---|---|
+| 21 | Reiterzeile | **Kurze Namen:** Job · CAM · Einrichten · Fräsen · Service · Einstellungen (`nav.tabs`); unter 1100 px behalten nur der aktuelle Reiter seinen Namen und der Rest sein Zeichen |
+| 22 | Prüfen-Ansicht, unten rechts | **Nichts.** Keine Primäraktion; zum Fräsen wechselt der Unterreiter oben im Bereich |
+| 23 | Zeichnen, während ein Job läuft | **Erlaubt.** Das Programm, das läuft (oder zwischen zwei Teilen wartet), wird nie angefasst; die Zeichnung zeigt „Ein Job läuft …“ und liegt erst danach auf dem Tisch (per Knopf; von selbst nur dort, wo nichts geladen war) |
+| 24 | Fremdes Programm geladen (geöffnete Datei, ausgerichtete Rückseite) | **Nur über den Knopf** „Zeichnung auf den Tisch legen“; eine Änderung in der Zeichnung ersetzt es nie von selbst |
+
+Zu 23: Abweichung vom Wortlaut, den du bestätigt hast („legt die App die geänderte Zeichnung erst auf den Tisch, wenn der Job zu Ende ist“): läuft das Programm der Zeichnung selbst, bleibt es nach dem Job zunächst geladen (die Zusammenfassung und „Nächstes Teil“ gehen nicht still verloren) und der Hinweis bietet den Knopf an. Von selbst geht die Zeichnung nur dorthin, wo nach dem Job nichts geladen ist. Ändern, falls du es anders willst.
+
+## Stand der Bereichs-Oberfläche
+Stufe 1, Teile 1 und 2 (+ Review-Korrekturen) sind gebaut, getestet und gepusht. Teil 3 (Weiter-Kette und Strg+→ entfernen) wird als Nächstes gemacht, danach Stufe 2 (CAM-Fokus) und Stufe 3 (angedockte Hauptaktion).
 **Regeln des Betreibers:** nicht programmieren, bevor er es freigibt; vor jedem neuen Programmierpunkt Advisor-Plan, sonst nachfragen; offene Fragen immer als Auswahl zum Anklicken stellen.
+Offen: Mutation `start.ts:108` (braucht Test mit React-Rendering), Wächter gegen Funkstille bei sichtbarem, aber ruhendem Steuer-Tab (10 s Übergabe, noch nicht geprüft).
 
 ## Offene Beobachtung (nicht behoben, Betreiber informieren)
 **Absolute Jog-Ziele aus einem bis zu 200 ms alten Positionswert:** Ein Schritt-Jog (`store/machine.ts jog`, Weg „referenziert + Softlimits“) rechnet `Ziel = zuletzt gelesene Position + Schritt` und sendet es als absolute Fahrt (`$J=G53 …`). Tippt man unmittelbar nach dem Loslassen einer Dauerfahrt auf dieselbe Achse, kann die gelesene Position (Statusabfrage alle 200 ms) hinter der wirklichen liegen; die Maschine fährt dann um den Nachlaufweg zurück (bei 3000 mm/min höchstens in der Größenordnung von 10 mm). Der unter Last wackelnde Test `jogs continuously while held` (Tablet und Desktop) war ein Rennen im Test, das dieselbe Eigenschaft sichtbar machte; im Test wird jetzt auf die gelesene Position gewartet. Mögliche Abhilfe: vor dem Schritt-Jog auf einen frischen Statusbericht warten (`settled()`), oder relativ fahren. Entscheidung offen; nur an der Maschine prüfbar.

@@ -150,7 +150,12 @@ export function App() {
     const { stageViews } = useUi.getState();
     const { settings } = useWorkshop.getState();
     const live = useCamera.getState().source !== null && cameraCalibrated(settings.camera);
-    const view = stageViews[place] ?? (place === 'setup' && live ? 'camera' : STEP_STAGE[place]);
+    // The drawing is always entered on the table, where it is drawn: a 3D view looked at inside it
+    // would show nothing to draw on when it is opened again.
+    const view =
+      place === 'cam'
+        ? STEP_STAGE.cam
+        : (stageViews[place] ?? (place === 'setup' && live ? 'camera' : STEP_STAGE[place]));
     if (useJob.getState().view !== view) useJob.getState().setView(view);
   }, [place]);
 

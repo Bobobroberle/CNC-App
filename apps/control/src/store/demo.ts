@@ -256,7 +256,7 @@ export async function startFullDemo(): Promise<boolean> {
     // The demo starts as a finished drawing: nothing to take back.
     useCam.setState({ past: [], future: [] });
     useCam.setState((s) => ({ project: s.project ? { ...s.project, name: 'demo-schild' } : null }));
-    cam.generate();
+    cam.generate({ take: true });
     const job = useJob.getState();
     const text = job.lines.join('\n');
     if (text) {

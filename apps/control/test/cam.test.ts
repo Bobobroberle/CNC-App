@@ -64,6 +64,7 @@ const errors = () => useJob.getState().analysis?.diagnostics.filter((d) => d.sev
 describe('CAM in the app', () => {
   beforeEach(() => {
     useCam.getState().close();
+    useJob.getState().unload();
     // The 6 mm end mill of the tool library: 3 mm beside every line.
     useCam.getState().setSettings({ toolId: 't2', depth: 6, allowance: 0, engraveDepth: 1 });
   });
@@ -313,6 +314,7 @@ describe('CAM in the app', () => {
 describe('a part for both sides in the drawing', () => {
   beforeEach(() => {
     useCam.getState().close();
+    useJob.getState().unload();
     useFlip.getState().cancel();
     // The 6 mm end mill; no stock entered, no clamps, the camera not set up.
     useCam.getState().setSettings({ toolId: 't2', depth: 6, allowance: 0, engraveDepth: 1 });
@@ -902,9 +904,12 @@ describe('the drawing as a drawing program', () => {
     useJob.getState().load('anderes.nc', 'G1 X1 F100');
     cam.removeSelection();
     expect(useJob.getState().fileName).toBe('anderes.nc');
-    // A drawing that cannot be cut takes its old toolpath away.
+    // A drawing never replaces a program that is not its own by itself – only the tap does.
     cam.addSketch({ type: 'rect', w: 2, h: 2, r: 0 });
+    expect(useJob.getState().fileName).toBe('anderes.nc');
+    expect(cam.remake({ take: true })).toBe(true);
     expect(useJob.getState().fileName).toBe('zeichnung.nc');
+    // A drawing that cannot be cut takes its old toolpath away.
     cam.setItem(items()[0]!.id, { kind: 'inside' });
     expect(useCam.getState().problems).toEqual([{ row: 0, code: 'tool-too-large' }]);
     expect(useJob.getState().fileName).toBeNull();

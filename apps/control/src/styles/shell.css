@@ -389,27 +389,78 @@
   flex: none;
 }
 
-/* The current step always shows its whole name */
-.nav-stepper [data-slot='stepper-item']:has([aria-current='step']) {
+/* The tabs never shrink into each other: what does not fit is taken from the names, below */
+.nav-stepper {
+  flex: none;
+}
+.nav-stepper [data-slot='stepper-item'] {
   flex-shrink: 0;
 }
 
-/* Narrower: the quick search shrinks to its sign first, so the six names keep their room */
+/* Narrower: the quick search shrinks to its sign first, so the six names keep their room.
+   With a side area open the menu button carries its name and is wider: its sign comes sooner. */
 @media (max-width: 1240px) {
   .find-button-label,
   .find-button .kbd-hint {
     display: none;
   }
 }
+@media (min-width: 1241px) and (max-width: 1290px) {
+  .app:is([data-place='toollist'], [data-place='console']) .find-button-label,
+  .app:is([data-place='toollist'], [data-place='console']) .find-button .kbd-hint {
+    display: none;
+  }
+}
 
-/* Narrower still: the tabs are their signs, only the current one keeps its name (§4) */
+/* Narrower still: the tabs are their signs, only the current one keeps its name (§4). The other
+   names stay in the markup, clipped, so every tab keeps its name for assistive technology. */
 @media (max-width: 1100px) {
+  .app {
+    --tabs-fixed: 724px;
+  }
+  .app:is([data-place='toollist'], [data-place='console']) {
+    --tabs-fixed: 790px;
+  }
   .nav-stepper [data-slot='stepper-step']:not([aria-current='step']) [data-slot='stepper-label'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  /* The current name takes what the row has left, up to its whole length */
+  .nav-stepper [data-slot='stepper-step'][aria-current='step'] [data-slot='stepper-label'] {
+    max-width: clamp(0px, calc(100vw - var(--tabs-fixed, 600px)), 10rem);
+  }
+}
+@media (min-width: 1101px) and (max-width: 1150px) {
+  .app:is([data-place='toollist'], [data-place='console'])
+    .nav-stepper
+    [data-slot='stepper-step']:not([aria-current='step'])
+    [data-slot='stepper-label'] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+@media (max-width: 620px) {
+  /* No room for the current name either: its tab is told by its fill and its sign */
+  .nav-stepper [data-slot='stepper-step'][aria-current='step'] [data-slot='stepper-label'] {
     display: none;
   }
 }
 
 @media (max-width: 760px) {
+  .app,
+  .app:is([data-place='toollist'], [data-place='console']) {
+    --tabs-fixed: 596px;
+  }
+  .navrow {
+    gap: 0.25rem;
+  }
   .nav-start span,
   .nav-menu span {
     position: absolute;

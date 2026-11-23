@@ -2065,7 +2065,16 @@ export const en: DictionaryShape = {
     addHint:
       'Tap – the shape lies on the table picture at once. Move it there with a finger or the mouse, pull its handles to change the size and to turn it.',
     otherJob:
-      'The table shows "{file}" right now, not this drawing. With the first change the drawing lies there – align an aligned program anew afterwards.',
+      'The table shows "{file}" right now, not this drawing. That program stays as it is – only the button puts the drawing there. Align an aligned program anew afterwards.',
+    otherJobRunning:
+      'The table shows "{file}" right now, and a job is running. Keep drawing – the drawing goes on the table only after the job.',
+    ahead: {
+      running:
+        'A job is running. The program "{file}" stays as it is – changes to the drawing go on the table only afterwards.',
+      done: 'The drawing was changed while the job ran. The table still shows "{file}" from before.',
+      nothing: 'A job is running. The drawing goes on the table by itself as soon as it has ended.',
+    },
+    jobRuns: 'A job is running – the program on the table stays until it has ended.',
     showDrawing: 'Put the drawing on the table',
     undo: 'Undo',
     redo: 'Redo',

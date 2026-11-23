@@ -647,3 +647,83 @@ test.describe('the phone (< 600 px)', () => {
     await expect(centre(page)).toContainText('Befehl abgelehnt');
   });
 });
+
+test.describe('the row of tabs', () => {
+  const TABS = [
+    ['job', 'Job'],
+    ['cam', 'CAM'],
+    ['setup', 'Einrichten'],
+    ['run', 'Fräsen'],
+    ['service', 'Service'],
+    ['settings', 'Einstellungen'],
+  ] as const;
+
+  test('never overlaps, stays tappable and keeps every name – in every width and with a side area open', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await installFakeFluidNC(page);
+    await openApp(page);
+    for (const width of [640, 800, 1024, 1140, 1280, 1400]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const current of [...TABS.map(([id]) => id), 'toollist'] as const) {
+        const where = `${width} px, ${current}`;
+        if (current === 'toollist') {
+          await page.getByTestId('menu-button').click();
+          await page
+            .getByTestId('menu')
+            .getByRole('button', { name: /Werkzeugliste/ })
+            .click();
+          await expect(page.getByTestId('menu-button')).toHaveAttribute('aria-current', 'page');
+          // The menu has closed (its backdrop lies over the row while it fades out).
+          await expect(page.getByTestId('menu')).toHaveCount(0);
+        } else {
+          // A real tap: where the tabs overlapped, it would land on the neighbour.
+          await page.getByTestId(`step-${current}`).click();
+          await expect(page.getByTestId(`step-${current}`), where).toHaveAttribute(
+            'aria-current',
+            'step',
+          );
+        }
+        const measured = await page.evaluate(() => {
+          const tabs = [...document.querySelectorAll<HTMLElement>('[data-slot=stepper-step]')];
+          const rects = tabs.map((el) => el.getBoundingClientRect());
+          const overlaps = rects
+            .slice(0, -1)
+            .map((r, i) => r.right - rects[i + 1]!.left)
+            .filter((over) => over > 0.5);
+          // How much of each tab a finger actually reaches along its middle line.
+          const reach = tabs.map((el, i) => {
+            const r = rects[i]!;
+            let own = 0;
+            for (let x = Math.floor(r.left); x < Math.ceil(r.right); x++) {
+              if (el.contains(document.elementFromPoint(x + 0.5, r.top + r.height / 2))) own++;
+            }
+            return { own, height: r.height };
+          });
+          const row = document.querySelector('.navrow')!;
+          const menu = document.querySelector('[data-testid=menu-button]')!.getBoundingClientRect();
+          return {
+            overlaps,
+            reach,
+            rowOverflow: row.scrollWidth - row.clientWidth,
+            menuRight: menu.right,
+            width: innerWidth,
+          };
+        });
+        expect(measured.overlaps, where).toEqual([]);
+        expect(measured.rowOverflow, where).toBeLessThanOrEqual(1);
+        expect(measured.menuRight, where).toBeLessThanOrEqual(measured.width);
+        // At least the guide's 48 px, on the machine's touch screen 56 px (same height as wide).
+        for (const { own, height } of measured.reach)
+          expect(own, where).toBeGreaterThanOrEqual(height - 4);
+        // The names: also where only the current one shows its name, the others carry theirs.
+        for (const [id, name] of TABS) {
+          await expect(page.getByTestId(`step-${id}`), where).toHaveAccessibleName(
+            new RegExp(`^${name}`),
+          );
+        }
+      }
+    }
+  });
+});

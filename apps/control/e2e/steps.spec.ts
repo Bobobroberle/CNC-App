@@ -1,5 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
-import { connect, goTo, hold, installFakeFluidNC, moreOptions, openApp, sent } from './helpers';
+import {
+  connect,
+  drawShape,
+  goTo,
+  hold,
+  installFakeFluidNC,
+  moreOptions,
+  openApp,
+  sent,
+  stageMode,
+} from './helpers';
 
 // The five steps of the flow as DESIGN.md §5 asks for them: what each one must
 // keep safe (the start, its confirmations, the overrides, a lost connection)
@@ -556,4 +566,60 @@ test('the CAM tab opens the drawing workspace, and a loaded program survives goi
   await expect(page.getByTestId('cam-draw')).toBeVisible();
   await page.getByTestId('step-job').click();
   await expect(page.getByTestId('job-loaded')).toContainText('schild.nc');
+});
+
+test('the CAM tab always opens on the table, also after a look at 3D inside it', async ({
+  page,
+}) => {
+  await installFakeFluidNC(page);
+  await openApp(page);
+  await page.getByTestId('step-cam').click();
+  await expect(stageMode(page, 'Tisch')).toHaveAttribute('aria-pressed', 'true');
+  await stageMode(page, '3D').click();
+  await expect(stageMode(page, '3D')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('step-setup').click();
+  await page.getByTestId('step-cam').click();
+  await expect(stageMode(page, 'Tisch')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('a drawing is worked on while a job runs: the program that runs stays, the hint says why', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await ready(page);
+  await goTo(page, 'Fräsen');
+  await hold(page, /Fräsen starten/, 1300);
+  await expect.poll(() => started(page)).toBe(1);
+  await status(
+    page,
+    '<Run|MPos:610.000,1210.000,-62.000|FS:900,18000|Ov:100,100,100|SD:42.0,/sd/schild.nc>',
+  );
+  await expect(page.getByTestId('running-job')).toBeVisible();
+  // The drawing can be worked on …
+  await page.getByTestId('step-cam').click();
+  await expect(page.getByTestId('cam-draw')).toBeVisible();
+  await drawShape(page, 'Rechteck');
+  await drawShape(page, 'Kreis');
+  // … the hint says what lies on the table and why the drawing does not go there …
+  const hint = page.getByTestId('cam-other-job');
+  await expect(hint).toContainText('Job läuft');
+  await expect(hint).toContainText('schild.nc');
+  // … neither the hint's button nor the hand-over can put it there while the job runs.
+  await expect(page.getByTestId('cam-show-drawing')).toBeDisabled();
+  await page.getByTestId('cam-show-drawing').click({ force: true });
+  await expect(page.getByTestId('cam-hand-over')).toBeDisabled();
+  // The program on the table is the one that runs.
+  await page.getByTestId('step-job').click();
+  await expect(page.getByTestId('job-loaded')).toContainText('schild.nc');
+  await page.getByTestId('step-cam').click();
+  // After the job the tap puts the drawing there.
+  await page.evaluate(() => {
+    (window as unknown as { __socket: { emit(l: string): void } }).__socket.emit('ok');
+  });
+  await status(page, SET_ZERO);
+  await expect(page.getByTestId('cam-show-drawing')).toBeEnabled();
+  await page.getByTestId('cam-show-drawing').click();
+  await expect(page.getByTestId('cam-other-job')).toHaveCount(0);
+  await page.getByTestId('step-job').click();
+  await expect(page.getByTestId('job-loaded')).toContainText('zeichnung.nc');
 });

@@ -2095,7 +2095,17 @@ export const de = {
     addHint:
       'Antippen – die Form liegt sofort auf dem Tisch-Bild. Dort mit dem Finger oder der Maus verschieben, an den Griffen größer ziehen und drehen.',
     otherJob:
-      'Auf dem Tisch liegt gerade „{file}“, nicht diese Zeichnung. Mit der ersten Änderung liegt die Zeichnung dort – ein ausgerichtetes Programm danach neu ausrichten.',
+      'Auf dem Tisch liegt gerade „{file}“, nicht diese Zeichnung. Das Programm bleibt, wie es ist – erst der Knopf legt die Zeichnung dorthin. Ein ausgerichtetes Programm danach neu ausrichten.',
+    otherJobRunning:
+      'Auf dem Tisch liegt gerade „{file}“, und ein Job läuft. Du kannst weiterzeichnen – die Zeichnung kommt erst nach dem Job auf den Tisch.',
+    ahead: {
+      running:
+        'Ein Job läuft. Das Programm „{file}“ bleibt, wie es ist – Änderungen an der Zeichnung kommen erst danach auf den Tisch.',
+      done: 'Die Zeichnung wurde geändert, während der Job lief. Auf dem Tisch liegt noch „{file}“ von vorher.',
+      nothing:
+        'Ein Job läuft. Die Zeichnung kommt von selbst auf den Tisch, sobald er zu Ende ist.',
+    },
+    jobRuns: 'Ein Job läuft – das Programm auf dem Tisch bleibt, bis er zu Ende ist.',
     showDrawing: 'Zeichnung auf den Tisch legen',
     undo: 'Rückgängig',
     redo: 'Wiederholen',

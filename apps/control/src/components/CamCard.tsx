@@ -18,6 +18,7 @@ import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
 import { useSeries } from '../store/series';
 import { useUi } from '../store/ui';
+import { useJobUnderWay } from '../store/underway';
 import { useWorkshop } from '../store/workshop';
 import { CamAdd } from './CamAdd';
 import { CamArrange } from './CamArrange';
@@ -224,29 +225,50 @@ function useCamKeys() {
 function Drawing() {
   useCamKeys();
   const project = useCam((s) => s.project);
+  const ahead = useCam((s) => s.ahead);
   const fileName = useJob((s) => s.fileName);
+  const running = useJobUnderWay();
   if (!project) return null;
   const names = jobNames(project.name);
-  // Another program lies on the table (this drawing's job, aligned; a file opened since):
-  // the drawing cannot be shown over it – one tap puts it there.
+  // Another program lies on the table (this drawing's job, aligned; a file opened since): the
+  // drawing changes nothing there – one tap puts it there, and not while a job is under way.
   const other =
     fileName !== null &&
     fileName !== names.single &&
     fileName !== names.front &&
     partsOf(project.items).length > 0;
+  // The drawing's own program lies there, but the drawing has moved on while a job was under way.
+  const behind = ahead && !other;
+  const why = other
+    ? running
+      ? t('cam.otherJobRunning', { file: fileName })
+      : t('cam.otherJob', { file: fileName })
+    : fileName === null
+      ? t('cam.ahead.nothing')
+      : running
+        ? t('cam.ahead.running', { file: fileName })
+        : t('cam.ahead.done', { file: fileName });
   return (
     <Card className="gap-3 p-4" data-testid="cam-draw" data-find="cam-draw">
       <CardTitle render={<h2 />}>{t('cam.steps.draw')}</CardTitle>
-      {other ? (
+      {other || behind ? (
         <Alert
           variant="warning"
           className="justify-items-start gap-y-2"
           data-testid="cam-other-job"
         >
-          <p>{t('cam.otherJob', { file: fileName })}</p>
-          <Button variant="outline" onClick={() => useCam.getState().remake()}>
-            {t('cam.showDrawing')}
-          </Button>
+          <p>{why}</p>
+          {fileName === null ? null : (
+            <Button
+              variant="outline"
+              disabled={running}
+              reason={t('cam.jobRuns')}
+              data-testid="cam-show-drawing"
+              onClick={() => useCam.getState().remake({ take: true })}
+            >
+              {t('cam.showDrawing')}
+            </Button>
+          )}
         </Alert>
       ) : null}
       <CamAdd />
@@ -275,6 +297,7 @@ export function CamCard() {
   const lines = useJob((s) => s.lines);
   const fileName = useJob((s) => s.fileName);
   const seriesOpen = useSeries((s) => s.open);
+  const running = useJobUnderWay();
   const canUndo = useCam((s) => s.past.length > 0);
   const canRedo = useCam((s) => s.future.length > 0);
   if (!project) return null;
@@ -497,11 +520,12 @@ export function CamCard() {
         ) : null}
         {both ? <p className="text-muted-foreground text-sm">{t('flip.twoPrograms')}</p> : null}
         <Button
-          reason="missing"
-          disabled={parts.length === 0 || flipNotes.some(blocksFlip)}
+          reason={running ? t('cam.jobRuns') : 'missing'}
+          disabled={parts.length === 0 || flipNotes.some(blocksFlip) || running}
+          data-testid="cam-hand-over"
           onClick={() => {
             // With the job made, the next step is the job itself.
-            if (cam.remake()) {
+            if (cam.remake({ take: true })) {
               addLog('info', t('cam.generated', { name: project.name }));
               cam.select(null);
               useUi.getState().setView('job', 'prepare');
