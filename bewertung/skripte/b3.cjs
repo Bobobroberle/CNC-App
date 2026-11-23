@@ -1,7 +1,7 @@
 const { run } = require('./stepper.cjs');
 run({ name: 'B3', steps: [
   { label: 'Neuer Job', click: 'Neuer Job' },
-  { label: 'Zeichnen / DXF', click: /Zeichnen/ },
+  { label: 'Reiter CAM', click: /^CAM/ },
   { label: 'Rechteck (Standard 100×60, Außen)', click: /^Rechteck/ },
   { label: 'Schritt Einrichten', click: /Einrichten/ },
   { label: 'Tippen (hebt nur die Auswahl der gezeichneten Form auf)', tapRel: [0.89, 0.58] },

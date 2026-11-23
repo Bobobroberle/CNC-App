@@ -48,6 +48,12 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 
 Zu 23: Abweichung vom Wortlaut, den du bestätigt hast („legt die App die geänderte Zeichnung erst auf den Tisch, wenn der Job zu Ende ist“): läuft das Programm der Zeichnung selbst, bleibt es nach dem Job zunächst geladen (die Zusammenfassung und „Nächstes Teil“ gehen nicht still verloren) und der Hinweis bietet den Knopf an. Von selbst geht die Zeichnung nur dorthin, wo nach dem Job nichts geladen ist. Ändern, falls du es anders willst.
 
+## Abnahme Stufe 1 (nach Teil 3)
+- **Tests:** alle drei E2E-Projekte grün (272 bestanden, 1 übersprungen; `usability.spec.ts` unverändert grün), `pnpm check` grün (control 579 Tests).
+- **Zählung (1180×820, wie im Bericht):** Aufgabe A (G-Code laden und fräsen) **13 Eingaben** (10 Tipps/Halten, 3 Zusätze: Dateiauswahl, 2× Scrollen), Aufgabe B (zeichnen und fräsen, über den Reiter CAM) **14 Eingaben** (12 + 2× Scrollen) – gleich wie vor dem Umbau. Der Umbau ändert die Wege, nicht die Zahl; die Gewinne kommen mit Stufe 2 und 3 (Scrollen, angedockte Aktion).
+- **Aktionsleiste (1280×800, 800×600, 820×1180, `skripte/aktionsleiste.cjs`):** Job leer „G-Code öffnen“; Job geladen, CAM, Einrichten, Prüfen, Service: keine Primäraktion; Fräsen (Start gesperrt): „Prüfen“. Screenshots in `screenshots/Aktionsleiste-*`.
+- **Reviews:** Teil 2: 19 Funde, 9 bestätigt (6 Sachfehler: laufendes Programm unter der Zeichnung, Reiter ohne Namen, Überlappung bei schmaler Zeile, Menü-Knopf mit langem Namen, CAM öffnet auf 3D, nextStep im CAM) – alle behoben oder durch Teil 3 erledigt. Teil 3: Review läuft.
+
 ## Stand der Bereichs-Oberfläche
 Stufe 1, Teile 1 und 2 (+ Review-Korrekturen) sind gebaut, getestet und gepusht. Teil 3 (Weiter-Kette und Strg+→ entfernen) wird als Nächstes gemacht, danach Stufe 2 (CAM-Fokus) und Stufe 3 (angedockte Hauptaktion).
 **Regeln des Betreibers:** nicht programmieren, bevor er es freigibt; vor jedem neuen Programmierpunkt Advisor-Plan, sonst nachfragen; offene Fragen immer als Auswahl zum Anklicken stellen.

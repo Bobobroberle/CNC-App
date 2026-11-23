@@ -1,6 +1,7 @@
 // Gemeinsame Helfer für die Zählung. Keine Abkürzung über den Store: nur echte Eingaben (Klick, Halten, Tastatur, Dateiauswahl).
 const { chromium } = require('playwright');
-const SRC = '/tmp/claude-0/-home-user-CNC-App/1ce98923-8f91-56af-9afb-756f81efa0a2/scratchpad/src/cnc-steuerung';
+// Die gebaute App des Repositorys (apps/control: `pnpm build` und `pnpm preview`), per APP_URL umstellbar.
+const SRC = process.env.APP_URL || 'http://localhost:4173';
 const OUT = '/home/user/CNC-App/bewertung/screenshots';
 async function open(hash = '#simulator', vp = { width: 1440, height: 900 }, file = 'lowrider-control.html', extra = {}) {
   const b = await chromium.launch();
@@ -8,7 +9,7 @@ async function open(hash = '#simulator', vp = { width: 1440, height: 900 }, file
   const p = await ctx.newPage();
   p.errors = [];
   p.on('pageerror', (e) => p.errors.push('PAGEERROR ' + e.message));
-  await p.goto(`file://${SRC}/${file}${hash}`);
+  await p.goto(`${SRC}/${hash}`);
   await p.waitForTimeout(2500);
   return { b, ctx, p };
 }
