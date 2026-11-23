@@ -367,6 +367,24 @@ function simulatedCutter(url: string) {
   if (isSimulatorAddress(url)) simulator().toolRadius = useJob.getState().toolDiameter / 2;
 }
 
+/**
+ * The next status report that shows the machine at rest – null if none comes in time. For what
+ * counts from the position: the one in the store may be older than the move.
+ */
+function atRest(timeoutMs = 1500): Promise<MachineStatus | null> {
+  return new Promise((resolve) => {
+    const done = (status: MachineStatus | null) => {
+      clearTimeout(timer);
+      off();
+      resolve(status);
+    };
+    const timer = setTimeout(() => done(null), timeoutMs);
+    const off = useMachine.subscribe((s, prev) => {
+      if (s.status && s.status !== prev.status && s.status.state === 'Idle') done(s.status);
+    });
+  });
+}
+
 export const useMachine = create<MachineStore>((set, get) => ({
   url: storedAddress(),
   connection: 'disconnected',
@@ -687,16 +705,28 @@ export const useMachine = create<MachineStore>((set, get) => ({
       return;
     }
     const range = profile.travel[axis.toLowerCase() as 'x' | 'y' | 'z'];
-    const base = jogTargets[axis] ?? status.mpos[JOG_INDEX[axis]] ?? 0;
-    const jog = clampJogTarget(base, distance, range);
-    if (!jog) {
-      addLog('info', t('drive.atLimit', { axis }), 'drive.atLimit');
+    const send = (base: number) => {
+      const jog = clampJogTarget(base, distance, range);
+      if (!jog) {
+        addLog('info', t('drive.atLimit', { axis }), 'drive.atLimit');
+        return;
+      }
+      jogTargets[axis] = jog.target;
+      if (jog.limited) addLog('info', t('drive.limited', { axis }), 'drive.limited');
+      void command(jogToMachine(axis, jog.target, feed)).then((ok) => {
+        if (!ok) delete jogTargets[axis];
+      });
+    };
+    const remembered = jogTargets[axis];
+    if (remembered !== undefined || status.state === 'Idle') {
+      send(remembered ?? status.mpos[JOG_INDEX[axis]] ?? 0);
       return;
     }
-    jogTargets[axis] = jog.target;
-    if (jog.limited) addLog('info', t('drive.limited', { axis }), 'drive.limited');
-    void command(jogToMachine(axis, jog.target, feed)).then((ok) => {
-      if (!ok) delete jogTargets[axis];
+    // The machine still moves (a continuous jog just let go, running out): the position in the store
+    // is older than the move, and a target counted from it would send the axis back by the run-out.
+    // Count from the report that says it has come to rest.
+    void atRest().then((rest) => {
+      if (rest) send(jogTargets[axis] ?? rest.mpos[JOG_INDEX[axis]] ?? 0);
     });
   },
 
@@ -1012,7 +1042,8 @@ export const useMachine = create<MachineStore>((set, get) => ({
     s.on('progress', (p) => {
       const result =
         p.state === 'aborted' ? 'aborted' : p.state === 'failed' ? 'failed' : undefined;
-      update(result ? { result, toolChange: null } : {});
+      // A stream that is over waits for nothing: neither at a tool change nor at a single step.
+      update(result ? { result, toolChange: null, stepAt: null } : {});
       if (result) addLog('error', t('stream.aborted', { name }), 'stream.aborted');
     });
     s.on('error', (e) =>
