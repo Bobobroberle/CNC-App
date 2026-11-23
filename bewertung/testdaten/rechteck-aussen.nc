@@ -1,0 +1,24 @@
+; Testteil A: 60 x 40 mm Rechteck, Aussenkontur, 3 mm tief in 3 Zustellungen, Fraeser 8 mm
+G21 G90 G17 G54
+M3 S18000
+G0 Z5
+G0 X-4 Y-4
+G1 Z-1 F600
+G1 X64 Y-4 F1500
+G1 X64 Y44
+G1 X-4 Y44
+G1 X-4 Y-4
+G1 Z-2 F600
+G1 X64 Y-4 F1500
+G1 X64 Y44
+G1 X-4 Y44
+G1 X-4 Y-4
+G1 Z-3 F600
+G1 X64 Y-4 F1500
+G1 X64 Y44
+G1 X-4 Y44
+G1 X-4 Y-4
+G0 Z5
+M5
+G0 X0 Y0
+M30
