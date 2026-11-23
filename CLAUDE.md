@@ -245,8 +245,10 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   drawing that is `ahead` goes on the table by itself only where nothing is loaded and the end was seen while
   connected; the program of a finished job stays – with its summary, also when the drawing is emptied (`offStage`) –
   until that tap, **as long as the drawing was ahead of it**; a drawing that did not change during the job follows
-  the edits as always. The other loaders (opening or dropping a file, the
-  recent list, the flip's front, alignment) do not ask `jobUnderWay()` yet.
+  the edits as always. **Every other way to load, replace or take off the program goes through the central lock**
+  in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived` and `unload` do nothing
+  while a job is under way and say why (`job.locked`); a dropped file or a job of the recent list is turned away
+  with one message before anything else happens.
 - Two-sided parts ("Wenden"): the drawing shows both sides as seen from the front; the pure maths
   (flip line, mirrored back, registration holes, what the sides do to each other) is
   `packages/cam/src/flip.ts`, the plan and its hand-checked chain to the table `lib/flip.ts`, the

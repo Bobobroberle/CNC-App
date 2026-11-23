@@ -984,6 +984,8 @@ export const de = {
     rotaryDiameter: 'Rotary-Ø',
     fit: 'Einpassen',
     loadError: 'Datei konnte nicht gelesen werden: {reason}',
+    locked:
+      'Ein Job läuft: das Programm auf dem Tisch wird jetzt nicht getauscht. Die Datei lässt sich danach öffnen.',
     issueToolChange:
       'Werkzeugwechsel auf T{tool}: FluidNC selbst hält bei M6 nicht an. Aus der App gestartet hält der Job hier; für die SD-Karte wird er pro Werkzeug geteilt.',
     issueOptionalStop: 'M1 (optionaler Halt) ignoriert FluidNC – die Maschine hält hier nicht.',

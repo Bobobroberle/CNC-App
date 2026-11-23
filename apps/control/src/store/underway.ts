@@ -1,4 +1,5 @@
-import { useJob } from './job';
+import { t } from '../i18n';
+import { setProgramLock, useJob } from './job';
 import { useMachine } from './machine';
 import { useRun } from './run';
 
@@ -88,3 +89,10 @@ export function useJobUnderWay(): boolean {
     ownJob: key !== null && jobKey === key,
   });
 }
+
+// Nothing replaces or takes off the program while a job is under way – whichever way it comes.
+setProgramLock(() => {
+  if (!jobUnderWay()) return false;
+  useMachine.getState().addLog('error', t('job.locked'), 'job.locked');
+  return true;
+});

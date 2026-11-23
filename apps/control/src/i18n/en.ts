@@ -973,6 +973,8 @@ export const en: DictionaryShape = {
     rotaryDiameter: 'Rotary Ø',
     fit: 'Fit',
     loadError: 'Could not read file: {reason}',
+    locked:
+      'A job is running: the program on the table is not replaced now. Open the file after it.',
     issueToolChange:
       'Tool change to T{tool}: FluidNC itself does not stop at M6. Started from the app, the job pauses here; for the SD card it is split per tool.',
     issueOptionalStop: 'FluidNC ignores M1 (optional stop) – the machine does not stop here.',

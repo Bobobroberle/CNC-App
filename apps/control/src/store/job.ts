@@ -101,6 +101,20 @@ interface JobStore {
   setProfileSettings(settings: ProfileSettings): void;
 }
 
+let programLock: (() => boolean) | null = null;
+
+/**
+ * The lock on the program on the table: `lock` says whether a job is under way and – when it is –
+ * tells the operator why nothing was done. Set by `store/underway.ts` (which reads the machine and
+ * the run, and so cannot be imported here). While locked, no program is loaded, replaced or taken
+ * off: every way to one – dropping a file, the recent list, the example, the flows' derived
+ * programs – goes through `load`, `loadDerived` and `unload`.
+ */
+export function setProgramLock(lock: (() => boolean) | null): void {
+  programLock = lock;
+}
+const locked = () => programLock?.() === true;
+
 export const useJob = create<JobStore>((set, get) => ({
   profile: loadProfile(storage),
   fileName: null,
@@ -124,6 +138,7 @@ export const useJob = create<JobStore>((set, get) => ({
   measuredAngle: null,
   setMeasuredAngle: (measuredAngle) => set({ measuredAngle }),
   loadDerived(fileName, text, turn) {
+    if (locked()) return;
     const { original, fileName: current, lines, pose: before } = get();
     const keep =
       original ?? (current !== null ? { fileName: current, text: lines.join('\n') } : null);
@@ -138,6 +153,7 @@ export const useJob = create<JobStore>((set, get) => ({
   },
 
   unload() {
+    if (locked()) return;
     set((s) => ({
       fileName: null,
       lines: [],
@@ -162,6 +178,7 @@ export const useJob = create<JobStore>((set, get) => ({
   },
 
   load(fileName, text) {
+    if (locked()) return;
     const { profile } = get();
     const analysis = analyzeProgram(text, {
       kinematics: profile.kinematics,

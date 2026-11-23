@@ -7,6 +7,7 @@ import { browserStorage, loadJson } from '../lib/persist';
 import { previewPath } from '../lib/preview';
 import { useJob } from './job';
 import { useMachine } from './machine';
+import { jobUnderWay } from './underway';
 import { useUi } from './ui';
 
 /** A zero a job was cut with: the machine position of its work zero. */
@@ -170,6 +171,12 @@ export function requestOpenFile(): void {
  */
 export async function openJobFiles(files: readonly File[]): Promise<void> {
   const { addLog } = useMachine.getState();
+  // A job is under way: the program stays, the files can be opened after it (one message, no
+  // stepping to the Job as if something had been opened).
+  if (jobUnderWay()) {
+    addLog('error', t('job.locked'), 'job.locked');
+    return;
+  }
   const read: { name: string; text: string }[] = [];
   for (const file of files) {
     try {
@@ -195,6 +202,10 @@ export async function openJobFiles(files: readonly File[]): Promise<void> {
 export function openRecent(name: string): boolean {
   const job = useRecent.getState().jobs.find((j) => j.name === name);
   if (!job?.text) return false;
+  if (jobUnderWay()) {
+    useMachine.getState().addLog('error', t('job.locked'), 'job.locked');
+    return false;
+  }
   useJob.getState().load(job.name, job.text);
   useRecent.getState().rememberLoaded();
   useUi.getState().leaveCam();
