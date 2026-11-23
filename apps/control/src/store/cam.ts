@@ -88,7 +88,7 @@ import { useJob } from './job';
 import { useMachine } from './machine';
 import { cameraCalibrated } from './photomap';
 import { useRun } from './run';
-import { jobUnderWay } from './underway';
+import { jobUnderWay, onUnderwayEnded } from './underway';
 import { useWorkshop } from './workshop';
 
 export type { CamItem, Selection } from '../lib/camItems';
@@ -480,15 +480,23 @@ export const useCam = create<CamStore>((set, get) => {
   const mayLoad = (take: boolean, texts: { front: string; back: string | null }): boolean => {
     const { fileName, lines } = useJob.getState();
     const mine = fileName === null || ownsTable(fileName);
-    if (jobUnderWay()) {
-      const plan = useFlip.getState().plan;
-      const same =
-        fileName !== null &&
-        mine &&
-        sameLines(lines, splitLines(texts.front)) &&
-        (texts.back === null || plan?.back.text === texts.back);
+    const underWay = jobUnderWay();
+    // The drawing's program is what lies there already (nothing to put anywhere)?
+    const plan = useFlip.getState().plan;
+    const same =
+      fileName !== null &&
+      mine &&
+      sameLines(lines, splitLines(texts.front)) &&
+      (texts.back === null || plan?.back.text === texts.back);
+    if (underWay) {
       const ahead = mine && !same;
       if (get().ahead !== ahead) set({ ahead });
+      return false;
+    }
+    // A job has ended while the drawing was ahead of its program: that program stays – with its
+    // summary – until the tap (`take`), however often the drawing is worked on meanwhile.
+    if (!take && mine && fileName !== null && get().ahead) {
+      if (same) set({ ahead: false });
       return false;
     }
     return mine || take;
@@ -1241,21 +1249,18 @@ export const useCam = create<CamStore>((set, get) => {
   };
 });
 
-// A job that ends – seen while connected, not lost with the link: where nothing lies on the table (a
-// file run from the SD card list) a drawing that is ahead goes there by itself. Where the job's own
-// program still lies there it stays – the operator may still want the summary or the same piece
-// again – until the tap on "Zeichnung auf den Tisch legen".
-let wasUnderWay = false;
-function afterJob(): void {
-  const now = jobUnderWay();
-  if (wasUnderWay && !now) {
-    const { ahead, project, remake } = useCam.getState();
-    const machine = useMachine.getState();
-    const seen = machine.connection === 'connected' && machine.lostInJob === null;
-    if (seen && ahead && project && useJob.getState().fileName === null) remake();
-  }
-  wasUnderWay = now;
-}
-useMachine.subscribe(afterJob);
-useRun.subscribe(afterJob);
-useJob.subscribe(afterJob);
+// What was under way ends. A job: seen while connected, not lost with the link, where nothing lies
+// on the table (a file run from the SD card list) a drawing that is ahead goes there by itself;
+// where the job's own program still lies there it stays – the operator may still want the summary
+// or the same piece again – until the tap on "Zeichnung auf den Tisch legen". A mere motion (a move
+// of the app's own, a run it only learned of): no program of a job is there to keep, so a drawing
+// that fell behind meanwhile goes onto the table at once, where its own program or none lies.
+onUnderwayEnded((ended) => {
+  const { ahead, project, remake } = useCam.getState();
+  const machine = useMachine.getState();
+  const seen = machine.connection === 'connected' && machine.lostInJob === null;
+  if (!seen || !ahead || !project) return;
+  const { fileName } = useJob.getState();
+  // (Its own program or none lies there – the tap's rule is the one that fits.)
+  if (fileName === null || (ended === 'motion' && ownsTable(fileName))) remake({ take: true });
+});

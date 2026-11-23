@@ -1,5 +1,5 @@
-import type { Sketch } from '@lowrider/cam';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { circle, rectangle, type Sketch } from '@lowrider/cam';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jobNames, ownsTable, useCam } from '../src/store/cam';
 import { useFlip } from '../src/store/flip';
 import { useJob } from '../src/store/job';
@@ -7,7 +7,7 @@ import { useMachine } from '../src/store/machine';
 import { openCam } from '../src/store/camPlace';
 import { useRun } from '../src/store/run';
 import { useSeries } from '../src/store/series';
-import { jobUnderWay } from '../src/store/underway';
+import { jobUnderWay, underwayOf, type UnderwayInput } from '../src/store/underway';
 import { useUi } from '../src/store/ui';
 
 const RECT: Sketch = { type: 'rect', w: 100, h: 60, r: 0 };
@@ -263,5 +263,202 @@ describe('the drawing never changes the program under a running job', () => {
     useJob.getState().load('part.nc', 'G0 X1\n');
     useSeries.getState().close();
     expect(loaded()).toBe('part.nc');
+  });
+
+  it('a change of the back alone under a running job still leaves the drawing ahead', () => {
+    cam().add([rectangle(0, 0, 200, 80), circle(60, 40, 30)]);
+    cam().setTwoSided({ thickness: 12 });
+    const pocket = cam().project!.items[1]!;
+    cam().setItem(pocket.id, { kind: 'pocket', depth: 3, side: 'back' });
+    expect(loaded()).toBe(own().front);
+    const back = useFlip.getState().plan!.back.text;
+    running();
+    // the front stays the same, only the back is made deeper
+    cam().setItem(pocket.id, { depth: 4 });
+    expect(cam().ahead).toBe(true);
+    expect(useFlip.getState().plan!.back.text).toBe(back);
+    stopped();
+  });
+
+  it('the series with nothing left to engrave gives back its own program only', () => {
+    cam().addSketch(RECT);
+    const made = { fileName: 'serie-3.nc', zero: { x: 0, y: 0 }, count: 3 };
+    useMachine.setState({ status: { wco: [0, 0, 0] } as never });
+    useSeries.setState({ open: true, made, blanks: [] });
+    // another program opened since stays where it is …
+    useJob.getState().load('part.nc', 'G0 X1\n');
+    expect(useSeries.getState().make()).toBe(false);
+    expect(useSeries.getState().made).toBeNull();
+    expect(loaded()).toBe('part.nc');
+    // … while the series' own program gives way to the drawing's
+    useSeries.setState({ made });
+    useJob.getState().load('serie-3.nc', 'G0 X3\n');
+    expect(useSeries.getState().make()).toBe(false);
+    expect(loaded()).toBe(own().single);
+    useSeries.setState({ open: false, made: null });
+    useMachine.setState({ status: null });
+  });
+
+  it('asks the series flow to make its program when a motion ends, not when a job does', () => {
+    const real = useSeries.getState().make;
+    const make = vi.fn(() => false);
+    const state = (s: string) => useMachine.setState({ status: { state: s } as never });
+    useSeries.setState({ open: true, make });
+    state('Run');
+    state('Idle');
+    expect(make).toHaveBeenCalledTimes(1);
+    running();
+    state('Run');
+    stopped();
+    state('Idle');
+    expect(make).toHaveBeenCalledTimes(1);
+    // a closed flow has nothing to make
+    useSeries.setState({ open: false });
+    state('Run');
+    state('Idle');
+    expect(make).toHaveBeenCalledTimes(1);
+    useSeries.setState({ make: real });
+    useMachine.setState({ status: null });
+  });
+
+  it("still knows the drawing's own program while a plan of a two-sided job lingers", () => {
+    cam().add([rectangle(0, 0, 200, 80), circle(60, 40, 30)]);
+    cam().setTwoSided({ thickness: 12 });
+    const pocket = cam().project!.items[1]!;
+    cam().setItem(pocket.id, { kind: 'pocket', depth: 3, side: 'back' });
+    useFlip.setState({
+      phase: 'back',
+      cut: { zero: { x: 100, y: 50 }, pose: { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 } },
+    });
+    // the only back item goes to the front: the drawing's single program is on the table, the
+    // plan of the cut front stays (the front is cut) – and it is still the drawing's own
+    cam().setItem(pocket.id, { side: 'front' });
+    expect(useFlip.getState().plan).not.toBeNull();
+    expect(loaded()).toBe(own().single);
+    expect(ownsTable(loaded())).toBe(true);
+  });
+
+  it("keeps a finished job's program through every further change, until the tap", () => {
+    cam().addSketch(RECT);
+    const text = useJob.getState().lines.join('\n');
+    running();
+    cam().addSketch(HOLE);
+    useRun.setState({ phase: 'done' });
+    stopped();
+    expect(cam().ahead).toBe(true);
+    // worked on after the end: still the finished program, still its summary
+    cam().addSketch({ type: 'circle', d: 8 });
+    expect(loaded()).toBe(own().single);
+    expect(useJob.getState().lines.join('\n')).toBe(text);
+    expect(useRun.getState().phase).toBe('done');
+    expect(cam().ahead).toBe(true);
+    // the tap puts the drawing there, and then it is a program to start
+    expect(cam().remake({ take: true })).toBe(true);
+    expect(useJob.getState().lines.join('\n')).not.toBe(text);
+    expect(cam().ahead).toBe(false);
+    // from here on the drawing follows again without a tap
+    const again = useJob.getState().lines.join('\n');
+    cam().addSketch({ type: 'circle', d: 6 });
+    expect(useJob.getState().lines.join('\n')).not.toBe(again);
+  });
+
+  it('is not ahead any more when the drawing is brought back to the finished program', () => {
+    cam().addSketch(RECT);
+    const id = () => cam().project!.items.at(-1)!.id;
+    running();
+    cam().addSketch(HOLE);
+    expect(cam().ahead).toBe(true);
+    stopped();
+    cam().undo();
+    // the drawing is what lies on the table again: nothing to put there, nothing left behind
+    expect(cam().ahead).toBe(false);
+    expect(id()).toBeDefined();
+  });
+
+  it('holds the guard for a run only the controller reports: a reload, a link made again', () => {
+    cam().addSketch(RECT);
+    const text = useJob.getState().lines.join('\n');
+    const state = (s: string) => useMachine.setState({ status: { state: s } as never });
+    state('Run');
+    expect(jobUnderWay()).toBe(true);
+    cam().addSketch(HOLE);
+    expect(useJob.getState().lines.join('\n')).toBe(text);
+    expect(cam().ahead).toBe(true);
+    // a hold is a job too; a report without a link says nothing
+    state('Hold:0');
+    expect(jobUnderWay()).toBe(true);
+    useMachine.setState({ connection: 'disconnected' });
+    expect(jobUnderWay()).toBe(false);
+    useMachine.setState({ connection: 'connected' });
+    // it was no job of the app's: when it is over the drawing is put on the table at once
+    state('Idle');
+    expect(cam().ahead).toBe(false);
+    expect(useJob.getState().lines.join('\n')).not.toBe(text);
+    useMachine.setState({ status: null });
+  });
+
+  it('keeps the guard after the operator has seen a lost link and made it again under a run', () => {
+    cam().addSketch(RECT);
+    const text = useJob.getState().lines.join('\n');
+    running();
+    useMachine.setState({
+      connection: 'disconnected',
+      lostInJob: { name: 'x.nc', sd: true, at: 0 },
+    });
+    stopped();
+    useMachine.getState().acknowledgeLost();
+    expect(jobUnderWay()).toBe(false);
+    // connected by hand: the controller still cuts from its card
+    useMachine.setState({ connection: 'connected', status: { state: 'Run' } as never });
+    expect(jobUnderWay()).toBe(true);
+    cam().addSketch(HOLE);
+    expect(useJob.getState().lines.join('\n')).toBe(text);
+    expect(cam().ahead).toBe(true);
+    useMachine.setState({ status: null });
+  });
+
+  it('keeps the program of a job that ended, whatever the controller said about it', () => {
+    cam().addSketch(RECT);
+    const text = useJob.getState().lines.join('\n');
+    const state = (s: string) => useMachine.setState({ status: { state: s } as never });
+    running();
+    state('Run');
+    cam().addSketch(HOLE);
+    stopped();
+    state('Idle');
+    // a job of the app's was part of it: the finished program stays
+    expect(useJob.getState().lines.join('\n')).toBe(text);
+    expect(cam().ahead).toBe(true);
+    useMachine.setState({ status: null });
+  });
+});
+
+describe('who says a job is under way', () => {
+  const none: UnderwayInput = {
+    fileJob: false,
+    streaming: false,
+    lost: false,
+    connected: true,
+    state: 'Idle',
+    phase: 'idle',
+    ownJob: false,
+  };
+  it('tells a job of the app from a motion only the controller reports, and from nothing', () => {
+    expect(underwayOf(none)).toBeNull();
+    expect(underwayOf({ ...none, fileJob: true })).toBe('job');
+    expect(underwayOf({ ...none, streaming: true })).toBe('job');
+    expect(underwayOf({ ...none, lost: true, connected: false })).toBe('job');
+    for (const phase of ['uploading', 'running', 'between']) {
+      expect(underwayOf({ ...none, phase, ownJob: true }), phase).toBe('job');
+      // a job that is no longer the loaded program waits for nothing
+      expect(underwayOf({ ...none, phase }), phase).toBeNull();
+    }
+    expect(underwayOf({ ...none, state: 'Run' })).toBe('motion');
+    expect(underwayOf({ ...none, state: 'Hold:1' })).toBe('motion');
+    // Jog, Home and the rest are the operator's own doing, not a job
+    for (const state of ['Jog', 'Home', 'Alarm', 'Door:0', undefined]) {
+      expect(underwayOf({ ...none, state }), String(state)).toBeNull();
+    }
+    expect(underwayOf({ ...none, state: 'Run', connected: false })).toBeNull();
   });
 });

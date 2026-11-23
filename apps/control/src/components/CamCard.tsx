@@ -309,7 +309,7 @@ export function CamCard() {
   // A job for both sides is two programs: the front is the one on the table.
   const both = flipPlan !== null && fileName === flipPlan.front.fileName ? flipPlan : null;
   // The drawing's own program lies on the table (not the aligned back, not a file opened since).
-  const made = ownsTable(fileName) && (both !== null || flipPlan === null);
+  const made = ownsTable(fileName);
   const parts = partsOf(project.items);
   const relieved = parts.some((i) => i.relief !== null && hasCorners(i));
   const backText = parts.some((i) => i.side === 'back' && i.text !== undefined);
