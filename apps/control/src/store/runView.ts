@@ -25,13 +25,22 @@ export function waitingOf(i: WaitingInput): boolean {
 const jobKeyOf = (fileName: string | null, lines: number) =>
   fileName === null ? null : `${fileName}:${lines}`;
 
+/** A stream that runs waits at a tool change or a single step; one that is over waits for nothing. */
+function streamWaitsOf(
+  stream: { result: string; toolChange: unknown; stepAt: number | null } | null,
+): boolean {
+  return (
+    stream?.result === 'running' && (stream.toolChange !== null || (stream.stepAt ?? null) !== null)
+  );
+}
+
 function waitingNow(): boolean {
   const { stream } = useMachine.getState();
   const { phase, jobKey } = useRun.getState();
   const job = useJob.getState();
   const key = jobKeyOf(job.fileName, job.lines.length);
   return waitingOf({
-    streamWaits: (stream?.toolChange ?? null) !== null || (stream?.stepAt ?? null) !== null,
+    streamWaits: streamWaitsOf(stream),
     phase,
     ownJob: key !== null && jobKey === key,
   });
@@ -47,9 +56,7 @@ export function useBetweenParts(): boolean {
 
 /** A job waits for the operator (see `waitingOf`). */
 export function useRunWaiting(): boolean {
-  const streamWaits = useMachine(
-    (s) => (s.stream?.toolChange ?? null) !== null || (s.stream?.stepAt ?? null) !== null,
-  );
+  const streamWaits = useMachine((s) => streamWaitsOf(s.stream));
   const phase = useRun((s) => s.phase);
   const jobKey = useRun((s) => s.jobKey);
   const key = useJob((s) => jobKeyOf(s.fileName, s.lines.length));

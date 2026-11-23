@@ -1096,12 +1096,18 @@ export const useMachine = create<MachineStore>((set, get) => ({
         update({ stepAt: line.sourceIndex });
         return;
       }
+      // The operator may stop the job, or the link or an alarm may end it, while this is still asking
+      // and moving: a stream that is over is not asked for anything and nothing moves for it – least
+      // of all a relative lift after a reset.
+      const alive = () => streamer === s && get().stream?.result === 'running';
       void (async () => {
         const before = get().parserState;
         await get().refreshState();
+        if (!alive()) return;
         const spindleBefore = get().parserState ?? before;
         const tool = toolAtLine(lines, line.sourceIndex);
         update({ toolChange: { line: line.sourceIndex, tool, spindleBefore } });
+        if (!alive()) return;
         addLog('info', t('toolChange.held', { tool: tool ?? '?' }), 'toolChange.held');
         // Spindle off, tool up, and to the change position if there is one.
         const { settings } = useWorkshop.getState();
@@ -1111,7 +1117,10 @@ export const useMachine = create<MachineStore>((set, get) => ({
           const { x, y } = settings.toolChangePosition;
           cmds.push(`G53 G0 X${x} Y${y}`);
         }
-        for (const c of cmds) await get().command(c);
+        for (const c of cmds) {
+          if (!alive()) return;
+          await get().command(c);
+        }
       })();
     });
     addLog('info', t('stream.started', { name }));
@@ -1121,15 +1130,22 @@ export const useMachine = create<MachineStore>((set, get) => ({
 
   async continueAfterToolChange() {
     const st = get().stream;
-    if (!st?.toolChange || !streamer) return;
+    const mine = streamer;
+    if (!st?.toolChange || !mine || st.result !== 'running') return;
+    // NOT-HALT or a stop during the lift ends the job: it must not come back to life from here.
+    const alive = () => streamer === mine && get().stream?.result === 'running';
     const { settings } = useWorkshop.getState();
     const zMax = useJob.getState().profile.travel.z.max;
-    for (const c of safeLift(get().homed, safeMachineZ(settings, zMax))) await get().command(c);
+    for (const c of safeLift(get().homed, safeMachineZ(settings, zMax))) {
+      if (!alive()) return;
+      await get().command(c);
+    }
     const spindle = spindleRestore(st.toolChange.spindleBefore);
-    if (spindle) await get().command(spindle);
-    set({ stream: { ...st, toolChange: null } });
+    if (alive() && spindle) await get().command(spindle);
+    if (!alive()) return;
+    set((cur) => (cur.stream ? { stream: { ...cur.stream, toolChange: null } } : {}));
     get().addLog('info', t('toolChange.continue'));
-    streamer.release();
+    mine.release();
   },
 
   async frame(bounds) {
