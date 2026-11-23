@@ -44,6 +44,14 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
 - [ ] _Jog → Referenzfahrt alle_ (halten): Protokoll „Referenzfahrt abgeschlossen“.
 - [ ] Schrittweiten 0,01 / 0,1 / 1 / 10 mm, Restweg-Anzeige prüfen; an der Grenze sperrt die Taste.
 - [ ] _Dauer:_ Taste halten → fährt, loslassen → stoppt sofort. Bis an die Grenze halten → stoppt dort.
+      Ohne Referenzfahrt fährt ein Halten höchstens 200 mm (Z 50 mm); danach neu halten.
+- [ ] _Jog-Abbruch im Relais:_ Dauerfahrt halten und am iPad/PC die Seite schließen oder das WLAN trennen:
+      die Maschine muss anhalten (das Relais schickt `0x85`). Danach prüfen, dass `0x85` einen laufenden
+      SD-Job **nicht** stört: Job von der SD-Karte starten, ein zweites Gerät schließen (oder das steuernde
+      Gerät): der Job muss weiterlaufen. (Nach der Grbl-Dokumentation wirkt `0x85` nur im Jog-Zustand –
+      für FluidNC ungeprüft.)
+- [ ] _Zwei Geräte:_ PC und iPad gleichzeitig verbinden: das zweite zeigt „Nur Ansicht“ (Halteknöpfe
+      gesperrt, PAUSE und NOT-HALT gehen). PC schließen: das iPad steuert danach.
 - [ ] Tastatur (Pfeile, Bild↑/↓), ggf. Gamepad, Handrad. `?` zeigt alle Tastenkürzel; solange die
       Übersicht oder die Suche offen ist, joggen die Pfeiltasten nicht.
 - [ ] Falsche Grenzen? _Menü → Einstellungen → Experte_: `max_travel_mm` (vor allem Z!) und `soft_limits`

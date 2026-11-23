@@ -8,6 +8,7 @@ import {
   safeLift,
   spindleRestore,
   toolAtLine,
+  UNHOMED_JOG_MM,
 } from '../src/lib/motion';
 import { listOf, loadJson, newId, saveJson } from '../src/lib/persist';
 import { DEFAULT_PARSER_STATE } from '@lowrider/fluidnc-client';
@@ -54,7 +55,16 @@ describe('motion helpers', () => {
     expect(continuousJogTarget(100, 1, r, true)).toEqual({ mode: 'machine', value: 1223 });
     expect(continuousJogTarget(100, -1, r, true)).toEqual({ mode: 'machine', value: 3 });
     expect(continuousJogTarget(1223, 1, r, true)).toBeNull();
-    expect(continuousJogTarget(100, -1, r, false)).toEqual({ mode: 'relative', value: -1220 });
+    // Not homed (or no soft limits): a short relative move, so a broken link cannot run it out far.
+    expect(continuousJogTarget(100, -1, r, false)).toEqual({ mode: 'relative', value: -200 });
+    expect(continuousJogTarget(100, 1, r, false, UNHOMED_JOG_MM.z)).toEqual({
+      mode: 'relative',
+      value: 50,
+    });
+    expect(continuousJogTarget(100, 1, { min: 0, max: 80 }, false)).toEqual({
+      mode: 'relative',
+      value: 80,
+    });
   });
 });
 

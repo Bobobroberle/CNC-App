@@ -54,6 +54,7 @@ import { macroLines, type Macro } from '../lib/macros';
 import { browserStorage } from '../lib/persist';
 import {
   continuousJogTarget,
+  UNHOMED_JOG_MM,
   frameLines,
   moveToCommands,
   safeLift,
@@ -197,6 +198,8 @@ interface MachineStore {
    * machine's own card and goes on without the app.
    */
   lostInJob: { name: string; sd: boolean; at: number } | null;
+  /** Another device controls the machine through the Pi: this one only watches and may stop */
+  viewer: boolean;
   acknowledgeLost(): void;
   setRapidOverride(percent: 25 | 50 | 100): void;
   /** File job started with runSdFile, until FluidNC acknowledges its end */
@@ -371,6 +374,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
   sdFiles: null,
   log: [],
   lostInJob: null,
+  viewer: false,
   link: IDLE_LINK,
   lastCommand: null,
   autoRetry: storedAutoRetry(),
@@ -466,6 +470,11 @@ export const useMachine = create<MachineStore>((set, get) => ({
       }
       failed({ kind: 'closed', code: info.code, reason: info.reason });
     });
+    c.on('role', (role) => {
+      if (connection !== c || (role === 'viewer') === get().viewer) return;
+      set({ viewer: role === 'viewer' });
+      get().addLog('info', t(`machine.${role}`), `machine.${role}`);
+    });
     c.on('state', (state) => {
       if (state === 'disconnected' && connection === c) {
         // Lost while a job runs: said as a critical message. Nothing is taken up again by
@@ -476,7 +485,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
       }
       set({ connection: state });
       if (state === 'disconnected') {
-        set({ status: null, homed: false, homedAxes: '' });
+        set({ status: null, homed: false, homedAxes: '', viewer: false });
         if (connection === c) connection = null;
       }
     });
@@ -884,7 +893,13 @@ export const useMachine = create<MachineStore>((set, get) => ({
     const feed = (axis === 'Z' ? profile.jogFeed.z : profile.jogFeed.xy) * feedFactor;
     const range = profile.travel[axis.toLowerCase() as 'x' | 'y' | 'z'];
     const pos = status.mpos[JOG_INDEX[axis]] ?? 0;
-    const target = continuousJogTarget(pos, direction, range, homed && profile.softLimits);
+    const target = continuousJogTarget(
+      pos,
+      direction,
+      range,
+      homed && profile.softLimits,
+      axis === 'Z' ? UNHOMED_JOG_MM.z : UNHOMED_JOG_MM.xy,
+    );
     if (!target) {
       addLog('info', t('drive.atLimit', { axis }), 'drive.atLimit');
       return;

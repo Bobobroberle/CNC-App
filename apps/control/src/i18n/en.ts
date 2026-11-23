@@ -657,6 +657,7 @@ export const en: DictionaryShape = {
     connecting: 'The connection is being set up – a moment.',
     alarm: 'The controller is in alarm: unlock or home first.',
     hold: 'The machine is paused: resume or abort the job first (⑤ Cut).',
+    viewer: 'View only: another device controls the machine. PAUSE and E-STOP still work.',
     missing: 'A precondition is still missing – this card says which.',
   },
   jog: {
@@ -1137,6 +1138,9 @@ export const en: DictionaryShape = {
     httpsWarning:
       'This page runs over https – browsers then block ws:// connections. Open it via http or as a file.',
     connectedVia: 'Connected to the Jackpot ({target}) through the Pi ({via})',
+    viewer:
+      'View only: another device controls the machine. This one shows and can pause and stop.',
+    controller: 'This device now controls the machine.',
     connected: 'Connected to {url}',
     disconnected: 'Disconnected',
   },

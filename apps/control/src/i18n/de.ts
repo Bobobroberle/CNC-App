@@ -668,6 +668,7 @@ export const de = {
     connecting: 'Die Verbindung wird gerade aufgebaut – einen Moment.',
     alarm: 'Die Steuerung ist im Alarm: erst entsperren oder neu referenzieren.',
     hold: 'Die Maschine ist pausiert: erst fortsetzen oder den Job abbrechen (⑤ Fräsen).',
+    viewer: 'Nur Ansicht: ein anderes Gerät steuert die Maschine. PAUSE und NOT-HALT gehen weiter.',
     missing: 'Dafür fehlt noch eine Voraussetzung – sie steht in dieser Karte.',
   },
   jog: {
@@ -1152,6 +1153,9 @@ export const de = {
     httpsWarning:
       'Diese Seite läuft über https – Browser blockieren dann ws://-Verbindungen. Bitte über http oder als Datei öffnen.',
     connectedVia: 'Verbunden mit dem Jackpot ({target}) über den Pi ({via})',
+    viewer:
+      'Nur Ansicht: ein anderes Gerät steuert die Maschine. Dieses zeigt an und kann pausieren und anhalten.',
+    controller: 'Dieses Gerät steuert jetzt die Maschine.',
     connected: 'Verbunden mit {url}',
     disconnected: 'Verbindung getrennt',
   },

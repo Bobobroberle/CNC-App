@@ -267,14 +267,14 @@ describe('FluidNC relay', () => {
     await new Promise<void>((resolve) => {
       ws.on('message', (d, binary) => {
         got.push(`${binary ? 'bin' : 'txt'}:${String(d)}`);
-        if (got.length === 1) {
+        if (got.length === 2) {
           ws.send('$I\n');
           ws.send(Buffer.from([0x85]));
         }
-        if (got.length === 2) resolve();
+        if (got.length === 3) resolve();
       });
     });
-    expect(got).toEqual(['txt:CURRENT_ID:0', 'bin:ok\r\n']);
+    expect(got).toEqual(['txt:ROLE:controller', 'txt:CURRENT_ID:0', 'bin:ok\r\n']);
     const health = (await a.inject('/api/health')).json();
     expect(health.fluidnc).toMatchObject({ connected: true, clients: 1 });
     await vi.waitFor(() =>

@@ -266,10 +266,11 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
           send: (data) => onText(typeof data === 'string' ? data : new TextDecoder().decode(data)),
           // FluidNC went away: keep trying while the recording runs.
           close: () => {
-            if (listening) retry = setTimeout(() => listening && relay.attach(client), 5000);
+            if (listening)
+              retry = setTimeout(() => listening && relay.attach(client, { observer: true }), 5000);
           },
         };
-        relay.attach(client);
+        relay.attach(client, { observer: true });
         return () => {
           listening = false;
           if (retry) clearTimeout(retry);
@@ -380,7 +381,7 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     };
     relay.attach(client);
     socket.on('message', (data: Buffer, isBinary: boolean) =>
-      relay.fromClient(isBinary ? new Uint8Array(data) : data.toString('utf8')),
+      relay.fromClient(isBinary ? new Uint8Array(data) : data.toString('utf8'), client),
     );
     socket.on('close', () => relay.detach(client));
   });

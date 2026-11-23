@@ -1,7 +1,11 @@
 /**
  * Relays one FluidNC WebSocket to any number of browsers: FluidNC sees a
- * single client, every tablet sees the same output. Commands from all
- * browsers go upstream unchanged; FluidNC stays the only motion authority.
+ * single client, every tablet sees the same output. One browser controls –
+ * the first to attach – and its commands go upstream unchanged; every other
+ * one only watches: it may ask for the status and stop the machine (`?`, `!`,
+ * reset), nothing else. Answers (`ok`) go to every browser and cannot be told
+ * apart by sender, so a second sender would end the first one's job in its head.
+ * FluidNC stays the only motion authority.
  */
 export interface RelayClient {
   send(data: string | Uint8Array, options: { binary: boolean }): void;
@@ -20,6 +24,15 @@ export interface Upstream {
 }
 
 const OPEN = 1;
+
+/** Jog cancel: sent upstream when the controlling browser goes, so a held jog stops. */
+const JOG_CANCEL = new Uint8Array([0x85]);
+
+/** What a watching browser may still send: status query, feed hold, soft reset – only ever to stop or look. */
+function mayWatchingSend(data: string | Uint8Array): boolean {
+  if (typeof data === 'string') return data === '?' || data === '!' || data === '\x18';
+  return data.length === 1 && data[0] === 0x18;
+}
 
 /** Close code for the browsers when FluidNC cannot be reached or goes away */
 export const RELAY_CLOSE_CODE = 1011;
@@ -47,6 +60,11 @@ export class FluidNCRelay {
   private timer: ReturnType<typeof setTimeout> | null = null;
   /** The last time FluidNC could not be reached or went away; null once it answered again */
   lastFailure: RelayFailure | null = null;
+  /** The browser whose commands pass; the others watch */
+  private controller: RelayClient | null = null;
+  /** Clients that never control (the recorder) and so are not told their role */
+  private readonly observers = new Set<RelayClient>();
+  private readonly lastSeen = new Map<RelayClient, number>();
 
   constructor(
     readonly url: string,
@@ -54,6 +72,8 @@ export class FluidNCRelay {
       new WebSocket(u) as unknown as Upstream,
     /** How long the upstream may take to open before the browsers are told */
     private readonly openTimeoutMs = 5000,
+    /** A controlling browser silent this long hands control on to the next one that speaks */
+    private readonly silenceMs = 10_000,
   ) {}
 
   get clientCount(): number {
@@ -64,14 +84,37 @@ export class FluidNCRelay {
     return this.upstream?.readyState === OPEN;
   }
 
-  attach(client: RelayClient): void {
+  /** `observer`: only listens (the recorder); it never controls and is not told a role */
+  attach(client: RelayClient, options: { observer?: boolean } = {}): void {
     this.clients.add(client);
+    this.lastSeen.set(client, Date.now());
+    if (options.observer) this.observers.add(client);
+    else if (!this.controller) this.controller = client;
+    if (!options.observer) this.tell(client);
     if (!this.upstream) this.open();
   }
 
   detach(client: RelayClient): void {
     this.clients.delete(client);
+    this.observers.delete(client);
+    this.lastSeen.delete(client);
+    if (client === this.controller) this.handOn();
     if (this.clients.size === 0) this.shutdown();
+  }
+
+  /** The controlling browser is gone or silent: a held jog stops, the next browser in line controls. */
+  private handOn(next?: RelayClient): void {
+    const old = this.controller;
+    if (this.upstream?.readyState === OPEN) this.upstream.send(JOG_CANCEL);
+    this.controller =
+      next ?? [...this.clients].find((c) => c !== old && !this.observers.has(c)) ?? null;
+    if (old && this.clients.has(old)) this.tell(old);
+    if (this.controller) this.tell(this.controller);
+  }
+
+  /** In-band, as a WebUI meta text frame the app's connection reads. */
+  private tell(client: RelayClient): void {
+    client.send(`ROLE:${client === this.controller ? 'controller' : 'viewer'}`, { binary: false });
   }
 
   /**
@@ -79,7 +122,15 @@ export class FluidNCRelay {
    * status query waits for it: a command typed meanwhile must never reach a
    * machine later, by surprise – it is dropped.
    */
-  fromClient(data: string | Uint8Array): void {
+  fromClient(data: string | Uint8Array, from?: RelayClient): void {
+    const now = Date.now();
+    if (from) {
+      this.lastSeen.set(from, now);
+      const silent =
+        this.controller && now - (this.lastSeen.get(this.controller) ?? now) > this.silenceMs;
+      if (silent && from !== this.controller && !this.observers.has(from)) this.handOn(from);
+    }
+    if (from !== this.controller && !mayWatchingSend(data)) return;
     if (this.upstream?.readyState === OPEN) this.upstream.send(data);
     else if (data === '?' && this.queue.length === 0) this.queue.push(data);
   }
@@ -119,6 +170,8 @@ export class FluidNCRelay {
     const reason = relayCloseReason(kind, this.url);
     for (const c of [...this.clients]) c.close(RELAY_CLOSE_CODE, reason);
     this.clients.clear();
+    this.controller = null;
+    this.lastSeen.clear();
   }
 
   private clearTimer(): void {

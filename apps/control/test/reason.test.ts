@@ -8,6 +8,9 @@ describe('why a control cannot be used (DESIGN.md §6.2)', () => {
     expect(machineReason('connecting', undefined)).toBe('reason.connecting');
     expect(machineReason('connected', undefined)).toBe('reason.connecting');
     expect(machineReason('connected', null)).toBe('reason.connecting');
+    // Another device controls: nothing the machine does is ours, whatever it is doing.
+    expect(machineReason('connected', 'Idle', true)).toBe('reason.viewer');
+    expect(machineReason('disconnected', undefined, true)).toBe('jog.reason.offline');
     expect(machineReason('connected', 'Alarm')).toBe('reason.alarm');
     expect(machineReason('connected', 'Hold:0')).toBe('reason.hold');
     expect(machineReason('connected', 'Run')).toBe('jog.reason.busy');

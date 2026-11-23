@@ -9,4 +9,4 @@ Pfad zur entpackten Kopie steht in `lib.cjs` (`SRC`); die Skripte öffnen `lowri
   `z1.cjs` sichtbare Bedienelemente je Schritt, `d1.cjs` die vorbefüllte Demo.
 - Fenstergröße: `VP=1180x820 node a8.cjs` (Standard 1440x900). Screenshots landen in `../screenshots/`.
 
-- `sicherheit/` – Tests zu Aufgabe 4 (`sicherheit.test.ts` vitest, `ui.spec.ts` Playwright); die Importpfade zeigen auf die Scratchpad-Kopie des Projekts.
+- `sicherheit/` – Tests zu Aufgabe 4 (sie halten den Stand der Bewertung fest und bestätigen die damals gefundenen Fehler; B1, B2 und B3 sind inzwischen im Repository behoben, dort stehen die Tests in `apps/control/test`, `apps/companion/test` und `packages/fluidnc-client/test`) (`sicherheit.test.ts` vitest, `ui.spec.ts` Playwright); die Importpfade zeigen auf die Scratchpad-Kopie des Projekts.

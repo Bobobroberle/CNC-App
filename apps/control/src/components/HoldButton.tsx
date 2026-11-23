@@ -55,7 +55,7 @@ export function HoldButton({
   variant = 'default',
   reason,
 }: Props) {
-  const machine = useMachine((s) => machineReason(s.connection, s.status?.state));
+  const machine = useMachine((s) => machineReason(s.connection, s.status?.state, s.viewer));
   const ack = useAck();
   const why = disabled ? (reason ?? t(machine ?? 'reason.missing')) : undefined;
   const button = useRef<HTMLButtonElement>(null);

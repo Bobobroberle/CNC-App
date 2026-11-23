@@ -33,6 +33,8 @@ export interface ConnectionEvents {
   reset: string;
   /** WebSocket meta messages such as CURRENT_ID:0 or PING:… */
   meta: string;
+  /** The companion relay says who controls: only the controlling connection may send commands */
+  role: 'controller' | 'viewer';
   /** The socket closed by itself (not through `disconnect()`) */
   closed: CloseInfo;
 }
@@ -54,6 +56,13 @@ export interface CloseInfo {
  * `closed`: it opened and closed again before the controller answered;
  * `silent`: it opened, but nothing answered within the answer timeout.
  */
+/** A watching connection (another device controls the machine) may only look and stop. */
+export class ViewOnlyError extends Error {
+  constructor() {
+    super('View only: another device controls the machine');
+  }
+}
+
 export class ConnectError extends Error {
   constructor(
     readonly kind: 'unreachable' | 'closed' | 'silent',
@@ -116,7 +125,10 @@ export interface CommandOptions {
 
 const WS_OPEN = 1;
 // WebUI v2 sends CURRENT_ID/ACTIVE_ID, newer builds currentID/activeID.
-const META = /^(CURRENT_?ID|ACTIVE_?ID|PING|DHT|ERROR):/i;
+const META = /^(CURRENT_?ID|ACTIVE_?ID|PING|DHT|ERROR|ROLE):/i;
+
+/** What a watching connection may still send: a status query, a feed hold, a soft reset. */
+const WATCHING_MAY_SEND: number[] = [Realtime.StatusReport, Realtime.FeedHold, Realtime.SoftReset];
 
 function defaultFactory(url: string): WebSocketLike {
   const Impl = (globalThis as { WebSocket?: new (url: string) => WebSocketLike }).WebSocket;
@@ -139,6 +151,8 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
   private readonly decoder = new TextDecoder();
   private pending: PendingCommand[] = [];
   private streamer: CharacterCountingStreamer | null = null;
+  /** The relay told this connection another device controls: nothing but a look and a stop goes out */
+  private viewer = false;
   private poll: ReturnType<typeof setInterval> | null = null;
   /** Resolves `connect()` once the controller answered */
   private answered: (() => void) | null = null;
@@ -156,6 +170,11 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
       createSocket: defaultFactory,
       ...options,
     };
+  }
+
+  /** True while another device controls the machine through the relay */
+  get viewOnly(): boolean {
+    return this.viewer;
   }
 
   get state(): ConnectionState {
@@ -227,12 +246,14 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
 
   /** Sends a line as-is (newline appended). Prefer `command()` to get the response. */
   sendLine(line: string): void {
+    if (this.viewer) throw new ViewOnlyError();
     this.requireOpen().send(`${line}\n`);
     this.emit('sent', line);
   }
 
   /** Sends a realtime byte. Bytes ≥ 0x80 must go as a binary frame. */
   realtime(byte: number): void {
+    if (this.viewer && !WATCHING_MAY_SEND.includes(byte)) throw new ViewOnlyError();
     const socket = this.requireOpen();
     if (byte < 0x80) socket.send(String.fromCharCode(byte));
     else socket.send(new Uint8Array([byte]));
@@ -358,6 +379,7 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
     }
     this.socket = null;
     this.partial = '';
+    this.viewer = false;
     // Told before the streamer is aborted: a listener that asks "was a stream still running?"
     // (the app's critical "lost in a job" message) must see it running.
     if (this.connectionState !== 'disconnected') this.setState('disconnected');
@@ -387,6 +409,11 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
     if (typeof data === 'string') {
       // Text frames carry WebUI meta messages; anything else is controller output.
       if (META.test(data)) {
+        const role = /^ROLE:(controller|viewer)$/i.exec(data.trim());
+        if (role) {
+          this.viewer = role[1]!.toLowerCase() === 'viewer';
+          this.emit('role', this.viewer ? 'viewer' : 'controller');
+        }
         this.emit('meta', data);
         return;
       }

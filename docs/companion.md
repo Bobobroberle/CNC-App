@@ -10,6 +10,12 @@ dazu:
   jedem Gerät gleich (_Einstellungen → Verbindung → Companion → Bibliotheken abgleichen_).
 - Job-Puffer: G-Code-Dateien ablegen (_Fräsen → Im Companion ablegen_).
 - FluidNC-Weiterleitung: mehrere Tablets sehen dieselbe Maschine, FluidNC sieht nur einen Client.
+  **Es steuert nur ein Gerät** (das zuerst verbundene); jedes weitere zeigt nur an („Nur Ansicht“) und darf
+  nur den Status abfragen, pausieren (`!`) und anhalten (Reset). Das Relais meldet jedem Gerät seine Rolle
+  als Textrahmen `ROLE:controller` bzw. `ROLE:viewer`. Geht das steuernde Gerät, schickt das Relais einen
+  Jog-Abbruch (`0x85`) an FluidNC und das nächste Gerät steuert; schweigt es 10 s, übernimmt das nächste,
+  das sich meldet. Die Aufzeichnung hängt als reiner Beobachter am Relais und steuert nie. HTTP-Uploads
+  gehen am Relais vorbei direkt zu FluidNC.
 - Sensoren: Spindellast und Vibration → Lastbalken, Rattererkennung, adaptiver Vorschub.
 - Benachrichtigungen ans Handy über [ntfy](https://ntfy.sh) (selbst gehostet oder ntfy.sh).
 

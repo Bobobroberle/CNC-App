@@ -11,8 +11,8 @@ interface Shown {
 /** The two general reasons in words, as things are at the tap (`ui/button.tsx`). */
 function words(reason: string): string {
   if (reason !== 'machine' && reason !== 'missing') return reason;
-  const { connection, status } = useMachine.getState();
-  const machine = reason === 'machine' ? machineReason(connection, status?.state) : null;
+  const { connection, status, viewer } = useMachine.getState();
+  const machine = reason === 'machine' ? machineReason(connection, status?.state, viewer) : null;
   return t(machine ?? 'reason.missing');
 }
 

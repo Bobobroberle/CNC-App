@@ -4,6 +4,7 @@ import {
   ConnectError,
   FluidNCConnection,
   Realtime,
+  ViewOnlyError,
   type ControllerMessage,
   type MachineStatus,
 } from '../src';
@@ -229,6 +230,35 @@ describe('receiving', () => {
     socket.receiveText('ok\n');
     expect(meta).toEqual(['CURRENT_ID:0', 'PING:5000:5000', 'currentID:1']);
     expect(lines).toEqual(['ok']);
+  });
+
+  it('only looks and stops while the relay says another device controls', async () => {
+    const c = await connected();
+    const roles: string[] = [];
+    c.on('role', (r) => roles.push(r));
+    expect(c.viewOnly).toBe(false);
+    socket.receiveText('ROLE:viewer');
+    expect(c.viewOnly).toBe(true);
+    expect(() => c.sendLine('$H')).toThrow(ViewOnlyError);
+    await expect(c.command('$I')).rejects.toThrow(/view only/i);
+    expect(() => c.realtime(Realtime.CycleStart)).toThrow(ViewOnlyError);
+    expect(() => c.realtime(Realtime.JogCancel)).toThrow(ViewOnlyError);
+    expect(socket.sent).toEqual([]);
+    c.realtime(Realtime.StatusReport);
+    c.realtime(Realtime.FeedHold);
+    c.realtime(Realtime.SoftReset);
+    expect(socket.sent).toEqual(['?', '!', '\x18']);
+    // Control passes on to this device; and a lost connection starts over as a controller.
+    socket.receiveText('ROLE:controller');
+    expect(c.viewOnly).toBe(false);
+    c.sendLine('$H');
+    expect(socket.sent.at(-1)).toBe('$H\n');
+    socket.receiveText('ROLE:viewer');
+    c.disconnect();
+    expect(c.viewOnly).toBe(false);
+    expect(roles).toEqual(['viewer', 'controller', 'viewer']);
+    // Anything else after ROLE: is no role.
+    socket.receiveText('ROLE:somebody');
   });
 
   it('emits parsed messages, status and alarms', async () => {

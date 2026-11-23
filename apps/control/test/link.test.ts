@@ -256,6 +256,26 @@ describe('coming back by itself', () => {
     expect(keys).toEqual(expect.arrayContaining(['estop.holdNotSent', 'estop.notConnected']));
   });
 
+  it('knows when another device controls: says so once, refuses commands, forgets it on disconnect', async () => {
+    useMachine.getState().setUrl('192.168.0.200');
+    ScriptedSocket.scripts = ['answer'];
+    await useMachine.getState().connect();
+    const socket = ScriptedSocket.last!;
+    socket.onmessage?.({ data: 'ROLE:controller' });
+    expect(useMachine.getState().viewer).toBe(false);
+    socket.onmessage?.({ data: 'ROLE:viewer' });
+    socket.onmessage?.({ data: 'ROLE:viewer' });
+    expect(useMachine.getState().viewer).toBe(true);
+    expect(useMachine.getState().log.filter((l) => l.key === 'machine.viewer')).toHaveLength(1);
+    expect(await useMachine.getState().command('$H')).toBe(false);
+    socket.onmessage?.({ data: 'ROLE:controller' });
+    expect(useMachine.getState().viewer).toBe(false);
+    expect(useMachine.getState().log.at(-1)?.key).toBe('machine.controller');
+    socket.onmessage?.({ data: 'ROLE:viewer' });
+    useMachine.getState().disconnect();
+    expect(useMachine.getState().viewer).toBe(false);
+  });
+
   it('"Verbinden abbrechen" ends a try that waits for FluidNC – quietly, without a retry', async () => {
     useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
     ScriptedSocket.scripts = ['silent'];

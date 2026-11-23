@@ -216,16 +216,96 @@ describe('FluidNCRelay', () => {
     ups[0]!.onmessage!({ data: 'CURRENT_ID:0' });
     ups[0]!.onmessage!({ data: new Uint8Array([111, 107]).buffer });
     expect(a.got).toEqual([
+      ['ROLE:controller', false],
       ['CURRENT_ID:0', false],
       [new Uint8Array([111, 107]), true],
     ]);
-    expect(b.got.length).toBe(2);
+    expect(b.got).toEqual([
+      ['ROLE:viewer', false],
+      ['CURRENT_ID:0', false],
+      [new Uint8Array([111, 107]), true],
+    ]);
     expect(relay.clientCount).toBe(2);
     relay.detach(a.c);
     expect(ups[0]!.closed).toBe(false);
     relay.detach(b.c);
     expect(ups[0]!.closed).toBe(true);
     expect(b.closed).toEqual([]);
+  });
+
+  it('lets only the first browser command; the others may look and stop', () => {
+    const up = new FakeUpstream();
+    const relay = new FluidNCRelay('ws://x:81', () => up);
+    const a = client();
+    const b = client();
+    const recorder = client();
+    relay.attach(recorder.c, { observer: true });
+    relay.attach(a.c);
+    relay.attach(b.c);
+    up.open();
+    // The recorder is not told a role and never controls, though it came first.
+    expect(recorder.got).toEqual([]);
+    expect(a.got).toEqual([['ROLE:controller', false]]);
+    expect(b.got).toEqual([['ROLE:viewer', false]]);
+    relay.fromClient('$I\n', b.c);
+    relay.fromClient('~', b.c);
+    relay.fromClient(new Uint8Array([0x85]), b.c);
+    relay.fromClient(new Uint8Array([0x18, 0x18]), b.c);
+    expect(up.sent).toEqual([]);
+    relay.fromClient('?', b.c);
+    relay.fromClient('!', b.c);
+    relay.fromClient('\x18', b.c);
+    relay.fromClient(new Uint8Array([0x18]), b.c);
+    relay.fromClient('$I\n', a.c);
+    expect(up.sent).toEqual(['?', '!', '\x18', new Uint8Array([0x18]), '$I\n']);
+  });
+
+  it('stops a held jog and passes control on when the controlling browser goes', () => {
+    const up = new FakeUpstream();
+    const relay = new FluidNCRelay('ws://x:81', () => up);
+    const a = client();
+    const b = client();
+    relay.attach(a.c);
+    relay.attach(b.c);
+    up.open();
+    relay.detach(a.c);
+    expect(up.sent).toEqual([new Uint8Array([0x85])]);
+    expect(b.got.at(-1)).toEqual(['ROLE:controller', false]);
+    relay.fromClient('$H\n', b.c);
+    expect(up.sent.at(-1)).toBe('$H\n');
+    // A watching browser going changes nothing; the last one going cancels before FluidNC is let go.
+    const c = client();
+    relay.attach(c.c);
+    relay.detach(c.c);
+    expect(up.sent).toHaveLength(2);
+    relay.detach(b.c);
+    expect(up.sent.at(-1)).toEqual(new Uint8Array([0x85]));
+    expect(up.closed).toBe(true);
+  });
+
+  it('hands control to a browser that speaks after the controlling one fell silent', () => {
+    vi.useFakeTimers();
+    try {
+      const up = new FakeUpstream();
+      const relay = new FluidNCRelay('ws://x:81', () => up, 5000, 10_000);
+      const a = client();
+      const b = client();
+      relay.attach(a.c);
+      relay.attach(b.c);
+      up.open();
+      vi.advanceTimersByTime(9000);
+      relay.fromClient('?', a.c); // still there
+      vi.advanceTimersByTime(9000);
+      relay.fromClient('$X\n', b.c); // a was heard 9 s ago: b still only watches
+      expect(up.sent).toEqual(['?']);
+      vi.advanceTimersByTime(2000);
+      relay.fromClient('$X\n', b.c); // a silent for 11 s
+      expect(up.sent).toEqual(['?', new Uint8Array([0x85]), '$X\n']);
+      expect(a.got.at(-1)).toEqual(['ROLE:viewer', false]);
+      expect(b.got.at(-1)).toEqual(['ROLE:controller', false]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('closes all clients when FluidNC goes away, saying so and where', () => {

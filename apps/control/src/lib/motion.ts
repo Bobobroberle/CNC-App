@@ -51,14 +51,27 @@ export function frameLines(bounds: Bounds, s: FrameSettings): string[] {
   return lines.map((l) => (l.startsWith('G53 G0 Z') ? `G90 G0 Z${f(clearance)}` : l));
 }
 
-/** One axis of a continuous jog: to the end of the travel once homed, else a long relative move. */
+/**
+ * How far one hold may jog before the machine knows its limits (not homed, or no soft limits):
+ * if the link breaks, FluidNC runs the whole move out – X/Y about 4 s at 3000 mm/min, Z
+ * about 2.5 s at 1200 mm/min. A hold again goes on.
+ */
+export const UNHOMED_JOG_MM = { xy: 200, z: 50 } as const;
+
+/**
+ * One axis of a continuous jog: to the end of the travel once homed, else a relative move of at
+ * most `unhomedMax` mm (and never more than the travel).
+ */
 export function continuousJogTarget(
   position: number,
   direction: 1 | -1,
   range: { min: number; max: number },
   limited: boolean,
+  unhomedMax: number = UNHOMED_JOG_MM.xy,
 ): { mode: 'machine' | 'relative'; value: number } | null {
-  if (!limited) return { mode: 'relative', value: direction * (range.max - range.min) };
+  if (!limited) {
+    return { mode: 'relative', value: direction * Math.min(range.max - range.min, unhomedMax) };
+  }
   const target = direction > 0 ? range.max : range.min;
   return Math.abs(target - position) < 0.001 ? null : { mode: 'machine', value: target };
 }

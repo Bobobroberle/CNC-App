@@ -10,9 +10,11 @@ import type { MessageKey } from '../i18n';
 export function machineReason(
   connection: string,
   state: string | undefined | null,
+  viewer = false,
 ): MessageKey | null {
   if (connection === 'connecting') return 'reason.connecting';
   if (connection !== 'connected') return 'jog.reason.offline';
+  if (viewer) return 'reason.viewer';
   if (!state) return 'reason.connecting';
   if (state === 'Alarm') return 'reason.alarm';
   if (state.startsWith('Hold')) return 'reason.hold';
