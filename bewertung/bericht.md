@@ -12,6 +12,7 @@ Herkunft der Aussagen – jede trägt eine Marke:
 
 Reihenfolge der Arbeit: erst `00-erstes-urteil-blind.md` (festgeschrieben und gepusht), **danach** erst `CLAUDE.md`, `DESIGN.md`
 und `docs/umbau-guide.md` gelesen. Die Teilprüfer durften die drei Dateien ebenfalls nicht öffnen.
+Offenlegung: Ein rekursives `grep -l` nach dem Commit-Hash `5d3f2e0` (Prüfung der Aussage in den Fakten) lief vor dem Entsperren über den ganzen Baum, also auch über die drei Dateien; ausgegeben wurden nur Dateinamen (einziger Treffer: `docs/bewertung/01-fakten.md`), kein Inhalt.
 
 ---
 
@@ -22,16 +23,19 @@ und `docs/umbau-guide.md` gelesen. Die Teilprüfer durften die drei Dateien eben
 1. **Die Oberfläche folgt noch der alten Vorgabe, nicht den Zielen.** Die fünf festen Schritte, die Sperre des Starts durch die
    Schrittlogik und die „Tiefe pro Bereich“ stammen aus `DESIGN.md` (dort „verbindlich“). `02-ziele.md` verlangt das Gegenteil
    („keine vorgegebenen Schritte“, „im CAM-Bereich nur CAM“). Das ist kein Programmierfehler, sondern ein Widerspruch zwischen
-   zwei Vorgaben des Betreibers. `DESIGN.md` verlangt selbst: „erst nachfragen“. **Das muss der Betreiber entscheiden** (Teil 3).
-2. **Bedienschritte, frischer Start, Simulator:** G-Code laden und fräsen **14 Eingaben**, Rechteck zeichnen und fräsen **15**
-   [selbst]. Die 6 aus dem Projekt-Test gelten nur für einen *bekannten, wiederholten* Job. Bei „Einzelstücken“ trifft das nicht zu.
+   zwei Vorgaben des Betreibers. `DESIGN.md` verlangt selbst: „erst nachfragen“. **Das muss der Betreiber entscheiden** (siehe „Aufgabe 6“).
+2. **Bedienschritte, frischer Start, Simulator:** G-Code laden und fräsen **13 Eingaben** (davon **10 Tipps/Halten**, 1 Dateiauswahl,
+   2 Scrolls), Rechteck zeichnen und fräsen **14** (davon **12 Tipps/Halten**, 2 Scrolls) [selbst]. Vergleichbar mit den „6“ des
+   Projekt-Tests ist nur die Zahl der Tipps/Halten (der Test zählt nichts anderes); jene 6 gelten außerdem nur für einen *bekannten,
+   wiederholten* Job. Bei „Einzelstücken“ trifft das nicht zu.
 3. **An der Maschine ist nichts abgenommen** (Fakten, `umbau-guide.md` Etappe 14). Das gilt auch für Kamera ±0,2 mm und
    < 30 s: es gibt **keine einzige Messung**; mit der vorhandenen Technik ist ±0,2 mm nur im „Fadenkreuz in Bildmitte“-Weg
    plausibel, nicht beim Tipp am Bildrand [Teilbericht, Vermutung].
 4. **Sicherheit:** Die Vorgabe „Verbindung bricht ab → Maschine läuft weiter, rote Meldung“ gilt für den Standardweg (SD-Karte),
-   **nicht für gestreamte Jobs**; bei Streaming fehlt außerdem die rote Meldung (Fehler in der Reihenfolge, [selbst] geprüft).
-   Dazu kommen zwei Fälle, in denen die App etwas bewegt, das niemand ausgelöst hat (Dauerfahrt ohne Referenz über den ganzen
-   Weg; zwei Geräte am Relay). Details in Aufgabe 4.
+   **nicht für gestreamte Jobs**; bei Streaming fehlt außerdem die rote Meldung (Reihenfolge im Code [selbst] gelesen, Test [selbst]
+   gelaufen). Dazu kommen zwei Fälle, in denen die App etwas bewegt, das niemand ausgelöst hat (Dauerfahrt ohne Referenz über den
+   ganzen Weg; zwei Geräte am Relay). **Beide Konfigurationsdateien der Maschine haben `soft_limits: false` und `hard_limits: false`
+   an allen Achsen** [selbst gelesen]. Details in Aufgabe 4.
 5. **Die Tests sind in den Bibliotheken ehrlicher als die Oberfläche:** 100 % Abdeckung wird wirklich erzwungen, aber 5 von 14
    handgemachten Mutationen überlebten, darunter die Start-Sperre bei einem einzelnen G-Code-Fehler [selbst nachgeprüft].
    Die Wächter im Store (`machine.ts`, `start.ts`) sind von Unit-Tests praktisch nicht gedeckt.
@@ -42,13 +46,19 @@ und `docs/umbau-guide.md` gelesen. Die Teilprüfer durften die drei Dateien eben
 zum Klick, der ihn öffnet); Scrollen, weil ein Knopf unter dem sichtbaren Rand liegt = +1; Warten zählt nicht. Frischer Zustand
 (`lowrider-control.html#simulator`, Speicher leer, **nicht referenziert**), keine Abkürzung über den Store (`skripte/stepper.cjs`).
 Fenster: Desktop 1440 × 900 und iPad-Fenster 1180 × 820 (Chromium, kein Safari). Ergebnis in beiden Fenstern gleich.
+**Korrektur der ersten Zählung:** Die erste Fassung des Skripts zählte jeden Knopf unter einer Pixelschwelle am unteren Rand als „Scrollen“;
+dadurch wurde auch der Start-Knopf in der festen Aktionsleiste (immer sichtbar) mitgezählt (A 14, B 15). Jetzt zählt ein Scroll nur,
+wenn ein Treffertest (`elementFromPoint` im Knopfmittelpunkt) den Knopf als verdeckt oder außerhalb zeigt – das trifft zu bei
+„Nullpunkt hier setzen“ und „Antasten starten“ (liegen unter dem Rand des Panels), nicht beim Start. Alle vier Läufe wurden wiederholt.
+Die Verbindung kostet **0 Eingaben nur, weil `#simulator` sich selbst verbindet**; der Weg zum echten Pi („Über den Pi verbinden“) ist
+nicht gezählt. Es wurde nicht festgestellt, ob der gezählte Lauf den Job von der SD-Karte oder per Streaming startete.
 
-**A – fertigen G-Code laden und fräsen: 14 Eingaben** (Testdatei `testdaten/rechteck-aussen.nc`, 60 × 40 mm Außenkontur):
+**A – fertigen G-Code laden und fräsen: 13 Eingaben = 10 Tipps/Halten + 1 Dateiauswahl + 2 Scrolls** (Testdatei `testdaten/rechteck-aussen.nc`, 60 × 40 mm Außenkontur):
 
 | # | Eingabe | Belegbild |
 |---|---|---|
 | 1 | „Neuer Job“ | `A8-1440x900-01` |
-| 2–3 | „G-Code öffnen“ + Auswahl im Systemdialog | `A8-1440x900-03` (Job geladen; Schritte ③–⑤ noch gesperrt: `A-frasen-gesperrt.png`) |
+| 2–3 | „G-Code öffnen“ + Auswahl im Systemdialog | `A8-1440x900-03` (Job geladen; Schritte ③–⑤ sind anwählbar, tragen aber ⚠/✕, der **Start** ist gesperrt: `A-frasen-gesperrt.png`) |
 | 4 | Schritt „Einrichten“ | `A8-1440x900-04` |
 | 5 | Ziel im Bild antippen | `A8-1440x900-05` |
 | 6 | „Fräser hierhin“ (Halten) | `A8-1440x900-06` |
@@ -56,12 +66,12 @@ Fenster: Desktop 1440 × 900 und iPad-Fenster 1180 × 820 (Chromium, kein Safari
 | 9 | Reiter „Antasten“ | `A8-1440x900-09` |
 | 10–11 | Scrollen + „Antasten starten“ (Halten) – Z-Nullpunkt | `A8-1440x900-11` |
 | 12 | Schritt „Fräsen“ | `A8-1440x900-12` (Text: „Startklar“) |
-| 13–14 | Scrollen + „Fräsen starten“ (Halten) – Status „Läuft“ | `A8-1440x900-14` |
+| 13 | „Fräsen starten“ (Halten) – Status „Läuft“ (kein Scroll nötig, der Knopf liegt in der festen Aktionsleiste) | `A8-1440x900-13` |
 
-**B – in der App zeichnen und fräsen: 15 Eingaben** (Rechteck 100 × 60 mm, Standardwerte, „Außen“): „Neuer Job“, „Zeichnen / DXF“,
-„Rechteck“ (der Job liegt sofort auf dem Tisch, kein „G-Code erzeugen“ nötig) = 3; danach wie A, aber **ein zusätzlicher Tipp**,
-weil der erste Tipp aufs Bild nur die Auswahl der gezeichneten Form aufhebt (`B3-1440x900-05` zeigt noch keine Zielmarke,
-`-06` ja). Belege: `B3-1440x900-NN`, Endzustand `-15`; gleiche Reihe mit `1180x820`.
+**B – in der App zeichnen und fräsen: 14 Eingaben = 12 Tipps/Halten + 2 Scrolls** (Rechteck 100 × 60 mm, Standardwerte, „Außen“): „Neuer Job“, „Zeichnen / DXF“,
+„Rechteck“ (der Job liegt sofort auf dem Tisch, kein „G-Code erzeugen“ nötig) = 3; danach wie A ab „Einrichten“, aber **ein zusätzlicher Tipp**,
+weil der erste Tipp aufs Bild nur die Auswahl der gezeichneten Form aufhebt. Belege: `B3-1440x900-01…-14` (Auswahl aufgehoben: `-05`, Zielmarke erst
+`-06`; Endzustand `-14`); gleiche Reihe mit `1180x820`.
 
 **Was die Zahlen nicht sind:**
 - Die mitgelieferte `lowrider-demo.html` startet *vorbefüllt* (referenziert, Job geladen, Nullpunkt, Werkzeug gesetzt): bis „Läuft“
@@ -81,11 +91,12 @@ weil der erste Tipp aufs Bild nur die Auswahl der gezeichneten Form aufhebt (`B3
 - **Der Start ist hart gesperrt**, z. B. „Start gesperrt: 1 Punkt(e) offen: Verlässt den Verfahrweg (3×)“ (`A-frasen-gesperrt.png`;
   Code `lib/readiness.ts:176-190`, `block`). Die Ziele wollen Prüfungen anbieten, nicht erzwingen; **nur Bestätigungen** des Wichtigsten.
 - Die Referenzfahrt wird empfohlen, aber nicht erzwungen (`readiness.ts:155-161`, nur `warn`; im Lauf kein Zwang) – das passt zu den Zielen.
-- Zwei Knöpfe der Hauptstrecke („Nullpunkt hier setzen“, „Fräsen starten“) liegen im 1440 × 900-Fenster unter dem Rand: je 1 Scroll mehr.
-- **Pause:** ein Tipp oder die Leertaste (`P1-15.png`, „Pausiert“) [selbst]. **Fortsetzen:** in der unteren Aktionsleiste ein 500-ms-Halten
+- Zwei Knöpfe der Hauptstrecke („Nullpunkt hier setzen“, „Antasten starten“) liegen im 1440 × 900- und im 1180 × 820-Fenster unter dem Rand des Panels: je 1 Scroll mehr. „Fräsen starten“ liegt in der festen Aktionsleiste und braucht keinen.
+- **Pause:** ein Tipp oder die Leertaste (`P1-15.png`, „Pausiert“; e2e `find.spec.ts:395`, `usability.spec.ts`) [selbst]. **Fortsetzen:** in der unteren Aktionsleiste ein 500-ms-Halten
   (`ActionBar.tsx:143`), in der Laufleiste ein Tipp (`RunBar.tsx:36`) [selbst] – uneinheitlich; zur Begründung siehe „Nach dem Lesen“.
-- Beobachtung im Simulator ohne Erklärung (nicht an der Maschine prüfbar): „Fortschritt 100 %“ bei „Zeile 8“ von 23 (`A8-1440x900-14`);
-  im Zeichnen-Lauf dagegen plausibel (11 % bei Zeile 65). [Vermutung: Fortschritt = gesendete Zeilen.]
+- Beobachtung im Simulator ohne Erklärung (nicht an der Maschine prüfbar, **reproduzierbar**): „Fortschritt 100 %“ bei „Zeile 8“ von 23 Programmzeilen
+  (`A8-1440x900-13`; im ersten Verweis von `00-erstes-urteil-blind.md` als `A8-14.png` genannt, das Bild heißt jetzt so); im Zeichnen-Lauf
+  dagegen plausibel (11 % bei Zeile 65). Die Ursache ist nicht untersucht.
 
 ### Aufgabe 2 – Umfang (Auszug; Vollständiges in `teile/teil-2-umfang.md`)
 
@@ -108,13 +119,13 @@ in `commands.test.ts`, der Anker und Stichwörter je Karte erzwingt. `apps/ios` 
 **Basis [selbst]:** `pnpm typecheck` grün; `pnpm coverage`: control 555, fluidnc-client 86, cam 112, gcode-core 160, workshop 100, companion 49 –
 alle Zahlen aus den Fakten stimmen; `pnpm build` grün; desktop-e2e **119/119 bestanden** (7,1 min). Tablet (118) und iPad (25) nicht gelaufen.
 
-**Mutationen [Teilbericht, Plan vorher in der Datei]:** 14 Ziele, **9 getötet, 5 überlebt**; drei Zusatz-Mutationen (2 überlebt).
+**Mutationen [Teilbericht, Plan vorher in der Datei]:** 14 Ziele, **9 getötet, 5 überlebt**; fünf nachträgliche Zusatz-Mutationen (3 getötet, 2 überlebt), insgesamt also **7 Überlebende an 7 Stellen**.
 
 | Überlebende Mutation | Befund |
 |---|---|
 | `lib/readiness.ts:163` `errors > 0` → `> 1` [selbst bestätigt: Zeile und Testwerte `errors: 0`/`2`, `readiness.test.ts:8,29`] | Ein einzelner G-Code-Fehler sperrt den Start dann nicht mehr; kein Test an der Grenze 1 |
 | `store/machine.ts:1168` Obergrenzen-Prüfung in `moveMachine` entfernt | `moveMachine` wird von keinem Unit-Test aufgerufen |
-| `store/machine.ts:655` (Jog-Softlimit), `store/start.ts:108` (Startsperre bei nicht-Idle) | beide überlebt |
+| `store/machine.ts:655` (Jog-Softlimit), `store/start.ts:108` (Startsperre bei nicht-Idle) | beide überlebt (Zusatz-Mutationen, nicht im vorab festgelegten Plan) |
 | `resume.ts:81`, `streamer.ts:104`, `toolpath.ts:419` | Randwerte ohne Test (Bohrung 0,1-mm-Toleranz, Puffergrenze, Index = Zeilenzahl) |
 
 - Die 100 % der vier Pakete sind **echt erzwungen** (Schwellwert greift, kein `exclude`, keine `v8 ignore`), messen aber nur Ausführung, keine Randwerte.
@@ -133,10 +144,18 @@ Tastenkürzel bewegen nichts. Der Standardstart läuft über die SD-Karte (Halte
 |---|---|---|---|
 | B1 | **Streaming-Job, Verbindung bricht:** Maschine fährt nur den Puffer leer (Test: 12 Zeilen, 121 Byte) und steht; die App sendet weder `!` noch `0x18` noch `M5`. Die **rote Meldung fehlt**, weil `streamer.abort()` (`connection.ts:361`) vor `setState('disconnected')` (`:364`) läuft und der Store nur bei noch laufendem Stream `lostInJob` setzt (`machine.ts:460-467`) | wichtig (Vorgabe „läuft weiter“ nur für SD erfüllt; Meldungsfehler widerspricht der eigenen Doku) | Reihenfolge **[selbst]**; Wirkung [Teilbericht, Test] |
 | B2 | **Zwei Geräte am Relay:** `ok`/`error` gehen an alle Clients (`relay.ts:82-85,100-104`), der Client ordnet nur nach Reihenfolge zu (`connection.ts:415-426`). Verbindet sich das Zweitgerät neu (`$I`, `$G`, `$#`), kann dessen `ok` im Erstgerät einen SD-Job „beenden“; danach sendet das Erstgerät bei Mehrwerkzeug-Jobs `M5`, Anheben und `G53 G0 X Y` an die laufende Maschine (`run.ts:121-152`) | **blockierend** vor dem Zwei-Geräte-Betrieb | Test mit echtem Store und Relay [Teilbericht]; ob FluidNC die Zeilen im Job annimmt: nicht geprüft |
-| B3 | **Dauerfahrt ohne Referenz:** eine einzige relative Fahrt über den ganzen Verfahrweg (`$J=G91 G21 Y2440 F3000`, ≈ 49 s); `soft_limits`/`hard_limits` sind in `machine/config.yaml` aus; geht der Link verloren, kommt `0x85` nicht an; es gibt keinen Verbindungswächter (120 s Funkstille bleibt „verbunden“) | **blockierend** für die Maschine ohne Referenz/Limits | Zielberechnung **[selbst]** (`lib/motion.ts` `continuousJogTarget`, `limited=false` → relativ über `range.max − range.min`); Rest [Teilbericht] |
+| B3 | **Dauerfahrt ohne Referenz:** eine einzige relative Fahrt über den ganzen Verfahrweg (`$J=G91 G21 Y2440 F3000`, ≈ 49 s); `soft_limits: false` und `hard_limits: false` an **allen** Achsen in **beiden** Dateien `machine/config.yaml` (Zeilen 29/72/143 bzw. 44/87/115/158/186) und `machine/config-ist-jackpot1.yaml` (41/83/151 bzw. 56/98/124/166/192) [selbst gelesen]; geht der Link verloren, kommt `0x85` nicht an; es gibt keinen Verbindungswächter (120 s Funkstille bleibt „verbunden“) | **blockierend** für die Maschine ohne Referenz/Limits | Zielberechnung **[selbst]** (`lib/motion.ts` `continuousJogTarget`, `limited=false` → relativ über `range.max − range.min`); Rest [Teilbericht] |
 | W1 | Leertaste pausiert nicht bei Fokus in Eingabefeld/Auswahl/Schieberegler (`store/keys.ts:46`, `typingInto`) – der Kommentar zwei Zeilen darunter und CLAUDE.md sagen das Gegenteil („whatever has the focus“) | wichtig | Zeile **[selbst]**, UI-Test [Teilbericht] |
 | W2 | NOT-HALT beendet Mehrschritt-Abläufe nicht (Foto-Scan, Kalibrierung, Serie, Jig, Wenden) | wichtig | Code-Lektüre [Teilbericht], Wirkung Vermutung |
 | W3–W6 | `feedHold`/`emergencyStop` werfen bei schließendem Socket ohne Meldung; Wiederaufnahme ab Zeile nimmt quittierte statt gefahrene Zeilen und `M3` vor dem Anheben; Gamepad-Abziehen lässt Dauerlauf bestehen; `$H` läuft in 10-s-Timeout | wichtig | [Teilbericht] |
+
+**Belege:** Die Testdateien liegen jetzt in `skripte/sicherheit/` (Pfade zeigen auf die Scratchpad-Kopie; Start: `vitest run --config …/vitest.config.ts`). Von mir ausgeführt:
+`sicherheit.test.ts` **11/11 grün** – die Tests behaupten das fehlerhafte Verhalten und sind deshalb grün: u. a. `Browser-Streaming: Abbruch … lostInJob?`
+(`expect(st.lostInJob).toBeNull()` = B1), `Dauerfahrt nicht referenziert: eine relative Fahrt über den ganzen Verfahrweg` (B3), `Fremd-"ok" beendet in Client A den SD-Job`
+und `startPart mit 2-Werkzeug-Job: nach Fremd-ok sendet die App M5, Anheben und G53 G0` (B2), `Leertaste bei Fokus in Eingabefeld / Auswahlliste` (W1).
+`ui.spec.ts` im Projekt *desktop* 3/3 grün (Leertaste im Suchfeld und im Vorschub-Schieberegler lösen keinen Feed-Hold aus; PAUSE/NOT-HALT sichtbar); im Projekt *phone* gilt nur der
+PAUSE/NOT-HALT-Test, die zwei Leertasten-Tests sind dort nicht anwendbar (kein Menü im Telefon-Layout) und schlagen in diesem Projekt fehl – das ist kein Befund. Im Suchfeld darf
+die Leertaste nicht pausieren (man tippt Leerzeichen); der Mangel ist der Schieberegler/die Auswahlliste und der Widerspruch zu Kommentar und Dokumentation.
 
 Weitere Hinweise [Teilbericht]: Pi-Shutdown ohne Anmeldung, CORS `*`; die Konsole (MDI) prüft den Zustand nicht; PAUSE und NOT-HALT sind immer gerendert und nie gesperrt, auch über Dialogen.
 Die Doku sagt selbst: der Software-NOT-HALT ersetzt keinen Hardware-NOT-AUS (`docs/projektbeschreibung.md:132`); wie der Not-Aus verdrahtet ist, steht offen in `docs/ideen.md:224`.
@@ -148,16 +167,16 @@ Stand: **vorhanden** / **teilweise** / **fehlt** / **nicht geprüft**. Belege: w
 | Abschn. | Anforderung | Stand | Beleg |
 |---|---|---|---|
 | 1 | PC (Maus/Tastatur) und iPad gleichwertig | teilweise | beide Fenster gleiche Schrittzahl [selbst]; echtes iPad/Safari **nicht geprüft** |
-| 1 | Verbindung immer über den Pi | teilweise | `Über den Pi verbinden` ist der eine Weg bei Companion (`umbau-guide.md` Etappe 14); an echtem Pi nicht geprüft |
+| 1 | Verbindung immer über den Pi | teilweise | laut Doku (`umbau-guide.md` Etappe 14) ein Weg „Über den Pi verbinden“; e2e `connection.spec.ts:31` (grün im Desktop-Lauf) gegen einen simulierten Pi; echter Pi nicht geprüft |
 | 1 | Material zunächst ohne Rolle | **fehlt** (UI bietet Material an) | `A8-1440x900-03`; `WorkpieceCard.tsx:34-48` |
 | 1 | G-Code laden schnell und sicher | vorhanden | 3 Eingaben bis geladen [selbst] |
-| 1 | Spindel nur Ein/Aus; Hinweis „von Hand einschalten“ | vorhanden | Meldung im Schritt Fräsen (`A-frasen-gesperrt.png`) |
+| 1 | Spindel nur Ein/Aus per Steuerung | **teilweise** | Keine der beiden Konfigurationen definiert eine aktive Spindel (`machine/config.yaml`: `Laser:`/`pwm:` auskommentiert, Zeile 325-345; `config-ist-jackpot1.yaml`: kein Spindelblock) [selbst]; die App sagt es („Die Steuerung hat keine Spindel eingerichtet, M3/M5 schalten nichts“, `A-frasen-gesperrt.png`) und zeigt trotzdem U/min-Felder und Spindel-Override |
 | 1 | Referenzfahrt empfehlen, nicht erzwingen | vorhanden | `readiness.ts:155-161`; Start unreferenziert möglich [selbst] |
 | 2 | Keine vorgegebenen Schritte, Reiter/Bereiche je Absicht | **fehlt / teilweise** | `store/ui.ts:6` `STEPS`; Schritte frei anspringbar, aber ⑤ nur über die Schrittlogik; Nebenbereiche (Liste ohne Bühne) existieren |
 | 2 | Konzentration auf den Bereich (CAM-Bereich: nur CAM) | teilweise | CAM liegt als Arbeitsfläche **in** ① Job mit Bühne, Statusleiste, 12 Bühnenwerkzeugen (`B3-…-03`) |
 | 2 | „Alles schnell und übersichtlich“ | nicht erfüllt, nicht gemessen | 24–41 sichtbare Bedienelemente je Ort [selbst]; keine Messung von „schnell“ |
 | 2 | Rückmeldung bei Tasten | vorhanden | `e2e/feedback.spec.ts` (grün im Desktop-Lauf) [selbst], `data-press` |
-| 2 | Selten Genutztes per Schalter ausblenden | teilweise | nur `expertMode` + Faltung (Teil 2) |
+| 2 | Selten Genutztes per Schalter ausblenden | teilweise | nur `expertMode` + Faltung (siehe „Aufgabe 2“) |
 | 2 | Dunkel/Hell, DE/EN, Ansichten 2D/3D | vorhanden | `theme.test.ts`, e2e „switches the interface to English and back“ (`control.spec.ts:1257`); 2D/3D [selbst] |
 | 2 | Statusleiste: Zustand, X Y Z, Spindel, Vorschub | vorhanden | alle Screenshots |
 | 3 | Reihenfolge: ① G-Code fräsen, ② zeichnen+fräsen; Bereichs-Oberfläche zuerst | – | Ordnung der Änderungsliste (Teil 4) |
@@ -179,14 +198,14 @@ Stand: **vorhanden** / **teilweise** / **fehlt** / **nicht geprüft**. Belege: w
 | 6 | Park, Nullpunkt anfahren | vorhanden | `JogCard.tsx:371-380` |
 | 6 | Werkzeugwechsel-Position anfahren (Knopf) | **fehlt** | nur automatisch beim M6-Halt (`machine.ts:1010`) |
 | 6 | Eigene Merkpunkte | **fehlt** | kein Treffer; Makros als Umweg (nur Browser) |
-| 6 | Werkzeugwechsel von Hand im Job | teilweise | nur beim Streamen (`streamer.ts:70-75`); SD-Job läuft durch |
-| 7 | Start per Halten | vorhanden | `ActionBar.tsx:192-201` [selbst: Halten 1 s nötig] |
+| 6 | Werkzeugwechsel von Hand im Job | teilweise | Streamen: Halt an jedem M6 (`streamer.ts:70-75`, `ToolChangeCard.tsx`). SD: ein Mehrwerkzeug-Job wird in **Teile** je Werkzeug zerlegt, jedes ein eigener Start (`currentParts`/`startPart`, im Test `startPart mit 2-Werkzeug-Job` benutzt) – also „anhalten, wechseln, Z neu, nächster Start“, nicht „Job hält an und geht weiter“ |
+| 7 | Start per Halten | vorhanden | `ActionBar.tsx:192-201`; e2e `steps.spec.ts:59` „the start is … a hold – never a stray tap“ (grün im Desktop-Lauf) [selbst] |
 | 7 | Prüfungen anbieten, nicht erzwingen | **teilweise** | harte Sperre (`readiness.ts:176-190`) |
-| 7 | Nur das Wichtigste bestätigen | vorhanden | `StartConfirm` nur bei fehlendem Nullpunkt/Z tief/Messtaster (`umbau-guide.md`); in meinen Läufen keine Rückfrage |
+| 7 | Nur das Wichtigste bestätigen | vorhanden | e2e `steps.spec.ts:127` (Start ohne Nullpunkt wird einmal je Job bestätigt) und `:171` (Messtaster) grün im Desktop-Lauf; in meinen Läufen mit gesetztem Nullpunkt keine Rückfrage [selbst] |
 | 7 | PAUSE ein Tipp, nie gesperrt; Leertaste | vorhanden, mit Lücke W1 | `PauseButton.tsx`, e2e `find.spec.ts:395`; Leertaste aus Feldern heraus: nein |
 | 7 | Fortsetzen ein Tipp | teilweise | Halten 500 ms in der Aktionsleiste, Tipp in der `RunBar` |
 | 7 | Verbindungsabbruch: Maschine läuft weiter, rote Meldung | SD: ja (Pi-Seite nicht an Hardware); **Streaming: nein** | B1 |
-| 7 | Nur Störungen/Warnungen aufdringlich | vorhanden | Meldungsstufen (`umbau-guide.md` Etappe 13) |
+| 7 | Nur Störungen/Warnungen aufdringlich | vorhanden (laut Doku, nicht eigens geprüft) | Meldungsstufen laut `umbau-guide.md` Etappe 13; e2e `steps.spec.ts:289` (kritische Meldung bei Verbindungsverlust im Job) grün |
 | 7 | Rattern erkennen | vorhanden, **ohne Hardwaretest** | `chatter.ts:77`, `companion.md` |
 | 8 | Zuletzt verwendet | vorhanden | `store/recent.ts` (nur Browser, 6 Jobs) |
 | 8 | Projekte speichern | **fehlt** | CAM-Zeichnung nirgends gespeichert (`store/cam.ts`) |
@@ -235,11 +254,12 @@ Das erste Urteil steht unverändert in `00-erstes-urteil-blind.md`. Folgendes ha
 2. **Aufwand der Bereichs-Oberfläche kleiner als vermutet.** `CLAUDE.md` beschreibt ein vorhandenes Ortsmodell (`Place`, `VIEWS`, `placeHasStage`, `Depth`); Listenbereiche zeigen schon heute *nur sich selbst* ohne Bühne. Die Orte sind „plain compositions of the cards“. Ich hatte das offen gelassen; jetzt schätze ich die Oberfläche auf **M statt L** [Vermutung, gestützt auf `Steps.tsx` 269 und `Areas.tsx` 202 Zeilen].
 3. **Zwei Gestaltungsregeln, die den Zielen direkt widersprechen:** `DESIGN.md` §2 „keine globalen Benutzerstufen“ gegenüber „selten Genutztes per Schalter ausblenden“ (Lösung: Schalter je Funktion/Bereich, nicht je Rolle); `DESIGN.md` §3.2 „⑤ startet erst, wenn nichts blockiert“ gegenüber „Prüfungen nicht erzwingen“.
 4. **Streaming ist bewusst der zweite Weg.** `CLAUDE.md`: „jobs start from the SD card by default, streaming is the second way“; `umbau-guide.md` nennt als Auswirkung „SD-Job läuft weiter / Stream bleibt stehen“. B1 ist damit **kein verstecktes** Verhalten, sondern dokumentiert. Herabgestuft von „blockierend“ auf „wichtig“. Nicht entschärft bleibt: (a) die Vorgabe der Ziele („Maschine läuft weiter“) ist für Streaming nicht erfüllt, (b) die rote Meldung fehlt dort, obwohl `CLAUDE.md` sie zusagt, (c) „Wiederaufnahme ab Zeile“ streamt immer.
+   Geprüft, ob der verlangte Werkzeugwechsel mitten im Job doch auf den Streaming-Weg zwingt (dann wäre die Herabstufung falsch): nein – ein Mehrwerkzeug-Job läuft auch von der SD-Karte, in Teilen je Werkzeug (`currentParts`/`startPart`), jedes Teil ein eigener Start. Die Herabstufung bleibt; offen bleibt nur, ob „zwei Starts“ dem Wunsch „Job hält an, Wechsel, Z neu, weiter“ genügt (Betreiberfrage).
 5. **B3 ist teils eine Konfigurationsfrage.** `CLAUDE.md` sagt: „No safety function lives in the browser; the app triggers and displays, FluidNC enforces.“ Dieser Grundsatz hält nur, wenn FluidNC Grenzen durchsetzt – `soft_limits` ist laut Fakten in der `config.yaml` aus, und es gibt noch keine Referenzfahrt. Ich stufe B3 weiter hoch, aber die Abhilfe liegt zuerst bei Konfiguration und Referenzfahrt, dann in der App (Dauerfahrt ohne Referenz begrenzen, Verbindungswächter).
-6. **Der Usability-Test misst das Falsche für Einzelstücke.** `DESIGN.md` §11 setzt „bekannter Job von Start bis Fräsen starten ≤ 8“ als Ziel; das ist ein Wiederholjob. Ziele §1 nennen Einzelstücke. Meine Zahlen (14/15) widersprechen dem Projekt-Test nicht, sie messen den anderen Fall.
-7. **Fortsetzen = Halten ist Absicht** (`umbau-guide.md` Etappe 12: „damit ein Doppeltipp auf Pause nie fortsetzt“). Die RunBar mit Tipp ist dann die Abweichung. Das macht aus einem „Fehler“ eine *Sicherheitsabwägung*, die der Betreiber entscheiden muss (Teil 3, Spannungen).
+6. **Der Usability-Test misst das Falsche für Einzelstücke.** `DESIGN.md` §11 setzt „bekannter Job von Start bis Fräsen starten ≤ 8“ als Ziel; das ist ein Wiederholjob. Ziele §1 nennen Einzelstücke. Meine Zahlen (13/14 Eingaben, davon 10/12 Tipps und Halten) widersprechen dem Projekt-Test nicht, sie messen den anderen Fall.
+7. **Fortsetzen = Halten ist Absicht** (`umbau-guide.md` Etappe 12: „damit ein Doppeltipp auf Pause nie fortsetzt“). Die RunBar mit Tipp ist dann die Abweichung. Das macht aus einem „Fehler“ eine *Sicherheitsabwägung*, die der Betreiber entscheiden muss (siehe „Aufgabe 6“).
 8. **Leertaste (W1)**: Dokument, Kommentar und Code widersprechen sich (`CLAUDE.md`/Kommentar: „whatever has the focus“; Code `keys.ts:46`: bei `typingInto` kein Effekt). Bleibt ein Fehler; nur schlimmer, weil die Doku etwas anderes zusagt als gebaut ist.
-9. **Unverändert:** Zählung (14/15), Mutationsbefunde, Lücken CAM/Kamera/Update, B2, die Lage „an der Maschine nichts abgenommen“ (bestätigt in `umbau-guide.md`, Etappe 14).
+9. **Unverändert:** die Art der Zählung (die Zahlen selbst wurden nach der Skriptkorrektur auf 13/14 gesenkt, siehe Aufgabe 1; `00-erstes-urteil-blind.md` nennt noch 14/15 und bleibt unverändert), Mutationsbefunde, Lücken CAM/Kamera/Update, B2, die Lage „an der Maschine nichts abgenommen“ (bestätigt in `umbau-guide.md`, Etappe 14).
 10. **Kleinigkeit:** `01-fakten.md` nennt `sim/` im Wurzelverzeichnis; im Archiv liegt der Simulator unter `apps/control/src/sim`. `e2e/` ist ebenfalls `apps/control/e2e`. Beides vermutlich nur Beschreibungsfehler.
 
 ---
@@ -251,13 +271,13 @@ Aufwandsangaben sind Schätzungen (Vermutung), Bezug: ein Entwickler, der den Co
 | # | Änderung | Nutzen | Aufwand | Abhängigkeit / Risiko |
 |---|---|---|---|---|
 | 1 | **Sicherheit klein:** Meldungsreihenfolge bei Streaming-Abbruch (B1), Leertaste aus Feldern/Schiebern (W1), `feedHold`/`emergencyStop` ohne stille Ausnahme (W3) | hoch (Sicherheit, Zusage der Doku) | S je Punkt | Randwerttests ergänzen (siehe 2) |
-| 2 | **Randwerttests** für die 5 überlebenden Mutationen (`errors == 1`, `moveMachine`-Grenze, `start.ts:108`, `resume.ts:81`, `streamer.ts:104`, `toolpath.ts:419`) | hoch | S–M | – |
-| 3 | **FluidNC-Konfiguration:** `soft_limits`/Endschalter nach der ersten Referenzfahrt aktivieren; Dauerfahrt ohne Referenz begrenzen; Verbindungswächter (Funkstille → Stopp-Befehl/Meldung) (B3) | sehr hoch (Sicherheit) | Konfiguration S; App M | **Betreiberentscheidung**; nur an der Maschine prüfbar |
+| 2 | **Randwerttests** für die 7 überlebenden Mutationen (`readiness.ts:163` `errors == 1`, `machine.ts:1168` `moveMachine`-Grenze, `machine.ts:655` Jog-Softlimit, `start.ts:108`, `resume.ts:81`, `streamer.ts:104`, `toolpath.ts:419`) | hoch | S–M | – |
+| 3 | **FluidNC-Konfiguration:** `soft_limits`/`hard_limits` (heute in beiden Dateien aus) nach der ersten Referenzfahrt aktivieren; Dauerfahrt ohne Referenz begrenzen (kürzere Teilfahrten statt einer ganzen Strecke); **Wächter im Pi-Relais**, nicht im Browser: ein abgerissener Browser kann selbst nichts mehr senden, das Relais sieht den Abbruch (`relay.ts:72-75,129-135`) und könnte bei aktiver Dauerfahrt `0x85` schicken; Browserseitig nur Anzeige „Funkstille“ (B3) | sehr hoch (Sicherheit) | Konfiguration S; Relais M; Anzeige S | **Betreiberentscheidung**; nur an der Maschine prüfbar |
 | 4 | **Relay-Zuordnung je Client** (B2): `ok`/`error` nur an den auslösenden Client, oder Befehlswarteschlange je Client | hoch, wenn je zwei Geräte benutzt werden | M | Test mit zwei Clients |
 | 5 | **Fortsetzen vereinheitlichen** (Tipp mit kurzer Sperre nach Pause oder überall Halten) | mittel | S | **Risikoentscheidung des Betreibers** |
 | 6 | **Start-Sperre bei Verfahrweg → Hinweis + Bestätigung** (`readiness.ts:176-190`) | mittel | S–M | erst sinnvoll, wenn Nr. 3 steht |
 | 7 | **Ausblend-Schalter je Funktion/Bereich** (Serie, Vorrichtung, Wenden, Abschnitte, Material, Aufzeichnung, Makros, Kalibrierung) einschließlich Abschalten der Hintergrunddienste (`startJigs` u. a.) | hoch (Ziel „zu viele Karten“) | M | Suchtabelle `commands.ts` und `commands.test.ts` mit anpassen |
-| 8 | **Bereichs-Oberfläche** (Ortsmodell, CAM als eigener Bereich, kein Stepper-Zwang) | sehr hoch (Betreiber-Priorität 1) | M–L [Vermutung nach Lesen: eher M] | Betreiberentscheidung zu `DESIGN.md` (Spannungen); Tests `steps.spec.ts`, `areas.spec.ts`, `usability.spec.ts` ändern sich |
+| 8 | **Bereichs-Oberfläche** (Ortsmodell, CAM als eigener Bereich, kein Stepper-Zwang) | sehr hoch (Betreiber-Priorität 1) | M–L [Vermutung nach Lesen: eher M] | Betreiberentscheidung zu `DESIGN.md` (siehe „Aufgabe 6“); Tests `steps.spec.ts`, `areas.spec.ts`, `usability.spec.ts` ändern sich |
 | 9 | **Schnittwerte je Werkzeug** im Datenmodell, Material optional | hoch | S–M (1–2 Tage) | `share.ts`-Format, Migration |
 | 10 | **Gleich-/Gegenlauf je Bearbeitung** | mittel | S | – |
 | 11 | **Knöpfe fehlender Positionen:** Werkzeugwechsel-Position anfahren, eigene Merkpunkte | mittel | S–M | – |

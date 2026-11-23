@@ -8,3 +8,5 @@ Pfad zur entpackten Kopie steht in `lib.cjs` (`SRC`); die Skripte öffnen `lowri
 - `a8.cjs` Aufgabe A (G-Code laden), `b3.cjs` Aufgabe B (Rechteck zeichnen), `p1.cjs` Leertaste im Lauf,
   `z1.cjs` sichtbare Bedienelemente je Schritt, `d1.cjs` die vorbefüllte Demo.
 - Fenstergröße: `VP=1180x820 node a8.cjs` (Standard 1440x900). Screenshots landen in `../screenshots/`.
+
+- `sicherheit/` – Tests zu Aufgabe 4 (`sicherheit.test.ts` vitest, `ui.spec.ts` Playwright); die Importpfade zeigen auf die Scratchpad-Kopie des Projekts.

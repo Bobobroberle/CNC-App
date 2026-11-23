@@ -23,8 +23,9 @@ async function run({ name, hash = '#simulator', vp, steps, dump = true, extra })
         const el = p.getByRole('button', { name: s.hold }).nth(s.nth ?? 0);
         if (await el.isDisabled()) log.push('  (Halte-Feld gesperrt: ' + s.label + ')');
         let bb = await el.boundingBox();
-        const vh = p.viewportSize().height;
-        if (bb.y + bb.height > vh - 70) { await el.scrollIntoViewIfNeeded(); await p.waitForTimeout(300); bb = await el.boundingBox(); n++; log.push('  (+1 Scrollen, Knopf lag unter dem sichtbaren Bereich: ' + s.label + ')'); }
+        // Scrollen zählt nur, wenn der Knopf am Mittelpunkt wirklich verdeckt oder außerhalb ist (Treffertest), nicht nach einer Pixelschwelle.
+        const hit = () => el.evaluate((e) => { const r = e.getBoundingClientRect(); const t = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!t && (e === t || e.contains(t) || t.contains(e)); });
+        if (!(await hit())) { await el.scrollIntoViewIfNeeded(); await p.waitForTimeout(300); bb = await el.boundingBox(); n++; log.push('  (+1 Scrollen, Knopf war nicht erreichbar: ' + s.label + ')'); }
         await p.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
         await p.mouse.down();
         await p.waitForTimeout(s.ms ?? 2500);
