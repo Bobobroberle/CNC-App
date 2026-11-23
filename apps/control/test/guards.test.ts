@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { simulator } from '../src/sim';
 import { useJob } from '../src/store/job';
 import { useMachine } from '../src/store/machine';
 
@@ -26,6 +27,21 @@ describe('the machine store guards a move and a jog', () => {
     expect(useMachine.getState().log.filter((l) => l.key === 'calibration.outside')).toHaveLength(
       2,
     );
+  });
+
+  it('writes nothing while another device controls: no command, no upload, no job', async () => {
+    useMachine.setState({ viewer: true });
+    expect(await useMachine.getState().command('$H')).toBe(false);
+    expect(await useMachine.getState().uploadToSd('x.nc', 'G0 X1')).toBe(false);
+    expect(await useMachine.getState().uploadConfigFile('config.yaml', 'a', 'a')).toBeNull();
+    expect(useMachine.getState().streamJob('x.nc', 'G0 X1')).toBe(false);
+    await useMachine.getState().runSdFile('x.nc');
+    expect(useMachine.getState().fileJob).toBeNull();
+    expect(simulator().files.has('x.nc')).toBe(false);
+    expect(useMachine.getState().log.filter((l) => l.key === 'machine.viewerRefused')).toHaveLength(
+      5,
+    );
+    useMachine.setState({ viewer: false });
   });
 
   it('jogs as a relative move unless the machine is homed and has soft limits', () => {

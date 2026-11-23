@@ -51,9 +51,9 @@ weiter (alle 2 s bis 30 s) und verbindet, sobald er antwortet; während eines Jo
       Gerät): der Job muss weiterlaufen. (Nach der Grbl-Dokumentation wirkt `0x85` nur im Jog-Zustand –
       für FluidNC ungeprüft.)
 - [ ] _Zwei Geräte:_ PC und iPad gleichzeitig verbinden: das zweite darf nichts senden außer Status,
-      PAUSE und NOT-HALT; PC schließen: das iPad steuert danach. **Stand der App:** Die Bibliothek und das
-      Relais sperren das Senden; die Knöpfe sind im Zuschauer-Gerät aber noch nicht gesperrt (ein Start
-      lädt die Datei noch direkt auf die SD-Karte und meldet dann Fehler) – das ist offen.
+      PAUSE und NOT-HALT; PC schließen: das iPad steuert danach. Das zweite Gerät zeigt bei „Fräsen starten“
+      den Grund „Nur Ansicht“ (Start gesperrt); Befehle, Uploads und Jobs lehnt der Store ab.
+      (e2e `connection.spec.ts`: „a device that only watches …“, gegen den Simulator – am echten Pi offen.)
 - [ ] Tastatur (Pfeile, Bild↑/↓), ggf. Gamepad, Handrad. `?` zeigt alle Tastenkürzel; solange die
       Übersicht oder die Suche offen ist, joggen die Pfeiltasten nicht.
 - [ ] Falsche Grenzen? _Menü → Einstellungen → Experte_: `max_travel_mm` (vor allem Z!) und `soft_limits`

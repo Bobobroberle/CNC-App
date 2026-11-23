@@ -1156,6 +1156,7 @@ export const de = {
     viewer:
       'Nur Ansicht: ein anderes Gerät steuert die Maschine. Dieses zeigt an und kann pausieren und anhalten.',
     controller: 'Dieses Gerät steuert jetzt die Maschine.',
+    viewerRefused: 'Nur Ansicht: dieses Gerät sendet nichts, ein anderes steuert die Maschine.',
     connected: 'Verbunden mit {url}',
     disconnected: 'Verbindung getrennt',
   },

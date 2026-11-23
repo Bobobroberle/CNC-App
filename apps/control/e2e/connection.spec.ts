@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { goTo, installFakeFluidNC } from './helpers';
+import { connect, goTo, installFakeFluidNC, openApp, openJog, pressAndHold, sent } from './helpers';
 
 // Connecting (stage 14): the way through the companion is the one obvious way, a failure
 // says which device was missing, and the app comes back by itself only while no job runs.
@@ -107,4 +107,47 @@ test('direct: a Jackpot that does not answer is named with its address', async (
   const state = page.getByTestId('link-status');
   await expect(state).toContainText('Jackpot nicht erreichbar (192.168.0.200:81)');
   await expect(state).toHaveAttribute('data-phase', 'waiting');
+});
+
+type PageHooks = {
+  __status: string;
+  __socket: { onmessage(e: { data: string }): void };
+  __sd: unknown[];
+};
+
+test('a device that only watches: the start is locked, nothing is sent or uploaded, PAUSE still holds', async ({
+  page,
+}) => {
+  await installFakeFluidNC(page);
+  await openApp(page);
+  await page.getByTestId('file-input').setInputFiles({
+    name: 'schild.nc',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('G90 G21\nG0 Z5\nG1 X10 F300\nM30'),
+  });
+  await expect(page.getByTestId('job-loaded')).toContainText('schild.nc');
+  await connect(page);
+  // The relay tells a second device its role as a text frame.
+  await page.evaluate(() => {
+    const w = window as unknown as PageHooks;
+    w.__status = '<Idle|MPos:600.000,1200.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>';
+    w.__socket.onmessage({ data: 'ROLE:viewer' });
+  });
+  await goTo(page, 'Fräsen');
+  await expect(page.getByTestId('primary-action').locator('button.hold')).toBeDisabled();
+  // A jog holds nothing out of the machine either.
+  await openJog(page);
+  await page.getByRole('button', { name: 'Dauer' }).click();
+  const button = page.getByRole('button', { name: /^X\+/ });
+  await pressAndHold(page, button, 600).catch(() => undefined);
+  expect((await sent(page)).filter((l) => l.startsWith('$J') || l.startsWith('$SD/Run'))).toEqual(
+    [],
+  );
+  expect(await page.evaluate(() => (window as unknown as PageHooks).__sd)).toEqual([]);
+  // PAUSE still goes, whoever controls.
+  await page.evaluate(() => {
+    (window as unknown as PageHooks).__status = '<Run|MPos:610.000,1210.000,-12.000|FS:900,18000>';
+  });
+  await page.getByTestId('pause').click();
+  await expect.poll(() => sent(page)).toContain('!');
 });

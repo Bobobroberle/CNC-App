@@ -50,6 +50,7 @@ export function useStart(): Start | null {
   const analysis = useJob((s) => s.analysis);
   const connected = useMachine((s) => s.connection === 'connected');
   const idle = useMachine((s) => s.status?.state === 'Idle');
+  const viewer = useMachine((s) => s.viewer);
   const busy = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
   const homed = useMachine((s) => s.homed);
   const low = useMachine((s) => {
@@ -100,6 +101,7 @@ export function useStart(): Start | null {
   });
   let reason: string | null = null;
   if (!connected) reason = t('ready.offline');
+  else if (viewer) reason = t('reason.viewer');
   else if (phase === 'uploading') reason = t('runPanel.uploading');
   else if (busy) reason = t('ready.busy');
   else if (blocking.length > 0) {

@@ -1141,6 +1141,7 @@ export const en: DictionaryShape = {
     viewer:
       'View only: another device controls the machine. This one shows and can pause and stop.',
     controller: 'This device now controls the machine.',
+    viewerRefused: 'View only: this device sends nothing, another one controls the machine.',
     connected: 'Connected to {url}',
     disconnected: 'Disconnected',
   },

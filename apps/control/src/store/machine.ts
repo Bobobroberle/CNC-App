@@ -315,6 +315,13 @@ export interface StreamJob {
 
 let connection: FluidNCConnection | null = null;
 
+/** A device that only watches writes nothing – no command, no upload, no job: said, not done. */
+function watching(): boolean {
+  const { viewer, addLog } = useMachine.getState();
+  if (viewer) addLog('error', t('machine.viewerRefused'), 'machine.viewerRefused');
+  return viewer;
+}
+
 /** A stop byte must never throw into a button or a release loop (a closing socket refuses it): said, not thrown. */
 function sendStop(byte: number): void {
   try {
@@ -638,7 +645,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
   },
 
   async command(line) {
-    if (!connection) return false;
+    if (!connection || watching()) return false;
     const id = ++commandId;
     set({ lastCommand: { id, line, state: 'sent', at: Date.now(), code: null } });
     const settle = (patch: Partial<SentCommand>) =>
@@ -767,7 +774,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
 
   async uploadToSd(name, text) {
     const url = toWebSocketUrl(get().url);
-    if (!connection || !url) return false;
+    if (!connection || !url || watching()) return false;
     const { addLog } = get();
     try {
       // The simulator has its card in the page; a Jackpot takes the file over HTTP.
@@ -788,7 +795,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
   },
 
   async runSdFile(name) {
-    if (!connection) return;
+    if (!connection || watching()) return;
     const { addLog } = get();
     simulatedCutter(get().url);
     set({ fileJob: { name, startedAt: Date.now() } });
@@ -976,7 +983,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
 
   streamJob(name, text) {
     const { addLog } = get();
-    if (!connection) return false;
+    if (!connection || watching()) return false;
     const lines = text.split(/\r?\n/);
     let s: CharacterCountingStreamer;
     simulatedCutter(get().url);
@@ -1101,7 +1108,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
 
   async uploadConfigFile(name, text, backup, backupName) {
     const url = toWebSocketUrl(get().url);
-    if (!connection || !url) return null;
+    if (!connection || !url || watching()) return null;
     const { addLog } = get();
     const sim = isSimulatorAddress(get().url);
     const http = new FluidNCHttp({ baseUrl: fluidncHttpBase(url) });
