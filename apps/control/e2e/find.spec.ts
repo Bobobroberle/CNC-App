@@ -286,7 +286,7 @@ test('keys: views by one key, the next step by Ctrl+→, not while typing; "?" s
   await page.locator('body').click({ position: { x: 2, y: 2 } });
 
   // Ctrl+→ walks the flow: from a side area to its first step, then on, and stops at the last.
-  for (const id of ['job', 'tools', 'setup', 'check', 'run', 'run']) {
+  for (const id of ['job', 'setup', 'run', 'run']) {
     await page.keyboard.press('Control+ArrowRight');
     await expect(step(page, id)).toHaveAttribute('aria-current', 'step');
   }

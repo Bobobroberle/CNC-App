@@ -1252,7 +1252,7 @@ test('switches the interface to English and back', async ({ page }) => {
   await openApp(page);
   await machineSetup(page, 'Werkstatt und Benachrichtigungen');
   await page.getByRole('button', { name: 'English' }).click();
-  const english = ['Job', 'Tools', 'Set up', 'Check', 'Cut'];
+  const english = ['Job', 'Set up', 'Cut'];
   expect(await stepNames(page).allTextContents()).toEqual(english);
   await expect(page.getByRole('button', { name: 'E-STOP' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'PAUSE' })).toBeVisible();

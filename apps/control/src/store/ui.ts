@@ -158,7 +158,13 @@ export const useUi = create<UiStore>((set) => ({
   go(place, view) {
     set((s) => ({
       place,
-      views: view && hasViews(place) ? { ...s.views, [place]: view } : s.views,
+      // Fräsen opens on the cutting itself; the check is asked for ("Prüfen" on a locked start).
+      views:
+        view && hasViews(place)
+          ? { ...s.views, [place]: view }
+          : place === 'run'
+            ? { ...s.views, run: 'cut' }
+            : s.views,
       panelHidden: false,
       jogOpen: false,
     }));
