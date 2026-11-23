@@ -658,6 +658,7 @@ export const de = {
     label: 'NOT-HALT',
     hint: 'Hält sofort an und setzt die Steuerung zurück',
     notConnected: 'Not-Halt nicht gesendet: keine Verbindung. Hardware-Not-Aus benutzen!',
+    holdNotSent: 'Halt nicht gesendet: keine Verbindung. Hardware-Not-Aus benutzen!',
     sent: 'Not-Halt gesendet (Vorschub-Halt + Soft-Reset)',
   },
   hold: {

@@ -311,6 +311,15 @@ export interface StreamJob {
 }
 
 let connection: FluidNCConnection | null = null;
+
+/** A stop byte must never throw into a button or a release loop (a closing socket refuses it): said, not thrown. */
+function sendStop(byte: number): void {
+  try {
+    connection?.realtime(byte);
+  } catch {
+    useMachine.getState().addLog('error', t('estop.holdNotSent'), 'estop.holdNotSent');
+  }
+}
 let commandId = 0;
 /** An attempt the operator cancelled while it was connecting */
 let cancelled: FluidNCConnection | null = null;
@@ -602,12 +611,17 @@ export const useMachine = create<MachineStore>((set, get) => ({
       get().addLog('error', t('estop.notConnected'), 'estop.notConnected');
       return;
     }
-    connection.emergencyStop();
+    try {
+      connection.emergencyStop();
+    } catch {
+      get().addLog('error', t('estop.notConnected'), 'estop.notConnected');
+      return;
+    }
     get().addLog('info', t('estop.sent'));
   },
 
   feedHold() {
-    connection?.realtime(Realtime.FeedHold);
+    sendStop(Realtime.FeedHold);
   },
 
   cycleStart() {
@@ -681,7 +695,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
 
   jogCancel() {
     jogTargets = {};
-    connection?.realtime(Realtime.JogCancel);
+    sendStop(Realtime.JogCancel);
   },
 
   async homeAxis(axis) {

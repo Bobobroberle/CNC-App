@@ -241,6 +241,21 @@ describe('coming back by itself', () => {
     expect(useMachine.getState().stream?.result).toBe('aborted');
   });
 
+  it('PAUSE, NOT-HALT and the jog stop say so instead of throwing when the socket is closing', async () => {
+    useMachine.getState().setUrl('192.168.0.200');
+    ScriptedSocket.scripts = ['answer'];
+    await useMachine.getState().connect();
+    ScriptedSocket.last!.readyState = 3; // closing; onclose has not fired yet
+    const m = useMachine.getState();
+    expect(() => {
+      m.feedHold();
+      m.jogCancel();
+      m.emergencyStop();
+    }).not.toThrow();
+    const keys = useMachine.getState().log.map((l) => l.key);
+    expect(keys).toEqual(expect.arrayContaining(['estop.holdNotSent', 'estop.notConnected']));
+  });
+
   it('"Verbinden abbrechen" ends a try that waits for FluidNC – quietly, without a retry', async () => {
     useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
     ScriptedSocket.scripts = ['silent'];

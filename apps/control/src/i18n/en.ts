@@ -647,6 +647,7 @@ export const en: DictionaryShape = {
     label: 'E-STOP',
     hint: 'Stops immediately and resets the controller',
     notConnected: 'E-stop not sent: no connection. Use the hardware E-stop!',
+    holdNotSent: 'Stop not sent: no connection. Use the hardware E-stop!',
     sent: 'E-stop sent (feed hold + soft reset)',
   },
   hold: {

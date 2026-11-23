@@ -38,14 +38,20 @@ const jobRuns = () => {
   );
 };
 
+/** Space is a typed character only in a text field; on a slider, a checkbox or a list it is the pause. */
+const typesSpace = (target: unknown) =>
+  typingInto(target) &&
+  !/^(SELECT)$/i.test((target as { tagName?: string }).tagName ?? '') &&
+  !['range', 'checkbox', 'radio'].includes((target as { type?: string }).type ?? '');
+
 /** Listens for the machine keys. Returns the function that stops listening. */
 export function startKeys(): () => void {
   if (typeof window === 'undefined') return () => undefined;
   const down = (e: KeyboardEvent) => {
     const key = machineKey(e);
-    if (!key || typingInto(e.target)) return;
+    if (!key || (key === 'pause' ? typesSpace(e.target) : typingInto(e.target))) return;
     if (key === 'pause') {
-      // While something moves, Space is the pause – whatever has the focus, dialog or not.
+      // While something moves, Space is the pause – whatever has the focus (a text field excepted), dialog or not.
       // At rest it keeps its meaning for the control that has the focus.
       if (!moving()) return;
       e.preventDefault();
