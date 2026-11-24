@@ -52,6 +52,8 @@ export interface OpenedProject {
   highestId: number;
   /** The diameter of the cutter it was saved with, if the file says */
   toolDiameter?: number;
+  /** Settings of the file that were left out because no machine would have them (their names) */
+  dropped: string[];
 }
 
 /** The drawing as it is saved: without what is made from it (`contours`), with how it is cut. */
@@ -214,30 +216,44 @@ function twoSidedOf(v: unknown): TwoSided | null | undefined {
   };
 }
 
-/** What the settings of a LowRider can be – the bounds keep a damaged file from stalling the drawing */
-const MAX_DEPTH = 100;
+/**
+ * What the settings of a LowRider can be. The lower bounds are those of the fields in the CAM (what
+ * the app itself lets you type must come back from a file it wrote); the upper ones only keep a damaged
+ * file from stalling the drawing.
+ */
+const MAX_DEPTH = 500;
+/** More passes than this is no way to cut: the stepdown of such a file is left out */
+const MAX_PASSES = 2000;
 const SETTING_RANGES = {
-  rpm: [1, 100_000],
+  rpm: [1, 1_000_000],
   depth: [0.01, MAX_DEPTH],
-  // at least 0.05 mm a pass: 100 mm deep is 2000 passes at most
-  stepdown: [0.05, MAX_DEPTH],
-  stepover: [0.01, 1],
-  feed: [1, 20_000],
-  plungeFeed: [1, 20_000],
+  stepdown: [0.01, MAX_DEPTH],
+  stepover: [0.01, 10],
+  feed: [1, 1_000_000],
+  plungeFeed: [1, 1_000_000],
   rampAngle: [0.1, 90],
-  safeZ: [0.1, 200],
+  safeZ: [0, 500],
   engraveDepth: [0.01, MAX_DEPTH],
 } as const;
 
-/** The cutting settings of the file that make sense; what does not is left out, not guessed. */
-function settingsOf(v: unknown): Partial<CamSettings> {
-  if (!isObject(v)) return {};
+/**
+ * The cutting settings of the file that make sense; what does not is left out, not guessed – and
+ * said (`dropped`: the names of the settings, as the file had them).
+ */
+function settingsOf(v: unknown): { settings: Partial<CamSettings>; dropped: string[] } {
+  if (!isObject(v)) return { settings: {}, dropped: [] };
   const out: Partial<CamSettings> = {};
+  const dropped: string[] = [];
   for (const key of Object.keys(SETTING_RANGES) as (keyof typeof SETTING_RANGES)[]) {
+    if (v[key] === undefined) continue;
     const [min, max] = SETTING_RANGES[key];
     if (within(v[key], min, max)) out[key] = v[key];
+    else dropped.push(key);
   }
-  if (within(v.allowance, 0, 20)) out.allowance = v.allowance;
+  if (v.allowance !== undefined) {
+    if (within(v.allowance, 0, 20)) out.allowance = v.allowance;
+    else dropped.push('allowance');
+  }
   if (typeof v.climb === 'boolean') out.climb = v.climb;
   if (typeof v.toolId === 'string' && v.toolId !== '') out.toolId = v.toolId;
   const t = v.tabs;
@@ -249,8 +265,10 @@ function settingsOf(v: unknown): Partial<CamSettings> {
     within(t.height, 0.1, MAX_DEPTH)
   ) {
     out.tabs = { count: t.count, width: t.width, height: t.height };
+  } else if (t !== undefined) {
+    dropped.push('tabs');
   }
-  return out;
+  return { settings: out, dropped };
 }
 
 /** Reads a project file strictly: a wrong one is refused with its reason, nothing is half taken. */
@@ -287,6 +305,14 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
   // A side that is cut from the back needs the two-sided state that turns it over
   if (twoSided === null && items.some((i) => i.side === 'back'))
     return { error: 'invalid-project' };
+  const read = settingsOf(raw.settings);
+  const { settings, dropped } = read;
+  // So many passes is no way to cut (and would stall the drawing): this stepdown is left out
+  const deepest = Math.max(settings.depth ?? 0, ...items.map((i) => i.depth ?? 0));
+  if (settings.stepdown !== undefined && Math.ceil(deepest / settings.stepdown) > MAX_PASSES) {
+    delete settings.stepdown;
+    dropped.push('stepdown');
+  }
   return {
     project: {
       name: raw.name.trim(),
@@ -296,7 +322,8 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
       skipped: {},
       notes: [],
     },
-    settings: settingsOf(raw.settings),
+    settings,
+    dropped,
     highestId: Math.max(0, ...ids),
     ...(within(raw.toolDiameter, 0.001, 100) ? { toolDiameter: raw.toolDiameter } : {}),
   };

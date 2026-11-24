@@ -92,6 +92,22 @@ describe('a drawing as a project file', () => {
     expect(items().map(({ contours: _made, ...kept }) => kept)).toEqual(saved);
   });
 
+  it('says which settings of the file it did not take – and takes the rest', () => {
+    drawing();
+    const file = JSON.parse(cam().saveProject()!);
+    cam().close();
+    cam().setSettings({ stepdown: 2, feed: 1500 });
+    file.settings.stepdown = 1e-9;
+    file.settings.feed = 800;
+    expect(cam().openProject(JSON.stringify(file))).toEqual({
+      toolMissing: false,
+      dropped: ['stepdown'],
+    });
+    // the one that is no setting stays as it was, the other came along
+    expect(cam().settings.stepdown).toBe(2);
+    expect(cam().settings.feed).toBe(800);
+  });
+
   it('says when the cutter of the file has another diameter here – the toolpaths follow this one', () => {
     drawing();
     const text = cam().saveProject()!;
@@ -403,9 +419,9 @@ describe('what a project file must be to be opened', () => {
       plungeFeed: 1e9,
       rpm: -5,
       rampAngle: 120,
-      safeZ: 0,
+      safeZ: -1,
       engraveDepth: 'deep',
-      stepover: 5,
+      stepover: 50,
       allowance: 99,
       tabs: { count: 1e9, width: 6, height: 2 },
     })!;
@@ -448,8 +464,43 @@ describe('what a project file must be to be opened', () => {
     });
     // a depth of one part that no cutter reaches
     const deep = good();
-    deep.items[0].depth = 101;
+    deep.items[0].depth = 501;
     expect(error(deep)).toBe('invalid-project');
+    deep.items[0].depth = 500;
+    expect(error(deep)).toBeNull();
+  });
+
+  it('says which settings it left out, and takes what the fields of the CAM take', () => {
+    const read = (settings: Record<string, unknown>, depth?: number) => {
+      const file = good();
+      if (depth !== undefined) file.items[0].depth = depth;
+      return parseProject(JSON.stringify({ ...file, settings: { ...file.settings, ...settings } }));
+    };
+    const ok = (r: ReturnType<typeof parseProject>) =>
+      r as Exclude<ReturnType<typeof parseProject>, { error: string }>;
+    // what the app saved has nothing left out
+    expect(ok(read({})).dropped).toEqual([]);
+    // the fields of the CAM take 0.01 mm of stepdown, 1 % of stepover, any speed above 0, a safe height of 0
+    const edge = ok(read({ stepdown: 0.01, stepover: 0.01, rpm: 1, safeZ: 0, depth: 6 }));
+    expect(edge.dropped).toEqual([]);
+    expect(edge.settings).toMatchObject({ stepdown: 0.01, stepover: 0.01, rpm: 1, safeZ: 0 });
+    // a bahn distance over the cutter's width: the field takes it, so the file does
+    expect(ok(read({ stepover: 1.5 })).settings.stepover).toBe(1.5);
+    expect(ok(read({ stepover: 10.5 })).dropped).toEqual(['stepover']);
+    // what no machine has is named, in the order of the settings
+    const bad = ok(
+      read({ feed: 0, stepdown: 1e-9, tabs: { count: 1e9, width: 6, height: 2 }, allowance: 99 }),
+    );
+    expect(bad.dropped).toEqual(['stepdown', 'feed', 'allowance', 'tabs']);
+    // a stepdown that would make thousands of passes is left out as well (and said)
+    const passes = ok(read({ stepdown: 0.01, depth: 100 }));
+    expect(passes.settings).not.toHaveProperty('stepdown');
+    expect(passes.dropped).toEqual(['stepdown']);
+    // … also by the deepest single part
+    const part = ok(read({ stepdown: 0.05, depth: 6 }, 200));
+    expect(part.dropped).toEqual(['stepdown']);
+    // 2000 passes exactly is still a way to cut
+    expect(ok(read({ stepdown: 0.05, depth: 100 })).dropped).toEqual([]);
   });
 
   it('refuses numbers that are whole but no ids, a circle that is not where its polygon is, a back without turning', () => {

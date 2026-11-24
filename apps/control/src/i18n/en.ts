@@ -2151,6 +2151,8 @@ export const en: DictionaryShape = {
       opened: 'Project “{name}” opened – “Undo” brings the previous drawing back.',
       saved: 'Project saved: {name}',
       toolMissing: 'This tool library has not the project’s cutter – the chosen one stays.',
+      settingsDropped:
+        'Not taken from the file (values no machine has): {list} – what is set now stays.',
       toolDiffers:
         'The project’s cutter was {file} mm in diameter, here it is {now} mm – the toolpaths are made with this one.',
       errors: {

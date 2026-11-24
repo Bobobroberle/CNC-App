@@ -2183,6 +2183,8 @@ export const de = {
       saved: 'Projekt gespeichert: {name}',
       toolMissing:
         'Das Werkzeug des Projekts gibt es in dieser Werkzeugliste nicht – es bleibt das gewählte.',
+      settingsDropped:
+        'Aus der Datei nicht übernommen (Werte, die keine Maschine hat): {list} – es bleibt, was jetzt eingestellt ist.',
       toolDiffers:
         'Das Werkzeug des Projekts hatte {file} mm Durchmesser, hier hat es {now} mm – die Bahnen werden mit dem jetzigen gerechnet.',
       errors: {

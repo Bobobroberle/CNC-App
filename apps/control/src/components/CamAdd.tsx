@@ -145,6 +145,16 @@ export function CamAdd() {
             if (result.toolMissing) {
               addLog('error', t('cam.project.toolMissing'), 'cam.project.toolMissing');
             }
+            if (result.dropped) {
+              const names = result.dropped.map((key) =>
+                t(`cam.${key === 'tabs' ? 'tabCount' : key}` as 'cam.depth'),
+              );
+              addLog(
+                'error',
+                t('cam.project.settingsDropped', { list: names.join(', ') }),
+                'cam.project.settingsDropped',
+              );
+            }
             if (result.toolDiffers) {
               addLog(
                 'error',

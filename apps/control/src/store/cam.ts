@@ -200,10 +200,13 @@ interface CamStore {
    * puts a program on the table by itself: it goes through the drawing's own update, so a job under
    * way and a program that is not the drawing's own are left as they are. Refused files change nothing.
    */
-  openProject(
-    text: string,
-  ):
-    | { toolMissing: boolean; toolDiffers?: { file: number; now: number } }
+  openProject(text: string):
+    | {
+        toolMissing: boolean;
+        toolDiffers?: { file: number; now: number };
+        /** Settings of the file that no machine would have – left out, what is set now stays */
+        dropped?: string[];
+      }
     | { error: ProjectError };
   /** Adds contours as new items, selected for arranging */
   add(contours: Contour[], options?: AddOptions): void;
@@ -861,7 +864,11 @@ export const useCam = create<CamStore>((set, get) => {
         library && file !== undefined && Math.abs(library.diameter - file) > 1e-6
           ? { file, now: library.diameter }
           : undefined;
-      return toolDiffers ? { toolMissing, toolDiffers } : { toolMissing };
+      return {
+        toolMissing,
+        ...(toolDiffers ? { toolDiffers } : {}),
+        ...(parsed.dropped.length > 0 ? { dropped: parsed.dropped } : {}),
+      };
     },
     importFile(name, text) {
       const svg = /\.svg$/i.test(name) || /<svg[\s>]/i.test(text.slice(0, 2000));
