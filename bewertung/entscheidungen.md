@@ -69,7 +69,7 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 - **Reviews:** Teil 2: 19 Funde, 9 bestätigt (6 Sachfehler: laufendes Programm unter der Zeichnung, Reiter ohne Namen, Überlappung bei schmaler Zeile, Menü-Knopf mit langem Namen, CAM öffnet auf 3D, nextStep im CAM) – behoben, nextStep durch Teil 3 erledigt. Teil 3 (zweiter Durchgang): 22 Funde, 17 bestätigt. Behoben: Umbenennung beim ersten Import (das eigene Programm galt als fremd – eine Regression des ersten Fixes), Zeichnung im CAM bei fremdem Programm unsichtbar, Verbindungsabbruch unter dem Job, Serie nahm fremdes Programm mit `take`, veralteter Download, „geändert“ ohne Änderung, Name des aktuellen Reiters unter 620 px, Reiterstreifen bei großer Schrift (jetzt scrollbar), 761–775 px mit Werkzeugliste, Werkzeugwechsel-Empfehlung „Weiter: “ ohne Ziel, Prüfen-Ansicht zwischen zwei Teilen, README/Docs/UI-Texte (Strg+→, Menü-Wege, ③/⑤, „Raum“), verwaiste Texte, Taste „Leertaste“ im Tastenblatt. Nicht angefasst (siehe unten): andere Wege, ein Programm unter einem Job zu laden; veraltetes `stepAt` nach Abbruch.
 
 ## Abnahme Stufe 2 (Prüf-Durchgänge 3 bis 5)
-- **Stand der Tests bei 39ebdea / b289d67:** alle drei E2E-Projekte grün (283 bestanden, 1 übersprungen), `pnpm check` grün (control 624 Tests); jeweils nur nach grünem Lauf gepusht.
+- **Stand der Tests bei 5d0846d (letzter gepushter Stand):** alle drei E2E-Projekte grün (283 bestanden, 1 übersprungen), `pnpm check` grün (control 652 Tests); jeder Stand ist nur nach grünem Lauf gepusht (39ebdea, b289d67, bb24995, 5d0846d).
 - **Prüf-Durchgang 4** (nach der Korrekturrunde, Bereich 01ba42a..HEAD, 3 Blickwinkel mit je 2 Gegenprüfern, 27 Funde, **23 bestätigt**, 4 widerlegt). Umgang mit jedem bestätigten Fund (Nummern wie im Prüfbericht; Spalte „Stand“ wird beim Abarbeiten nachgeführt):
 
 | Nr | Fund | Neu durch uns? | Stand |
@@ -114,7 +114,7 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 ## Stand der Bereichs-Oberfläche
 Stufe 1 (sechs Reiter, kein „Weiter“, nichts unten rechts in Prüfen) und Stufe 2 (im CAM nur das CAM und die Statusleiste) sind gebaut, getestet und gepusht (Abnahme siehe oben). **Stufe 3** (angedockte Hauptaktion je Panel) ist mit Entscheidung 31 freigegeben und kommt nach der Korrekturrunde.
 **Regeln des Betreibers:** vor jedem neuen Programmierpunkt Advisor-Plan; offene Fragen als Auswahl zum Anklicken – in der Nacht gilt Entscheidung 30; nie ein PR, nur grüne Stände.
-Offen: Mutation `start.ts:108` (braucht Test mit React-Rendering, Entscheidung 37), Wächter gegen Funkstille bei sichtbarem, aber ruhendem Steuer-Tab (10 s Übergabe, noch nicht geprüft).
+Erledigt (Entscheidung 37): die Mutation `start.ts:108` („Maschine nicht in Ruhe“) wird jetzt von `test/startHook.test.ts` erfasst (React Testing Library + jsdom, nur als Dev-Abhängigkeit; die drei Nachbarzweige auch). Offen: Wächter gegen Funkstille bei sichtbarem, aber ruhendem Steuer-Tab (10 s Übergabe, noch nicht geprüft).
 
 ## Offene Beobachtungen (nicht behoben, Betreiber informieren)
 **README:** beschreibt an mehreren Stellen noch die Job-Ansichten Vorbereiten/Prüfen/Fertigen/Extras (vor dem Umbau); wird mit Entscheidung 39 komplett umgeschrieben.
