@@ -559,6 +559,9 @@
 .panel-body {
   flex: 1;
   height: 100%;
+  /* A control brought into view (a tap, the quick search, the focus) stops above a docked action,
+     not under it. */
+  scroll-padding-bottom: 5rem;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 2px;

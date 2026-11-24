@@ -1710,3 +1710,21 @@
   font-weight: 700;
   line-height: 1.1;
 }
+
+/*
+ * The docked main action of a card (`ui/dock.tsx`, DESIGN.md §5): sticky to the bottom of the panel
+ * that scrolls, on the card's own surface, reaching out over the card's padding. Opaque, so what
+ * scrolls beneath it never shows through; a line above it says where the card's content ends.
+ */
+.dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-inline: -1rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}

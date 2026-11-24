@@ -20,6 +20,7 @@ import { Label } from '../ui/label';
 import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
 import { Reason } from '../ui/tooltip';
 import { HoldButton } from './HoldButton';
+import { Dock } from '../ui/dock';
 
 const FINE_STEPS = [0.01, 0.1, 1] as const;
 type Reference = 'camera' | 'tool';
@@ -276,11 +277,6 @@ export function SetZeroCard() {
         </li>
         <li>
           <h3>{t('zeroFlow.step4')}</h3>
-          <Reason reason={setReason} className="block w-full">
-            <HoldButton variant="accent" disabled={setReason !== null || !at} onConfirm={set}>
-              {t(`zeroFlow.set.${reference}`)}
-            </HoldButton>
-          </Reason>
           {done ? (
             <Alert variant="success" data-testid="zero-set-done">
               {t('zeroFlow.done')}
@@ -288,6 +284,14 @@ export function SetZeroCard() {
           ) : null}
         </li>
       </ol>
+      {/* The main action of the card, docked: the zero is set from wherever the card is in view. */}
+      <Dock>
+        <Reason reason={setReason} className="block w-full">
+          <HoldButton variant="accent" disabled={setReason !== null || !at} onConfirm={set}>
+            {t(`zeroFlow.set.${reference}`)}
+          </HoldButton>
+        </Reason>
+      </Dock>
     </Card>
   );
 }

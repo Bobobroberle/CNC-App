@@ -22,6 +22,7 @@ import { Card, CardTitle } from '../ui/card';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
+import { Dock } from '../ui/dock';
 
 export type ProbeKind = 'corner' | 'edge' | 'center' | 'toolLength';
 type Kind = ProbeKind;
@@ -313,13 +314,15 @@ export function ProbeWizard({ kind }: { kind: ProbeKind }) {
         </>
       )}
 
-      <HoldButton
-        variant="accent"
-        disabled={!idle || busy || !valid || (kind === 'toolLength' && !setter)}
-        onConfirm={() => void run()}
-      >
-        {busy ? t('probeWizard.running') : t('probeWizard.start')}
-      </HoldButton>
+      <Dock>
+        <HoldButton
+          variant="accent"
+          disabled={!idle || busy || !valid || (kind === 'toolLength' && !setter)}
+          onConfirm={() => void run()}
+        >
+          {busy ? t('probeWizard.running') : t('probeWizard.start')}
+        </HoldButton>
+      </Dock>
 
       {result ? (
         <Alert variant="success" className="justify-items-start gap-y-2" data-testid="probe-result">

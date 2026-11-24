@@ -11,6 +11,7 @@ import { Card, CardTitle } from '../ui/card';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
+import { Dock } from '../ui/dock';
 
 const FIELDS: { key: keyof ProbeSettings; label: Parameters<typeof t>[0]; unit: string }[] = [
   { key: 'plateThickness', label: 'probe.plate', unit: 'mm' },
@@ -81,22 +82,24 @@ export function ProbeCard() {
           {t('probe.save')}
         </Button>
       ) : null}
-      <HoldButton
-        variant="accent"
-        disabled={!idle || busy || changed || values === null}
-        onConfirm={() => {
-          setBusy(true);
-          setDone(false);
-          setUndone(false);
-          setBefore(useMachine.getState().status?.wco[2] ?? null);
-          void probeZ().then((ok) => {
-            setBusy(false);
-            setDone(ok);
-          });
-        }}
-      >
-        {t('probe.start')}
-      </HoldButton>
+      <Dock>
+        <HoldButton
+          variant="accent"
+          disabled={!idle || busy || changed || values === null}
+          onConfirm={() => {
+            setBusy(true);
+            setDone(false);
+            setUndone(false);
+            setBefore(useMachine.getState().status?.wco[2] ?? null);
+            void probeZ().then((ok) => {
+              setBusy(false);
+              setDone(ok);
+            });
+          }}
+        >
+          {t('probe.start')}
+        </HoldButton>
+      </Dock>
       {done ? <Alert variant="warning">{t('probe.removePlate')}</Alert> : null}
       {done && before !== null && nowZ !== undefined ? (
         <Alert

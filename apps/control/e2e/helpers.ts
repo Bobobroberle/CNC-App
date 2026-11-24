@@ -489,3 +489,23 @@ export const onStage = (page: Page, spot: { x: number; y: number }) =>
 /** The first number in a text as it is shown in German ("−4,7" → −4.7). */
 export const numberIn = (text: string | null) =>
   Number((/[−-]?\d+(?:,\d+)?/.exec(text ?? '')?.[0] ?? 'NaN').replace('−', '-').replace(',', '.'));
+
+/**
+ * Measures that a control is in reach: it lies inside the visible area of the container that
+ * scrolls (a panel, the stage's prompt) and a touch at its middle reaches it – `toBeVisible`
+ * cannot see a control that is clipped by a scroll box or covered by another.
+ */
+export async function inReach(page: Page, control: Locator, container: Locator) {
+  const area = (await container.boundingBox())!;
+  const box = (await control.boundingBox())!;
+  const reached = await control.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+  });
+  return {
+    inside: box.y >= area.y - 0.5 && box.y + box.height <= area.y + area.height + 0.5,
+    reached,
+    box,
+    area,
+  };
+}
