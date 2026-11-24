@@ -154,6 +154,68 @@ test.describe('the jog panel', () => {
     await expect(page.getByRole('button', { name: /^X\+/ })).toBeDisabled();
   });
 
+  test('the tool change place and saved places: stored where the machine stands, driven to by a hold that lifts first', async ({
+    page,
+  }) => {
+    await installFakeFluidNC(page);
+    await openApp(page);
+    await status(page, '<Idle|MPos:10.000,20.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
+    await connect(page);
+    await page.getByTestId('jog-toggle').click();
+    await hold(page, /^Referenzfahrt/);
+    await expect.poll(() => sent(page)).toContain('$H');
+    await moreOptions(page, 'jog');
+
+    // Without a tool change place there is no button for it; with one there is.
+    await expect(page.getByTestId('quick-change')).toHaveCount(0);
+    const change = page.getByTestId('change-card');
+    await expect(change).toContainText('Noch keine Werkzeugwechsel-Position gemerkt');
+    await change.getByRole('button', { name: 'Aktuelle Position merken' }).click();
+    await expect(change).toContainText('X 10,0 · Y 20,0');
+    const quick = page.getByTestId('quick-change').locator('button');
+    await status(page, '<Idle|MPos:300.000,400.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
+    await expect(quick).toBeEnabled();
+    await quick.click();
+    expect(await jogs(page)).toEqual([]);
+    await pressAndHold(page, quick);
+    await expect.poll(async () => (await jogs(page)).length).toBe(2);
+    const [lift, drive] = await jogs(page);
+    expect(lift).toMatch(/^\$J=G53 G90 G21 Z1 F/);
+    expect(drive).toMatch(/^\$J=G53 G90 G21 X10 Y20 F/);
+
+    // Saved places: a name is needed, the same name moves the place, a hold drives there.
+    const places = page.getByTestId('waypoints-card');
+    await expect(places).toContainText('Noch kein Merkpunkt');
+    await places.getByRole('button', { name: 'Position merken' }).click();
+    await expect(places).toContainText('Erst einen Namen eintragen');
+    await places.getByLabel('Name des Merkpunkts').fill('Anschlag');
+    await places.getByRole('button', { name: 'Position merken' }).click();
+    const list = page.getByTestId('waypoints-list');
+    await expect(list).toContainText('Anschlag');
+    await expect(list).toContainText('X 300,0 · Y 400,0');
+    await status(page, '<Idle|MPos:50.000,60.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
+    await places.getByLabel('Name des Merkpunkts').fill('anschlag');
+    await places.getByRole('button', { name: 'Position merken' }).click();
+    await expect(list.locator('li')).toHaveCount(1);
+    await expect(list).toContainText('X 50,0 · Y 60,0');
+    await status(page, '<Idle|MPos:300.000,400.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
+    const before = (await jogs(page)).length;
+    const go = places.getByRole('button', { name: /^Anfahren: anschlag/ });
+    await go.click();
+    expect((await jogs(page)).length).toBe(before);
+    await pressAndHold(page, go);
+    await expect.poll(async () => (await jogs(page)).length).toBe(before + 2);
+    expect((await jogs(page))[before + 1]).toMatch(/^\$J=G53 G90 G21 X50 Y60 F/);
+    // They are remembered, and can be deleted
+    await page.reload();
+    await connect(page);
+    await page.getByTestId('jog-toggle').click();
+    await moreOptions(page, 'jog');
+    await expect(page.getByTestId('waypoints-list')).toContainText('anschlag');
+    await page.getByRole('button', { name: /^Merkpunkt „anschlag“ löschen/ }).click();
+    await expect(page.getByTestId('waypoints-card')).toContainText('Noch kein Merkpunkt');
+  });
+
   test('the mouse wheel jogs fine only while its field is held – the axis moved last', async ({
     page,
     hasTouch,

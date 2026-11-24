@@ -359,7 +359,11 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
 - Jog panel (DESIGN.md §5, `JogPanel.tsx`, `JogCard.tsx`): cross with Z (and A) in the axis
   colours of the tokens, step widths 0,01 · 0,1 · 1 · 10 mm · Dauer (`lib/jog.ts`; 100 mm, the
   handwheel, the joystick, single axes, unlocking, the park position and the macros are "Mehr
-  Optionen"), quick actions as holds with their reasons (`quickReason`). **Every way of jogging
+  Optionen"), quick actions as holds with their reasons (`quickReason`; "Werkzeugwechsel" is a fourth one
+  that exists only while a tool change position is stored – `goToChange`, up to the safe height first, like the park
+  place; the cards "Parkposition", "Werkzeugwechsel-Position" – the same `settings.toolChangePosition` as Einstellungen →
+  Werkstatt – and **"Merkpunkte"** (`WaypointsCard`, `lib/spots.ts`: up to 12 named machine X/Y places in
+  `settings.waypoints`, the same name moves the place, `goToWaypoint` lifts first) are "Mehr Optionen" of the jog panel). **Every way of jogging
   goes through the one action layer `store/jog.ts`** (`jogStep`, `jogHold`, `jogStop`, `jogFine`,
   `jogStick`…): buttons, keys, gamepad, handwheel, joystick and the mouse wheel never call the
   machine's jog functions themselves. The layer sends a jog only while the machine takes one,

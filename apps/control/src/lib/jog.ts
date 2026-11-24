@@ -60,7 +60,7 @@ export function wheelSteps(
   return { steps, rest: notches === steps ? total - notches * WHEEL_NOTCH : 0 };
 }
 
-export type QuickAction = 'zero' | 'park' | 'home';
+export type QuickAction = 'zero' | 'park' | 'change' | 'home';
 
 export interface QuickState {
   connected: boolean;
@@ -71,6 +71,8 @@ export interface QuickState {
   zeroSet: boolean;
   /** A park position has been stored */
   park: boolean;
+  /** A tool change position has been stored */
+  change: boolean;
 }
 
 /** Why a quick action cannot be used right now – or null, when it can. */
@@ -83,5 +85,6 @@ export function quickReason(action: QuickAction, s: QuickState): MessageKey | nu
   if (s.state !== 'Idle') return 'jog.reason.busy';
   if (action === 'zero') return s.zeroSet ? null : 'jog.reason.noZero';
   if (!s.homed) return 'jog.reason.notHomed';
+  if (action === 'change') return s.change ? null : 'jog.reason.noChange';
   return s.park ? null : 'jog.reason.noPark';
 }

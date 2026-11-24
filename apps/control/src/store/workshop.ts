@@ -29,6 +29,7 @@ import {
 } from '../lib/companion';
 import { pinFixtures, type FixtureFrame } from '../lib/clamps';
 import { browserStorage, listOf, loadJson, saveJson } from '../lib/persist';
+import { validWaypoints, type Waypoint } from '../lib/spots';
 
 export interface CameraSettings {
   /** Machine offset of the image centre from the spindle axis, mm */
@@ -79,6 +80,8 @@ export interface WorkshopSettings {
   toolChangePosition: { x: number; y: number } | null;
   /** Machine XY the machine is parked at ("Parkposition" of the jog panel); null = none stored */
   parkPosition: { x: number; y: number } | null;
+  /** Places the operator remembered by name ("Merkpunkte" of the jog panel), machine X/Y */
+  waypoints: Waypoint[];
   /** Machine Z for safe travel; null = 2 mm below the top of the Z travel */
   safeMachineZ: number | null;
   companionUrl: string;
@@ -125,6 +128,7 @@ export const DEFAULT_SETTINGS: WorkshopSettings = {
   toolSetter: null,
   toolChangePosition: null,
   parkPosition: null,
+  waypoints: [],
   safeMachineZ: null,
   companionUrl: '',
   notifyBrowser: false,
@@ -212,6 +216,7 @@ function validateSettings(value: unknown): WorkshopSettings | null {
     cornerPlate: { ...DEFAULT_SETTINGS.cornerPlate, ...v.cornerPlate },
     calibration: { ...DEFAULT_SETTINGS.calibration, ...v.calibration },
     recording: { ...DEFAULT_SETTINGS.recording, ...v.recording },
+    waypoints: validWaypoints(v.waypoints),
   };
 }
 

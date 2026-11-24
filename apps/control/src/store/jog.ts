@@ -109,3 +109,17 @@ export function goToPark(): Promise<boolean> {
   if (!parkPosition || !useMachine.getState().homed) return Promise.resolve(false);
   return useMachine.getState().moveTo(parkPosition, true);
 }
+
+/** Quick action: up to the safe height, then to where tools are changed (stored in the settings). */
+export function goToChange(): Promise<boolean> {
+  const { toolChangePosition } = useWorkshop.getState().settings;
+  if (!toolChangePosition || !useMachine.getState().homed) return Promise.resolve(false);
+  return useMachine.getState().moveTo(toolChangePosition, true);
+}
+
+/** Up to the safe height, then to a place the operator remembered by name. */
+export function goToWaypoint(id: string): Promise<boolean> {
+  const point = useWorkshop.getState().settings.waypoints.find((w) => w.id === id);
+  if (!point || !useMachine.getState().homed) return Promise.resolve(false);
+  return useMachine.getState().moveTo({ x: point.x, y: point.y }, true);
+}

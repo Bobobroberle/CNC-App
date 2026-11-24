@@ -18,6 +18,7 @@ import {
 import { JOG_KEYS, JOG_STEP_KEYS, keysFree } from '../lib/shortcuts';
 import { useJob } from '../store/job';
 import {
+  goToChange,
   goToPark,
   goToZero,
   jogFine,
@@ -369,10 +370,21 @@ function QuickActions() {
   const homed = useMachine((s) => s.homed);
   const zeroSet = useMachine((s) => (s.status?.wco ?? []).some((v) => v !== 0));
   const park = useWorkshop((s) => s.settings.parkPosition);
-  const quick = { connected, state, homed, zeroSet, park: park !== null };
+  const change = useWorkshop((s) => s.settings.toolChangePosition);
+  const quick = { connected, state, homed, zeroSet, park: park !== null, change: change !== null };
   const actions: [QuickAction, string, () => void][] = [
     ['zero', t('jog.quick.zero'), () => void goToZero()],
     ['park', t('jog.quick.park'), () => void goToPark()],
+    // Only where there is a place to go to: no button that can never work
+    ...(change !== null
+      ? [
+          ['change', t('jog.quick.change'), () => void goToChange()] as [
+            QuickAction,
+            string,
+            () => void,
+          ],
+        ]
+      : []),
     ['home', t('jog.quick.home'), () => void useMachine.getState().home()],
   ];
   return (

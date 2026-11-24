@@ -687,11 +687,13 @@ export const en: DictionaryShape = {
       noZero: 'No work zero set yet (tab Set up).',
       notHomed: 'Home first: without it the machine does not know where it is.',
       noPark: 'No park position stored yet (here under “More options”).',
+      noChange: 'No tool change position stored yet (here under “More options”).',
     },
     quick: {
       label: 'Quick actions',
       zero: 'Go to zero',
       park: 'Park position',
+      change: 'Tool change',
       home: 'Homing',
     },
     wheel: {
@@ -709,6 +711,28 @@ export const en: DictionaryShape = {
       clear: 'Forget the park position',
       hint: '“Park position” (hold) lifts to the safe height first, then drives there.',
       saved: 'Park position stored: X {x} · Y {y}.',
+    },
+    change: {
+      title: 'Tool change position',
+      none: 'No tool change position stored yet – a job stops for a change where it stands.',
+      at: 'Stored: X {x} · Y {y} mm (machine coordinates)',
+      set: 'Store current position',
+      clear: 'Forget the tool change position',
+      hint: '“Tool change” (hold) lifts to the safe height first and then drives there; a job goes there by itself for a change. The same values are under Settings → Machine → Workshop.',
+      saved: 'Tool change position stored: X {x} · Y {y}.',
+    },
+    waypoints: {
+      title: 'Saved places',
+      empty: 'No saved place yet. Drive there, enter a name, “Save position”.',
+      name: 'Name of the place',
+      set: 'Save position',
+      go: 'Drive to: {name}',
+      remove: 'Delete the place “{name}”',
+      at: 'X {x} · Y {y} mm (machine coordinates)',
+      hint: '“Drive to” (hold) lifts to the safe height first and then drives to the place. The same name again moves the place to the new spot.',
+      saved: 'Place “{name}” saved: X {x} · Y {y}.',
+      full: 'There are at most {max} saved places – delete one first.',
+      needName: 'Enter a name first.',
     },
     more: { homing: 'Single axes and unlock' },
   },
@@ -918,6 +942,10 @@ export const en: DictionaryShape = {
     synced: 'Libraries synced with Companion.',
     online: 'Companion {version} reachable.',
     noRelay: 'No FluidNC relay set up.',
+    backup: 'Pi data backup: latest {name} ({count} kept, once a day).',
+    backupNone: 'Pi data backup: none yet – the first comes with the next run.',
+    backupFailed:
+      'The daily data backup of the Pi failed: {error}. Check the space on the card and the backup folder (LOWRIDER_BACKUP_DIR).',
     camera: 'Camera stream: {url}',
   },
   resume: {
@@ -3079,6 +3107,12 @@ export const en: DictionaryShape = {
       jogZero:
         'go to zero, drive to the work zero, back to zero, g0 x0 y0, return to origin, work origin',
       jogPark: 'park position, park, parking, out of the way, rest position, park the machine',
+      jogChange:
+        'tool change, drive to the tool change position, change tool, change spot, go to tool change, change cutter',
+      changeSet:
+        'store the tool change position, set tool change position, change tool position, save change spot',
+      waypoints:
+        'saved places, save a place, remember position, store positions, bookmark, waypoint, named position, favourite place',
       parkSet:
         'store the park position, set park position, change park position, save parking spot',
       wheelFine:

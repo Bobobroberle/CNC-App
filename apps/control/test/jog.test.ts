@@ -13,7 +13,9 @@ import {
 } from '../src/lib/jog';
 import { JOG_STEP_KEYS } from '../src/lib/shortcuts';
 import {
+  goToChange,
   goToPark,
+  goToWaypoint,
   goToZero,
   jogFine,
   jogHold,
@@ -92,16 +94,23 @@ describe('the mouse wheel', () => {
 });
 
 describe('why a quick action cannot be used', () => {
-  const ok: QuickState = { connected: true, state: 'Idle', homed: true, zeroSet: true, park: true };
+  const ok: QuickState = {
+    connected: true,
+    state: 'Idle',
+    homed: true,
+    zeroSet: true,
+    park: true,
+    change: true,
+  };
 
   it('says nothing when it can', () => {
-    for (const action of ['zero', 'park', 'home'] as const) {
+    for (const action of ['zero', 'park', 'change', 'home'] as const) {
       expect(quickReason(action, ok)).toBeNull();
     }
   });
 
   it('needs a connection first', () => {
-    for (const action of ['zero', 'park', 'home'] as const) {
+    for (const action of ['zero', 'park', 'change', 'home'] as const) {
       expect(quickReason(action, { ...ok, connected: false })).toBe('jog.reason.offline');
     }
   });
@@ -119,6 +128,12 @@ describe('why a quick action cannot be used', () => {
     expect(quickReason('zero', { ...ok, homed: false, park: false })).toBeNull();
     expect(quickReason('park', { ...ok, homed: false })).toBe('jog.reason.notHomed');
     expect(quickReason('park', { ...ok, park: false })).toBe('jog.reason.noPark');
+    // the tool change place is its own: a stored park place does not stand in for it
+    expect(quickReason('change', { ...ok, homed: false })).toBe('jog.reason.notHomed');
+    expect(quickReason('change', { ...ok, change: false })).toBe('jog.reason.noChange');
+    expect(quickReason('change', { ...ok, park: false })).toBeNull();
+    expect(quickReason('park', { ...ok, change: false })).toBeNull();
+    expect(quickReason('change', { ...ok, state: 'Run' })).toBe('jog.reason.busy');
   });
 });
 
@@ -247,5 +262,34 @@ describe('the one action layer of jogging', () => {
     useMachine.setState({ homed: true });
     expect(await goToPark()).toBe(true);
     expect(machine.moveTo).toHaveBeenCalledWith({ x: 5, y: 900 }, true);
+  });
+
+  it('goes to the tool change place only when homed and one is stored – always lifting first', async () => {
+    useWorkshop.setState({ settings: { ...DEFAULT_SETTINGS, toolChangePosition: null } });
+    useMachine.setState({ homed: true });
+    expect(await goToChange()).toBe(false);
+    useWorkshop.setState({
+      settings: { ...DEFAULT_SETTINGS, toolChangePosition: { x: 10, y: 20 } },
+    });
+    useMachine.setState({ homed: false });
+    expect(await goToChange()).toBe(false);
+    expect(machine.moveTo).not.toHaveBeenCalled();
+    useMachine.setState({ homed: true });
+    expect(await goToChange()).toBe(true);
+    expect(machine.moveTo).toHaveBeenCalledWith({ x: 10, y: 20 }, true);
+  });
+
+  it('goes to a saved place by its id, lifting first, when homed', async () => {
+    useWorkshop.setState({
+      settings: { ...DEFAULT_SETTINGS, waypoints: [{ id: 'w1', name: 'Anschlag', x: 40, y: 800 }] },
+    });
+    useMachine.setState({ homed: true });
+    expect(await goToWaypoint('missing')).toBe(false);
+    useMachine.setState({ homed: false });
+    expect(await goToWaypoint('w1')).toBe(false);
+    expect(machine.moveTo).not.toHaveBeenCalled();
+    useMachine.setState({ homed: true });
+    expect(await goToWaypoint('w1')).toBe(true);
+    expect(machine.moveTo).toHaveBeenCalledWith({ x: 40, y: 800 }, true);
   });
 });

@@ -12,33 +12,50 @@ import { Depth } from './Depth';
 import { HomingCard } from './HomingCard';
 import { JogCard } from './JogCard';
 import { MacroButtons } from './MacroButtons';
+import { WaypointsCard } from './WaypointsCard';
 
-/** Where the machine is parked: stored here, driven to by the quick action (a hold). */
-function ParkCard() {
-  const park = useWorkshop((s) => s.settings.parkPosition);
+/** What a stored place says on its card, translated: the park place and the tool change place look alike. */
+interface SpotTexts {
+  title: string;
+  none: string;
+  at: (x: string, y: string) => string;
+  set: string;
+  clear: string;
+  hint: string;
+  saved: (x: string, y: string) => string;
+}
+
+/** A place of the machine stored in the settings (machine X/Y): store it from where the machine stands, forget it. */
+function SpotCard({
+  field,
+  testId,
+  find,
+  texts,
+}: {
+  field: 'parkPosition' | 'toolChangePosition';
+  testId: string;
+  find: string;
+  texts: SpotTexts;
+}) {
+  const spot = useWorkshop((s) => s.settings[field]);
   const homed = useMachine((s) => s.homed);
   const mpos = useMachine((s) => s.status?.mpos);
   const reason = !mpos ? t('jog.reason.offline') : !homed ? t('jog.reason.notHomed') : null;
   const store = () => {
     if (!mpos) return;
     const position = { x: Number((mpos[0] ?? 0).toFixed(3)), y: Number((mpos[1] ?? 0).toFixed(3)) };
-    useWorkshop.getState().setSettings({ parkPosition: position });
+    useWorkshop.getState().setSettings({ [field]: position });
     useMachine
       .getState()
-      .addLog(
-        'info',
-        t('jog.park.saved', { x: formatNumber(position.x, 1), y: formatNumber(position.y, 1) }),
-      );
+      .addLog('info', texts.saved(formatNumber(position.x, 1), formatNumber(position.y, 1)));
   };
   return (
-    <Card className="gap-3 p-4" data-testid="park-card" data-find="park">
-      <CardTitle render={<h2 />}>{t('jog.park.title')}</CardTitle>
+    <Card className="gap-3 p-4" data-testid={testId} data-find={find}>
+      <CardTitle render={<h2 />}>{texts.title}</CardTitle>
       <p className="tabular-nums">
-        {park
-          ? t('jog.park.at', { x: formatNumber(park.x, 1), y: formatNumber(park.y, 1) })
-          : t('jog.park.none')}
+        {spot ? texts.at(formatNumber(spot.x, 1), formatNumber(spot.y, 1)) : texts.none}
       </p>
-      <p className="text-muted-foreground text-sm">{t('jog.park.hint')}</p>
+      <p className="text-muted-foreground text-sm">{texts.hint}</p>
       <div className="flex flex-wrap gap-2">
         <Reason reason={reason} className="flex-1">
           <Button
@@ -48,20 +65,60 @@ function ParkCard() {
             disabled={reason !== null}
             onClick={store}
           >
-            {t('jog.park.set')}
+            {texts.set}
           </Button>
         </Reason>
-        {park ? (
+        {spot ? (
           <Button
             variant="outline"
             className="flex-1"
-            onClick={() => useWorkshop.getState().setSettings({ parkPosition: null })}
+            onClick={() => useWorkshop.getState().setSettings({ [field]: null })}
           >
-            {t('jog.park.clear')}
+            {texts.clear}
           </Button>
         ) : null}
       </div>
     </Card>
+  );
+}
+
+/** Where the machine is parked: stored here, driven to by the quick action (a hold). */
+function ParkCard() {
+  return (
+    <SpotCard
+      field="parkPosition"
+      testId="park-card"
+      find="park"
+      texts={{
+        title: t('jog.park.title'),
+        none: t('jog.park.none'),
+        at: (x, y) => t('jog.park.at', { x, y }),
+        set: t('jog.park.set'),
+        clear: t('jog.park.clear'),
+        hint: t('jog.park.hint'),
+        saved: (x, y) => t('jog.park.saved', { x, y }),
+      }}
+    />
+  );
+}
+
+/** Where tools are changed: the same place the settings hold, stored from where the machine stands. */
+function ChangeSpotCard() {
+  return (
+    <SpotCard
+      field="toolChangePosition"
+      testId="change-card"
+      find="change-spot"
+      texts={{
+        title: t('jog.change.title'),
+        none: t('jog.change.none'),
+        at: (x, y) => t('jog.change.at', { x, y }),
+        set: t('jog.change.set'),
+        clear: t('jog.change.clear'),
+        hint: t('jog.change.hint'),
+        saved: (x, y) => t('jog.change.saved', { x, y }),
+      }}
+    />
   );
 }
 
@@ -90,6 +147,8 @@ export function JogPanel() {
         more={
           <>
             <ParkCard />
+            <ChangeSpotCard />
+            <WaypointsCard />
             <HomingCard />
             <MacroButtons />
           </>

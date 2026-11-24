@@ -698,11 +698,13 @@ export const de = {
       noZero: 'Noch kein Nullpunkt gesetzt (Reiter Einrichten).',
       notHomed: 'Erst die Referenzfahrt: ohne sie kennt die Maschine ihre Position nicht.',
       noPark: 'Noch keine Parkposition gemerkt (hier unter „Mehr Optionen“).',
+      noChange: 'Noch keine Werkzeugwechsel-Position gemerkt (hier unter „Mehr Optionen“).',
     },
     quick: {
       label: 'Schnellaktionen',
       zero: 'Gehe zu Null',
       park: 'Parkposition',
+      change: 'Werkzeugwechsel',
       home: 'Referenzfahrt',
     },
     wheel: {
@@ -720,6 +722,28 @@ export const de = {
       clear: 'Parkposition vergessen',
       hint: '„Parkposition“ (Halten) hebt erst auf die Sicherheitshöhe und fährt dann dorthin.',
       saved: 'Parkposition gemerkt: X {x} · Y {y}.',
+    },
+    change: {
+      title: 'Werkzeugwechsel-Position',
+      none: 'Noch keine Werkzeugwechsel-Position gemerkt – der Job hält zum Wechseln dort, wo er steht.',
+      at: 'Gemerkt: X {x} · Y {y} mm (Maschinenkoordinaten)',
+      set: 'Aktuelle Position merken',
+      clear: 'Werkzeugwechsel-Position vergessen',
+      hint: '„Werkzeugwechsel“ (Halten) hebt erst auf die Sicherheitshöhe und fährt dann dorthin; ein Job fährt beim Wechsel von selbst hin. Dieselben Werte stehen unter Einstellungen → Maschine → Werkstatt.',
+      saved: 'Werkzeugwechsel-Position gemerkt: X {x} · Y {y}.',
+    },
+    waypoints: {
+      title: 'Merkpunkte',
+      empty: 'Noch kein Merkpunkt. Position anfahren, Namen eintragen, „Position merken“.',
+      name: 'Name des Merkpunkts',
+      set: 'Position merken',
+      go: 'Anfahren: {name}',
+      remove: 'Merkpunkt „{name}“ löschen',
+      at: 'X {x} · Y {y} mm (Maschinenkoordinaten)',
+      hint: '„Anfahren“ (Halten) hebt erst auf die Sicherheitshöhe und fährt dann zum Merkpunkt. Derselbe Name noch einmal verschiebt den Merkpunkt an die neue Stelle.',
+      saved: 'Merkpunkt „{name}“ gemerkt: X {x} · Y {y}.',
+      full: 'Mehr als {max} Merkpunkte gibt es nicht – erst einen löschen.',
+      needName: 'Erst einen Namen eintragen.',
     },
     more: { homing: 'Einzelne Achsen und Entsperren' },
   },
@@ -930,6 +954,10 @@ export const de = {
     synced: 'Bibliotheken mit dem Companion abgeglichen.',
     online: 'Companion {version} erreichbar.',
     noRelay: 'Keine FluidNC-Weiterleitung eingerichtet.',
+    backup: 'Datensicherung des Pi: zuletzt {name} ({count} aufbewahrt, einmal am Tag).',
+    backupNone: 'Datensicherung des Pi: noch keine – die erste kommt beim nächsten Lauf.',
+    backupFailed:
+      'Die tägliche Datensicherung des Pi ist fehlgeschlagen: {error}. Platz auf der Karte und der Sicherungsordner (LOWRIDER_BACKUP_DIR) prüfen.',
     camera: 'Kamera-Stream: {url}',
   },
   resume: {
@@ -3135,6 +3163,12 @@ export const de = {
         'gehe zu null, zum nullpunkt fahren, nullpunkt anfahren, go to zero, g0 x0 y0, zurück zum nullpunkt, werkstücknull anfahren',
       jogPark:
         'parkposition, parken, park, wegfahren, aus dem weg, ablage, ruheposition, parkplatz, maschine parken',
+      jogChange:
+        'werkzeugwechsel, wechselposition anfahren, werkzeug wechseln, wechselstelle, zum werkzeugwechsel fahren',
+      changeSet:
+        'werkzeugwechsel-position merken, wechselposition festlegen, wechselposition setzen, wechselstelle speichern, werkzeugwechsel position ändern',
+      waypoints:
+        'merkpunkte, merkpunkt, stelle merken, position merken, positionen speichern, lesezeichen, anfahrpunkt, punkt speichern, lieblingsposition, haltepunkt, wegpunkt, waypoint',
       parkSet:
         'parkposition merken, parkposition festlegen, parkposition setzen, parkposition ändern, parkplatz speichern',
       wheelFine:
