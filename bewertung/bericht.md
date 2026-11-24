@@ -73,6 +73,8 @@ nicht gezählt. Es wurde nicht festgestellt, ob der gezählte Lauf den Job von d
 weil der erste Tipp aufs Bild nur die Auswahl der gezeichneten Form aufhebt. Belege: `B3-1440x900-01…-14` (Auswahl aufgehoben: `-05`, Zielmarke erst
 `-06`; Endzustand `-14`); gleiche Reihe mit `1180x820`.
 
+**Nachtrag: neu gemessen nach der Bereichs-Oberfläche (Stufen 1 bis 3, 1180 × 820, `skripte/a8.cjs`, `skripte/b3.cjs`).** Aufgabe A: **12 Eingaben = 10 Tipps/Halten + 1 Dateiauswahl + 1 Scroll** (vorher 13 mit 2 Scrolls); Aufgabe B: **13 Eingaben = 12 Tipps/Halten + 1 Scroll** (vorher 14 mit 2 Scrolls). Nicht schlechter, je ein Scroll weniger: „Nullpunkt hier setzen“ steht jetzt angedockt am Rand des Bedienfelds und ist ohne Rollen erreichbar. Der eine übrige Scroll gilt „Antasten starten“: die Karte des Zyklus liegt unter den Kacheln und braucht ohnehin einen Blick auf ihre Werte, deshalb dockt erst die Karte, die im Bild ist, ihre Aktion an (die Aktion soll nie sichtbar sein, bevor die Werte darüber es sind). Belege: `A8-1180x820-*.png`, `B3-1180x820-*.png`, `Dock-1280x800-Nullpunkt.png`, `Dock-800x600-Nullpunkt.png`; die Messung der Lage selbst macht `apps/control/e2e/dock.spec.ts` (Kasten des Knopfes im sichtbaren Bedienfeld *und* ein Tipp in seiner Mitte trifft ihn, bei 1280 × 800, 800 × 600 mit Blatt „ganz“, 1180 × 820 und 820 × 1180).
+
 **Was die Zahlen nicht sind:**
 - Die mitgelieferte `lowrider-demo.html` startet *vorbefüllt* (referenziert, Job geladen, Nullpunkt, Werkzeug gesetzt): bis „Läuft“
   nur 2 Eingaben (`D-demo-1/2.png`). Sie ist ein Vorführzustand, **kein Maß**. `lowrider-control.html` ist byte-identisch mit einem

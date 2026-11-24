@@ -33,7 +33,13 @@ React Testing Library und jsdom sind als Dev-Abhängigkeit installiert (`apps/co
 - „Prüfen“ ist tippbar, aber ohne Wirkung, solange ein Job wartet, ohne Grund (Fund 12).
 - `moveTo`/`moveZ` und das Zurücksetzen bei Reset/Alarm des Schritt-Jogs sind nicht einzeln getestet.
 
+## 5b. Stufe 3 – angedockte Hauptaktion (gebaut, gepusht)
+„Nullpunkt hier setzen“, das Antasten und im Werkzeugwechsel „Fortsetzen“/„Abbrechen“ sitzen jetzt am unteren Rand des Bedienfelds (bzw. des Streifens unter dem Bild bei „Großbild“), solange ihre Karte im Bild ist – der Knopf liegt nur einmal vor, in seiner Karte. Gemessen mit `e2e/dock.spec.ts` bei vier Fenstergrößen. Zählung neu: A 12 Eingaben (vorher 13), B 13 (vorher 14). **Festlegungen, bitte prüfen:** das CAM-„G-Code erzeugen“ bleibt absichtlich ungedockt (es ersetzt ein fremdes Programm mit einem Tipp); das Dock sitzt in der Karte, nicht am ganzen Bedienfeld (damit „Antasten starten“ nie sichtbar ist, bevor man die Werte der Karte gesehen hat); auf dem Maschinen-Bildschirm braucht das Blatt dafür die Stellung „ganz“. Screenshots: `bewertung/screenshots/Dock-*.png`.
+
+## 5c. README
+Die README ist komplett auf die sechs Bereiche umgeschrieben (Entscheidung 39): Bereich für Bereich aus dem Code und den deutschen Oberflächentexten, danach von drei Prüfern (Beschriftungen, Orte, Vollständigkeit) gegengelesen, ihre Korrekturen sind eingearbeitet. Sie ist länger geworden (110 statt 40 KB), weil sie jetzt je Bereich beschreibt, was dort wirklich steht – kürzen kannst du jederzeit.
+
 ## 6. Reihenfolge der Nacht und was noch kommt
-Stufe 3 (angedockte Hauptaktion je Panel) in drei Teilen · dann die vier Gruppen der Änderungsliste (Schnittwerte & Lauf-Richtung · Merkpunkte & Werkzeugwechsel-Knopf · Projekte sichern · Kleinkram) · README (Entscheidung 39).
+Stufe 3 ist gebaut · jetzt die vier Gruppen der Änderungsliste (Schnittwerte & Lauf-Richtung · Merkpunkte & Werkzeugwechsel-Knopf · Projekte sichern · Kleinkram) · README (Entscheidung 39).
 
 *(wird fortgeschrieben)*

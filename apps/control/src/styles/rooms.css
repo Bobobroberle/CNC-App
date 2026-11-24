@@ -1728,3 +1728,15 @@
   border-top: 1px solid var(--border);
   background: var(--card);
 }
+
+/* The panel's own bottom padding lies under a sticky box: without this the content that scrolls
+   past would peek through that strip below the dock. */
+.dock::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 0.5rem;
+  background: var(--card);
+}
