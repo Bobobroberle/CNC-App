@@ -19,6 +19,7 @@ import { startRecordingLink } from './store/recording';
 import { startSeries } from './store/series';
 import { startTimelapseRecorder } from './store/timelapse';
 import { startScreenKeeper } from './store/wake';
+import { startStateSync } from './store/stateSync';
 import { startCompanionProbe } from './store/workshop';
 import { startTrackingEngine } from './store/track';
 import { applyTheme, useUi } from './store/ui';
@@ -46,7 +47,10 @@ startFind();
 startKeys();
 startMessages();
 // The demo must not touch a real companion's libraries either.
-if (!isFullDemo()) startCompanionProbe();
+if (!isFullDemo()) {
+  startCompanionProbe();
+  startStateSync();
+}
 startDemo();
 
 createRoot(document.getElementById('root')!).render(

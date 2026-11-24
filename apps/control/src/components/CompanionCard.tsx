@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { t } from '../i18n';
+import { t, type MessageKey } from '../i18n';
 import { relayUrl } from '../lib/companion';
 import { hostOf } from '../lib/link';
 import { useMachine } from '../store/machine';
 import { useShutdown, type ShutdownFailure } from '../store/shutdown';
+import { syncNow, useStateSync } from '../store/stateSync';
 import { adoptCompanion, companion, useWorkshop } from '../store/workshop';
 import { AckMark, useAck } from './Ack';
 import { HoldButton } from './HoldButton';
@@ -67,7 +68,9 @@ export function CompanionCard() {
           disabled={!url}
           onClick={() =>
             void synced.run(() =>
-              syncCompanion().then((ok) => {
+              syncCompanion().then(async (ok) => {
+                // the state of the machine (settings …) goes with the libraries
+                await syncNow();
                 addLog(ok ? 'info' : 'error', t(ok ? 'companion.synced' : 'companion.offline'));
                 return ok;
               }),
@@ -101,8 +104,26 @@ export function CompanionCard() {
           </p>
         )
       ) : null}
+      {url ? <SyncStatus /> : null}
       <ShutdownPanel />
     </Card>
+  );
+}
+
+/** What the exchange of the settings and measurements with the Pi did last, in a line. */
+function SyncStatus() {
+  const { state, lastOkAt } = useStateSync();
+  const text = t(`sync.state.${state}` as MessageKey, {
+    time: lastOkAt === null ? '' : new Date(lastOkAt).toLocaleTimeString('de-DE'),
+  });
+  return state === 'unsupported' || state === 'refused' ? (
+    <Alert variant="warning" data-testid="sync-state">
+      {text}
+    </Alert>
+  ) : (
+    <p className="text-muted-foreground text-sm" data-testid="sync-state">
+      {t('sync.title')}: {text}
+    </p>
   );
 }
 

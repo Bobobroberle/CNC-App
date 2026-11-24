@@ -936,6 +936,45 @@ export const de = {
     nextBlock: 'Nächster Satz',
     stepOff: 'Einzelschritt aus',
   },
+  sync: {
+    title: 'Einstellungen und Messwerte auf dem Pi',
+    state: {
+      off: 'Kein Companion verbunden – Einstellungen und Messwerte bleiben in diesem Browser.',
+      syncing: 'Wird abgeglichen …',
+      ok: 'Auf dem Pi gesichert (zuletzt {time}).',
+      offline: 'Der Pi antwortet nicht – es gilt vorerst nur auf diesem Gerät und wird nachgeholt.',
+      unsupported:
+        'Der Companion auf dem Pi kennt diesen Speicher noch nicht – den Pi mit der neuen Version aktualisieren (setup.sh).',
+      paused: 'Pausiert, solange der Simulator läuft – was dort eingestellt wird, gilt nur dort.',
+      deferred: 'Neuere Werte vom Pi warten, bis die Maschine steht.',
+      refused:
+        'Auf dem Pi liegen Einstellungen, die nicht zu dieser App passen – nichts übernommen.',
+    },
+    now: 'Jetzt abgleichen',
+    refused:
+      'Die Einstellungen auf dem Pi sind unbrauchbar ({field}) – nichts übernommen, nichts überschrieben.',
+    replacedLocal: 'Vom Pi übernommen: {list}. Abweichende Werte dieses Geräts sind ersetzt.',
+    replacedOther:
+      'Ein anderes Gerät hatte {list} gleichzeitig geändert – der Stand dieses Geräts gilt jetzt.',
+    simulatorEnded: 'Simulator beendet: die Einstellungen sind wieder wie vor dem Simulator.',
+    keys: {
+      camera: 'Kamera',
+      calibration: 'Kalibrierung',
+      spindle: 'Spindel',
+      toolSetter: 'Werkzeuglängensensor',
+      toolChangePosition: 'Werkzeugwechsel-Position',
+      parkPosition: 'Parkposition',
+      waypoints: 'Merkpunkte',
+      hiddenFeatures: 'ausgeblendete Funktionen',
+      safeMachineZ: 'sichere Höhe',
+      notifyCompanion: 'Benachrichtigung über den Pi',
+      adaptive: 'adaptiver Vorschub',
+      language: 'Sprache',
+      expertMode: 'Expertenfunktionen',
+      cornerPlate: 'Eckenplatte',
+      recording: 'Aufzeichnung',
+    },
+  },
   companion: {
     shutdownTitle: 'Pi herunterfahren',
     shutdownHint:

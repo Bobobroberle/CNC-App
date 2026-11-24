@@ -267,6 +267,8 @@ interface WorkshopStore {
   addRecord(record: JobRecord, learnFrom?: { chatter: boolean; load?: number }): void;
   clearHistory(): void;
   setSettings(patch: Partial<WorkshopSettings>): void;
+  /** Takes settings that came from the Pi: kept like any other, but not sent back (the sync knows them). */
+  adoptSettings(settings: WorkshopSettings): void;
   setSetup(patch: Partial<JobSetup>): void;
   /**
    * Pins fixtures that are still stored relative to the work zero to the
@@ -464,6 +466,10 @@ export const useWorkshop = create<WorkshopStore>((set, get) => ({
   },
   setSettings(patch) {
     const settings = { ...get().settings, ...patch };
+    set({ settings });
+    saveJson(s, KEYS.settings, settings);
+  },
+  adoptSettings(settings) {
     set({ settings });
     saveJson(s, KEYS.settings, settings);
   },

@@ -925,6 +925,44 @@ export const en: DictionaryShape = {
     nextBlock: 'Next block',
     stepOff: 'Single block off',
   },
+  sync: {
+    title: 'Settings and measurements on the Pi',
+    state: {
+      off: 'No companion connected – settings and measurements stay in this browser.',
+      syncing: 'Syncing …',
+      ok: 'Saved on the Pi (last {time}).',
+      offline:
+        'The Pi does not answer – for now this holds on this device only and is made up for later.',
+      unsupported:
+        'The companion on the Pi does not know this storage yet – update the Pi with the new version (setup.sh).',
+      paused: 'Paused while the simulator runs – what is set there holds there only.',
+      deferred: 'Newer values from the Pi wait until the machine stands still.',
+      refused: 'The Pi holds settings that do not fit this app – nothing taken.',
+    },
+    now: 'Sync now',
+    refused: 'The settings on the Pi are unusable ({field}) – nothing taken, nothing overwritten.',
+    replacedLocal: 'Taken from the Pi: {list}. Different values on this device are replaced.',
+    replacedOther:
+      'Another device had changed {list} at the same time – the state of this device holds now.',
+    simulatorEnded: 'Simulator ended: the settings are as they were before the simulator.',
+    keys: {
+      camera: 'camera',
+      calibration: 'calibration',
+      spindle: 'spindle',
+      toolSetter: 'tool length sensor',
+      toolChangePosition: 'tool change position',
+      parkPosition: 'park position',
+      waypoints: 'saved places',
+      hiddenFeatures: 'hidden functions',
+      safeMachineZ: 'safe height',
+      notifyCompanion: 'notification through the Pi',
+      adaptive: 'adaptive feed',
+      language: 'language',
+      expertMode: 'expert functions',
+      cornerPlate: 'corner plate',
+      recording: 'recording',
+    },
+  },
   companion: {
     shutdownTitle: 'Shut down Pi',
     shutdownHint:

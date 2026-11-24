@@ -92,6 +92,14 @@ export function sensorStreamUrl(base: string): string {
   return `${base.replace(/^http/i, 'ws')}/api/sensors/stream`;
 }
 
+/** What the companion keeps of the machine's state: a document per key with the revision it was written at. */
+export interface StateSnapshot {
+  keys: Record<string, { rev: number; data: unknown }>;
+}
+
+/** The answer to a write: it went in (`rev` is the new revision), or the state had moved on (the current one). */
+export type StatePut = { ok: true; rev: number } | { ok: false; rev: number; data: unknown };
+
 export class CompanionClient {
   constructor(
     readonly base: string,
@@ -134,6 +142,39 @@ export class CompanionClient {
   /** Powers the companion's host down; it answers first, then shuts down. */
   shutdown(): Promise<unknown> {
     return this.request('/api/system/shutdown', { method: 'POST' });
+  }
+
+  /** The documents of the state (`/api/state`); an older companion answers 404. */
+  state(timeoutMs = 8000): Promise<StateSnapshot> {
+    return this.request('/api/state', {
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: 'no-store',
+    });
+  }
+
+  /** Writes a document made from revision `baseRev`; a state that has moved on is refused with the current one. */
+  async putState(key: string, baseRev: number, data: object, timeoutMs = 8000): Promise<StatePut> {
+    const response = await this.fetchFn(`${this.base}/api/state/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseRev, data }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const body = (await response.json().catch(() => null)) as {
+      rev?: unknown;
+      data?: unknown;
+      error?: unknown;
+    } | null;
+    if (response.status === 409 && typeof body?.rev === 'number') {
+      return { ok: false, rev: body.rev, data: body.data };
+    }
+    if (!response.ok || typeof body?.rev !== 'number') {
+      throw new CompanionError(
+        response.status,
+        typeof body?.error === 'string' ? body.error : null,
+      );
+    }
+    return { ok: true, rev: body.rev };
   }
 
   list<T>(collection: string): Promise<T[]> {
