@@ -36,7 +36,14 @@ export function WaypointsCard() {
     change: true,
   });
   // Before homing the machine's coordinates are not the table's: a place stored then is a wrong place after
-  const saveReason = !mpos ? t('jog.reason.offline') : !homed ? t('jog.reason.notHomed') : null;
+  // …and one that stands: a place read while it travels is a place on the way
+  const saveReason = !mpos
+    ? t('jog.reason.offline')
+    : !homed
+      ? t('jog.reason.notHomed')
+      : state !== 'Idle'
+        ? t('jog.reason.busy')
+        : null;
   const store = () => {
     if (!mpos) return;
     const at = { x: mpos[0] ?? 0, y: mpos[1] ?? 0 };
@@ -72,12 +79,16 @@ export function WaypointsCard() {
                   {t('jog.waypoints.at', { x: formatNumber(w.x, 1), y: formatNumber(w.y, 1) })}
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Reason reason={go ? t(go) : null}>
-                  <HoldButton disabled={go !== null} onConfirm={() => void goToWaypoint(w.id)}>
-                    {t('jog.waypoints.go', { name: w.name })}
-                  </HoldButton>
-                </Reason>
+              {/* A hold is as wide as the box it lies in: it gets a box of its own, or – homed and idle,
+                  when no cover is wrapped round it – it fills the row and pushes the × out of the card. */}
+              <div className="flex shrink-0 gap-2">
+                <div className="w-44">
+                  <Reason reason={go ? t(go) : null} className="block w-full">
+                    <HoldButton disabled={go !== null} onConfirm={() => void goToWaypoint(w.id)}>
+                      {t('jog.waypoints.go', { name: w.name })}
+                    </HoldButton>
+                  </Reason>
+                </div>
                 <Button
                   variant="outline"
                   aria-label={t('jog.waypoints.remove', { name: w.name })}

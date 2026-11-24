@@ -29,6 +29,8 @@ export interface BackupStatus {
 }
 
 const NAME = /^lowrider-(\d{4}-\d{2}-\d{2})\.db$/;
+/** What an interrupted copy leaves: the only temporary files that are ours to delete */
+const LEFTOVER = /^lowrider-\d{4}-\d{2}-\d{2}\.db\.tmp$/;
 
 /** The file name of the backup of a day (local time: "today" is the workshop's today). */
 export function backupName(at: number): string {
@@ -39,7 +41,9 @@ export function backupName(at: number): string {
 
 /**
  * What to do with the backups that lie in the folder: make today's unless it is there, and delete
- * the oldest beyond `keep`. Files that are not backups are never touched.
+ * the oldest of the others beyond `keep`. Files that are not backups are never touched. Today's is
+ * never the one to go, whatever the clock said when the others were made: a Pi without a clock that
+ * starts with a wrong date must not make a copy and throw it away again.
  */
 export function planBackup(
   existing: readonly string[],
@@ -49,14 +53,18 @@ export function planBackup(
   const today = backupName(now);
   const mine = existing.filter((n) => NAME.test(n));
   const create = mine.includes(today) ? null : today;
-  const all = [...mine, ...(create ? [create] : [])].sort();
-  const surplus = Math.max(0, all.length - Math.max(1, keep));
-  // Never the one that is just made (the newest name sorts last)
-  return { create, remove: all.slice(0, surplus) };
+  const others = mine.filter((n) => n !== today).sort();
+  const surplus = Math.max(0, others.length - (Math.max(1, keep) - 1));
+  return { create, remove: others.slice(0, surplus) };
 }
 
 /** What a copy needs beyond the database's own size: the copy is compacted, but never smaller than the data. */
 export const ROOM_FOR_COPY = 1.25;
+/**
+ * What must stay free after the copy: the recorder stops a recording – and refuses to start one –
+ * below this (`recorder.ts`), so a backup must not be what takes the card under it.
+ */
+export const KEEP_FREE_BYTES = 1e9;
 
 /**
  * Makes today's backup if it is due and tidies up. The snapshot goes to a temporary name and
@@ -78,13 +86,13 @@ export async function runBackup(opts: {
     await fs.mkdir(dir);
     const names = await fs.list(dir);
     // A leftover of an interrupted run is not a backup: it goes.
-    for (const name of names) if (name.endsWith('.tmp')) await fs.remove(`${dir}/${name}`);
+    for (const name of names) if (LEFTOVER.test(name)) await fs.remove(`${dir}/${name}`);
     const plan = planBackup(names, now, keep);
     if (plan.create) {
       const [need, free] = [await opts.dbSize(), await fs.freeBytes(dir)];
-      if (free < need * ROOM_FOR_COPY) {
+      if (free < need * ROOM_FOR_COPY + KEEP_FREE_BYTES) {
         throw new Error(
-          `not enough free space for a copy (${Math.round(free / 1e6)} MB free, ${Math.round(need / 1e6)} MB database)`,
+          `not enough free space for a copy (${Math.round(free / 1e6)} MB free, ${Math.round(need / 1e6)} MB database, ${Math.round(KEEP_FREE_BYTES / 1e6)} MB stay free)`,
         );
       }
       const tmp = `${dir}/${plan.create}.tmp`;
@@ -107,6 +115,12 @@ export async function runBackup(opts: {
   }
 }
 
+/** The reason a failed child gives – its `Error: …` line, not the script, the stack and the paths. */
+export function reasonOf(stderr: string): string | null {
+  const last = [...stderr.matchAll(/^\w*Error(?:\s*\[[^\]]*\])?: (.+)$/gm)].at(-1);
+  return last ? last[1]!.trim() : null;
+}
+
 /**
  * Makes the copy in a process of its own: a copy of a database that holds job files takes seconds on
  * a card, and the companion also relays PAUSE, jog stop and NOT-HALT – nothing may make those wait.
@@ -123,7 +137,15 @@ export function snapshotInChild(dbPath: string, target: string): Promise<void> {
       process.execPath,
       [...process.execArgv, '-e', script, dbPath, target],
       { timeout: 10 * 60_000 },
-      (error, _out, stderr) => (error ? fail(new Error(stderr.trim() || error.message)) : done()),
+      (error, _out, stderr) =>
+        error
+          ? fail(
+              new Error(
+                reasonOf(stderr) ??
+                  (error.killed ? 'the copy took too long' : 'the copy could not be made'),
+              ),
+            )
+          : done(),
     );
   });
 }

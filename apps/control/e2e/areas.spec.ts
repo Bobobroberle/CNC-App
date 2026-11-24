@@ -191,6 +191,11 @@ test.describe('the jog panel', () => {
     const quick = page.getByTestId('quick-change').locator('button');
     await status(page, '<Idle|MPos:300.000,400.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
     await expect(quick).toBeEnabled();
+    // Four actions: the longest word of a label ("Werkzeugwechsel") fits its button, whatever the width
+    for (const button of await page.getByTestId('jog-quick').locator('button.hold').all()) {
+      const fit = await button.evaluate((el) => ({ need: el.scrollWidth, have: el.clientWidth }));
+      expect(fit.need, await button.innerText()).toBeLessThanOrEqual(fit.have + 1);
+    }
     await quick.click();
     expect(await jogs(page)).toEqual([]);
     await pressAndHold(page, quick);
@@ -207,6 +212,15 @@ test.describe('the jog panel', () => {
     await expect(change.getByRole('button', { name: 'Aktuelle Position merken' })).toBeDisabled();
     await expect(
       change.getByRole('button', { name: 'Werkzeugwechsel-Position vergessen' }),
+    ).toBeDisabled();
+    await status(page, '<Idle|MPos:300.000,400.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
+    await expect(change.getByRole('button', { name: 'Aktuelle Position merken' })).toBeEnabled();
+    // A machine that travels without a job (a jog, a drive to a place): a place read now is a place
+    // on the way – nothing is stored from it
+    await status(page, '<Jog|MPos:305.000,405.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
+    await expect(change.getByRole('button', { name: 'Aktuelle Position merken' })).toBeDisabled();
+    await expect(
+      page.getByTestId('waypoints-card').getByRole('button', { name: 'Position merken' }),
     ).toBeDisabled();
     await status(page, '<Idle|MPos:300.000,400.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
     await expect(change.getByRole('button', { name: 'Aktuelle Position merken' })).toBeEnabled();
@@ -236,6 +250,16 @@ test.describe('the jog panel', () => {
     await pressAndHold(page, go);
     await expect.poll(async () => (await jogs(page)).length).toBe(before + 2);
     expect((await jogs(page))[before + 1]).toMatch(/^\$J=G53 G90 G21 X50 Y60 F/);
+    // Where the place can be driven to the delete button still lies inside its card (the hold is
+    // as wide as the box it is in – it must not push the × out of the row)
+    const cardBox = (await places.boundingBox())!;
+    const cross = page.getByRole('button', { name: /^Merkpunkt „anschlag“ löschen/ });
+    await expect(cross).toBeEnabled();
+    const crossBox = (await cross.boundingBox())!;
+    expect(crossBox.x + crossBox.width).toBeLessThanOrEqual(cardBox.x + cardBox.width);
+    expect(crossBox.x).toBeGreaterThanOrEqual(cardBox.x);
+    const goBox = (await go.boundingBox())!;
+    expect(goBox.x + goBox.width).toBeLessThanOrEqual(crossBox.x);
     // They are remembered, and can be deleted
     await page.reload();
     await connect(page);

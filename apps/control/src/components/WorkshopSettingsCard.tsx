@@ -3,6 +3,7 @@ import { t } from '../i18n';
 import { parseNumber } from '../lib/format';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
+import { useJobUnderWay } from '../store/underway';
 import { safeMachineZ, useWorkshop, type WorkshopSettings } from '../store/workshop';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -33,6 +34,8 @@ export function WorkshopSettingsCard() {
   const zMax = useJob((s) => s.profile.travel.z.max);
   const mpos = useMachine((s) => s.status?.mpos);
   const addLog = useMachine((s) => s.addLog);
+  // A job under way drives to the tool change place itself: it is not changed from here either
+  const underway = useJobUnderWay();
   const [draft, setDraft] = useState(() => toDraft(settings));
   useEffect(() => setDraft(toDraft(settings)), [settings]);
 
@@ -51,14 +54,15 @@ export function WorkshopSettingsCard() {
     spindle.rpmMax >= spindle.rpmMin &&
     spindle.maxFeed > 0 &&
     (safe === null || Number.isFinite(safe)) &&
-    (change === null || (Number.isFinite(change.x) && Number.isFinite(change.y)));
+    (underway || change === null || (Number.isFinite(change.x) && Number.isFinite(change.y)));
 
-  const field = (key: keyof Draft, label: Parameters<typeof t>[0]) => (
+  const field = (key: keyof Draft, label: Parameters<typeof t>[0], disabled = false) => (
     <Field>
       <FieldLabel>{t(label)}</FieldLabel>
       <Input
         type="text"
         inputMode="decimal"
+        disabled={disabled}
         value={draft[key]}
         onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
       />
@@ -107,16 +111,17 @@ export function WorkshopSettingsCard() {
       <h3 className="font-medium text-muted-foreground text-sm" data-find="tool-change">
         {t('workshop.toolChange')}
       </h3>
+      {underway ? <p className="text-muted-foreground text-sm">{t('jog.change.locked')}</p> : null}
       <div className="grid grid-cols-2 gap-2">
-        {field('changeX', 'workshop.changeX')}
-        {field('changeY', 'workshop.changeY')}
+        {field('changeX', 'workshop.changeX', underway)}
+        {field('changeY', 'workshop.changeY', underway)}
       </div>
       <div className="flex gap-3">
         <Button
-          reason="missing"
+          reason={underway ? t('jog.change.locked') : 'missing'}
           variant="outline"
           className="flex-1"
-          disabled={!mpos}
+          disabled={!mpos || underway}
           onClick={() =>
             setDraft({
               ...draft,
@@ -130,6 +135,8 @@ export function WorkshopSettingsCard() {
         <Button
           variant="outline"
           className="flex-1"
+          reason={underway ? t('jog.change.locked') : undefined}
+          disabled={underway}
           onClick={() => setDraft({ ...draft, changeX: '', changeY: '' })}
         >
           {t('workshop.noChangePosition')}
@@ -141,7 +148,11 @@ export function WorkshopSettingsCard() {
         reason="missing"
         disabled={!valid}
         onClick={() => {
-          setSettings({ spindle, safeMachineZ: safe, toolChangePosition: change });
+          setSettings({
+            spindle,
+            safeMachineZ: safe,
+            toolChangePosition: underway ? settings.toolChangePosition : change,
+          });
           addLog('info', t('workshop.saved'));
         }}
       >

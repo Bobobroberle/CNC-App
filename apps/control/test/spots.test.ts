@@ -6,6 +6,7 @@ import {
   validWaypoints,
   type Waypoint,
 } from '../src/lib/spots';
+import { validateSettings } from '../src/store/workshop';
 
 const point = (n: number): Waypoint => ({ id: `w${n}`, name: `Stelle ${n}`, x: n, y: n * 2 });
 
@@ -60,5 +61,17 @@ describe('saved places of the jog panel', () => {
         { id: 'b', name: ' Rand ', x: 3, y: 4, extra: true },
       ]),
     ).toEqual([point(1), { id: 'b', name: 'Rand', x: 3, y: 4 }]);
+  });
+
+  it('are cleaned when the settings are read: what was stored badly never reaches the card', () => {
+    // (the settings spread what was stored over the defaults – without the cleaning, this gets through)
+    const stored = {
+      waypoints: [point(1), null, { id: 'a', name: 'A', x: Number.NaN, y: 1 }, 'x'],
+    };
+    expect(validateSettings(stored)?.waypoints).toEqual([point(1)]);
+    expect(validateSettings({ waypoints: 'x' })?.waypoints).toEqual([]);
+    expect(validateSettings({})?.waypoints).toEqual([]);
+    const many = Array.from({ length: MAX_WAYPOINTS + 3 }, (_, i) => point(i + 1));
+    expect(validateSettings({ waypoints: many })?.waypoints).toHaveLength(MAX_WAYPOINTS);
   });
 });

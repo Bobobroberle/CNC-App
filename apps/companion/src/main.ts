@@ -97,7 +97,15 @@ const backupNow = async () => {
     dbSize: async () =>
       (await stat(dbPath)).size + ((await stat(`${dbPath}-wal`).catch(() => null))?.size ?? 0),
     fs: {
-      mkdir: async (path) => void (await mkdir(path, { recursive: true })),
+      // A folder that was asked for (`LOWRIDER_BACKUP_DIR`) lies on a second medium: with the medium
+      // missing, making its whole path would put the copies on the card the database lies on – so
+      // only the last folder is made, and a missing medium is a failure that the card says.
+      mkdir: async (path) => {
+        const asked = env.LOWRIDER_BACKUP_DIR !== undefined;
+        await mkdir(path, { recursive: !asked }).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== 'EEXIST') throw error;
+        });
+      },
       freeBytes: async (path) => {
         const s = await statfs(path);
         return s.bavail * s.bsize;

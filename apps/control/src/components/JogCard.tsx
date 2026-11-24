@@ -390,6 +390,7 @@ function QuickActions() {
   return (
     <div
       className="jog-quick"
+      data-count={actions.length}
       role="group"
       aria-label={t('jog.quick.label')}
       data-testid="jog-quick"

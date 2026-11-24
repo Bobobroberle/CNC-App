@@ -231,6 +231,12 @@
   gap: 0.5rem;
 }
 
+/* With the tool change button the longest label ("Werkzeugwechsel", one word of ~141 px) needs a
+   wider box than three buttons did: two by two in a narrow panel, instead of a clipped word. */
+.jog-quick[data-count='4'] {
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
 .wheel-fine {
   width: 100%;
   flex-direction: column;

@@ -3,7 +3,7 @@
 Stand: wird von mir Stufe für Stufe fortgeschrieben. **Alles, was unten als „Festlegung, bitte prüfen“ steht, habe ich nach deiner Regel 30 selbst festgelegt, weil es nur du entscheiden kannst – prüfe es, wenn du ausgeschlafen bist.** Gepusht ist nur, was alle drei E2E-Projekte und `pnpm check` grün bestanden hat; nie ein PR, nie Force-Push, nur dieser Branch (`claude/compassionate-edison-bb2m7p`).
 
 ## 1. Stand in einem Satz
-Stufe 1 und 2 der Bereichs-Oberfläche (sechs Reiter, im CAM nur das CAM) sind gebaut, geprüft und abgenommen; vier Prüf-Durchgänge mit Gegenprüfern haben das Programm-Schloss, den Start zwischen zwei Teilen, den Schritt-Jog und den Stream-Abbruch gehärtet. Stufe 3 (angedockte Hauptaktion) und die Änderungsliste folgen.
+Die Bereichs-Oberfläche ist in allen drei Stufen gebaut (sechs Reiter, im CAM nur das CAM, angedockte Hauptaktion), vier Prüf-Durchgänge mit Gegenprüfern haben Programm-Schloss, Start zwischen zwei Teilen, Schritt-Jog und Stream-Abbruch gehärtet, und die vier Gruppen der Änderungsliste sind bearbeitet (Update-Knopf und Farben nur als Entwurf bzw. Inventar – das sind deine Entscheidungen). Offen bleibt, was nur an der Maschine zu klären ist, und deine Festlegungen unter 3 und 5d.
 
 ## 2. Was gepusht ist (alle grün: 283 E2E bestanden/1 übersprungen, `pnpm check` mit 652 Tests)
 | Commit | Inhalt |
@@ -39,10 +39,25 @@ React Testing Library und jsdom sind als Dev-Abhängigkeit installiert (`apps/co
 ## 5c. README
 Die README ist komplett auf die sechs Bereiche umgeschrieben (Entscheidung 39): Bereich für Bereich aus dem Code und den deutschen Oberflächentexten, danach von drei Prüfern (Beschriftungen, Orte, Vollständigkeit) gegengelesen, ihre Korrekturen sind eingearbeitet. Sie ist länger geworden (110 statt 40 KB), weil sie jetzt je Bereich beschreibt, was dort wirklich steht – kürzen kannst du jederzeit.
 
-## 5d. Änderungsliste (Entscheidung 38) – bis jetzt
-Gruppe 1 (Lauf-Richtung je Teil, eigene Schnittwerte je Werkzeug), Gruppe 2 (Werkzeugwechsel-Knopf, Merkpunkte) und die automatische Datensicherung der Pi-Datenbank sind gebaut und getestet; Einzelheiten und alle **Festlegungen, bitte prüfen** stehen im Entscheidungsprotokoll unter „Änderungsliste – Stand der Nacht“. Die wichtigsten zum Prüfen: (a) der Sicherungsordner liegt standardmäßig **auf derselben Karte** wie die Datenbank – für echte Sicherheit `LOWRIDER_BACKUP_DIR` auf einen USB-Stick; (b) **die SD-Liste, „Programm starten“ und „Ab Zeile fortsetzen“ zeigen die Startbestätigungen nicht** (Vorschlag und Begründung im Protokoll) – das habe ich bewusst nicht allein geändert; (c) ein eingetippter Vorschub am Werkzeug wird vom Lernen nicht verändert.
+## 5d. Änderungsliste (Entscheidung 38) – alle vier Gruppen bearbeitet
+Einzelheiten und alle **Festlegungen, bitte prüfen** stehen im Entscheidungsprotokoll unter „Änderungsliste – Stand der Nacht“.
 
-## 6. Reihenfolge der Nacht und was noch kommt
-Stufe 3 ist gebaut · jetzt die vier Gruppen der Änderungsliste (Schnittwerte & Lauf-Richtung · Merkpunkte & Werkzeugwechsel-Knopf · Projekte sichern · Kleinkram) · README (Entscheidung 39).
+| Gruppe | Stand |
+|---|---|
+| 1 · Schnittwerte & Lauf-Richtung | gebaut und getestet: Laufrichtung je Teil, eigene Schnittwerte je Werkzeug |
+| 2 · Merkpunkte & Werkzeugwechsel-Knopf | gebaut und getestet (vier Schnellaktionen bei 800 × 600 / 384-px-Feld noch nicht ausgemessen) |
+| 3 · Projekte sichern | gebaut und getestet: Projektdatei `*.lowrider.json` speichern/öffnen; tägliche Datensicherung der Pi-Datenbank |
+| 4 · Kleinkram | Messprotokoll Kamera (Dokument) · Update-Knopf **nur als Entwurf** (`docs/update-konzept.md`, braucht zuerst eine Anmeldung am Companion – deine Entscheidung) · Farben **nur Inventar und Vorschlag** (`bewertung/farben-inventar.md`, nichts geändert) · **Ausblend-Schalter gebaut** (Einstellungen → Maschine → Funktionen) |
 
-*(wird fortgeschrieben)*
+**Die wichtigsten Festlegungen zum Prüfen:**
+(a) Der Sicherungsordner der Pi-Datenbank liegt standardmäßig **auf derselben Karte** wie die Datenbank – für echte Sicherheit `LOWRIDER_BACKUP_DIR` auf einen USB-Stick.
+(b) **Die SD-Liste, „Programm starten“ und „Ab Zeile fortsetzen“ zeigen die Startbestätigungen nicht** (Vorschlag und Begründung im Protokoll) – bewusst nicht allein geändert.
+(c) Ein eingetippter Vorschub am Werkzeug wird vom Lernen nicht verändert; für gebohrte Löcher gibt es keine Richtungswahl.
+(d) Das Projekt ist nur eine **Datei**, nicht auf dem Pi gesichert; der Projektname wird beim Rückgängig nicht zurückgesetzt.
+(e) **Ausblend-Schalter:** wählbar sind nur Serie auf Rohlingen, Vorrichtungen mit Markern und Makros (Wenden und Abschnitte nicht, weil ihre Startklar-Punkte den Start sperren können; Material nicht, es liefert die Schnittwerte). Es verschwinden nur die **Einstiege** – die Hintergrunddienste laufen weiter (z. B. das Erkennen von Markern alle 0,7 s). Ein Ablauf, der für den geladenen Job läuft, **bleibt sichtbar**, auch wenn er ausgeblendet ist; die Suche führt eine ausgeblendete Funktion zur Karte „Funktionen“ zurück.
+(f) Farben: Rot trägt mehr als Alarm und NOT-HALT (gesperrter Start, Fehler im G-Code, gefährliche Halten-Tasten) – das ist eine Gestaltungsentscheidung; im Inventar steht mein Rat dazu.
+
+## 6. Reihenfolge der Nacht
+Stufe 3 gebaut · die vier Gruppen der Änderungsliste (Schnittwerte & Lauf-Richtung · Merkpunkte & Werkzeugwechsel-Knopf · Projekte sichern · Kleinkram) · README (Entscheidung 39) · Prüf-Durchgang über Gruppe 1 bis 3.
+
+**Was ich dir zum Entscheiden hinterlasse (kurz):** (1) Startbestätigungen auch für SD-Liste, „Programm starten“ und „Ab Zeile fortsetzen“? (2) Wie sollen Geräte am Companion angemeldet werden – davon hängt der Update-Knopf ab? (3) Soll Rot nur noch Notfall, Alarm und kritische Meldung tragen (Farben-Inventar)? (4) Sicherungsordner der Pi-Datenbank auf einen USB-Stick? (5) Sollen auch Wenden und Abschnitte ausblendbar sein (dann braucht ihr Startklar-Punkt einen anderen Weg)?

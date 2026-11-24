@@ -45,10 +45,19 @@ function SpotCard({
   const spot = useWorkshop((s) => s.settings[field]);
   const homed = useMachine((s) => s.homed);
   const mpos = useMachine((s) => s.status?.mpos);
+  const state = useMachine((s) => s.status?.state);
   const underway = useJobUnderWay();
   const locked = lockedUnderJob !== undefined && underway ? lockedUnderJob : null;
+  // Only from a machine that stands: a place read while it travels is a place on the way
   const reason =
-    locked ?? (!mpos ? t('jog.reason.offline') : !homed ? t('jog.reason.notHomed') : null);
+    locked ??
+    (!mpos
+      ? t('jog.reason.offline')
+      : !homed
+        ? t('jog.reason.notHomed')
+        : state !== 'Idle'
+          ? t('jog.reason.busy')
+          : null);
   const store = () => {
     if (!mpos) return;
     const position = { x: Number((mpos[0] ?? 0).toFixed(3)), y: Number((mpos[1] ?? 0).toFixed(3)) };
