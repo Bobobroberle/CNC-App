@@ -3,7 +3,9 @@ import { CompanionError } from '../src/lib/companion';
 import { same, type Doc } from '../src/lib/stateSync';
 import {
   startStateSync,
+  syncNow,
   syncOnce,
+  useStateSync,
   type Deps,
   type Meta,
   type Slice,
@@ -97,6 +99,12 @@ function rig(initial: Doc = DEFAULTS) {
   };
 }
 
+/** A device and a Pi that have both met before, with nothing set: revision 1, the defaults. */
+async function first(r: ReturnType<typeof rig>) {
+  r.pi.seed('settings', { ...DEFAULTS });
+  await syncOnce(r.deps);
+}
+
 describe('the exchange with the Pi, one round', () => {
   let r: ReturnType<typeof rig>;
   beforeEach(() => {
@@ -119,6 +127,16 @@ describe('the exchange with the Pi, one round', () => {
     expect(await syncOnce(r.deps)).toBe('offline');
     expect(r.metaMap.size).toBe(0);
     expect(r.applied).toEqual([]);
+  });
+
+  it('writes nothing for a state that is still the defaults, on a Pi that has none', async () => {
+    expect(await syncOnce(r.deps)).toBe('ok');
+    expect(r.pi.calls).toEqual(['state']);
+    expect(r.metaMap.size).toBe(0);
+    // the first thing set here is the first thing said
+    r.edit({ camera: 'calibrated' });
+    await syncOnce(r.deps);
+    expect(r.pi.calls).toEqual(['state', 'state', 'put:settings@0']);
   });
 
   it('puts its own state on a Pi that has none – and then leaves it alone', async () => {
@@ -170,7 +188,7 @@ describe('the exchange with the Pi, one round', () => {
   });
 
   it('sends a change from the revision it knows, and takes a change of another device', async () => {
-    await syncOnce(r.deps);
+    await first(r);
     r.edit({ places: 'P1' });
     r.pi.calls.length = 0;
     await syncOnce(r.deps);
@@ -184,7 +202,7 @@ describe('the exchange with the Pi, one round', () => {
   });
 
   it('merges a change of this device and another one of the Pi in the same round', async () => {
-    await syncOnce(r.deps);
+    await first(r);
     r.edit({ camera: 'mine' });
     r.pi.seed('settings', { ...(r.pi.data('settings') as Doc), places: 'theirs' }, 2);
     await syncOnce(r.deps);
@@ -195,7 +213,7 @@ describe('the exchange with the Pi, one round', () => {
   });
 
   it('writes again from the new revision when another device wrote in between – and loses nothing of either', async () => {
-    await syncOnce(r.deps);
+    await first(r);
     r.edit({ camera: 'mine' });
     let once = true;
     r.pi.beforePut = () => {
@@ -212,7 +230,7 @@ describe('the exchange with the Pi, one round', () => {
   });
 
   it('gives up after a few lost races and leaves the rest for the next round', async () => {
-    await syncOnce(r.deps);
+    await first(r);
     r.edit({ camera: 'mine' });
     let rev = 1;
     r.pi.beforePut = () =>
@@ -222,7 +240,7 @@ describe('the exchange with the Pi, one round', () => {
   });
 
   it('names a key both devices changed (this device’s value stays)', async () => {
-    await syncOnce(r.deps);
+    await first(r);
     r.edit({ camera: 'mine' });
     r.pi.seed('settings', { ...(r.pi.data('settings') as Doc), camera: 'theirs' }, 2);
     await syncOnce(r.deps);
@@ -243,7 +261,7 @@ describe('the exchange with the Pi, one round', () => {
 
   describe('while the machine moves or a job runs', () => {
     it('takes nothing from the Pi: it waits, and takes it when the machine stands', async () => {
-      await syncOnce(r.deps);
+      await first(r);
       r.pi.seed('settings', { ...(r.pi.data('settings') as Doc), places: 'moved at the Pi' }, 2);
       r.state.safe = false;
       expect(await syncOnce(r.deps)).toBe('deferred');
@@ -255,7 +273,7 @@ describe('the exchange with the Pi, one round', () => {
     });
 
     it('still sends what this device changed, when the Pi has not moved on', async () => {
-      await syncOnce(r.deps);
+      await first(r);
       r.edit({ camera: 'recalibrated' });
       r.state.safe = false;
       expect(await syncOnce(r.deps)).toBe('ok');
@@ -264,7 +282,7 @@ describe('the exchange with the Pi, one round', () => {
     });
 
     it('sends nothing that would need the Pi’s values first', async () => {
-      await syncOnce(r.deps);
+      await first(r);
       r.edit({ camera: 'recalibrated' });
       r.pi.seed('settings', { ...(r.pi.data('settings') as Doc), places: 'moved at the Pi' }, 2);
       r.state.safe = false;
@@ -311,7 +329,7 @@ describe('the exchange with the Pi, one round', () => {
     });
 
     it('sends nothing that cannot be a state of this app, not even its own', async () => {
-      await syncOnce(r.deps);
+      await first(r);
       r.edit({ bad: 1 });
       r.pi.calls.length = 0;
       expect(await syncOnce(r.deps)).toBe('refused');
@@ -341,6 +359,7 @@ describe('the running exchange', () => {
 
   it('sends a change soon, not at every keystroke', async () => {
     const r = rig();
+    r.pi.seed('settings', { ...DEFAULTS });
     const stop = startStateSync(60_000, r.deps);
     await vi.advanceTimersByTimeAsync(2000);
     r.pi.calls.length = 0;
@@ -381,5 +400,58 @@ describe('the running exchange', () => {
     expect(r.pi.calls).toEqual([]);
     expect(same(r.pi.data('settings'), r.app())).toBe(true);
     stop();
+  });
+});
+
+describe('the round as the operator sees it', () => {
+  it('says how it went, and takes the log of measurements along only when the Pi answered', async () => {
+    const r = rig();
+    const log = vi.fn(async () => {});
+    r.deps.afterRound = log;
+    await syncNow(r.deps);
+    expect(useStateSync.getState().state).toBe('ok');
+    expect(useStateSync.getState().lastOkAt).not.toBeNull();
+    expect(log).toHaveBeenCalledTimes(1);
+
+    r.pi.down = 'offline';
+    await syncNow(r.deps);
+    expect(useStateSync.getState().state).toBe('offline');
+    r.pi.down = 404;
+    await syncNow(r.deps);
+    expect(useStateSync.getState().state).toBe('unsupported');
+    r.pi.down = null;
+    r.state.simulator = true;
+    await syncNow(r.deps);
+    expect(useStateSync.getState().state).toBe('paused');
+    r.state.simulator = false;
+    r.state.client = null;
+    await syncNow(r.deps);
+    expect(useStateSync.getState().state).toBe('off');
+    expect(log).toHaveBeenCalledTimes(1);
+
+    // the Pi answered, but its newer values wait for the machine to stand: the log still goes
+    r.state.client = r.pi;
+    await syncNow(r.deps);
+    r.pi.seed('settings', { ...(r.pi.data('settings') as Doc), places: 'moved at the Pi' }, 9);
+    r.state.safe = false;
+    await syncNow(r.deps);
+    expect(useStateSync.getState().state).toBe('deferred');
+    expect(log).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not run two rounds at once: a request meanwhile makes one more after it', async () => {
+    const r = rig();
+    let release: () => void = () => {};
+    const slow = new Promise<void>((resolve) => (release = resolve));
+    const state = r.pi.state.bind(r.pi);
+    r.pi.state = async () => {
+      await slow;
+      return state();
+    };
+    const first = syncNow(r.deps);
+    const second = syncNow(r.deps);
+    release();
+    await Promise.all([first, second]);
+    await vi.waitFor(() => expect(r.pi.calls.filter((c) => c === 'state').length).toBe(2));
   });
 });

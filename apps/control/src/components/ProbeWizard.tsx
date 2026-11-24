@@ -14,6 +14,7 @@ import { t } from '../i18n';
 import { formatCoordinate, formatSigned, parseNumber } from '../lib/format';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
+import { useMeasurements } from '../store/measurements';
 import { useWorkshop } from '../store/workshop';
 import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
@@ -348,6 +349,7 @@ export function ProbeWizard({ kind }: { kind: ProbeKind }) {
                     className="flex-1"
                     onClick={() => {
                       setToolReferenceZ(result.r.z!);
+                      useMeasurements.getState().record('tool-reference', { z: result.r.z! });
                       addLog('info', t('probeWizard.referenceSaved'));
                     }}
                   >

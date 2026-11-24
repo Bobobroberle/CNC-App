@@ -925,6 +925,32 @@ export const en: DictionaryShape = {
     nextBlock: 'Next block',
     stepOff: 'Single block off',
   },
+  measurements: {
+    title: 'Measurement log',
+    hint: 'Every measurement and every correction of the machine, with time and values – they are on the Pi too and on every device. What is measured in the simulator is not in it.',
+    empty: 'Nothing measured yet.',
+    kinds: {
+      'camera-scale': 'Camera: scale',
+      'camera-offset': 'Camera: offset',
+      'machine-grid': 'Measuring the machine: grid',
+      'machine-backlash': 'Backlash',
+      'machine-tilt': 'Z tilt',
+      'ruler-check': 'Accuracy check with a rule',
+      correction: 'Correction written to config.yaml',
+      'tool-reference': 'Reference tool',
+    },
+    summary: {
+      cameraScale: '{px} px/mm · rotation {angle}° · camera height Z {z}',
+      cameraOffset: 'Offset X {x} · Y {y} mm',
+      machineGrid: 'Scale X {sx} % · Y {sy} % · squareness {sq}° · {points} points{turned}',
+      turned: ' (plate turned)',
+      machineBacklash: 'Backlash X {x} · Y {y} mm',
+      machineTilt: 'Tilt X {x}° · Y {y}° ({per100} mm per 100 mm)',
+      rulerCheck: '{w} × {h} mm: scale X {sx} % · Y {sy} % · squareness {sq}°',
+      correction: '{list}',
+      toolReference: 'Z {z}',
+    },
+  },
   sync: {
     title: 'Settings and measurements on the Pi',
     state: {
@@ -3253,6 +3279,8 @@ export const en: DictionaryShape = {
       share:
         'share the profile, export, import, back up, backup, pass on, qr, save the profile, save the settings',
       calibrate: 'calibrate, calibration, measure, accuracy, adjust, steps per mm, steps',
+      measurements:
+        'measurement log, measurements, measured values, log, calibration values, what was measured, correction written, camera offset, find values again, protocol',
       accuracy:
         'accuracy, ruler, dimension check, is the size right, steps per mm, measure again, travelled too short, travelled too far',
       calibration:

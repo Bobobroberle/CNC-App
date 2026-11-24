@@ -11,6 +11,7 @@ import { Card, CardTitle } from '../../ui/card';
 import { SegmentedControl, SegmentedControlItem } from '../../ui/segmented-control';
 import { AccuracyCheck } from '../AccuracyCheck';
 import { CalibrationWizard } from '../CalibrationWizard';
+import { MeasurementLog } from '../MeasurementLog';
 import { CameraSetupCard } from '../CameraSetupCard';
 import { CompanionCard } from '../CompanionCard';
 import { ConfigEditor } from '../ConfigEditor';
@@ -95,6 +96,7 @@ export function ServiceArea() {
           <>
             <AccuracyCheck />
             <CalibrationWizard />
+            <MeasurementLog />
           </>
         ) : null}
       </div>

@@ -1005,6 +1005,11 @@ Maschine zu vermessen und zu korrigieren; Anleitung: [`docs/kalibrierung.md`](do
 - Grenzen: Gemessen wird im Stand – wie genau die Maschine unter Last fräst, zeigt nur ein
   Probeschnitt. **Die Grenze ist die Tafel**; sie deckt nur einen Ausschnitt ab, für den Maßstab
   über die ganze Y-Länge an mehreren Stellen messen oder eine längere Referenz nehmen.
+- **Messprotokoll** (darunter, in _Service → Kalibrieren_): jede Messung und jede Korrektur der
+  Maschine mit Zeit und Werten – Kamera-Maßstab und -Versatz, Raster, Umkehrspiel, Z-Schiefe,
+  Genauigkeits-Check mit Lineal, Referenz-Werkzeug und **jede Korrektur, die in die `config.yaml`
+  geschrieben wurde** (alter und neuer Wert). Die Einträge liegen auch auf dem Pi und sind auf jedem
+  Gerät da; was im Simulator gemessen wird, steht nicht darin.
 
 ### Einstellungen
 
@@ -1034,7 +1039,17 @@ Breite, nur _Kamera_ behält das Bild.
     Companion zusammengeführt), Version, Weiterleitung und Kamera-Stream des Companion; _Pi
     herunterfahren_ (Halten, nur bei stehender Maschine; die Fräse bleibt an) vor dem Ausstecken. Der
     Companion sichert seine Datenbank einmal am Tag (die letzten 7 Kopien, neben der Datenbank oder
-    in `LOWRIDER_BACKUP_DIR`); die Karte zeigt die letzte Sicherung oder den Fehler.
+    in `LOWRIDER_BACKUP_DIR`); die Karte zeigt die letzte Sicherung oder den Fehler. **Einstellungen
+    und Messwerte liegen auf dem Pi:** alles, was zur Maschine gehört (Kamera-Maßstab und -Versatz,
+    Kamerahöhe, Parkposition, Werkzeugwechsel-Position, Merkpunkte, Kalibrierwerte, Spindelgrenzen,
+    Klemmen auf dem Tisch, Makros, ausgeblendete Funktionen, Lernwerte, Maschinenwerte und das
+    _Messprotokoll_), wird kurz nach jeder Änderung auf dem Pi abgelegt und ist auf jedem Gerät da,
+    das den Pi erreicht; eine Zeile der Karte sagt, wann es zuletzt geklappt hat. Der Browser behält
+    eine Kopie für den Fall, dass der Pi weg ist, und holt es nach. Am Gerät bleiben die Adresse des
+    Pi, die Benachrichtigungen dieses Browsers, die Bildquelle der Kamera, das Aussehen, die
+    Fotokarte und die zuletzt benutzten Jobs. Neue Werte vom Pi übernimmt die App nur, solange nichts
+    fährt und kein Job läuft; im Simulator wird nichts abgeglichen. Ein Pi mit alter Version wird
+    erkannt (die Karte sagt es), alles andere geht weiter.
   - Karte _Simulator_ nur, solange der Simulator verbunden ist – siehe **Simulator**.
 - _Maschine:_ _Darstellung_ (_Dunkel_ oder _Hell_, wird gemerkt), danach eingeklappt
   _Maschinenprofil_, _Werkstatt und Benachrichtigungen_ und _Makros_, die Karte _Funktionen_ (je ein

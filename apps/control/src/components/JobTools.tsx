@@ -13,6 +13,7 @@ import { formatCoordinate, formatNumber } from '../lib/format';
 import { feedRatio } from '../lib/setup';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
+import { useMeasurements } from '../store/measurements';
 import { useJobTools, type JobTool } from '../store/steps';
 import { useUi } from '../store/ui';
 import { useWorkshop } from '../store/workshop';
@@ -114,6 +115,7 @@ function MeasureLength({ tool }: { tool: Tool }) {
               className="flex-1"
               onClick={() => {
                 setToolReferenceZ(z);
+                useMeasurements.getState().record('tool-reference', { z });
                 addLog('info', t('probeWizard.referenceSaved'));
               }}
             >

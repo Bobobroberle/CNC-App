@@ -7,6 +7,7 @@ import { findMarker, toGray } from '../lib/markers';
 import { cropAround, snapsTo } from '../lib/measure';
 import { isSimulatorAddress, simulatorCamera, stopSimulatorCamera } from '../sim';
 import { useMachine } from './machine';
+import { useMeasurements } from './measurements';
 import { useWorkshop } from './workshop';
 
 /** `sim`: the picture of the simulated camera (simulator mode) */
@@ -207,6 +208,11 @@ export const useCamera = create<CameraStore>((set, get) => ({
           scaleCalibrated: true,
           focusHeight: workZ === undefined ? null : Number(workZ.toFixed(2)),
         },
+      });
+      useMeasurements.getState().record('camera-scale', {
+        pxPerMm: r.pxPerMm,
+        rotation: r.rotation,
+        focusHeight: workZ === undefined ? null : Number(workZ.toFixed(2)),
       });
       addLog(
         'info',

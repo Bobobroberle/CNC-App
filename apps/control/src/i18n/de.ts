@@ -936,6 +936,32 @@ export const de = {
     nextBlock: 'Nächster Satz',
     stepOff: 'Einzelschritt aus',
   },
+  measurements: {
+    title: 'Messprotokoll',
+    hint: 'Jede Messung und jede Korrektur der Maschine, mit Zeit und Werten – sie liegen auch auf dem Pi und sind auf jedem Gerät da. Was im Simulator gemessen wird, steht nicht darin.',
+    empty: 'Noch nichts gemessen.',
+    kinds: {
+      'camera-scale': 'Kamera: Maßstab',
+      'camera-offset': 'Kamera: Versatz',
+      'machine-grid': 'Maschine vermessen: Raster',
+      'machine-backlash': 'Umkehrspiel',
+      'machine-tilt': 'Z-Schiefe',
+      'ruler-check': 'Genauigkeits-Check mit Lineal',
+      correction: 'Korrektur in config.yaml geschrieben',
+      'tool-reference': 'Referenz-Werkzeug',
+    },
+    summary: {
+      cameraScale: '{px} px/mm · Drehung {angle}° · Kamerahöhe Z {z}',
+      cameraOffset: 'Versatz X {x} · Y {y} mm',
+      machineGrid: 'Maßstab X {sx} % · Y {sy} % · Rechtwinkligkeit {sq}° · {points} Punkte{turned}',
+      turned: ' (Tafel gedreht)',
+      machineBacklash: 'Umkehrspiel X {x} · Y {y} mm',
+      machineTilt: 'Neigung X {x}° · Y {y}° ({per100} mm auf 100 mm)',
+      rulerCheck: '{w} × {h} mm: Maßstab X {sx} % · Y {sy} % · Rechtwinkligkeit {sq}°',
+      correction: '{list}',
+      toolReference: 'Z {z}',
+    },
+  },
   sync: {
     title: 'Einstellungen und Messwerte auf dem Pi',
     state: {
@@ -3322,6 +3348,8 @@ export const de = {
         'profil teilen, exportieren, importieren, sichern, backup, weitergeben, qr, share, profil speichern, einstellungen sichern',
       calibrate:
         'kalibrieren, kalibrierung, vermessen, genauigkeit, justieren, einmessen, calibrate, schritte pro mm, steps',
+      measurements:
+        'messprotokoll, messwerte, gemessen, protokoll, kalibrierwerte, messungen, verlauf der messungen, was wurde gemessen, korrektur geschrieben, versatz der kamera, werte wiederfinden, measurements, log',
       accuracy:
         'genauigkeit, lineal, maßhaltigkeit, stimmt das maß, schritte pro mm, steps per mm, nachmessen, accuracy, zu kurz gefahren, zu weit gefahren',
       calibration:

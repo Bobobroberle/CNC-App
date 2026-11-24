@@ -8,6 +8,7 @@ import { useCalibration } from './calibration';
 import { useCamera } from './camera';
 import { useJob } from './job';
 import { useMachine } from './machine';
+import { useMeasurements } from './measurements';
 import { useWorkshop } from './workshop';
 import { programRefused } from './underway';
 
@@ -117,6 +118,7 @@ export const useHoles = create<HoleStore>((set, get) => ({
     const offset = { x: round(marked.x - spindle.x), y: round(marked.y - spindle.y) };
     setSettings({ camera: { ...settings.camera, offsetX: offset.x, offsetY: offset.y } });
     useCamera.setState({ marked: null });
+    useMeasurements.getState().record('camera-offset', { offsetX: offset.x, offsetY: offset.y });
     useMachine.getState().addLog(
       'info',
       t('camera.offsetSet', {

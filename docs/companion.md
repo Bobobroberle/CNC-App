@@ -126,11 +126,32 @@ Grund des Fehlschlags. **Liegt der Ordner auf derselben Karte wie die Datenbank,
 versehentlich geleerten Datenbank – nicht vor dem Tod der Karte.** Ist `LOWRIDER_BACKUP_DIR` gesetzt, wird nur der letzte Ordner angelegt, nie sein Weg: fehlt das Medium (der Stick steckt nicht), meldet der Kasten einen Fehler, statt die Kopien heimlich auf die Karte zu schreiben. Zurückspielen: Companion anhalten, die Datei als
 `lowrider.db` an die Stelle von `LOWRIDER_DB` kopieren (die Dateien `…-wal` und `…-shm` daneben löschen), Companion starten.
 
+## Einstellungen und Messwerte auf dem Pi
+
+Die App legt alles, was zur **Maschine** gehört – Kamera (Maßstab, Versatz, Kamerahöhe), Orte (Parkposition, Werkzeugwechsel,
+Merkpunkte), Kalibrierwerte, Spindelgrenzen, ausgeblendete Funktionen, Klemmen auf dem Tisch, Makros, Lernwerte, die Werte des
+Maschinenprofils und das **Messprotokoll** – auf dem Pi ab, damit jedes Gerät (PC, iPad, Telefon) dasselbe findet. Im Browser bleibt
+eine Kopie (sie gilt, wenn der Pi weg ist, und wird nachgeholt).
+
+- **Wie:** `GET /api/state` liefert alle Dokumente, `PUT /api/state/<Schlüssel>` schreibt eines (`{baseRev, data}`). Der Companion zählt
+  die Version; schreibt ein Gerät aus einer alten Version, antwortet er mit 409 und dem aktuellen Stand, die App führt beides zusammen
+  und schreibt noch einmal – so überschreibt kein Gerät das andere. Die Uhr des Pi spielt keine Rolle. Das Messprotokoll ist die
+  Sammlung `measurements` (ein Eintrag je Messung).
+- **Was am Gerät bleibt:** die Adresse des Pi, die Benachrichtigungen dieses Browsers, „Bildschirm anlassen“, die Bildquelle der Kamera
+  und ihre Stream-Adresse, das Aussehen der App, die Fotokarte, die zuletzt benutzten Jobs.
+- **Wann:** kurz nach jeder Änderung, alle 30 s, wenn die Seite wieder sichtbar wird und wenn der Pi antwortet. Neue Werte vom Pi
+  übernimmt die App nur, solange nichts fährt und kein Job läuft. Läuft der **Simulator**, wird nichts abgeglichen; was darin
+  eingestellt wurde, ist danach wieder weg.
+- **Erste Verbindung eines Geräts:** hat der Pi schon einen Stand, gilt er dort, wo beide verschieden sind; die App sagt, was sie
+  ersetzt hat. Ein Pi **ohne** diese Schnittstelle (alte Version) wird erkannt; der Kasten Companion sagt es, alles andere geht weiter.
+- **Sicherung:** die Dokumente liegen in derselben Datenbank wie die Bibliotheken; die tägliche Sicherung deckt sie mit.
+
 ## Schnittstelle
 
 | Methode und Pfad                            | Zweck                                                                |
 | ------------------------------------------- | -------------------------------------------------------------------- |
 | `GET /api/health`                           | Version, Weiterleitung, Sensorquelle, Kamera-Stream                  |
+| `GET /api/state`, `PUT /api/state/:key`     | Einstellungen der Maschine (Dokumente mit Version, s. oben)          |
 | `POST /api/system/shutdown`                 | Pi herunterfahren (antwortet erst, fährt dann nach 0,5 s)            |
 | `GET/PUT/DELETE /api/library/:sammlung/:id` | tools, materials, zeros, jigs, macros, history, learning, profiles … |
 | `POST /api/library/:sammlung`               | mehrere Einträge auf einmal (Import)                                 |

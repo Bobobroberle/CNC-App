@@ -269,6 +269,8 @@ interface WorkshopStore {
   setSettings(patch: Partial<WorkshopSettings>): void;
   /** Takes settings that came from the Pi: kept like any other, but not sent back (the sync knows them). */
   adoptSettings(settings: WorkshopSettings): void;
+  /** Takes the learned cutting corrections that came from the Pi (not sent back: the sync knows them). */
+  adoptLearning(learning: LearningModel): void;
   setSetup(patch: Partial<JobSetup>): void;
   /**
    * Pins fixtures that are still stored relative to the work zero to the
@@ -472,6 +474,10 @@ export const useWorkshop = create<WorkshopStore>((set, get) => ({
   adoptSettings(settings) {
     set({ settings });
     saveJson(s, KEYS.settings, settings);
+  },
+  adoptLearning(learning) {
+    set({ learning });
+    saveJson(s, KEYS.learning, learning);
   },
   setSetup(patch) {
     const setup = { ...get().setup, ...patch };

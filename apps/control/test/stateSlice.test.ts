@@ -251,3 +251,166 @@ describe('the client of the state', () => {
     await expect(c.state()).rejects.toMatchObject({ status: 404 });
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// The other documents
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { LOWRIDER_V4_PROFILE } from '../src/lib/profile';
+import { DEFAULT_MACROS } from '../src/lib/macros';
+import { useJob } from '../src/store/job';
+import { useMacros } from '../src/store/macros';
+import { profileDoc } from '../src/store/stateSlices';
+
+const slice = (key: string) => SLICES.find((s) => s.key === key)!;
+
+describe('the documents of the app and the keys of the companion', () => {
+  it('are the same list: a document the companion does not know would be refused for ever', () => {
+    const text = readFileSync(join(__dirname, '../../companion/src/state.ts'), 'utf8');
+    const block = /STATE_KEYS = \[([\s\S]*?)\] as const/.exec(text)![1]!;
+    const keys = [...block.matchAll(/'(\w+)'/g)].map((m) => m[1]).sort();
+    expect(SLICES.map((s) => s.key).sort()).toEqual(keys);
+  });
+});
+
+describe('the clamps on the table', () => {
+  const fixture = { name: 'Zwinge', min: { x: 10, y: 20, z: 0 }, max: { x: 70, y: 40, z: 30 } };
+  beforeEach(() =>
+    useWorkshop.getState().setSetup({ materialId: null, fixtures: [], fixtureFrame: 'machine' }),
+  );
+
+  it('are the fixtures and where they were measured – and nothing else of the setup', () => {
+    useWorkshop
+      .getState()
+      .setSetup({ materialId: 'mdf', fixtures: [fixture], fixtureFrame: 'machine' });
+    expect(slice('clamps').read()).toEqual({ fixtures: [fixture], fixtureFrame: 'machine' });
+    expect(slice('clamps').defaults()).toEqual({ fixtures: [], fixtureFrame: 'machine' });
+  });
+
+  it('are taken in as they are, and refused when they cannot be boxes', () => {
+    const s = slice('clamps');
+    const good = {
+      fixtures: [fixture, { ...fixture, name: 'Schraube', round: true }],
+      fixtureFrame: 'work',
+    };
+    expect(s.accepts(good)).toBe(true);
+    s.apply(good);
+    expect(useWorkshop.getState().setup.fixtures).toHaveLength(2);
+    expect(useWorkshop.getState().setup.fixtureFrame).toBe('work');
+    expect(s.accepts({ fixtures: [], fixtureFrame: 'machine' })).toBe(true);
+    for (const bad of [
+      { fixtures: 'x', fixtureFrame: 'machine' },
+      { fixtures: [fixture], fixtureFrame: 'elsewhere' },
+      { fixtures: [{ ...fixture, name: 5 }], fixtureFrame: 'machine' },
+      { fixtures: [{ ...fixture, min: { x: Number.NaN, y: 0, z: 0 } }], fixtureFrame: 'machine' },
+      { fixtures: [{ ...fixture, max: { x: 1, y: 1 } }], fixtureFrame: 'machine' },
+      { fixtures: [{ ...fixture, min: { x: 80, y: 0, z: 0 } }], fixtureFrame: 'machine' },
+      { fixtures: [{ ...fixture, round: 'yes' }], fixtureFrame: 'machine' },
+      { fixtures: [null], fixtureFrame: 'machine' },
+    ]) {
+      expect(s.accepts(bad as never), JSON.stringify(bad)).toBe(false);
+    }
+  });
+
+  it('are noticed when they change – not when the material of the job does', () => {
+    const heard = vi.fn();
+    const stop = slice('clamps').subscribe(heard);
+    useWorkshop.getState().setSetup({ materialId: 'mdf' });
+    expect(heard).not.toHaveBeenCalled();
+    useWorkshop.getState().setSetup({ fixtures: [fixture] });
+    expect(heard).toHaveBeenCalledTimes(1);
+    stop();
+  });
+});
+
+describe('the reference of the tool lengths', () => {
+  it('is a height or nothing', () => {
+    const s = slice('toolReference');
+    expect(s.read()).toEqual({ z: null });
+    expect(s.accepts({ z: -12.5 })).toBe(true);
+    expect(s.accepts({ z: null })).toBe(true);
+    for (const z of ['1', undefined, Number.NaN, Infinity])
+      expect(s.accepts({ z } as never)).toBe(false);
+    s.apply({ z: -12.5 });
+    expect(useWorkshop.getState().toolReferenceZ).toBe(-12.5);
+    expect(s.read()).toEqual({ z: -12.5 });
+    s.apply({ z: null });
+    expect(useWorkshop.getState().toolReferenceZ).toBeNull();
+  });
+});
+
+describe('the macros', () => {
+  it('are a list of named commands', () => {
+    const s = slice('macros');
+    useMacros.setState({ macros: DEFAULT_MACROS });
+    expect(s.read()).toEqual({ list: DEFAULT_MACROS });
+    expect(s.defaults()).toEqual({ list: DEFAULT_MACROS });
+    const mine = [{ name: 'Park', gcode: 'G53 G0 Z0\nG53 G0 X10 Y10' }];
+    expect(s.accepts({ list: mine })).toBe(true);
+    s.apply({ list: mine });
+    expect(useMacros.getState().macros).toEqual(mine);
+    for (const list of ['x', [{ name: '', gcode: 'G0' }], [{ name: 'A' }], [1]]) {
+      expect(s.accepts({ list } as never)).toBe(false);
+    }
+    useMacros.setState({ macros: DEFAULT_MACROS });
+  });
+});
+
+describe('what was learned about the cutting', () => {
+  it('is a correction and a count per pair of tool and material', () => {
+    const s = slice('learning');
+    const model = { 't1|mdf': { factor: 1.06, jobs: 2 } };
+    expect(s.accepts(model)).toBe(true);
+    expect(s.accepts({})).toBe(true);
+    s.apply(model);
+    expect(useWorkshop.getState().learning).toEqual(model);
+    expect(s.read()).toEqual(model);
+    for (const bad of [
+      { a: { factor: 0, jobs: 1 } },
+      { a: { factor: 11, jobs: 1 } },
+      { a: { factor: Number.NaN, jobs: 1 } },
+      { a: { factor: 1, jobs: -1 } },
+      { a: { factor: 1, jobs: 1.5 } },
+      { a: 5 },
+    ]) {
+      expect(s.accepts(bad as never), JSON.stringify(bad)).toBe(false);
+    }
+    useWorkshop.getState().resetLearning();
+  });
+});
+
+describe('the values of the machine', () => {
+  it('are nothing while they are placeholders, and what the operator entered after', () => {
+    const s = slice('profile');
+    expect(useJob.getState().profile.placeholder).toBe(true);
+    expect(s.read()).toEqual({});
+    expect(s.accepts({})).toBe(true);
+    // an empty document from the Pi changes nothing
+    s.apply({});
+    expect(useJob.getState().profile.placeholder).toBe(true);
+
+    const entered = {
+      travel: { x: { min: -1220, max: 0 }, y: { min: -2440, max: 0 }, z: { min: -120, max: 0 } },
+      softLimits: true,
+      jogFeed: { xy: 3000, z: 600 },
+    };
+    expect(s.accepts(entered)).toBe(true);
+    s.apply(entered);
+    expect(useJob.getState().profile.placeholder).toBe(false);
+    const doc = s.read();
+    expect(doc).toMatchObject(entered);
+    // what was read is what is accepted and gives the same again: the exchange comes to rest
+    expect(s.accepts(doc)).toBe(true);
+    s.apply(doc);
+    expect(same(s.read(), doc)).toBe(true);
+    // not a machine: a travel that ends before it begins, a jog feed of nothing
+    expect(s.accepts({ ...entered, travel: { ...entered.travel, x: { min: 5, max: 5 } } })).toBe(
+      false,
+    );
+    expect(s.accepts({ ...entered, jogFeed: { xy: 0, z: 1 } })).toBe(false);
+    expect(s.accepts({ travel: 'x' })).toBe(false);
+    useJob.setState({ profile: LOWRIDER_V4_PROFILE });
+    expect(profileDoc(LOWRIDER_V4_PROFILE)).toEqual({});
+  });
+});

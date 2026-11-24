@@ -5,6 +5,7 @@ import { t, type MessageKey } from '../i18n';
 import { formatNumber, parseNumber } from '../lib/format';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
+import { useMeasurements } from '../store/measurements';
 import { useUi } from '../store/ui';
 import { CorrectionPanel, signed } from './CorrectionPanel';
 import { Alert } from '../ui/alert';
@@ -184,6 +185,18 @@ export function AccuracyCheck() {
           const result = rectangleCheck(nominal, values as unknown as RectangleMeasure);
           a.set({ result, applied: false });
           if (!result) addLog('error', t('accuracy.implausible'), 'accuracy.implausible');
+          else {
+            useMeasurements.getState().record('ruler-check', {
+              sizeX: nominal.x,
+              sizeY: nominal.y,
+              ...(values as Record<string, number>),
+              scaleX: result.scaleX,
+              scaleY: result.scaleY,
+              squareness: result.squareness,
+              trapezoid: result.trapezoid,
+              closure: result.rms,
+            });
+          }
         }}
       >
         {t('accuracy.evaluate')}

@@ -4,10 +4,12 @@ import { CompanionError, type StatePut, type StateSnapshot } from '../lib/compan
 import { holdCount } from '../lib/holds';
 import { browserStorage, isFullDemo, loadJson, saveJson } from '../lib/persist';
 import { insane, merge3, same, syncedSettings, withSynced, type Doc } from '../lib/stateSync';
-import { isSimulatorAddress } from '../sim';
 import { useMachine } from './machine';
 import { jobUnderWay } from './underway';
-import { companion, DEFAULT_SETTINGS, useWorkshop, validateSettings } from './workshop';
+import { syncMeasurements } from './measurements';
+import { simulatorActive } from './simulated';
+import { SLICES } from './stateSlices';
+import { companion, useWorkshop } from './workshop';
 
 /**
  * The state of the machine on the Pi: settings, calibration, places … kept in the browser as before
@@ -63,6 +65,8 @@ export interface Deps {
   /** A simulated machine is no machine: nothing is exchanged while it runs */
   simulator(): boolean;
   say(kind: 'info' | 'error', text: string, key: string): void;
+  /** What else is exchanged while the Pi answers (the log of measurements) */
+  afterRound?(): Promise<void>;
   /** The name of a key of a document, as the operator knows it */
   name(slice: string, key: string): string;
 }
@@ -112,6 +116,8 @@ async function syncSlice(
   const base = known?.base ?? slice.defaults();
   const local = slice.read();
   if (known && remote && remote.rev === known.rev && same(local, base)) return 'ok';
+  // Nothing set here, nothing on the Pi: there is nothing to say yet (the defaults are not a state)
+  if (!known && remote === undefined && same(local, base)) return 'ok';
   try {
     for (let attempt = 0; attempt < TRIES; attempt++) {
       let merged: Doc;
@@ -169,32 +175,7 @@ async function syncSlice(
 // ---------------------------------------------------------------------------------------------
 // The documents of the app
 
-/** The settings that a document makes, laid over what this device keeps for itself – or null if it cannot be. */
-function settingsFrom(doc: Doc) {
-  // Only the keys that are settings of this app; the shapes are made by `validateSettings`
-  const known = Object.fromEntries(
-    Object.entries(doc).filter(([k]) => k in DEFAULT_SETTINGS),
-  ) as Doc;
-  const next = validateSettings(withSynced(useWorkshop.getState().settings, known));
-  return next && insane(next) === null ? next : null;
-}
-
-const settingsSlice: Slice = {
-  key: 'settings',
-  read: () => syncedSettings(useWorkshop.getState().settings),
-  defaults: () => syncedSettings(DEFAULT_SETTINGS),
-  accepts: (doc) => settingsFrom(doc) !== null,
-  apply(doc) {
-    const next = settingsFrom(doc);
-    if (next) useWorkshop.getState().adoptSettings(next);
-  },
-  subscribe: (listener) =>
-    useWorkshop.subscribe((state, before) => {
-      if (state.settings !== before.settings) listener();
-    }),
-};
-
-export const SLICES: readonly Slice[] = [settingsSlice];
+export { SLICES } from './stateSlices';
 
 // ---------------------------------------------------------------------------------------------
 // The engine
@@ -258,9 +239,10 @@ const realDeps = (): Deps => ({
   slices: SLICES,
   meta: metaStore,
   safeToApply,
-  simulator: () => {
-    const { connection, url } = useMachine.getState();
-    return connection !== 'disconnected' && isSimulatorAddress(url);
+  simulator: simulatorActive,
+  afterRound: async () => {
+    const c = companion();
+    if (c) await syncMeasurements(c);
   },
   say: (kind, text, key) => useMachine.getState().addLog(kind, text, key),
   name: nameOf,
@@ -278,7 +260,9 @@ export function syncNow(deps: Deps = realDeps()): Promise<void> {
   }
   useStateSync.setState((s) => (s.state === 'ok' || s.state === 'off' ? { state: 'syncing' } : s));
   running = syncOnce(deps)
-    .then((outcome) => {
+    .then(async (outcome) => {
+      // The Pi answered: the log of measurements goes with the state
+      if (outcome === 'ok' || outcome === 'deferred') await deps.afterRound?.();
       useStateSync.setState(
         outcome === 'ok'
           ? { state: 'ok', lastOkAt: Date.now() }

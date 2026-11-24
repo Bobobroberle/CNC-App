@@ -18,6 +18,7 @@ import { findMarker, toGray, type Marker } from '../lib/markers';
 import { cameraElement, pictureSize } from './camera';
 import { useJob } from './job';
 import { useMachine } from './machine';
+import { useMeasurements } from './measurements';
 import { settled, wait } from './settle';
 import { useWorkshop, type CalibrationSettings } from './workshop';
 
@@ -346,6 +347,16 @@ export const useCalibration = create<CalibrationStore>((set, get) => {
       });
       if (!errors) return false;
       set(turned ? { turned: errors } : { first: errors, turned: null });
+      useMeasurements.getState().record('machine-grid', {
+        scaleX: errors.scaleX,
+        scaleY: errors.scaleY,
+        squareness: errors.squareness,
+        plateAngle: errors.plateAngle,
+        rms: errors.rms,
+        max: errors.max,
+        points: errors.points,
+        turned: Boolean(turned),
+      });
       useMachine.getState().addLog('info', t('calibration.measured', { points: errors.points }));
       return true;
     },
@@ -368,6 +379,7 @@ export const useCalibration = create<CalibrationStore>((set, get) => {
       });
       if (!result) return false;
       set({ backlash: result });
+      useMeasurements.getState().record('machine-backlash', { x: result.x, y: result.y });
       return true;
     },
 
@@ -389,6 +401,11 @@ export const useCalibration = create<CalibrationStore>((set, get) => {
       });
       if (!result) return false;
       set({ tilt: result });
+      useMeasurements.getState().record('machine-tilt', {
+        x: result.x,
+        y: result.y,
+        per100: result.per100,
+      });
       return true;
     },
 
@@ -404,6 +421,16 @@ export const useCalibration = create<CalibrationStore>((set, get) => {
         .getState()
         .applyConfigChanges(corrections.map((c) => ({ path: c.path, value: String(c.to) })));
       if (ok) {
+        // The only trace of a change to the controller: what was there, what was written
+        useMeasurements.getState().record(
+          'correction',
+          Object.fromEntries(
+            corrections.flatMap((c) => [
+              [`${c.path}.from`, c.from],
+              [`${c.path}.to`, c.to],
+            ]),
+          ),
+        );
         useMachine.getState().addLog('info', t('calibration.applied'));
         // The old measurement no longer describes the machine.
         set({ first: null, turned: null, config: null });

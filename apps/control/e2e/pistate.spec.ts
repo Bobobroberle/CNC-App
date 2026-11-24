@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { goTo, openApp } from './helpers';
+import { goTo, openApp, openJog } from './helpers';
 
 // The settings and measurements of the machine live on the Pi, so that every device finds the same:
 // a device takes the Pi's calibration, a change goes to the Pi from the revision it read, an older
@@ -11,8 +11,24 @@ interface Stored {
 }
 
 /** A companion at the app's own origin that keeps the state documents like the real one does. */
-async function fakePi(page: Page, docs: Record<string, Stored> = {}, older = false) {
+async function fakePi(
+  page: Page,
+  docs: Record<string, Stored> = {},
+  older = false,
+  log: Record<string, unknown>[] = [],
+) {
   const puts: { key: string; baseRev: number; data: Record<string, unknown> }[] = [];
+  // The log of measurements is a library of the companion: one entry each
+  await page.route('**/api/library/measurements', async (route) => {
+    const request = route.request();
+    if (request.method() === 'POST')
+      log.push(...(request.postDataJSON() as Record<string, unknown>[]));
+    return route.fulfill({ json: request.method() === 'POST' ? { ok: true } : log });
+  });
+  await page.route('**/api/library/measurements/*', (route) => {
+    log.push(route.request().postDataJSON() as Record<string, unknown>);
+    return route.fulfill({ json: { ok: true } });
+  });
   await page.route('**/api/health', (route) =>
     route.fulfill({
       json: {
@@ -43,7 +59,7 @@ async function fakePi(page: Page, docs: Record<string, Stored> = {}, older = fal
     puts.push({ key, baseRev: body.baseRev, data: body.data });
     return route.fulfill({ json: { ok: true, rev: rev + 1 } });
   });
-  return { docs, puts };
+  return { docs, puts, log };
 }
 
 const stored = (page: Page) =>
@@ -140,4 +156,61 @@ test('an older companion is said, and the rest goes on', async ({ page }) => {
   // it is still a companion that answers: not reported as gone
   await expect(page.getByTestId('companion-card')).toContainText('1.5.0');
   await expect(page.getByTestId('companion-card')).not.toContainText('nicht erreichbar');
+});
+
+test('the macros of the Pi are the macros of this device', async ({ page }) => {
+  await fakePi(page, {
+    macros: { rev: 2, data: { list: [{ name: 'Pi-Makro', gcode: 'G53 G0 Z0' }] } },
+  });
+  await openApp(page);
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('lowrider-control.macros')), {
+      timeout: 10_000,
+    })
+    .toContain('Pi-Makro');
+  await openJog(page);
+  await expect(page.locator('[data-find="macros"]')).toContainText('Pi-Makro');
+});
+
+test('what was measured is written down, on the Pi too – and what the Pi has is listed here', async ({
+  page,
+}) => {
+  const pi = await fakePi(page, {}, false, [
+    {
+      id: '2026-11-20T09:00:00.000Z-camera-offset',
+      at: '2026-11-20T09:00:00.000Z',
+      kind: 'camera-offset',
+      values: { offsetX: 12.345, offsetY: -6.5 },
+    },
+  ]);
+  await openApp(page);
+  await goTo(page, 'Service & Diagnose', 'Kalibrieren');
+  const log = page.getByTestId('measurement-log');
+  // what the Pi had comes in
+  await expect(log).toContainText('Kamera: Versatz', { timeout: 10_000 });
+  await expect(log).toContainText('Versatz X 12,345');
+  // a measurement made here: the sides and diagonals of the test rectangle, evaluated
+  const check = page.getByTestId('accuracy-check');
+  const values: Record<string, string> = {
+    'A → B, vorne (X)': '500.2',
+    'D → C, hinten (X)': '500.2',
+    'A → D, links (Y)': '400.1',
+    'B → C, rechts (Y)': '400.1',
+    'Diagonale A → C': '640.5',
+    'Diagonale B → D': '640.5',
+  };
+  for (const [label, value] of Object.entries(values)) await check.getByLabel(label).fill(value);
+  await check.getByRole('button', { name: 'Auswerten' }).click();
+  await expect(log).toContainText('Genauigkeits-Check mit Lineal');
+  await expect(log).toContainText('500 × 400 mm');
+  // … and it went to the Pi
+  await expect
+    .poll(() => pi.log.filter((m) => m.kind === 'ruler-check').length, { timeout: 10_000 })
+    .toBe(1);
+  const sent = pi.log.find((m) => m.kind === 'ruler-check') as { values: Record<string, number> };
+  expect(sent.values).toMatchObject({ sizeX: 500, sizeY: 400, bottom: 500.2, diagonalAC: 640.5 });
+  // it stays after a reload (kept here as well)
+  await page.reload();
+  await goTo(page, 'Service & Diagnose', 'Kalibrieren');
+  await expect(page.getByTestId('measurement-log')).toContainText('Genauigkeits-Check mit Lineal');
 });

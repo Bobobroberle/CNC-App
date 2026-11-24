@@ -326,9 +326,14 @@ export const COMMANDS: readonly Command[] = [
   service('messageHistory', 'service.messages', 'messages', 'message-history'),
   service('runTime', 'service.hours.title', 'history', 'run-time'),
   service('history', 'history.title', 'history', 'history'),
-  service('calibrate', 'nav.views.service.calibrate', 'calibrate', ['accuracy', 'calibration']),
+  service('calibrate', 'nav.views.service.calibrate', 'calibrate', [
+    'accuracy',
+    'calibration',
+    'measurements',
+  ]),
   service('accuracy', 'accuracy.title', 'calibrate', 'accuracy'),
   service('calibration', 'calibration.title', 'calibrate', 'calibration'),
+  service('measurements', 'measurements.title', 'calibrate', 'measurements'),
 
   // Einstellungen
   settings('connection', 'machine.connection', 'connection', 'connection'),
