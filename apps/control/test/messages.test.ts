@@ -147,6 +147,9 @@ describe('what a line of the log becomes', () => {
 
   it('puts a refused change of the program in its own group, whose next step is not "repeat"', () => {
     expect(groupOf('job.locked')).toBe('jobLocked');
+    // a step jog dropped for want of a machine at rest: advice that stays in the centre, nothing blocked
+    expect(levelOfLog('info', 'drive.notAtRest')).toBe('hint');
+    expect(groupOf('drive.notAtRest')).toBe('general');
     expect(groupOf('job.loadError')).toBe('file');
   });
 });

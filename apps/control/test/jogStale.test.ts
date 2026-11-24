@@ -52,7 +52,9 @@ describe('a step jog straight after a continuous one', () => {
     expect(sent).not.toHaveBeenCalled();
     // a report that still says the axis moves is no rest: nothing goes out yet
     useMachine.setState({ status: reportOf('Jog', 106) as never });
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // (microtasks only: a real timer would give the simulator's own status poll time to come in)
+    await Promise.resolve();
+    await Promise.resolve();
     expect(sent).not.toHaveBeenCalled();
     // the next report is the machine at rest, where it really is
     useMachine.setState({ status: reportOf('Idle', 112) as never });
@@ -92,6 +94,38 @@ describe('a step jog straight after a continuous one', () => {
       // let the simulator come to rest again before the next one
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
+  }, 10_000);
+
+  it('counts from no report that is older than a stop – a step tapped at once waits for a fresh one', async () => {
+    const stops: Array<[string, () => unknown]> = [
+      ['not-halt', () => useMachine.getState().emergencyStop()],
+      ['pause', () => useMachine.getState().feedHold()],
+      ['stop job', () => void useMachine.getState().stopJob()],
+    ];
+    for (const [name, stop] of stops) {
+      sent.mockClear();
+      useMachine.setState({ homed: true, status: reportOf('Idle', 100) as never });
+      stop();
+      // no await in between: no real report has come in since the stop
+      useMachine.setState({ status: reportOf('Idle', 100) as never });
+      useMachine.getState().jog('X', 1);
+      expect(sent, name).not.toHaveBeenCalled();
+      // dropped again, and the simulator comes to rest before the next one
+      useMachine.getState().jogCancel();
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
+  }, 10_000);
+
+  it('counts from no report that is older than a move the app sent itself', async () => {
+    useMachine.setState({ homed: true, status: reportOf('Idle', 100) as never });
+    // a move of the machine through its own function (the real command goes to the simulator)
+    const moved = useMachine.getState().moveMachine({ x: 120 }, 6000);
+    useMachine.setState({ status: reportOf('Idle', 100) as never });
+    useMachine.getState().jog('X', 1);
+    expect(sent).not.toHaveBeenCalled();
+    await moved;
+    useMachine.getState().jogCancel();
+    await new Promise((resolve) => setTimeout(resolve, 400));
   }, 10_000);
 
   it('is dropped when another move goes out while it waits', async () => {
@@ -149,4 +183,15 @@ describe('a step jog straight after a continuous one', () => {
     useMachine.getState().jogCancel();
     await vi.waitFor(() => expect(useMachine.getState().status?.state).toBe('Idle'));
   }, 8000);
+
+  it('is dropped when the link goes – no false "does not come to rest" afterwards', async () => {
+    useMachine.setState({ homed: true, status: reportOf('Jog', 100) as never });
+    const before = useMachine.getState().log.length;
+    useMachine.getState().jog('X', 1);
+    useMachine.getState().disconnect();
+    await new Promise((resolve) => setTimeout(resolve, 1700));
+    expect(sent).not.toHaveBeenCalled();
+    const lines = useMachine.getState().log.slice(before);
+    expect(lines.some((l) => l.key === 'drive.notAtRest')).toBe(false);
+  }, 6000);
 });

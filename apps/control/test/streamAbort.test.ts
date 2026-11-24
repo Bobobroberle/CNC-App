@@ -147,4 +147,21 @@ describe('a stream that is stopped does not go on waiting', () => {
     expect(useMachine.getState().stream?.toolChange).toBeNull();
     expect(useMachine.getState().log.some((l) => l.text === t('toolChange.continue'))).toBe(false);
   });
+
+  it('does not restore the spindle after a stop that came with the last lift move', async () => {
+    const withSpindle = 'G21\nM3 S12000\nG0 X1\nT1 M6\nG0 X2\n';
+    await vi.waitFor(() =>
+      expect(useMachine.getState().streamJob('sp.nc', withSpindle)).toBe(true),
+    );
+    await vi.waitFor(() => expect(useMachine.getState().stream?.toolChange).not.toBeNull());
+    // the spindle was on before the hold: going on would restore it
+    expect(useMachine.getState().stream?.toolChange?.spindleBefore).not.toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const from = useMachine.getState().log.length;
+    stopWhenSent('G90', from);
+    void useMachine.getState().continueAfterToolChange();
+    await vi.waitFor(() => expect(useMachine.getState().stream?.result).toBe('aborted'));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(sentAfterReset(from)).toBe('');
+  });
 });

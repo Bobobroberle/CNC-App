@@ -489,7 +489,7 @@ export const en: DictionaryShape = {
           'A job is under way: it runs from the SD card or is streamed, stands between two parts, or the link was lost under it.',
         effect: 'The program on the table stays as it is; nothing was changed.',
         action:
-          'Let the job finish – or end it in Fräsen (“Abort job”, between two parts “Abort remaining parts”) – and try again.',
+          'Let the job finish – or end it in Fräsen (“Abort job”, between two parts “Cancel the remaining parts”) – and try again.',
       },
       limit: {
         cause: 'The move would have left the travel.',

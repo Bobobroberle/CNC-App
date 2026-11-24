@@ -94,10 +94,13 @@ export const useHoles = create<HoleStore>((set, get) => ({
         offset: { x: 0, y: 0 },
         pivot: { x: 0, y: 0 },
       });
-      job.loadDerived(`${source.fileName.replace(/\.[^.]*$/, '')}_ausgerichtet.nc`, turned.text, {
-        by: rotation(fit.rotation),
-        from: 'original',
-      });
+      const turnedIn = job.loadDerived(
+        `${source.fileName.replace(/\.[^.]*$/, '')}_ausgerichtet.nc`,
+        turned.text,
+        { by: rotation(fit.rotation), from: 'original' },
+      );
+      // A job began while the zero was being set: nothing is said to be applied
+      if (!turnedIn) return false;
     }
     job.setMeasuredAngle(fit.rotation);
     addLog('info', t('camera.holesApplied', { angle: formatNumber(fit.rotation, 3) }));

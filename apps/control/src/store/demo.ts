@@ -140,16 +140,17 @@ export async function loadLongDemo(): Promise<boolean> {
   const zero = sim.commandedFor(sim.fromJig(DEMO_LONG.zero, sim.long), SURFACE_Z);
   if (!(await machine.setZeroAt({ x: zero.x, y: zero.y }))) return false;
   const job = useJob.getState();
-  job.load(`${DEMO_LONG.name}.nc`, program);
+  if (!job.load(`${DEMO_LONG.name}.nc`, program)) return false;
   const turned = transformProgram(program, {
     rotation: sim.long.angle,
     offset: { x: 0, y: 0 },
     pivot: { x: 0, y: 0 },
   });
-  useJob.getState().loadDerived(`${DEMO_LONG.name}_ausgerichtet.nc`, turned.text, {
+  const turnedIn = useJob.getState().loadDerived(`${DEMO_LONG.name}_ausgerichtet.nc`, turned.text, {
     by: rotation(sim.long.angle),
     from: 'original',
   });
+  if (!turnedIn) return false;
   useJob.getState().setToolDiameter(tool);
   // The clamp marked for the other board holds nothing here.
   useWorkshop.getState().setSetup({ fixtures: [], fixtureFrame: 'machine' });

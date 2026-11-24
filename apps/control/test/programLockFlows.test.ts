@@ -1,14 +1,17 @@
-import { circle, rectangle } from '@lowrider/cam';
+import { circle, IDENTITY, rectangle } from '@lowrider/cam';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { alignJobTo } from '../src/components/ZeroTool';
 import { loadLongDemo } from '../src/store/demo';
 import { useCam } from '../src/store/cam';
 import { openCam } from '../src/store/camPlace';
 import { useFlip } from '../src/store/flip';
+import { makeSections } from '../src/lib/sections';
 import { useHoles } from '../src/store/holes';
 import { useJob } from '../src/store/job';
+import { useJigs } from '../src/store/jigs';
 import { useMachine } from '../src/store/machine';
 import { useRun } from '../src/store/run';
+import { useSections } from '../src/store/sections';
 import { useUi } from '../src/store/ui';
 import { useWorkshop } from '../src/store/workshop';
 import '../src/store/underway';
@@ -22,7 +25,6 @@ const running = () => useMachine.setState({ fileJob: { name: 'x.nc', startedAt: 
 const stopped = () => useMachine.setState({ fileJob: null });
 const loaded = () => useJob.getState().fileName;
 const refusals = () => useMachine.getState().log.filter((l) => l.key === 'job.locked').length;
-const said = (text: string) => useMachine.getState().log.some((l) => l.text === text);
 
 describe('flows that load a program stop before their first step while a job is under way', () => {
   const setZeroAt = vi.fn(async (_to: unknown) => true);
@@ -162,6 +164,89 @@ describe('flows that load a program stop before their first step while a job is 
     expect(useJob.getState().analysis).not.toBe(before);
     expect(loaded()).toBe('part.nc');
     expect(refusals()).toBe(0);
-    expect(said('')).toBe(false);
+    // the estimate is the one for the new rate (X now at 600 mm/min), not the one for the old
+    expect(useJob.getState().analysis!.timeline!.total).toBeGreaterThan(before!.timeline!.total);
+  });
+
+  describe('the flows of the sections and the jigs', () => {
+    const LONG = [
+      'G21 G90',
+      'G0 Z5',
+      'M3 S18000',
+      'G0 X100 Y100',
+      'G1 Z-3 F300',
+      'G0 Z5',
+      'G0 X1900 Y100',
+      'G1 Z-3 F300',
+      'G0 Z5',
+      'G0 X0 Y40',
+      'G1 Z-2 F300',
+      'G1 X2000 F1200',
+      'G1 Y160',
+      'G1 X0',
+      'G1 Y40',
+      'G0 Z5',
+      'M5',
+      'M30',
+    ].join('\n');
+    const job = makeSections({
+      source: { fileName: 'regal.nc', text: LONG, original: null, pose: IDENTITY },
+      axis: 'x',
+      travel: { min: 3, max: 1223 },
+      zero: { x: 100, y: 50 },
+      toolDiameter: 3,
+    });
+    if ('problem' in job) throw new Error('no sections');
+
+    beforeEach(() => {
+      useSections.setState({ job, index: 0, phase: 'cut', cut: null, angle: 0 });
+      useMachine.setState({ log: [] });
+    });
+    afterEach(() => {
+      useSections.setState({ job: null, index: 0, phase: 'cut', cut: null });
+    });
+
+    it('giving up the flow while a job is under way changes nothing and says why', () => {
+      running();
+      useSections.getState().cancel();
+      expect(useSections.getState().job).not.toBeNull();
+      expect(refusals()).toBe(1);
+      stopped();
+      useSections.getState().cancel();
+      expect(useSections.getState().job).toBeNull();
+    });
+
+    it('putting the section on the table again is refused as long as the job is under way', () => {
+      useJob.getState().unload();
+      useJob.getState().load('other.nc', 'G0 X1\n');
+      useMachine.setState({ log: [] });
+      // the lost link: no file job, no stream – but the operator has not seen it yet
+      useMachine.setState({ lostInJob: { name: 'x.nc', sd: true, at: 0 } });
+      useSections.getState().loadSection();
+      expect(loaded()).toBe('other.nc');
+      useMachine.setState({ lostInJob: null });
+      useSections.getState().loadSection();
+      expect(loaded()).toContain('abschnitt');
+    });
+  });
+
+  it('a jig job is not loaded while a job is under way', () => {
+    const jig = {
+      id: 'j1',
+      name: 'Rahmen',
+      tags: [],
+      job: { fileName: 'jig.nc', text: 'G21\nG0 X5\n', toolDiameter: 3 },
+      reach: 0,
+      clamps: [],
+      createdAt: 0,
+    };
+    useWorkshop.setState((s) => ({ jigs: [...s.jigs, jig as never] }));
+    running();
+    expect(useJigs.getState().loadJob('j1')).toBe(false);
+    expect(loaded()).toBe('part.nc');
+    stopped();
+    expect(useJigs.getState().loadJob('j1')).toBe(true);
+    expect(loaded()).toBe('jig.nc');
+    useWorkshop.setState((s) => ({ jigs: s.jigs.filter((j) => j.id !== 'j1') }));
   });
 });

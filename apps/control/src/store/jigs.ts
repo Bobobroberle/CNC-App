@@ -378,7 +378,7 @@ export const useJigs = create<JigStore>((set, get) => ({
   loadJob(jigId) {
     const jig = useWorkshop.getState().jigs.find((j) => j.id === jigId);
     if (!jig || running()) return false;
-    loadJigJob(jig, 0);
+    if (!loadJigJob(jig, 0)) return false;
     set({ loaded: { jigId, text: jobSource() }, placed: null, trouble: null });
     return true;
   },
@@ -435,7 +435,8 @@ export const useJigs = create<JigStore>((set, get) => ({
       if (running()) return fail({ kind: 'notReady' });
       const zero = { x: round(place.zero.x), y: round(place.zero.y) };
       if (!(await useMachine.getState().setZeroAt(zero))) return fail({ kind: 'machine' });
-      loadJigJob(jig, place.rotation);
+      // A job began while the zero was being set: its program stays
+      if (!loadJigJob(jig, place.rotation)) return fail({ kind: 'notReady' });
       // Its clamps lie where the jig lies now.
       if (jig.clamps.length > 0) {
         const { setup, setSetup } = useWorkshop.getState();
@@ -597,21 +598,25 @@ export const useJigs = create<JigStore>((set, get) => ({
   },
 }));
 
-/** Puts the job of a jig on the table, turned by `rotation` about its zero. */
-function loadJigJob(jig: Jig, rotation: number) {
+/** Puts the job of a jig on the table, turned by `rotation` about its zero – false: a job under way keeps its program. */
+function loadJigJob(jig: Jig, rotation: number): boolean {
   const job = useJob.getState();
-  job.load(jig.job.fileName, jig.job.text);
+  if (!job.load(jig.job.fileName, jig.job.text)) return false;
   const turned = turnedProgram(jig.job.text, rotation);
-  if (turned !== null) {
-    useJob.getState().loadDerived(jigFileName(jig.job.fileName), turned, {
+  if (
+    turned !== null &&
+    !useJob.getState().loadDerived(jigFileName(jig.job.fileName), turned, {
       by: turnAbout(rotation),
       from: 'original',
-    });
+    })
+  ) {
+    return false;
   }
   useJob.getState().setToolDiameter(jig.job.toolDiameter);
   // Another program: a two-sided job that has not been started ends here.
   useFlip.getState().setPlan(null);
   useUi.getState().leaveCam();
+  return true;
 }
 
 /** Tiles laid onto the table picture in one go from which it is worth a search (a scan, the demo's map) */

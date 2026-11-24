@@ -84,6 +84,22 @@ describe('the program on the table while a job is under way', () => {
     expect(useRecent.getState().jobs).toEqual([]);
   });
 
+  it('turns a file away that was read while a job began – and does not call it loaded', async () => {
+    // the check at the start passed; the job begins while the second file is read
+    const slow = new File(['G0 X6\n'], 'b.nc');
+    Object.defineProperty(slow, 'text', {
+      value: async () => {
+        running();
+        return 'G0 X6\n';
+      },
+    });
+    await openJobFiles([new File(['G0 X5\n'], 'a.nc'), slow]);
+    expect(loaded()).toBe('part.nc');
+    expect(messages()).toBe(1);
+    expect(useRecent.getState().jobs).toEqual([]);
+    expect(useUi.getState().place).toBe('start');
+  });
+
   it('turns a job of the recent list away; it opens after the job', () => {
     useRecent.setState({
       jobs: [{ name: 'old.nc', text: 'G0 X7\n' } as never],

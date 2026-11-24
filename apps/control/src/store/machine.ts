@@ -526,6 +526,8 @@ export const useMachine = create<MachineStore>((set, get) => ({
       }
       set({ connection: state });
       if (state === 'disconnected') {
+        // A step that waits for the machine to rest has nothing to wait for any more
+        forgetJogTargets();
         set({ status: null, homed: false, homedAxes: '', viewer: false });
         if (connection === c) connection = null;
       }
@@ -624,6 +626,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
     set((s) => ({ link: { ...IDLE_LINK, lostDuringJob: s.link.lostDuringJob } }));
     const c = connection;
     connection = null;
+    forgetJogTargets();
     if (c?.state === 'connecting') cancelled = c;
     c?.disconnect();
     set({ connection: 'disconnected', status: null, firmware: null, homed: false, homedAxes: '' });

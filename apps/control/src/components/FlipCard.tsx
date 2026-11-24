@@ -17,6 +17,7 @@ import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Fold } from './Fold';
 import { Card, CardTitle } from '../ui/card';
+import { useJobUnderWay } from '../store/underway';
 
 /** The steps of a two-sided job as the operator counts them: with the camera there is one more. */
 function steps(camera: boolean): { phase: FlipPhase; label: string }[] {
@@ -47,7 +48,8 @@ export function FlipCard() {
   const loaded = useJob((s) => s.original?.fileName ?? s.fileName);
   const connected = useMachine((s) => s.connection === 'connected');
   const idle = useMachine((s) => s.connection === 'connected' && s.status?.state === 'Idle');
-  const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
+  // Whatever the stores refuse while a job is under way, the buttons are shut for as well (and say so)
+  const running = useJobUnderWay();
   const cameraOn = useCamera((s) => s.source !== null && s.size !== null);
   const centring = useCalibration((s) => s.task !== null);
   // A step that asks for the operator's hands comes into view by itself: the front has
@@ -120,7 +122,7 @@ export function FlipCard() {
             <div className="contents">
               <p className="text-muted-foreground text-sm">{t('flip.alreadyCutHint')}</p>
               <Button
-                reason="machine"
+                reason={running ? t('cam.jobRuns') : 'machine'}
                 variant="outline"
                 disabled={!connected || running}
                 onClick={() => flip.frontCut()}
@@ -152,7 +154,7 @@ export function FlipCard() {
           </ol>
           <p className="text-muted-foreground text-sm">{t('flip.turn.z')}</p>
           <Button
-            reason="machine"
+            reason={running ? t('cam.jobRuns') : 'machine'}
             disabled={!idle || running}
             onClick={() => {
               void flip.turned().then((ok) => {
@@ -248,7 +250,7 @@ export function FlipCard() {
           </Alert>
           {side !== 'back' ? <Alert variant="warning">{t('flip.otherJob')}</Alert> : null}
           <Button
-            reason="machine"
+            reason={running ? t('cam.jobRuns') : 'machine'}
             variant="outline"
             disabled={running}
             onClick={camera ? flip.relocate : flip.again}
@@ -266,7 +268,11 @@ export function FlipCard() {
         </Button>
       ) : phase !== 'front' ? (
         // Held: without the flow the back would have to be found by hand.
-        <HoldButton disabled={running} onConfirm={flip.cancel}>
+        <HoldButton
+          disabled={running}
+          reason={running ? t('cam.jobRuns') : undefined}
+          onConfirm={flip.cancel}
+        >
           {t('flip.cancel')}
         </HoldButton>
       ) : null}

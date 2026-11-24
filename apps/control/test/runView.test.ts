@@ -60,6 +60,17 @@ describe('the view of Fräsen while a job waits', () => {
     expect(useUi.getState().views.run).toBe('cut');
   });
 
+  it('does not hold for a stream that is over, whatever it still shows as its wait', () => {
+    for (const result of ['aborted', 'failed', 'done']) {
+      useUi.getState().setView('run', 'check');
+      useMachine.setState({
+        stream: { result, toolChange: { tool: 1, line: 3 }, stepAt: 2 } as never,
+      });
+      expect(useUi.getState().views.run, result).toBe('check');
+    }
+    useMachine.setState({ stream: null });
+  });
+
   it('holds for a stream that waits at a tool change, too', () => {
     useUi.getState().setView('run', 'check');
     useMachine.setState({

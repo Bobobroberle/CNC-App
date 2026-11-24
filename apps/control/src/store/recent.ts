@@ -189,7 +189,8 @@ export async function openJobFiles(files: readonly File[]): Promise<void> {
   const { load } = useJob.getState();
   // The later ones first, so the first file ends up loaded and at the head of the list.
   for (const job of [...read].reverse()) {
-    load(job.name, job.text);
+    // A job began while the files were read: this one and the rest are turned away (and said so)
+    if (!load(job.name, job.text)) return;
     useRecent.getState().rememberLoaded();
   }
   useUi.getState().go('job');

@@ -25,6 +25,7 @@ import { Card, CardTitle } from '../ui/card';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { Fold } from './Fold';
+import { useJobUnderWay } from '../store/underway';
 
 /**
  * How the part is slid along, seen from above like the table picture: the
@@ -146,7 +147,8 @@ export function SectionsCard() {
   const flow = useSections.getState();
   const loaded = useJob((s) => s.original?.fileName ?? s.fileName);
   const connected = useMachine((s) => s.connection === 'connected');
-  const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
+  // Whatever the stores refuse while a job is under way, the buttons are shut for as well (and say so)
+  const running = useJobUnderWay();
   const cameraOn = useCamera((s) => s.source !== null && s.size !== null);
   const measuring = useJigs((s) => s.busy);
   const ready = useCanMeasure();
@@ -265,7 +267,7 @@ export function SectionsCard() {
             <Notice
               action={
                 <Button
-                  reason="machine"
+                  reason={running ? t('cam.jobRuns') : 'machine'}
                   variant="outline"
                   size="sm"
                   disabled={running}
@@ -280,7 +282,7 @@ export function SectionsCard() {
           ) : null}
           {index > 0 ? (
             <Button
-              reason="machine"
+              reason={running ? t('cam.jobRuns') : 'machine'}
               variant="outline"
               disabled={running || busyNow}
               onClick={flow.back}
@@ -292,7 +294,7 @@ export function SectionsCard() {
             <div className="contents">
               <p className="text-muted-foreground text-sm">{t('sections.alreadyCutHint')}</p>
               <Button
-                reason="machine"
+                reason={running ? t('cam.jobRuns') : 'machine'}
                 variant="outline"
                 disabled={!connected || running}
                 onClick={() => flow.cutDone()}
@@ -374,10 +376,19 @@ export function SectionsCard() {
             <li>{t('sections.slide.clamp')}</li>
           </ol>
           <p className="text-muted-foreground text-sm">{t('sections.slide.z')}</p>
-          <Button reason="machine" disabled={running} onClick={flow.slid}>
+          <Button
+            reason={running ? t('cam.jobRuns') : 'machine'}
+            disabled={running}
+            onClick={flow.slid}
+          >
             {t('sections.slide.done')}
           </Button>
-          <Button reason="machine" variant="outline" disabled={running} onClick={flow.back}>
+          <Button
+            reason={running ? t('cam.jobRuns') : 'machine'}
+            variant="outline"
+            disabled={running}
+            onClick={flow.back}
+          >
             {t('sections.slide.again')}
           </Button>
         </div>
@@ -390,7 +401,7 @@ export function SectionsCard() {
             {t(busy === 'find' ? 'sections.find.finding' : 'sections.find.go')}
           </HoldButton>
           <Button
-            reason="machine"
+            reason={running ? t('cam.jobRuns') : 'machine'}
             variant="outline"
             disabled={running || busyNow}
             onClick={flow.back}
@@ -450,12 +461,21 @@ export function SectionsCard() {
         </Button>
       ) : index === 0 && phase === 'cut' ? (
         // Nothing is cut yet: back to the whole job without ado.
-        <Button reason="machine" variant="outline" disabled={running} onClick={flow.cancel}>
+        <Button
+          reason={running ? t('cam.jobRuns') : 'machine'}
+          variant="outline"
+          disabled={running}
+          onClick={flow.cancel}
+        >
           {t('sections.discard')}
         </Button>
       ) : (
         // Held: without the flow the rest of the part would have to be found by hand.
-        <HoldButton disabled={running || busyNow} onConfirm={flow.cancel}>
+        <HoldButton
+          disabled={running || busyNow}
+          reason={running ? t('cam.jobRuns') : undefined}
+          onConfirm={flow.cancel}
+        >
           {t('sections.cancel')}
         </HoldButton>
       )}

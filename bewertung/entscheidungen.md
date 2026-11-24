@@ -93,6 +93,21 @@ B2/B3-Antworten des Betreibers: Steuerung geht nach 10 s Funkstille weiter; Z-Gr
 | 11 | Bestätigungshälfte von `BetweenParts` ungetestet | nein | **offen**, E2E in Stufe 3 |
 | 12 | „Prüfen“ tippbar, aber wirkungslos, solange ein Job wartet (ohne Grund) | nein | **offen** |
 
+- **Prüf-Durchgang 5** (enger Durchgang nur über die drei Korrektur-Commits 20ed9bd, c72f295, bb24995; zwei Blickwinkel, je Fund zwei Gegenprüfer; 10 Funde, **10 bestätigt, keiner „wichtig“**):
+
+| Nr | Fund | Stand |
+|---|---|---|
+| a | Wartender Schritt wird beim Trennen oder Verbindungsverlust nicht verworfen und meldet danach fälschlich „kommt nicht zur Ruhe“ | **behoben** (Trennen und Verbindungsverlust zählen den Verwerfungszähler hoch), Test |
+| b | Neuer 20-ms-Zeitablauf im Jog-Test ließ die Statusabfrage des Simulators (alle 200 ms) dazwischenfunken, phasenabhängig | **behoben** (nur Microtasks, kein Zeitfenster) |
+| c | `drive.notAtRest`: Hinweis ohne Toast, Gruppe „allgemein“, ungeprüft | **gepinnt** (Stufe und Gruppe im Test; ohne Toast wie `drive.atLimit`, Absicht) |
+| d | Testlücken: `moveMachine`, Stopp-Wege (nur die „Bericht ist älter“-Hälfte), Spindel-Wiederanlauf nach NOT-HALT, `result === 'running'` der Wartebedingung | **geschlossen** bis auf `moveTo`/`moveZ` (gleiche Zeile wie `moveMachine`, nicht einzeln getestet) und das Zurücksetzen bei Reset und Alarm |
+| e | Karten (Abschnitte, Vorrichtungen, Wenden) sperrten nur bei Datei-Job/Stream, die Speicher aber bei jedem „Job unterwegs“: Schaltflächen blieben frei und taten dann nichts, ohne Grund | **behoben** (Karten fragen `useJobUnderWay()`, gesperrte Knöpfe nennen den Grund `cam.jobRuns`) |
+| f | „Abschnitte abbrechen“ zwischen zwei Teilen leerte den Ablauf, ließ aber den Abschnitt auf dem Tisch, still | **behoben** (verweigert mit Meldung, Test) |
+| g | Schritte nach einem `await` ignorierten das Ergebnis von `load`/`loadDerived` (Zuletzt verwendet, Löcher, lange Demo, Abschnitt finden, Vorrichtung messen) | **behoben** (jeder prüft das Ergebnis; `loadPart` und `loadJigJob` melden Erfolg); getestet ist nur der Fall „Datei lesen“, die Fenster nach `setZeroAt` sind klein und ungetestet |
+| h | Testlücken in `programLockFlows`: wirkungslose Prüfung, Profil-Test zu schwach, `sections`/`jigs` ungeprüft | **behoben** (Schätzung wird mit dem neuen Wert verglichen; Tests für Abschnitte und Vorrichtung; die Zwischen-Teile-Sperren von SD-Liste, „Programm starten“ und „Ab Zeile fortsetzen“ bleiben ohne Test, weil sie ein React-Rendern brauchen – kommt mit Entscheidung 37) |
+| i | Englischer Hinweis nannte „Abort remaining parts“, die Taste heißt „Cancel the remaining parts“ | **behoben** |
+| j | `reportOld` wird vom ersten späteren Bericht gelöscht, auch von einem, den FluidNC vor dem Befehl erzeugte; Fahrten über Referenzfahrt, Makros, Rahmen, Antasten setzen ihn nicht | **offen, schmal, bekannt** – **an der Maschine prüfen** |
+
 - Widerlegt (je zwei Gegenprüfer): Großbild-Karte zwischen den Teilen in jedem Bereich; `stepAt`-Zweig unbelegt; veralteter Kommentar „Bewegung zählt als unterwegs“; CLAUDE.md/Tastenblatt ohne T·K·D im CAM.
 - **Regel für den Rest der Nacht** (Rat des Advisors): Stufe 2 gilt als abgenommen, wenn alle von uns neu eingeführten Funde und 5/6 behoben sind und der Rest hier mit Grund steht; danach nur ein enger Prüf-Durchgang über die Korrektur-Commits.
 

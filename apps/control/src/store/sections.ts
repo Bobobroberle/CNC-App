@@ -52,7 +52,7 @@ import { onJobEnd } from './recorder';
 import { settled, wait } from './settle';
 import { useUi } from './ui';
 import { useWorkshop } from './workshop';
-import { jobUnderWay } from './underway';
+import { jobUnderWay, programRefused } from './underway';
 
 const KEY = 'lowrider-control.sections';
 
@@ -222,16 +222,20 @@ function stickSimulatedTags() {
 }
 
 /** Puts a program of the job on the table: section `index`, turned as the part lies. */
-function loadPart(job: SectionsJob, index: number, angle: number) {
+function loadPart(job: SectionsJob, index: number, angle: number): boolean {
   const part = job.parts[index]!;
-  useJob.getState().load(part.fileName, part.text);
+  if (!useJob.getState().load(part.fileName, part.text)) return false;
   const turned = turnedProgram(part.text, angle);
-  if (turned !== null) {
-    useJob
+  if (
+    turned !== null &&
+    !useJob
       .getState()
-      .loadDerived(part.fileName, turned, { by: turnAbout(angle), from: 'original' });
+      .loadDerived(part.fileName, turned, { by: turnAbout(angle), from: 'original' })
+  ) {
+    return false;
   }
   useJob.getState().setToolDiameter(job.toolDiameter);
+  return true;
 }
 
 export const useSections = create<SectionsStore>((set, get) => {
@@ -512,7 +516,8 @@ export const useSections = create<SectionsStore>((set, get) => {
         if (running()) return tagFail({ kind: 'notReady' });
         const zero = { x: round(place.pose.x), y: round(place.pose.y) };
         if (!(await useMachine.getState().setZeroAt(zero))) return fail({ kind: 'machine' });
-        loadPart(job, index + 1, place.pose.angle);
+        // A job began while the zero was being set: the next section is not put on the table
+        if (!loadPart(job, index + 1, place.pose.angle)) return tagFail({ kind: 'notReady' });
         const result = {
           moved: Math.hypot(place.shift.x, place.shift.y),
           rotation: place.rotation,
@@ -557,6 +562,9 @@ export const useSections = create<SectionsStore>((set, get) => {
     },
 
     cancel() {
+      // Giving up the flow while a job is under way would leave one of its sections on the table
+      // with nothing that knows it: the way out is ending the job in Fräsen (and it says so)
+      if (programRefused()) return;
       const { job, phase } = get();
       const mine = loadedName() === null || sectionOf(job, loadedName()) >= 0;
       if (job && phase !== 'done' && mine && !running()) {

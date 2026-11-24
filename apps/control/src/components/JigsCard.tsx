@@ -27,6 +27,7 @@ import { Button } from '../ui/button';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { Fold } from './Fold';
+import { useJobUnderWay } from '../store/underway';
 
 /** One line of the teach list: done, or what to do with the way there. */
 function Step({
@@ -272,7 +273,8 @@ function TeachFlow() {
 /** One stored jig: what it is, and the three things that can be done with it. */
 function JigRow({ jig }: { jig: Jig }) {
   const onTable = useJigs((s) => jig.tags.some((tag) => s.seen.some((x) => x.id === tag.id)));
-  const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
+  // Whatever the stores refuse while a job is under way, the buttons are shut for as well (and say so)
+  const running = useJobUnderWay();
   const [renaming, setRenaming] = useState<string | null>(null);
   const { saveJig, removeJig } = useWorkshop.getState();
   const a = jigAccuracy(jig.tags, jig.reach);
@@ -319,7 +321,7 @@ function JigRow({ jig }: { jig: Jig }) {
       </div>
       <div className="flex gap-3 flex-wrap">
         <Button
-          reason="machine"
+          reason={running ? t('cam.jobRuns') : 'machine'}
           variant="outline"
           size="sm"
           disabled={running}

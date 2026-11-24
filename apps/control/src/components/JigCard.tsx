@@ -16,6 +16,7 @@ import { Notice } from './Notice';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { useJobUnderWay } from '../store/underway';
 
 /** From this expected error on, one tag alone is called too weak for the job, mm */
 export const JIG_ERROR_WARN = 0.5;
@@ -55,18 +56,14 @@ export function accuracyText(jig: Pick<Jig, 'tags' | 'reach'>): string {
 
 /** Whether a jig could be measured right now: machine still, camera on and calibrated. */
 export function useCanMeasure(): boolean {
-  const idle = useMachine(
-    (s) =>
-      s.connection === 'connected' &&
-      s.status?.state === 'Idle' &&
-      s.fileJob === null &&
-      s.stream?.result !== 'running',
-  );
+  const idle = useMachine((s) => s.connection === 'connected' && s.status?.state === 'Idle');
+  // The store's `canMeasure` asks the same: a job between two parts is no time to measure either
+  const underway = useJobUnderWay();
   const cameraOn = useCamera((s) => s.source !== null && s.size !== null);
   const calibrated = useWorkshop((s) => cameraCalibrated(s.settings.camera));
   const busy = useJigs((s) => s.busy !== null);
   const centring = useCalibration((s) => s.task !== null);
-  return idle && cameraOn && calibrated && !busy && !centring;
+  return idle && !underway && cameraOn && calibrated && !busy && !centring;
 }
 
 /** The measuring as it runs – for a jig, or while one is taught: which tag the camera is over, and the way out. */
@@ -103,7 +100,8 @@ export function JigCard() {
   const pose = useJob((s) => s.pose);
   const wcoKey = useMachine((s) => s.status?.wco.join(',') ?? null);
   const zKey = wcoKey === null ? null : (wcoKey.split(',')[2] ?? '0');
-  const running = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
+  // Whatever the stores refuse while a job is under way, the buttons are shut for as well (and say so)
+  const running = useJobUnderWay();
   const ready = useCanMeasure();
   const go = useUi((s) => s.go);
   // On a part cut in sections the tags are register marks: nothing to teach.
