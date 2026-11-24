@@ -559,6 +559,21 @@ export function CamCard() {
           {t('cam.generate')}
         </Button>
         <Button
+          variant="outline"
+          data-find="project-save"
+          data-testid="cam-project-save"
+          disabled={parts.length === 0}
+          reason="missing"
+          onClick={() => {
+            const text = cam.saveProject();
+            if (text === null) return;
+            downloadText(`${project.name}.lowrider.json`, text);
+            addLog('info', t('cam.project.saved', { name: `${project.name}.lowrider.json` }));
+          }}
+        >
+          {t('cam.project.save')}
+        </Button>
+        <Button
           reason={ahead ? t('cam.aheadReason') : 'missing'}
           variant="outline"
           disabled={!made || ahead}

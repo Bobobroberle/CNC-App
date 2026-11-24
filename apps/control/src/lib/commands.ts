@@ -246,6 +246,8 @@ export const COMMANDS: readonly Command[] = [
   draw('shapeGrid', 'cam.shapes.grid', 'shape-grid', 'grid'),
   draw('shapeText', 'cam.shapes.text', 'shape-text', 'text'),
   draw('importFile', 'cam.importFile', 'shape-file', 'file'),
+  draw('projectOpen', 'cam.project.open', 'project-open'),
+  draw('projectSave', 'cam.project.save', 'project-save'),
   draw('camHow', 'cam.steps.how', 'cam-how'),
   draw('tabs', 'cam.tabs', 'cam-how'),
   draw('camTool', 'cam.tool', 'cam-tool', 'tool'),

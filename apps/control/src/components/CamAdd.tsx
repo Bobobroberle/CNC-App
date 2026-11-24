@@ -1,6 +1,7 @@
 import type { Sketch, SketchType } from '@lowrider/cam';
 import { useRef, useState } from 'react';
 import { t, tDynamic } from '../i18n';
+import { PROJECT_MAX_BYTES } from '../lib/camProject';
 import { tableBox } from '../lib/tableBox';
 import { useCam } from '../store/cam';
 import { useMachine } from '../store/machine';
@@ -36,6 +37,7 @@ export function CamAdd() {
   const cam = useCam.getState();
   const addLog = useMachine((s) => s.addLog);
   const fileInput = useRef<HTMLInputElement>(null);
+  const projectInput = useRef<HTMLInputElement>(null);
   /** The last file held nothing that can be cut */
   const [empty, setEmpty] = useState(false);
   if (!project) return null;
@@ -87,6 +89,15 @@ export function CamAdd() {
       {project.items.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t('cam.addHint')}</p>
       ) : null}
+      {/* A saved drawing replaces this one (one step of undo brings it back): its own control, not "Datei". */}
+      <Button
+        variant="outline"
+        data-find="project-open"
+        data-testid="cam-project-open"
+        onClick={() => projectInput.current?.click()}
+      >
+        {t('cam.project.open')}
+      </Button>
       {/* Only where there is a keyboard to press them on; the keys themselves are on their sheet. */}
       <p className="text-muted-foreground text-sm cam-keys">{t('find.shortcuts.hint')}</p>
       {empty ? <Alert variant="warning">{t('cam.fileEmpty')}</Alert> : null}
@@ -104,6 +115,38 @@ export function CamAdd() {
           ))}
         </ul>
       ) : null}
+      <input
+        ref={projectInput}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        data-testid="cam-project-file"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file) return;
+          const failed = (code: string) =>
+            addLog(
+              'error',
+              t(`cam.project.errors.${code}` as 'cam.project.errors.invalid-json'),
+              'cam.project.error',
+            );
+          // Too large to be a drawing: refused before it is read
+          if (file.size > PROJECT_MAX_BYTES) return failed('too-large');
+          void file.text().then((content) => {
+            const result = cam.openProject(content);
+            if ('error' in result) return failed(result.error);
+            setEmpty(false);
+            addLog(
+              'info',
+              t('cam.project.opened', { name: useCam.getState().project?.name ?? '' }),
+            );
+            if (result.toolMissing) {
+              addLog('error', t('cam.project.toolMissing'), 'cam.project.toolMissing');
+            }
+          });
+        }}
+      />
       <input
         ref={fileInput}
         type="file"

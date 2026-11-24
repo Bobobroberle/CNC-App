@@ -256,7 +256,16 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   drawing that is `ahead` goes on the table by itself only where nothing is loaded and the end was seen while
   connected; the program of a finished job stays – with its summary, also when the drawing is emptied (`offStage`) –
   until that tap, **as long as the drawing was ahead of it**; a drawing that did not change during the job follows
-  the edits as always. **Every other way to load, replace or take off the program goes through the central lock**
+  the edits as always. **Project files** (`lib/camProject.ts`, `saveProject`/`openProject` in `store/cam.ts`, buttons "Projekt
+  speichern" in "Ansehen und übergeben" and "Projekt öffnen …" under the shapes): the drawing (sketches, contours as `source` +
+  `placement` – never the derived `contours` –, how each part is cut, the two-sided state, the cutting settings) as
+  `*.lowrider.json`, format `lowrider-cam-project` version 1. Reading is strict and refuses with stable codes (`too-large`,
+  `invalid-json`, `wrong-format`, `newer-version`, `invalid-project`; non-finite numbers, duplicate ids, 2000 items / 400 000
+  points); a sketch or text style that cannot be trusted is dropped (the item keeps its contours); a cutter the workshop lacks
+  stays the chosen one and is said. Opening replaces the drawing in one step of undo, raises the id counter above the file's,
+  and **never loads a program itself** – it goes through the drawing's own `update`, so the job lock and the "not its own
+  program" rule hold. A part may have its own direction (`CamItem.climb` → `Operation.climb`, falling back to the job's).
+  **Every other way to load, replace or take off the program goes through the central lock**
   in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived`, `unload` and
   `restoreOriginal` do nothing while a job is under way, say why (`job.locked`, its own message group `jobLocked`)
   and **return `false`** – a caller never reports "loaded" after that; a dropped file or a job of the recent list is

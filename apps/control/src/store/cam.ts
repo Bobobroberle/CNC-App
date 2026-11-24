@@ -90,6 +90,7 @@ import { cameraCalibrated } from './photomap';
 import { useRun } from './run';
 import { jobUnderWay } from './underway';
 import { useWorkshop } from './workshop';
+import { parseProject, projectToText, type ProjectError } from '../lib/camProject';
 
 export type { CamItem, Selection } from '../lib/camItems';
 
@@ -186,6 +187,14 @@ interface CamStore {
   close(): void;
   /** Adds the contours of a DXF or SVG file to the drawing; throws when it cannot be read */
   importFile(name: string, text: string): void;
+  /** The drawing as a project file (text), or null while there is none */
+  saveProject(): string | null;
+  /**
+   * Opens a project file in place of the drawing – one step of undo brings the old one back. Never
+   * puts a program on the table by itself: it goes through the drawing's own update, so a job under
+   * way and a program that is not the drawing's own are left as they are. Refused files change nothing.
+   */
+  openProject(text: string): { toolMissing: boolean } | { error: ProjectError };
   /** Adds contours as new items, selected for arranging */
   add(contours: Contour[], options?: AddOptions): void;
   /**
@@ -782,6 +791,35 @@ export const useCam = create<CamStore>((set, get) => {
         ahead: false,
         table: null,
       }),
+    saveProject() {
+      const { project, settings } = get();
+      return project ? projectToText(project, settings) : null;
+    },
+    openProject(text) {
+      const parsed = parseProject(text);
+      if ('error' in parsed) return parsed;
+      // A tool this workshop has not: the cutter stays the one that is chosen now (and it is said)
+      const { toolId, ...rest } = parsed.settings;
+      const toolMissing =
+        toolId !== undefined && !useWorkshop.getState().tools.some((t) => t.id === toolId);
+      get().open();
+      remember(snap());
+      // What is made from now on starts above every id and group of the file
+      nextId = Math.max(nextId, parsed.highestId + 1);
+      const items = parsed.project.items.map((i) => ({
+        ...i,
+        contours: place(i.source, i.placement),
+      }));
+      set((s) => ({
+        project: { ...parsed.project, items },
+        settings: { ...s.settings, ...(toolMissing ? rest : parsed.settings) },
+        selected: null,
+        problems: [],
+        flipNotes: [],
+      }));
+      update(items, null, false);
+      return { toolMissing };
+    },
     importFile(name, text) {
       const svg = /\.svg$/i.test(name) || /<svg[\s>]/i.test(text.slice(0, 2000));
       const drawing = svg

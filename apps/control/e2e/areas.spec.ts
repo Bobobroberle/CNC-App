@@ -218,6 +218,8 @@ test.describe('the jog panel', () => {
     await expect(list).toContainText('Anschlag');
     await expect(list).toContainText('X 300,0 · Y 400,0');
     await status(page, '<Idle|MPos:50.000,60.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
+    // the report has arrived when the position display shows it (work X = 50 − 600)
+    await expect(page.getByRole('button', { name: /^Position:/ })).toContainText('−550.000');
     await places.getByLabel('Name des Merkpunkts').fill('anschlag');
     await places.getByRole('button', { name: 'Position merken' }).click();
     await expect(list.locator('li')).toHaveCount(1);

@@ -2572,6 +2572,45 @@ test('imports an SVG, says what it left out and frees the corners of a slot', as
   await expect(page.getByTestId('assistant-checks')).toContainText('G-Code ohne Fehler');
 });
 
+test('saves the drawing as a project file and opens it again – refusing what is no project', async ({
+  page,
+}) => {
+  await installFakeFluidNC(page);
+  await openApp(page);
+  await goTo(page, 'CAM');
+  await drawShape(page, 'Rechteck');
+  await drawShape(page, 'Kreis');
+  const list = page.getByTestId('cam-contours');
+  await expect(list).toContainText('Kreis Ø 20 mm');
+  const rows = await list.locator('li').count();
+
+  // Saved as a file of its own
+  const download = page.waitForEvent('download');
+  await page.getByTestId('cam-project-save').click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('zeichnung.lowrider.json');
+  const saved = await file.path();
+
+  // Emptied, and opened again: the drawing is back, and "Rückgängig" brings the empty one back
+  await page.getByRole('button', { name: 'Zeichnung leeren' }).click();
+  await expect(list).toHaveCount(0);
+  await page.getByTestId('cam-project-file').setInputFiles(saved);
+  await expect(page.getByTestId('cam-contours').locator('li')).toHaveCount(rows);
+  await expect(page.getByTestId('cam-contours')).toContainText('Kreis Ø 20 mm');
+  await page.getByRole('button', { name: 'Rückgängig' }).click();
+  await expect(page.getByTestId('cam-contours')).toHaveCount(0);
+
+  // What is no project is refused – with its reason – and changes nothing
+  await page.getByTestId('cam-project-file').setInputFiles({
+    name: 'kaputt.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"format":"lowrider-cam-project","version":1,"name":"x","items":[{}]}'),
+  });
+  await page.getByTestId('messages-flag').click();
+  await expect(page.getByTestId('message-centre')).toContainText('beschädigt oder unvollständig');
+  await expect(page.getByTestId('cam-contours')).toHaveCount(0);
+});
+
 test('arranges the drawing by numbers: move, turn, mirror, copies in rows and columns', async ({
   page,
 }) => {

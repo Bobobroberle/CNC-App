@@ -2166,6 +2166,22 @@ export const de = {
       place: 'X {x} · Y {y}',
     },
     importFile: 'Datei (DXF, SVG)',
+    project: {
+      open: 'Projekt öffnen …',
+      save: 'Projekt speichern',
+      opened: 'Projekt „{name}“ geöffnet – „Rückgängig“ bringt die vorige Zeichnung zurück.',
+      saved: 'Projekt gespeichert: {name}',
+      toolMissing:
+        'Das Werkzeug des Projekts gibt es in dieser Werkzeugliste nicht – es bleibt das gewählte.',
+      errors: {
+        'too-large': 'Die Datei ist zu groß für eine Zeichnung (über 20 MB).',
+        'invalid-json': 'Das ist keine Projektdatei: sie lässt sich nicht lesen.',
+        'wrong-format': 'Das ist keine Projektdatei dieser App (Format falsch).',
+        'newer-version': 'Die Projektdatei ist von einer neueren Version der App.',
+        'invalid-project':
+          'Die Projektdatei ist beschädigt oder unvollständig – es wurde nichts geöffnet.',
+      },
+    },
     fileError: 'Datei nicht lesbar: {reason}',
     fileEmpty: 'In der Datei war nichts, das sich fräsen lässt.',
     skipped: 'Nicht übernommen: {list} (Text, Blöcke, Schraffuren gehen nicht).',
@@ -3142,6 +3158,10 @@ export const de = {
         'lochraster, lochreihe, raster, mehrere löcher, bohrbild, grid, pattern, reihe, dübellöcher',
       shapeText:
         'text, schrift, beschriftung, buchstaben, gravieren, gravur, name, schild, engrave, font, wörter',
+      projectOpen:
+        'projekt öffnen, zeichnung öffnen, projekt laden, gespeicherte zeichnung, projektdatei, lowrider json, weiterarbeiten, zeichnung wieder öffnen',
+      projectSave:
+        'projekt speichern, zeichnung speichern, sichern, projektdatei, zeichnung sichern, auf den stick, kopie der zeichnung, backup der zeichnung',
       importFile:
         'dxf, svg, importieren, datei einlesen, vektor, inkscape, zeichnung laden, fusion, freecad, import, vector, kontur aus datei',
       camHow:

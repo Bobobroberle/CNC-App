@@ -2135,6 +2135,20 @@ export const en: DictionaryShape = {
       place: 'X {x} · Y {y}',
     },
     importFile: 'File (DXF, SVG)',
+    project: {
+      open: 'Open project …',
+      save: 'Save project',
+      opened: 'Project “{name}” opened – “Undo” brings the previous drawing back.',
+      saved: 'Project saved: {name}',
+      toolMissing: 'This tool library has not the project’s cutter – the chosen one stays.',
+      errors: {
+        'too-large': 'The file is too large for a drawing (over 20 MB).',
+        'invalid-json': 'This is no project file: it cannot be read.',
+        'wrong-format': 'This is no project file of this app (wrong format).',
+        'newer-version': 'The project file is from a newer version of the app.',
+        'invalid-project': 'The project file is damaged or incomplete – nothing was opened.',
+      },
+    },
     fileError: 'File not readable: {reason}',
     fileEmpty: 'The file held nothing that can be cut.',
     skipped: 'Not taken over: {list} (text, blocks and hatches are not supported).',
@@ -3088,6 +3102,10 @@ export const en: DictionaryShape = {
       shapeGrid:
         'hole grid, row of holes, grid, several holes, hole pattern, pattern, dowel holes, array',
       shapeText: 'text, lettering, letters, engrave, engraving, name, sign, font, words, label',
+      projectOpen:
+        'open project, open drawing, load project, saved drawing, project file, lowrider json, continue working, reopen a drawing',
+      projectSave:
+        'save project, save drawing, back up, project file, back up the drawing, to the stick, copy of the drawing',
       importFile:
         'dxf, svg, import, read a file, vector, inkscape, load a drawing, fusion, freecad, contour from file',
       camHow:
