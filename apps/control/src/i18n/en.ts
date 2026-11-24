@@ -494,6 +494,14 @@ export const en: DictionaryShape = {
         effect: 'The flow stays at this step. Nothing was taken.',
         action: 'Repeat the step in the flow – it says what is missing.',
       },
+      sync: {
+        cause:
+          'When the settings were compared with the Pi, two states differed, or the Pi held something this app cannot read.',
+        effect:
+          'Where the message says “replaced”, the other value holds now; otherwise nothing was overwritten. The machine itself was not moved.',
+        action:
+          'Look at the values (camera and calibration under Service, places under Settings). If a document on the Pi is unusable: under Settings → Connection, write this device’s state to the Pi.',
+      },
       jobLocked: {
         cause:
           'A job is under way: it runs from the SD card or is streamed, stands between two parts, or the link was lost under it.',
@@ -927,7 +935,8 @@ export const en: DictionaryShape = {
   },
   measurements: {
     title: 'Measurement log',
-    hint: 'Every measurement and every correction of the machine, with time and values – they are on the Pi too and on every device. What is measured in the simulator is not in it.',
+    hint: 'What was measured at the machine and corrected at the controller, with time and values. With a Pi as companion it lies there too and is on every device. What is measured in the simulator is not in it.',
+    more: 'The latest {shown} of {total} entries.',
     empty: 'Nothing measured yet.',
     kinds: {
       'camera-scale': 'Camera: scale',
@@ -960,12 +969,23 @@ export const en: DictionaryShape = {
       offline:
         'The Pi does not answer – for now this holds on this device only and is made up for later.',
       unsupported:
-        'The companion on the Pi does not know this storage yet – update the Pi with the new version (setup.sh).',
+        'The companion on the Pi does not know this storage yet – copy the new version to the Pi and run setup.sh there (see docs/companion.md).',
       paused: 'Paused while the simulator runs – what is set there holds there only.',
-      deferred: 'Newer values from the Pi wait until the machine stands still.',
+      deferred:
+        'The sync waits until the machine stands still – newer values from the Pi are ready, this device’s changes go out after.',
       refused: 'The Pi holds settings that do not fit this app – nothing taken.',
+      failed: 'The Pi answered, but the sync did not work – it is tried again next time.',
     },
-    now: 'Sync now',
+    notThrough:
+      'The libraries are synced, the settings and measurements are not yet – the line below says why.',
+    overwrite: 'Write this device’s state to the Pi',
+    overwriteHint:
+      'Replaces what the Pi holds and this app cannot use with this device’s settings.',
+    overwritten: 'Replaced on the Pi by the state of this device: {list}.',
+    applyFailed:
+      'The values from the Pi ({field}) could not be taken – this device keeps its state.',
+    rewound: 'The Pi has an older state than at the last sync (restored?) – taken: {list}.',
+    macrosFromPi: 'Macros taken from the Pi: {list}. Look at the text before you use them first.',
     refused: 'The settings on the Pi are unusable ({field}) – nothing taken, nothing overwritten.',
     replacedLocal: 'Taken from the Pi: {list}. Different values on this device are replaced.',
     replacedOther:
@@ -983,11 +1003,19 @@ export const en: DictionaryShape = {
       safeMachineZ: 'safe height',
       notifyCompanion: 'notification through the Pi',
       adaptive: 'adaptive feed',
-      language: 'language',
-      expertMode: 'expert functions',
       cornerPlate: 'corner plate',
       recording: 'recording',
     },
+    // The other documents are named as a whole
+    slices: {
+      settings: 'settings',
+      clamps: 'clamps',
+      toolReference: 'reference tool',
+      macros: 'macros',
+      learning: 'learned values',
+      profile: 'machine values',
+    },
+    lastOk: 'Last saved: {time}.',
   },
   companion: {
     shutdownTitle: 'Shut down Pi',
@@ -1014,7 +1042,7 @@ export const en: DictionaryShape = {
       'Optional: a Raspberry Pi or mini PC at the machine keeps tools, materials and history, buffers jobs, relays FluidNC and provides sensor data.',
     address: 'Companion address',
     test: 'Test connection',
-    sync: 'Sync libraries',
+    sync: 'Sync now',
     synced: 'Libraries synced with Companion.',
     online: 'Companion {version} reachable.',
     noRelay: 'No FluidNC relay set up.',

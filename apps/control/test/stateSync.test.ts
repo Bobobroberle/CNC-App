@@ -6,6 +6,8 @@ import {
   LOCAL_SETTINGS,
   merge3,
   same,
+  shaped,
+  split,
   syncedSettings,
   withSynced,
 } from '../src/lib/stateSync';
@@ -170,5 +172,160 @@ describe('what the Pi sends is not trusted', () => {
       insane({ ...DEFAULT_SETTINGS, waypoints: [{ id: 'w', name: 'A', x: Number.NaN, y: 1 }] }),
     ).toBe('waypoints');
     expect(insane({ ...DEFAULT_SETTINGS, waypoints: 'x' as never })).toBe('waypoints');
+  });
+});
+
+describe('the merge of a document that always has the same keys', () => {
+  const keys = ['a', 'b'];
+  it('counts a key the remote copy lacks as unchanged, not as removed', () => {
+    const base = { a: 1, b: 2 };
+    // an older app wrote a copy without b: this device's b stays, nothing is "replaced"
+    expect(merge3(base, { a: 1, b: 5 }, { a: 1 }, 'local', keys)).toEqual({
+      merged: { a: 1, b: 5 },
+      replaced: [],
+    });
+    expect(merge3(base, { a: 1, b: 2 }, {}, 'remote', keys).merged).toEqual({ a: 1, b: 2 });
+    // …and the remote's change of the other key still comes in
+    expect(merge3(base, { a: 1, b: 2 }, { a: 7 }, 'remote', keys).merged).toEqual({ a: 7, b: 2 });
+  });
+
+  it('lets a document of free keys lose one', () => {
+    expect(merge3({ a: 1, b: 2 }, { a: 1, b: 2 }, { a: 1 }, 'remote').merged).toEqual({ a: 1 });
+    // a key that is not under `keys` is data as well
+    expect(merge3({ a: 1, c: 3 }, { a: 1, c: 3 }, { a: 1 }, 'remote', keys).merged).toEqual({
+      a: 1,
+    });
+  });
+});
+
+describe('the merge of what both devices changed in the same part', () => {
+  const keys = ['camera', 'places'];
+  it('keeps what each changed inside it: the calibration of one is not lost to a switch of the other', () => {
+    const base = { camera: { pxPerMm: 10, lightMarker: false, offsetX: 0 }, places: 'P' };
+    const pc = { ...base, camera: { ...base.camera, pxPerMm: 12.3 } };
+    const ipad = { ...base, camera: { ...base.camera, lightMarker: true } };
+    const { merged, replaced } = merge3(base, ipad, pc, 'local', keys);
+    expect(merged.camera).toEqual({ pxPerMm: 12.3, lightMarker: true, offsetX: 0 });
+    expect(replaced).toEqual([]);
+  });
+
+  it('still names a value that both changed to different things, and the winner’s stays', () => {
+    const base = { camera: { pxPerMm: 10, offsetX: 0 }, places: 'P' };
+    const a = { ...base, camera: { pxPerMm: 11, offsetX: 5 } };
+    const b = { ...base, camera: { pxPerMm: 12, offsetX: 0 } };
+    const local = merge3(base, a, b, 'local', keys);
+    expect(local.merged.camera).toEqual({ pxPerMm: 11, offsetX: 5 });
+    expect(local.replaced).toEqual(['camera']);
+    expect(merge3(base, a, b, 'remote', keys).merged.camera).toEqual({ pxPerMm: 12, offsetX: 5 });
+  });
+
+  it('goes only one level deep, and not at all for a document of free keys (a learned pair is one value)', () => {
+    const base = { 'a|b': { factor: 1, jobs: 1 } };
+    const mine = { 'a|b': { factor: 1.2, jobs: 2 } };
+    const theirs = { 'a|b': { factor: 0.8, jobs: 3 } };
+    expect(merge3(base, mine, theirs, 'local').merged).toEqual(mine);
+    // a list is one value too
+    expect(
+      merge3({ places: [1] }, { places: [1, 2] }, { places: [1, 3] }, 'local', ['places']).merged,
+    ).toEqual({
+      places: [1, 2],
+    });
+  });
+});
+
+describe('what stays on the device, the language too', () => {
+  it('is this person’s: a language or the expert functions of the PC do not turn the tablet at the machine around', () => {
+    expect(LOCAL_SETTINGS).toContain('language');
+    expect(LOCAL_SETTINGS).toContain('expertMode');
+    const synced = syncedSettings(settings({ language: 'en', expertMode: true }));
+    expect(synced).not.toHaveProperty('language');
+    expect(synced).not.toHaveProperty('expertMode');
+    const mixed = withSynced(settings({ language: 'en', expertMode: true }), synced);
+    expect(mixed).toMatchObject({ language: 'en', expertMode: true });
+  });
+});
+
+describe('the part of a document that is this app’s', () => {
+  it('is what is under the keys – the rest is carried along', () => {
+    expect(split({ a: 1, b: 2, c: 3 }, ['a', 'b'])).toEqual({
+      own: { a: 1, b: 2 },
+      extra: { c: 3 },
+    });
+    expect(split({ a: 1 }, undefined)).toEqual({ own: { a: 1 }, extra: {} });
+    expect(split({}, ['a'])).toEqual({ own: {}, extra: {} });
+  });
+});
+
+describe('whether a value is the kind of thing that stands in its place', () => {
+  const template = { n: 1, s: 'x', b: true, list: [], o: { k: 1, deep: { f: 0 } }, opt: null };
+  it('looks at the kind, down through the objects, and lets a missing part be', () => {
+    expect(shaped({}, template)).toBe(true);
+    expect(shaped({ n: 5, s: 'y', b: false, list: [1], o: { k: 2 } }, template)).toBe(true);
+    for (const bad of [
+      { n: '5' },
+      { n: Number.NaN },
+      { s: 5 },
+      { b: 'yes' },
+      { list: 'x' },
+      { o: null },
+      { o: [] },
+      { o: { k: 'x' } },
+      { o: { deep: { f: 'x' } } },
+      { opt: true },
+      { opt: [] },
+    ]) {
+      expect(shaped(bad, template), JSON.stringify(bad)).toBe(false);
+    }
+    // an optional value: nothing, a number, a text, an object
+    for (const ok of [null, 3, 'text', { x: 1 }]) expect(shaped({ opt: ok }, template)).toBe(true);
+    // a key the template does not know is not looked at here
+    expect(shaped({ other: { x: 1 } }, template)).toBe(true);
+    expect(shaped(5, template)).toBe(false);
+  });
+});
+
+describe('what the settings cards allow, and the Z travel', () => {
+  const sane = (patch: Partial<WorkshopSettings>, travelZ?: { min: number; max: number }) =>
+    insane(validateSettings({ ...DEFAULT_SETTINGS, ...patch })!, travelZ);
+
+  it('keeps the safe height in the upper half of the travel, where it is known', () => {
+    const z = { min: -120, max: 0 };
+    expect(sane({ safeMachineZ: -5 }, z)).toBeNull();
+    expect(sane({ safeMachineZ: -60 }, z)).toBeNull();
+    expect(sane({ safeMachineZ: -61 }, z)).toBe('safeMachineZ');
+    expect(sane({ safeMachineZ: 1 }, z)).toBe('safeMachineZ');
+    // without a travel only the absurd goes
+    expect(sane({ safeMachineZ: -290 })).toBeNull();
+    expect(sane({ safeMachineZ: -1e6 })).toBe('safeMachineZ');
+  });
+
+  it('holds the measuring runs to what the calibration card offers', () => {
+    const c = DEFAULT_SETTINGS.calibration;
+    expect(sane({ calibration: { ...c, points: 2 } })).toBeNull();
+    expect(sane({ calibration: { ...c, points: 5 } })).toBeNull();
+    for (const bad of [
+      { points: 6 },
+      { points: 2.5 },
+      { spanX: 0 },
+      { spanY: -1 },
+      { settleMs: 70_000 },
+      { zRise: 0 },
+      { gantryWidth: 0 },
+      { motor1Side: 'up' as never },
+    ]) {
+      expect(sane({ calibration: { ...c, ...bad } }), JSON.stringify(bad)).toBe('calibration');
+    }
+    expect(sane({ calibration: { ...c, gantryWidth: 1200, motor1Side: 'xMax' } })).toBeNull();
+  });
+
+  it('holds the plate, the recording and the language to their cards', () => {
+    expect(sane({ cornerPlate: { use: true, top: -1, wall: 2 } })).toBe('cornerPlate');
+    expect(sane({ cornerPlate: { use: true, top: 1, wall: 2000 } })).toBe('cornerPlate');
+    expect(sane({ recording: { ...DEFAULT_SETTINGS.recording, intervalSeconds: 0 } })).toBe(
+      'recording',
+    );
+    expect(sane({ language: 'fr' as never })).toBe('language');
+    expect(sane({ spindle: { rpmMin: 5, rpmMax: 4, maxFeed: 10 } })).toBe('spindle');
+    expect(sane({ spindle: { rpmMin: 0, rpmMax: 4, maxFeed: 10 } })).toBe('spindle');
   });
 });

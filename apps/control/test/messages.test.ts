@@ -134,6 +134,7 @@ describe('what a line of the log becomes', () => {
       'flow',
       'limit',
       'jobLocked',
+      'sync',
       'done',
       'general',
     ];
@@ -151,6 +152,26 @@ describe('what a line of the log becomes', () => {
     expect(levelOfLog('info', 'drive.notAtRest')).toBe('hint');
     expect(groupOf('drive.notAtRest')).toBe('general');
     expect(groupOf('job.loadError')).toBe('file');
+  });
+});
+
+describe('the messages of the exchange with the Pi', () => {
+  it('have a group of their own – and say the truth about what was changed', () => {
+    for (const key of [
+      'sync.refused',
+      'sync.replacedLocal',
+      'sync.replacedOther',
+      'sync.applyFailed',
+    ]) {
+      expect(groupOf(key), key).toBe('sync');
+      expect(levelOfLog('error', key), key).toBe('warning');
+    }
+    // information the operator is shown, and advice that stays in the centre
+    expect(levelOfLog('info', 'sync.simulatorEnded')).toBe('info');
+    expect(levelOfLog('info', 'sync.overwritten')).toBe('info');
+    expect(levelOfLog('info', 'sync.rewound')).toBe('hint');
+    expect(levelOfLog('info', 'sync.macrosFromPi')).toBe('hint');
+    expect(groupOf('sync.rewound')).toBe('sync');
   });
 });
 

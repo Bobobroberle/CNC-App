@@ -34,6 +34,9 @@ export const MEASUREMENT_LIMIT = 500;
 const MAX_VALUES = 40;
 const MAX_TEXT = 400;
 
+/** What `toISOString` makes: the time the app writes – a log sorts by it, so no other spelling of a time is one. */
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+
 const isKind = (v: unknown): v is MeasurementKind =>
   typeof v === 'string' && (MEASUREMENT_KINDS as readonly string[]).includes(v);
 
@@ -42,7 +45,7 @@ export function validMeasurement(value: unknown): Measurement | null {
   if (typeof value !== 'object' || value === null) return null;
   const { id, at, kind, values } = value as Record<string, unknown>;
   if (typeof id !== 'string' || id === '' || id.length > 120) return null;
-  if (typeof at !== 'string' || Number.isNaN(Date.parse(at))) return null;
+  if (typeof at !== 'string' || !ISO_TIME.test(at) || Number.isNaN(Date.parse(at))) return null;
   if (!isKind(kind)) return null;
   if (typeof values !== 'object' || values === null || Array.isArray(values)) return null;
   const entries = Object.entries(values);

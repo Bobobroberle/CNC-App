@@ -51,6 +51,7 @@ export type MessageGroup =
   | 'flow'
   | 'limit'
   | 'jobLocked'
+  | 'sync'
   | 'done'
   | 'general';
 
@@ -80,6 +81,7 @@ const GROUPS: Record<string, MessageGroup> = {
   sections: 'flow',
   series: 'flow',
   zeros: 'flow',
+  sync: 'sync',
 };
 
 /** Keys that say otherwise than their first part. */
@@ -118,10 +120,21 @@ const INFO_KEYS = new Set([
   'stream.done',
   'probe.done',
   'probeWizard.done',
+  // the Pi's state: put back after a simulator session, replaced by this device's
+  'sync.simulatorEnded',
+  'sync.overwritten',
 ]);
 
 /** Log lines of kind `info` that are advice: they stay in the centre, without a toast. */
-const HINT_KEYS = new Set(['drive.atLimit', 'drive.limited', 'goto.limited', 'drive.notAtRest']);
+const HINT_KEYS = new Set([
+  'drive.atLimit',
+  'drive.limited',
+  'goto.limited',
+  'drive.notAtRest',
+  // what came from the Pi and may be looked at: an older state after a restore, macros that run on the machine
+  'sync.rewound',
+  'sync.macrosFromPi',
+]);
 
 /**
  * The level of a line of the app's log – or null when it is a line for the

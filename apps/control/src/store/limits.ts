@@ -13,6 +13,7 @@ import {
 import { isSimulatorAddress } from '../sim';
 import { useJob } from './job';
 import { useMachine } from './machine';
+import { useMeasurements } from './measurements';
 import { useWorkshop } from './workshop';
 
 /**
@@ -155,6 +156,16 @@ export const useLimits = create<LimitsStore>((set, get) => ({
       result: { at: Date.now(), values, saved, backup },
     });
     if (!values.every((v) => v.ok)) return fail('limits.unconfirmed');
+    // What the controller now runs with – and, where saved, keeps: what was there, what was written
+    useMeasurements.getState().record(
+      'correction',
+      Object.fromEntries(
+        changes.flatMap((c) => [
+          [`${c.path}.from`, c.from],
+          [`${c.path}.to`, c.to],
+        ]),
+      ),
+    );
     machine.addLog(
       'info',
       t(saved === 'saved' ? 'limits.writtenSaved' : 'limits.writtenRuntime'),

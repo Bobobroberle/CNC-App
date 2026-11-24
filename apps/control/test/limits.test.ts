@@ -14,6 +14,7 @@ import { readMachineConfig } from '@lowrider/fluidnc-client';
 import { simulator } from '../src/sim';
 import { useJob } from '../src/store/job';
 import { canKeepLimits, useLimits } from '../src/store/limits';
+import { useMeasurements } from '../src/store/measurements';
 import { useMachine } from '../src/store/machine';
 
 const STOCK: Limits = {
@@ -118,7 +119,15 @@ describe('writing the limits to the (simulated) controller', () => {
       ...toDraft(STOCK),
       z: { maxRate: '1440', acceleration: '80' },
     });
+    // a simulator measures nothing of a real machine: the entry is what is asked for here, not what is written down
+    const record = vi.fn();
+    useMeasurements.setState({ record });
     expect(await useLimits.getState().write(check.changes, true)).toBe(true);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith('correction', {
+      'axes/z/max_rate_mm_per_min.from': 1200,
+      'axes/z/max_rate_mm_per_min.to': 1440,
+    });
     const { result, current } = useLimits.getState();
     expect(result).toMatchObject({ saved: 'saved', backup: 'config.yaml.bak' });
     expect(result!.values).toEqual([expect.objectContaining({ read: 1440, ok: true })]);
@@ -150,9 +159,12 @@ describe('writing the limits to the (simulated) controller', () => {
     expect(await useLimits.getState().write(back.changes, false)).toBe(false);
     expect(useLimits.getState().error).toBe('limits.notIdle');
     useMachine.setState({ status });
-    // FluidNC refuses a value (the simulator like its validator): said, nothing claimed.
+    // FluidNC refuses a value (the simulator like its validator): said, nothing claimed, nothing recorded.
+    const record = vi.fn();
+    useMeasurements.setState({ record });
     const bad = [{ ...back.changes[0]!, to: -5 }];
     expect(await useLimits.getState().write(bad, false)).toBe(false);
+    expect(record).not.toHaveBeenCalled();
     expect(useLimits.getState().error).toBe('limits.refused');
     expect(useLimits.getState().current!.z.maxRate).toBe(1200);
   });

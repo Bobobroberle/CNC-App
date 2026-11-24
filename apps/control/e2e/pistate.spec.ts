@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { goTo, openApp, openJog } from './helpers';
+import { goTo, hold, openApp, openJog } from './helpers';
 
 // The settings and measurements of the machine live on the Pi, so that every device finds the same:
 // a device takes the Pi's calibration, a change goes to the Pi from the revision it read, an older
@@ -213,4 +213,35 @@ test('what was measured is written down, on the Pi too – and what the Pi has i
   await page.reload();
   await goTo(page, 'Service & Diagnose', 'Kalibrieren');
   await expect(page.getByTestId('measurement-log')).toContainText('Genauigkeits-Check mit Lineal');
+});
+
+test('a document on the Pi that this app cannot use is said once, blocks nothing else – and this device can replace it', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'lowrider-control.settings',
+      JSON.stringify({ parkPosition: { x: 5, y: 6 } }),
+    );
+  });
+  // the Pi holds a camera that is nothing; the macros are fine
+  const pi = await fakePi(page, {
+    settings: { rev: 3, data: { camera: null } },
+    macros: { rev: 2, data: { list: [{ name: 'Z hoch', gcode: 'G53 G0 Z-5' }] } },
+  });
+  await openApp(page);
+  await goTo(page, 'Einstellungen', 'Verbindung');
+  const state = page.getByTestId('sync-state');
+  await expect(state).toContainText('nicht zu dieser App passen', { timeout: 10_000 });
+  // nothing was overwritten, and the macros of the Pi were still taken in
+  expect(pi.puts.filter((p) => p.key === 'settings')).toEqual([]);
+  expect(pi.docs.settings!.data).toEqual({ camera: null });
+  // the way out: a hold replaces the Pi's document with this device's state
+  await hold(page, /Stand dieses Geräts auf den Pi schreiben/);
+  await expect.poll(() => pi.docs.settings!.rev, { timeout: 10_000 }).toBe(4);
+  expect(pi.docs.settings!.data).toMatchObject({
+    parkPosition: { x: 5, y: 6 },
+    camera: { pxPerMm: 10 },
+  });
+  await expect(state).toContainText('Auf dem Pi gesichert', { timeout: 10_000 });
 });

@@ -222,6 +222,7 @@ export const useCamera = create<CameraStore>((set, get) => ({
     if (tapMode === 'offset' && marked) {
       const o = offsetFromMark(camera, marked, sp, px, size);
       setSettings({ camera: { ...camera, offsetX: o.x, offsetY: o.y } });
+      useMeasurements.getState().record('camera-offset', { offsetX: o.x, offsetY: o.y });
       addLog(
         'info',
         t('camera.offsetSet', { x: formatCoordinate(o.x, 2), y: formatCoordinate(o.y, 2) }),

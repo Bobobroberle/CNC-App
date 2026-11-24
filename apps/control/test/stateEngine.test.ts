@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompanionError } from '../src/lib/companion';
 import { same, type Doc } from '../src/lib/stateSync';
 import {
+  createKeep,
+  createMetaStore,
+  nameOf,
+  overwritePi,
   startStateSync,
   syncNow,
   syncOnce,
@@ -45,13 +49,14 @@ class FakePi implements StateClient {
 
 const DEFAULTS: Doc = { camera: 'default', places: 'default', macros: 'default' };
 
-function rig(initial: Doc = DEFAULTS) {
+function rig(initial: Doc = DEFAULTS, keys?: readonly string[]) {
   const pi = new FakePi();
   let app: Doc = { ...initial };
   const applied: Doc[] = [];
   const listeners = new Set<() => void>();
   const slice: Slice = {
     key: 'settings',
+    keys,
     read: () => structuredClone(app),
     defaults: () => ({ ...DEFAULTS }),
     accepts: (doc) => !('bad' in doc),
@@ -85,6 +90,7 @@ function rig(initial: Doc = DEFAULTS) {
   };
   return {
     pi,
+    slice,
     deps,
     state,
     applied,
@@ -453,5 +459,362 @@ describe('the round as the operator sees it', () => {
     release();
     await Promise.all([first, second]);
     await vi.waitFor(() => expect(r.pi.calls.filter((c) => c === 'state').length).toBe(2));
+  });
+});
+
+const FIXED = ['camera', 'places', 'macros'] as const;
+
+describe('a document that has keys this app does not know, or lacks some it knows', () => {
+  it('carries what it does not know along – untouched, and without applying or writing for it', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    await first(r);
+    // a newer app wrote a key of its own
+    r.pi.seed('settings', { ...DEFAULTS, future: { x: 1 } }, 2);
+    r.pi.calls.length = 0;
+    expect(await syncOnce(r.deps)).toBe('ok');
+    expect(await syncOnce(r.deps)).toBe('ok');
+    expect(r.pi.calls).toEqual(['state', 'state']);
+    expect(r.applied).toEqual([]);
+    expect(r.metaMap.get('settings')!.base).not.toHaveProperty('future');
+    // a change of this device goes out with the key still there
+    r.edit({ places: 'P' });
+    await syncOnce(r.deps);
+    expect(r.pi.data('settings')).toEqual({ ...DEFAULTS, places: 'P', future: { x: 1 } });
+    // and a change of the Pi's own keys is taken without losing it either
+    r.pi.seed('settings', { ...(r.pi.data('settings') as Doc), macros: 'M' }, 9);
+    await syncOnce(r.deps);
+    expect(r.app()).toEqual({ camera: 'default', places: 'P', macros: 'M' });
+    expect(r.pi.data('settings')).toHaveProperty('future');
+    // nothing goes back and forth: a further round does nothing
+    r.pi.calls.length = 0;
+    await syncOnce(r.deps);
+    expect(r.pi.calls).toEqual(['state']);
+  });
+
+  it('treats a key the Pi’s copy lacks as unchanged, not as removed – and puts it back', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    r.edit({ camera: 'calibrated' });
+    await syncOnce(r.deps);
+    r.pi.seed('settings', { places: 'default', macros: 'default' }, 5);
+    expect(await syncOnce(r.deps)).toBe('ok');
+    expect(r.app().camera).toBe('calibrated');
+    expect(r.applied).toEqual([]);
+    expect(r.pi.data('settings')).toMatchObject({ camera: 'calibrated' });
+    // a document with nothing in it does the same
+    r.pi.seed('settings', {}, 9);
+    expect(await syncOnce(r.deps)).toBe('ok');
+    expect(r.app().camera).toBe('calibrated');
+    expect(r.pi.data('settings')).toMatchObject({ camera: 'calibrated' });
+  });
+
+  it('does not write a shorter document just to add keys at their defaults – and writes one that is not at them', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    // a Pi that has only some of the keys (an older app wrote it); this device has the rest at the defaults
+    r.pi.seed('settings', { camera: 'at the Pi' }, 4);
+    expect(await syncOnce(r.deps)).toBe('ok');
+    expect(r.app()).toEqual({ camera: 'at the Pi', places: 'default', macros: 'default' });
+    expect(r.pi.calls).toEqual(['state']);
+    expect(r.pi.rev('settings')).toBe(4);
+    // …but a key this device has set is written at once
+    r.edit({ places: 'mine' });
+    await syncOnce(r.deps);
+    expect(r.pi.data('settings')).toMatchObject({ camera: 'at the Pi', places: 'mine' });
+  });
+
+  it('still lets a document of free keys lose one – a reset reaches every device and is not brought back', async () => {
+    const r = rig({ a: 1, b: 2 } as Doc);
+    r.pi.seed('settings', { a: 1, b: 2 });
+    await syncOnce(r.deps);
+    expect(r.metaMap.get('settings')).toBeDefined();
+    r.pi.seed('settings', {}, 2);
+    expect(await syncOnce(r.deps)).toBe('ok');
+    expect(r.app()).toEqual({});
+    r.pi.calls.length = 0;
+    await syncOnce(r.deps);
+    expect(r.pi.calls).toEqual(['state']);
+    expect(r.pi.data('settings')).toEqual({});
+  });
+});
+
+describe('a Pi whose revision went back', () => {
+  it('is followed by what it says, not by its number – and it is said', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    await first(r);
+    r.pi.seed('settings', { ...DEFAULTS, places: 'P5' }, 5);
+    await syncOnce(r.deps);
+    expect(r.app().places).toBe('P5');
+    // restored from a backup: an older state, an older number
+    r.pi.seed('settings', { ...DEFAULTS, places: 'P2' }, 2);
+    expect(await syncOnce(r.deps)).toBe('ok');
+    expect(r.app().places).toBe('P2');
+    expect(r.said.some(([kind, text]) => kind === 'info' && text.includes('places'))).toBe(true);
+    // the same number for another state
+    r.pi.seed('settings', { ...DEFAULTS, places: 'P2 again' }, 2);
+    await syncOnce(r.deps);
+    expect(r.app().places).toBe('P2 again');
+    // and a change of this device then goes out from the number the Pi has
+    r.edit({ camera: 'mine' });
+    r.pi.calls.length = 0;
+    await syncOnce(r.deps);
+    expect(r.pi.calls).toEqual(['state', 'put:settings@2']);
+  });
+});
+
+describe('a change of the operator while the Pi is written', () => {
+  it('is not overwritten by what was computed before – the next round merges it', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    await first(r);
+    r.edit({ camera: 'mine' });
+    r.pi.seed('settings', { ...(r.pi.data('settings') as Doc), places: 'theirs' }, 2);
+    r.pi.beforePut = () => {
+      r.pi.beforePut = null;
+      r.edit({ macros: 'typed meanwhile' });
+    };
+    expect(await syncOnce(r.deps)).toBe('deferred');
+    expect(r.app().macros).toBe('typed meanwhile');
+    expect(r.metaMap.get('settings')).toMatchObject({ rev: 1 });
+    expect(await syncOnce(r.deps)).toBe('ok');
+    const expected = { camera: 'mine', places: 'theirs', macros: 'typed meanwhile' };
+    expect(r.app()).toEqual(expected);
+    expect(r.pi.data('settings')).toEqual(expected);
+  });
+});
+
+describe('what goes wrong', () => {
+  it('a document that cannot be taken in leaves this device as it was, says so, and records nothing', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    await first(r);
+    r.pi.seed('settings', { ...DEFAULTS, places: 'theirs' }, 2);
+    const apply = r.slice.apply;
+    let calls = 0;
+    r.slice.apply = (doc) => {
+      calls++;
+      if (calls === 1) throw new Error('half-way');
+      apply(doc);
+    };
+    expect(await syncOnce(r.deps)).toBe('failed');
+    expect(r.app().places).toBe('default');
+    expect(r.metaMap.get('settings')).toMatchObject({ rev: 1 });
+    expect(r.said.map(([k]) => k)).toEqual(['error']);
+  });
+
+  it('a Pi that answers with an error is no Pi that does not answer – the other documents still go', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    const other = rig({ z: 0 }, ['z']);
+    const slices: Slice[] = [r.slice, { ...other.slice, key: 'toolReference' }];
+    r.deps.slices = slices;
+    await first(r);
+    r.edit({ camera: 'mine' });
+    const put = r.pi.putState.bind(r.pi);
+    r.pi.putState = async (key, rev, data) => {
+      if (key === 'settings') throw new CompanionError(507, 'full');
+      return put(key, rev, data);
+    };
+    expect(await syncOnce(r.deps)).toBe('failed');
+    r.pi.putState = async () => {
+      throw new Error('network');
+    };
+    expect(await syncOnce(r.deps)).toBe('offline');
+  });
+
+  it('says a refused document once, not at every round – and again when the Pi holds another one', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    r.pi.seed('settings', { camera: 'x', bad: true }, 3);
+    for (let i = 0; i < 3; i++) await syncOnce(r.deps);
+    expect(r.said).toHaveLength(1);
+    r.pi.seed('settings', { camera: 'y', bad: true }, 4);
+    await syncOnce(r.deps);
+    expect(r.said).toHaveLength(2);
+  });
+
+  it('does not keep the log of measurements waiting behind a document it refuses', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    r.pi.seed('settings', { camera: 'x', bad: true }, 3);
+    const log = vi.fn(async () => {});
+    r.deps.afterRound = log;
+    await syncNow(r.deps);
+    expect(useStateSync.getState().state).toBe('refused');
+    expect(log).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the way out of a document nobody can use', () => {
+  it('replaces it with this device’s state – only it, and only where this device’s own is fine', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    await first(r);
+    r.edit({ camera: 'mine' });
+    r.pi.seed('settings', { camera: 'x', bad: true }, 4);
+    expect(await syncOnce(r.deps)).toBe('refused');
+    expect(await overwritePi(r.deps)).toEqual(['settings']);
+    expect(r.pi.data('settings')).toEqual({ ...DEFAULTS, camera: 'mine' });
+    // and the device knows it: what it wrote is what both have now
+    expect(r.metaMap.get('settings')).toEqual({
+      rev: 5,
+      base: { ...DEFAULTS, camera: 'mine' },
+    });
+    expect(r.pi.rev('settings')).toBe(5);
+    expect(await syncOnce(r.deps)).toBe('ok');
+    // a document that is fine is left alone
+    r.pi.seed('settings', { ...DEFAULTS, camera: 'fine' }, 6);
+    expect(await overwritePi(r.deps)).toEqual([]);
+    expect(r.pi.data('settings')).toMatchObject({ camera: 'fine' });
+  });
+
+  it('does not write what this device could not have either, nor while a simulator runs, nor without a Pi', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    r.pi.seed('settings', { camera: 'x', bad: true }, 4);
+    r.edit({ bad: 1 });
+    expect(await overwritePi(r.deps)).toEqual([]);
+    r.state.simulator = true;
+    expect(await overwritePi(r.deps)).toEqual([]);
+    r.state.simulator = false;
+    r.state.client = null;
+    expect(await overwritePi(r.deps)).toEqual([]);
+    expect(r.pi.data('settings')).toEqual({ camera: 'x', bad: true });
+  });
+
+  it('leaves a document alone that another device has replaced in the meantime', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    r.pi.seed('settings', { camera: 'x', bad: true }, 4);
+    r.pi.beforePut = () => r.pi.seed('settings', { ...DEFAULTS, camera: 'fixed by another' }, 5);
+    expect(await overwritePi(r.deps)).toEqual([]);
+    expect(r.pi.data('settings')).toMatchObject({ camera: 'fixed by another' });
+  });
+});
+
+describe('what this window knows of the Pi', () => {
+  const storage = () => {
+    const values = new Map<string, string>();
+    return {
+      values,
+      getItem: (k: string) => values.get(k) ?? null,
+      setItem: (k: string, v: string) => void values.set(k, v),
+    };
+  };
+
+  it('is kept per window and in the browser: a second window starts from it and then goes its own way', () => {
+    const shared = storage();
+    const a = createMetaStore(shared);
+    const b = createMetaStore(shared);
+    expect(a.get('settings')).toBeUndefined();
+    a.set('settings', { rev: 3, base: { x: 1 } });
+    // b looks for the first time: it finds what a wrote
+    expect(b.get('settings')).toEqual({ rev: 3, base: { x: 1 } });
+    // from then on each is its own: what a learns later is not b's note
+    a.set('settings', { rev: 4, base: { x: 2 } });
+    expect(b.get('settings')).toEqual({ rev: 3, base: { x: 1 } });
+    // a window that starts now finds the latest
+    expect(createMetaStore(shared).get('settings')).toEqual({ rev: 4, base: { x: 2 } });
+  });
+
+  it('is remembered by the window where the browser stores nothing', () => {
+    const none = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('quota');
+      },
+    };
+    const meta = createMetaStore(none);
+    meta.set('settings', { rev: 1, base: { a: 1 } });
+    expect(meta.get('settings')).toEqual({ rev: 1, base: { a: 1 } });
+  });
+
+  it('does not believe a note that is none', () => {
+    const bad = storage();
+    bad.values.set(
+      'lowrider-control.sync',
+      JSON.stringify({ a: { rev: 1.5, base: {} }, b: { rev: 1, base: 3 } }),
+    );
+    const meta = createMetaStore(bad);
+    expect(meta.get('a')).toBeUndefined();
+    expect(meta.get('b')).toBeUndefined();
+    bad.values.set('lowrider-control.sync', '[1]');
+    expect(createMetaStore(bad).get('a')).toBeUndefined();
+  });
+
+  it('keeps the state from before a simulator session, and gives it back once', () => {
+    const keep = createKeep(storage());
+    expect(keep.load()).toBeNull();
+    keep.save({ settings: { camera: 'real' } });
+    expect(keep.load()).toEqual({ settings: { camera: 'real' } });
+    keep.save(null);
+    expect(keep.load()).toBeNull();
+  });
+});
+
+describe('how a round ends when its documents end differently', () => {
+  const twoDocuments = () => {
+    const r = rig(DEFAULTS, FIXED);
+    const other = rig({ z: 0 } as Doc, ['z']);
+    r.deps.slices = [r.slice, { ...other.slice, key: 'toolReference' }];
+    return r;
+  };
+
+  it('says the worst of them: a document nobody can use before one that merely waits', async () => {
+    const r = twoDocuments();
+    r.pi.seed('settings', { ...DEFAULTS, places: 'moved' }, 2);
+    await first(r);
+    r.pi.seed('settings', { ...DEFAULTS, places: 'moved at the Pi' }, 3);
+    r.pi.seed('toolReference', { z: 1, bad: true }, 1);
+    r.state.safe = false;
+    expect(await syncOnce(r.deps)).toBe('refused');
+    r.pi.seed('toolReference', { z: 0 }, 2);
+    expect(await syncOnce(r.deps)).toBe('deferred');
+  });
+
+  it('is no "ok" while the log of measurements did not come through – and ok when it did, or was not due', async () => {
+    const r = rig();
+    r.deps.afterRound = async () => false;
+    expect(await syncNow(r.deps)).toBe('failed');
+    expect(useStateSync.getState().state).toBe('failed');
+    r.deps.afterRound = async () => true;
+    expect(await syncNow(r.deps)).toBe('ok');
+    r.deps.afterRound = async () => {};
+    expect(await syncNow(r.deps)).toBe('ok');
+    r.state.client = null;
+    expect(await syncNow(r.deps)).toBe('off');
+  });
+});
+
+describe('what a changed document is called when it is said', () => {
+  it('the setting by its name, the other documents as a whole – never by an inner key like "list" or "z"', () => {
+    expect(nameOf('settings', 'camera')).toBe('Kamera');
+    expect(nameOf('settings', 'unheard-of')).toBe('unheard-of');
+    expect(nameOf('macros', 'list')).toBe('Makros');
+    expect(nameOf('toolReference', 'z')).toBe('Referenzwerkzeug');
+    expect(nameOf('clamps', 'fixtures')).toBe('Spannmittel');
+    expect(nameOf('profile', 'travel')).toBe('Maschinenwerte');
+    expect(nameOf('learning', 'a|b')).toBe('Lernwerte');
+    expect(nameOf('other', 'x')).toBe('other');
+  });
+
+  it('is said once however many keys of the document changed', async () => {
+    const r = rig({ a: 1, b: 2 } as Doc);
+    r.edit({ a: 5, b: 5 });
+    r.deps.name = (slice, key) => nameOf(slice, key);
+    r.slice.key = 'macros';
+    r.pi.seed('macros', { a: 9, b: 9 });
+    await syncOnce(r.deps);
+    expect(r.said).toHaveLength(1);
+    expect(r.said[0]![1].match(/Makros/g)).toHaveLength(1);
+  });
+});
+
+describe('what a document of the Pi changed is announced where the slice asks for it', () => {
+  it('tells what came in – and nothing when the device only sent its own change', async () => {
+    const r = rig(DEFAULTS, FIXED);
+    r.slice.announce = (before, after) => ({
+      key: 'sync.macrosFromPi',
+      params: { list: `${String(before.macros)}→${String(after.macros)}` },
+    });
+    await first(r);
+    r.edit({ camera: 'mine' });
+    await syncOnce(r.deps);
+    expect(r.said).toEqual([]);
+    r.pi.seed('settings', { ...(r.pi.data('settings') as Doc), macros: 'from the iPad' }, 5);
+    await syncOnce(r.deps);
+    expect(r.said).toHaveLength(1);
+    expect(r.said[0]![0]).toBe('info');
+    expect(r.said[0]![1]).toContain('default→from the iPad');
   });
 });

@@ -28,13 +28,14 @@ describe('config changes', () => {
       useLineNumbers: true,
       mustHome: true,
     });
+    // each change says what the controller had (the log of measurements keeps it)
     expect(changes).toEqual([
-      { path: 'axes/x/soft_limits', value: 'true' },
-      { path: 'axes/y/soft_limits', value: 'true' },
-      { path: 'axes/z/soft_limits', value: 'true' },
-      { path: 'axes/z/max_travel_mm', value: '95' },
-      { path: 'use_line_numbers', value: 'true' },
-      { path: 'start/must_home', value: 'true' },
+      { path: 'axes/x/soft_limits', value: 'true', from: String(stock.axes.x!.softLimits) },
+      { path: 'axes/y/soft_limits', value: 'true', from: String(stock.axes.y!.softLimits) },
+      { path: 'axes/z/soft_limits', value: 'true', from: String(stock.axes.z!.softLimits) },
+      { path: 'axes/z/max_travel_mm', value: '95', from: String(stock.axes.z!.maxTravel) },
+      { path: 'use_line_numbers', value: 'true', from: String(stock.useLineNumbers) },
+      { path: 'start/must_home', value: 'true', from: String(stock.mustHome) },
     ]);
   });
 
@@ -44,7 +45,7 @@ describe('config changes', () => {
     const noZ = readMachineConfig('axes:\n  x:\n    max_travel_mm: 100\n');
     expect(draftFromConfig(noZ).maxTravel).toEqual({ x: 100, y: 0, z: 0 });
     expect(configChanges(noZ, { ...draftFromConfig(noZ), softLimits: true })).toEqual([
-      { path: 'axes/x/soft_limits', value: 'true' },
+      { path: 'axes/x/soft_limits', value: 'true', from: 'false' },
     ]);
   });
 });

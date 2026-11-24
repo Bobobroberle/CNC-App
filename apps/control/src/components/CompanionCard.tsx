@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { t, type MessageKey } from '../i18n';
 import { relayUrl } from '../lib/companion';
+import { getLocale } from '../lib/format';
 import { hostOf } from '../lib/link';
 import { useMachine } from '../store/machine';
 import { useShutdown, type ShutdownFailure } from '../store/shutdown';
-import { syncNow, useStateSync } from '../store/stateSync';
+import { overwritePiNow, syncNow, useStateSync } from '../store/stateSync';
 import { adoptCompanion, companion, useWorkshop } from '../store/workshop';
 import { AckMark, useAck } from './Ack';
 import { HoldButton } from './HoldButton';
@@ -69,10 +70,14 @@ export function CompanionCard() {
           onClick={() =>
             void synced.run(() =>
               syncCompanion().then(async (ok) => {
-                // the state of the machine (settings …) goes with the libraries
-                await syncNow();
-                addLog(ok ? 'info' : 'error', t(ok ? 'companion.synced' : 'companion.offline'));
-                return ok;
+                // the state of the machine (settings …) goes with the libraries – and says how it went
+                const state = await syncNow();
+                const through = ok && (state === 'ok' || state === 'deferred');
+                addLog(
+                  through ? 'info' : 'error',
+                  t(through ? 'companion.synced' : ok ? 'sync.notThrough' : 'companion.offline'),
+                );
+                return through;
               }),
             )
           }
@@ -113,12 +118,23 @@ export function CompanionCard() {
 /** What the exchange of the settings and measurements with the Pi did last, in a line. */
 function SyncStatus() {
   const { state, lastOkAt } = useStateSync();
-  const text = t(`sync.state.${state}` as MessageKey, {
-    time: lastOkAt === null ? '' : new Date(lastOkAt).toLocaleTimeString('de-DE'),
-  });
-  return state === 'unsupported' || state === 'refused' ? (
+  const time = lastOkAt === null ? '' : new Date(lastOkAt).toLocaleTimeString(getLocale());
+  // When it does not go, when it last did: that is what is asked then
+  const since =
+    lastOkAt !== null && ['offline', 'deferred', 'failed', 'refused'].includes(state)
+      ? ` ${t('sync.lastOk', { time })}`
+      : '';
+  const text = t(`sync.state.${state}` as MessageKey, { time }) + since;
+  return state === 'unsupported' || state === 'refused' || state === 'failed' ? (
     <Alert variant="warning" data-testid="sync-state">
-      {text}
+      <p>{text}</p>
+      {state === 'refused' ? (
+        // The Pi's document is of no use to this app and blocks every device: this device's state replaces it
+        <div className="mt-3 grid gap-2">
+          <HoldButton onConfirm={overwritePiNow}>{t('sync.overwrite')}</HoldButton>
+          <p className="text-muted-foreground text-sm">{t('sync.overwriteHint')}</p>
+        </div>
+      ) : null}
     </Alert>
   ) : (
     <p className="text-muted-foreground text-sm" data-testid="sync-state">

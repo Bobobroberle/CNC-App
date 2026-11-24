@@ -217,9 +217,7 @@ export function ToolLibrary() {
             ))}
           </div>
           {/* Own cutting values: over the material's suggestion, and no material needed. */}
-          <h3 className="font-medium text-sm">
-            {t('tools.cuttingTitle')}
-          </h3>
+          <h3 className="font-medium text-sm">{t('tools.cuttingTitle')}</h3>
           <p className="text-muted-foreground text-sm">{t('tools.cuttingHint')}</p>
           <div className="grid grid-cols-2 gap-2" data-testid="tool-cutting">
             {CUTTING_FIELDS.map((key) => (

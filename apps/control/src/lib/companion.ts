@@ -177,23 +177,33 @@ export class CompanionClient {
     return { ok: true, rev: body.rev };
   }
 
-  list<T>(collection: string): Promise<T[]> {
-    return this.request(`/api/library/${collection}`);
+  /** `timeoutMs` (here and in `put`, `putAll`) gives up on a Pi that stops answering half-way: a round must not wait for ever. */
+  list<T>(collection: string, timeoutMs?: number): Promise<T[]> {
+    return this.request(
+      `/api/library/${collection}`,
+      timeoutMs === undefined ? undefined : { signal: AbortSignal.timeout(timeoutMs) },
+    );
   }
 
-  put(collection: string, doc: { id: string }): Promise<unknown> {
+  put(collection: string, doc: { id: string }, timeoutMs?: number): Promise<unknown> {
     return this.request(`/api/library/${collection}/${encodeURIComponent(doc.id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(doc),
+      ...(timeoutMs === undefined ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
     });
   }
 
-  putAll(collection: string, docs: readonly { id: string }[]): Promise<unknown> {
+  putAll(
+    collection: string,
+    docs: readonly { id: string }[],
+    timeoutMs?: number,
+  ): Promise<unknown> {
     return this.request(`/api/library/${collection}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(docs),
+      ...(timeoutMs === undefined ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
     });
   }
 

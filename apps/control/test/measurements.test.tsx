@@ -10,9 +10,15 @@ import {
   validMeasurement,
   type Measurement,
 } from '../src/lib/measurements';
+import { useCamera } from '../src/store/camera';
 import { useMachine } from '../src/store/machine';
-import { syncMeasurements, useMeasurements } from '../src/store/measurements';
-import { useWorkshop } from '../src/store/workshop';
+import {
+  resetMeasurementExchange,
+  syncMeasurements,
+  syncMeasurementsDue,
+  useMeasurements,
+} from '../src/store/measurements';
+import { DEFAULT_SETTINGS, useWorkshop } from '../src/store/workshop';
 
 const entry = (
   at: string,
@@ -69,6 +75,10 @@ describe('an entry of the log', () => {
       { ...good, id: 5 },
       { ...good, at: 'yesterday' },
       { ...good, at: 5 },
+      // a time that sorts wrongly as text: only what `toISOString` writes is one
+      { ...good, at: 'Mon, 01 Jan 2001 00:00:00 GMT' },
+      { ...good, at: '2026-11-24 10:00:00' },
+      { ...good, at: '2026-11-24T10:00:00+01:00' },
       { ...good, kind: 'teleport' },
       { ...good, values: null },
       { ...good, values: [1] },
@@ -176,11 +186,34 @@ describe('the log on the Pi and on this device', () => {
     expect(await syncMeasurements(client as never)).toBe(true);
     expect(useMeasurements.getState().list).toEqual([both, theirs, mine]);
     expect(putAll).toHaveBeenCalledTimes(1);
-    expect(putAll).toHaveBeenCalledWith('measurements', [mine]);
+    // sent first, with a time limit: a Pi that stops answering must not hold the round up
+    expect(putAll).toHaveBeenCalledWith('measurements', [mine], 10_000);
+    expect(client.list).toHaveBeenCalledWith('measurements', 10_000);
     // nothing to send: nothing is sent
     putAll.mockClear();
     expect(await syncMeasurements(client as never)).toBe(true);
     expect(putAll).not.toHaveBeenCalled();
+  });
+
+  it('sends what the Pi lacks before it takes anything in: a Pi that does not take it leaves this device’s log as it is', async () => {
+    const mine = entry('2026-11-24T10:00:00.000Z');
+    // a log of the Pi that would push the oldest entry of this device out of its bounded list
+    const theirs = Array.from({ length: MEASUREMENT_LIMIT }, (_, i) =>
+      entry(`2026-12-01T10:00:${String(i % 60).padStart(2, '0')}.000Z`, 'camera-scale', `-${i}`),
+    );
+    useMeasurements.setState({ list: [mine] });
+    const client = {
+      list: vi.fn(async () => theirs),
+      putAll: vi.fn(async () => {
+        throw new Error('Pi went away');
+      }),
+    };
+    expect(await syncMeasurements(client as never)).toBe(false);
+    expect(useMeasurements.getState().list).toEqual([mine]);
+    // the next time it goes: the Pi has it, and then the Pi's are taken in
+    client.putAll.mockResolvedValueOnce({} as never);
+    expect(await syncMeasurements(client as never)).toBe(true);
+    expect(client.putAll).toHaveBeenLastCalledWith('measurements', [mine], 10_000);
   });
 
   it('says when the Pi did not answer, and loses nothing', async () => {
@@ -255,6 +288,21 @@ describe('the card of the log', () => {
     expect(summaryOf(m('camera-offset', {}))).toBe('Versatz X – · Y – mm');
   });
 
+  it('says how many there are when it shows only the latest, and nothing when it shows them all', () => {
+    useMeasurements.setState({
+      list: Array.from({ length: 31 }, (_, i) =>
+        entry(`2026-11-24T10:00:${String(i).padStart(2, '0')}.000Z`, 'camera-offset'),
+      ),
+    });
+    render(<MeasurementLog />);
+    expect(screen.getByTestId('measurement-more').textContent).toContain('30');
+    expect(screen.getByTestId('measurement-more').textContent).toContain('31');
+    cleanup();
+    useMeasurements.setState({ list: [entry('2026-11-24T10:00:00.000Z')] });
+    render(<MeasurementLog />);
+    expect(screen.queryByTestId('measurement-more')).toBeNull();
+  });
+
   it('lists the latest first, and says when there is nothing', () => {
     useMeasurements.setState({ list: [] });
     const { rerender } = render(<MeasurementLog />);
@@ -279,5 +327,115 @@ describe('the card of the log', () => {
     });
     rerender(<MeasurementLog />);
     expect(screen.getByTestId('measurement-list').querySelectorAll('li')).toHaveLength(30);
+  });
+});
+
+describe('measurements that are one', () => {
+  beforeEach(() => {
+    useMeasurements.setState({ list: [] });
+    useMachine.setState({ connection: 'disconnected', url: '' });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('the same numbers of the same kind a moment later are not a second measurement (a button tapped twice)', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-24T10:00:00.000Z'));
+    const first = useMeasurements.getState().record('ruler-check', { sizeX: 100, scaleX: 1 })!;
+    vi.setSystemTime(new Date('2026-11-24T10:00:30.000Z'));
+    expect(useMeasurements.getState().record('ruler-check', { scaleX: 1, sizeX: 100 })).toBe(first);
+    expect(useMeasurements.getState().list).toHaveLength(1);
+    // other numbers, another kind, or a minute later: a measurement of its own
+    useMeasurements.getState().record('ruler-check', { sizeX: 100, scaleX: 1.001 });
+    useMeasurements.getState().record('tool-reference', { sizeX: 100, scaleX: 1 });
+    vi.setSystemTime(new Date('2026-11-24T10:01:01.000Z'));
+    useMeasurements.getState().record('ruler-check', { sizeX: 100, scaleX: 1 });
+    expect(useMeasurements.getState().list).toHaveLength(4);
+  });
+});
+
+describe('how often the log is exchanged', () => {
+  const quiet = () => ({ list: vi.fn(async () => []), putAll: vi.fn(async () => ({})) });
+  beforeEach(() => {
+    useMeasurements.setState({ list: [] });
+    resetMeasurementExchange();
+  });
+
+  it('at the first round, then not again for ten minutes – the Pi is asked every 30 s, the log is not', async () => {
+    const client = quiet();
+    const t0 = 1_000_000;
+    expect(await syncMeasurementsDue(client as never, t0)).toBe('done');
+    expect(await syncMeasurementsDue(client as never, t0 + 30_000)).toBe('skipped');
+    expect(await syncMeasurementsDue(client as never, t0 + 9 * 60_000)).toBe('skipped');
+    expect(client.list).toHaveBeenCalledTimes(1);
+    expect(await syncMeasurementsDue(client as never, t0 + 10 * 60_000)).toBe('done');
+    expect(client.list).toHaveBeenCalledTimes(2);
+  });
+
+  it('at once at the next round when an entry did not reach the Pi – and tries again when the Pi did not answer', async () => {
+    const client = quiet();
+    expect(await syncMeasurementsDue(client as never, 1000)).toBe('done');
+    // an entry whose write failed
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network');
+      }),
+    );
+    useWorkshop.getState().setSettings({ companionUrl: 'http://pi:8080' });
+    useMeasurements.getState().record('camera-offset', { offsetX: 1 });
+    await new Promise((r) => setTimeout(r, 0));
+    vi.unstubAllGlobals();
+    expect(await syncMeasurementsDue(client as never, 2000)).toBe('done');
+    expect(client.list).toHaveBeenCalledTimes(2);
+    expect(await syncMeasurementsDue(client as never, 3000)).toBe('skipped');
+    // the Pi does not answer: still due
+    const away = {
+      list: vi.fn(async () => {
+        throw new Error('network');
+      }),
+      putAll: vi.fn(),
+    };
+    resetMeasurementExchange();
+    expect(await syncMeasurementsDue(away as never, 4000)).toBe('failed');
+    expect(await syncMeasurementsDue(client as never, 4001)).toBe('done');
+  });
+});
+
+describe('the camera offset set by a tap on the picture', () => {
+  beforeEach(() => {
+    useMeasurements.setState({ list: [] });
+    useMachine.setState({ connection: 'disconnected', url: '' });
+  });
+  afterEach(() => {
+    useCamera.getState().setSource(null);
+    useCamera.setState({ tapMode: null, marked: null, taps: [] });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (HTMLImageElement.prototype as any).naturalWidth;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (HTMLImageElement.prototype as any).naturalHeight;
+  });
+
+  it('is written to the log like the one found with the marker – it is what turns a tap into a G53 target', () => {
+    Object.defineProperty(HTMLImageElement.prototype, 'naturalWidth', {
+      configurable: true,
+      get: () => 640,
+    });
+    Object.defineProperty(HTMLImageElement.prototype, 'naturalHeight', {
+      configurable: true,
+      get: () => 480,
+    });
+    useWorkshop.getState().setSettings({
+      camera: { ...DEFAULT_SETTINGS.camera, streamUrl: 'http://pi:8081/stream', source: 'stream' },
+    });
+    useCamera.getState().setSource('stream');
+    useMachine.setState({
+      status: { state: 'Idle', mpos: [100, 200, 0], wco: [0, 0, 0], feed: 0, spindle: 0, sd: null },
+    } as never);
+    useCamera.setState({ tapMode: 'offset', marked: { x: 100, y: 200 } });
+    useCamera.getState().tap({ x: 400, y: 300 });
+    const now = useWorkshop.getState().settings.camera;
+    const logged = useMeasurements.getState().list.filter((m) => m.kind === 'camera-offset');
+    expect(logged).toHaveLength(1);
+    expect(logged[0]!.values).toEqual({ offsetX: now.offsetX, offsetY: now.offsetY });
   });
 });

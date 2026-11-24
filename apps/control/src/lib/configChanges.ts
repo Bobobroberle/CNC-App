@@ -29,6 +29,8 @@ export interface ConfigChange {
   /** Runtime setting path, e.g. axes/x/soft_limits */
   path: string;
   value: string;
+  /** What the controller had (for the log of measurements) */
+  from?: string;
 }
 
 /** Only what differs from the controller; invalid travel values are rejected. */
@@ -40,17 +42,29 @@ export function configChanges(c: MachineConfig, d: ConfigDraft): ConfigChange[] 
     const travel = d.maxTravel[a];
     if (!Number.isFinite(travel) || travel <= 0) return null;
     if (axis.softLimits !== d.softLimits) {
-      changes.push({ path: `axes/${a}/soft_limits`, value: String(d.softLimits) });
+      changes.push({
+        path: `axes/${a}/soft_limits`,
+        value: String(d.softLimits),
+        from: String(axis.softLimits),
+      });
     }
     if (axis.maxTravel !== travel) {
-      changes.push({ path: `axes/${a}/max_travel_mm`, value: String(travel) });
+      changes.push({
+        path: `axes/${a}/max_travel_mm`,
+        value: String(travel),
+        from: String(axis.maxTravel),
+      });
     }
   }
   if (c.useLineNumbers !== d.useLineNumbers) {
-    changes.push({ path: 'use_line_numbers', value: String(d.useLineNumbers) });
+    changes.push({
+      path: 'use_line_numbers',
+      value: String(d.useLineNumbers),
+      from: String(c.useLineNumbers),
+    });
   }
   if (c.mustHome !== d.mustHome) {
-    changes.push({ path: 'start/must_home', value: String(d.mustHome) });
+    changes.push({ path: 'start/must_home', value: String(d.mustHome), from: String(c.mustHome) });
   }
   return changes;
 }

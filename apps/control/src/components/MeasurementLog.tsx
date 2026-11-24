@@ -1,16 +1,25 @@
 import { t, type MessageKey } from '../i18n';
-import { formatNumber } from '../lib/format';
+import { formatNumber, getLocale } from '../lib/format';
 import type { Measurement } from '../lib/measurements';
 import { useMeasurements } from '../store/measurements';
 import { Card, CardTitle } from '../ui/card';
 import { signed } from './CorrectionPanel';
 
-/** How many entries the card lists: the latest; older ones are on the Pi. */
+/** How many entries the card lists: the latest (the card says how many there are). */
 const SHOWN = 30;
 
 const number = (m: Measurement, key: string, digits: number) => {
   const v = m.values[key];
   return typeof v === 'number' ? formatNumber(v, digits) : '–';
+};
+/** A value as it was written: a number as number, a switch or a word as it is. */
+const written = (m: Measurement, key: string, digits: number) => {
+  const v = m.values[key];
+  return typeof v === 'number'
+    ? formatNumber(v, digits)
+    : typeof v === 'string' || typeof v === 'boolean'
+      ? String(v)
+      : '–';
 };
 /** A scale as the percent it is off from 1 – the way the measuring cards show it. */
 const percent = (m: Measurement, key: string) => {
@@ -65,7 +74,7 @@ export function summaryOf(m: Measurement): string {
         .filter((k) => k.endsWith('.from'))
         .map((k) => {
           const path = k.slice(0, -'.from'.length);
-          return `${path}: ${number(m, k, 3)} → ${number(m, `${path}.to`, 3)}`;
+          return `${path}: ${written(m, k, 3)} → ${written(m, `${path}.to`, 3)}`;
         })
         .join('; ');
       return t('measurements.summary.correction', { list });
@@ -83,6 +92,11 @@ export function MeasurementLog() {
     <Card className="gap-3 p-4" data-testid="measurement-log" data-find="measurements">
       <CardTitle render={<h2 />}>{t('measurements.title')}</CardTitle>
       <p className="text-muted-foreground text-sm">{t('measurements.hint')}</p>
+      {list.length > SHOWN ? (
+        <p className="text-muted-foreground text-sm" data-testid="measurement-more">
+          {t('measurements.more', { shown: SHOWN, total: list.length })}
+        </p>
+      ) : null}
       {latest.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t('measurements.empty')}</p>
       ) : (
@@ -92,7 +106,7 @@ export function MeasurementLog() {
               <div className="min-w-0">
                 <strong>{t(`measurements.kinds.${m.kind}` as MessageKey)}</strong>
                 <div className="text-muted-foreground text-sm tabular-nums">
-                  {new Date(m.at).toLocaleString('de-DE')}
+                  {new Date(m.at).toLocaleString(getLocale())}
                 </div>
                 <div className="text-sm tabular-nums">{summaryOf(m)}</div>
               </div>

@@ -7,6 +7,7 @@ import { downloadText } from '../lib/download';
 import { settingsFromConfig } from '../lib/profile';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
+import { useMeasurements } from '../store/measurements';
 import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -52,6 +53,16 @@ export function ConfigEditor() {
   const apply = async () => {
     if (!changes || changes.length === 0) return;
     if (!(await applyConfigChanges(changes))) return;
+    // The only trace of a change to the controller: what was there, what was written
+    useMeasurements.getState().record(
+      'correction',
+      Object.fromEntries(
+        changes.flatMap((c) => [
+          [`${c.path}.from`, c.from ?? null],
+          [`${c.path}.to`, c.value],
+        ]),
+      ),
+    );
     await reload();
     // The profile follows the controller: travel, speeds, soft limits.
     const dump = await readConfig();

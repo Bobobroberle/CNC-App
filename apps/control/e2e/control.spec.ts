@@ -575,6 +575,19 @@ test('changes config.yaml settings with a backup first', async ({ page }) => {
   const backup = order.findIndex((l) => /^\$CD=config-backup-\d{8}T\d{4}\.yaml$/.test(l));
   expect(backup).toBeGreaterThan(-1);
   expect(backup).toBeLessThan(order.indexOf('$/axes/x/soft_limits=true'));
+  // the only trace of a change to the controller: what was there, what was written
+  const log = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem('lowrider-control.measurements') ?? '[]') as {
+        kind: string;
+        values: Record<string, unknown>;
+      }[],
+  );
+  const entry = log.find((e) => e.kind === 'correction');
+  expect(entry?.values['axes/z/max_travel_mm.to']).toBe('95');
+  expect(entry?.values['axes/z/max_travel_mm.from']).toEqual(expect.any(String));
+  expect(entry?.values['axes/x/soft_limits.from']).toBe('false');
+  expect(entry?.values['axes/x/soft_limits.to']).toBe('true');
 });
 
 test('the e-stop without a connection points to the hardware e-stop', async ({ page }) => {

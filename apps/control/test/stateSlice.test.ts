@@ -9,6 +9,14 @@ import { DEFAULT_SETTINGS, useWorkshop } from '../src/store/workshop';
 
 const settings = SLICES.find((s) => s.key === 'settings')!;
 
+function memoryKeep(initial: Record<string, Record<string, unknown>> | null = null) {
+  let kept = initial;
+  return {
+    load: () => kept,
+    save: (snapshot: Record<string, Record<string, unknown>> | null) => void (kept = snapshot),
+  };
+}
+
 describe('the settings as a document', () => {
   beforeEach(() => useWorkshop.setState({ settings: { ...DEFAULT_SETTINGS } }));
 
@@ -157,6 +165,7 @@ describe('the simulator and the exchange', () => {
       },
       say: (_kind, text) => void said.push(text),
       name: (_s, k) => k,
+      keep: memoryKeep(),
     };
     const stop = startStateSync(60_000, deps);
     await vi.advanceTimersByTimeAsync(2000);
@@ -194,6 +203,7 @@ describe('the simulator and the exchange', () => {
       simulator: () => useMachine.getState().connection !== 'disconnected',
       say: () => {},
       name: (_s, k) => k,
+      keep: memoryKeep(),
     };
     // nothing changed
     let stop = startStateSync(60_000, base);
@@ -412,5 +422,444 @@ describe('the values of the machine', () => {
     expect(s.accepts({ travel: 'x' })).toBe(false);
     useJob.setState({ profile: LOWRIDER_V4_PROFILE });
     expect(profileDoc(LOWRIDER_V4_PROFILE)).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// What the Pi sends is not trusted (review round 7)
+
+import { parseSettings } from '../src/lib/profile';
+import { useCalibration } from '../src/store/calibration';
+import { syncOnce } from '../src/store/stateSync';
+
+describe('the settings document against what a Pi may send', () => {
+  const doc = () => settings.read() as Record<string, unknown>;
+  beforeEach(() => {
+    useWorkshop.setState({ settings: { ...DEFAULT_SETTINGS } });
+    useJob.setState({ profile: LOWRIDER_V4_PROFILE });
+  });
+
+  it('refuses a part of the wrong kind – also where the defaults would fill the gap and a calibration be lost', () => {
+    const camera = doc().camera as Record<string, unknown>;
+    expect(settings.accepts(doc())).toBe(true);
+    for (const bad of [
+      { camera: null },
+      { camera: 'x' },
+      { camera: 5 },
+      { camera: {} },
+      { camera: { offsetX: 1 } },
+      { camera: { ...camera, offsetX: 'x' } },
+      { cornerPlate: 'x' },
+      { hiddenFeatures: 'x' },
+    ]) {
+      expect(settings.accepts({ ...doc(), ...bad }), JSON.stringify(bad)).toBe(false);
+    }
+  });
+
+  it('refuses numbers that no card would let the operator enter', () => {
+    for (const bad of [
+      { calibration: { ...DEFAULT_SETTINGS.calibration, points: 1_000_000 } },
+      { calibration: { ...DEFAULT_SETTINGS.calibration, points: 1 } },
+      { calibration: { ...DEFAULT_SETTINGS.calibration, spanX: 'x' } },
+      { calibration: { ...DEFAULT_SETTINGS.calibration, settleMs: -5 } },
+      { calibration: { ...DEFAULT_SETTINGS.calibration, motor1Side: 'left' } },
+      { cornerPlate: { use: true, top: -50, wall: 3 } },
+      { spindle: { rpmMin: -5, rpmMax: -10, maxFeed: 1000 } },
+      { spindle: { rpmMin: 10000, rpmMax: 5000, maxFeed: 1000 } },
+      { spindle: { rpmMin: 1, rpmMax: 2, maxFeed: 1e12 } },
+      { recording: { ...DEFAULT_SETTINGS.recording, intervalSeconds: 0 } },
+      { toolChangePosition: { x: 1e9, y: 0 } },
+      { parkPosition: { x: 0, y: -1e9 } },
+      { waypoints: [{ id: 'w', name: 'weit', x: 1e9, y: 0 }] },
+      { toolSetter: { x: 1e9, y: 0, safeZ: -5 } },
+    ]) {
+      expect(settings.accepts({ ...doc(), ...bad }), JSON.stringify(bad)).toBe(false);
+    }
+    // what the cards allow goes through
+    expect(
+      settings.accepts({
+        ...doc(),
+        calibration: {
+          ...DEFAULT_SETTINGS.calibration,
+          points: 5,
+          gantryWidth: 1200,
+          motor1Side: 'xMin',
+        },
+        cornerPlate: { use: true, top: 12, wall: 3 },
+        spindle: { rpmMin: 8000, rpmMax: 24000, maxFeed: 4000 },
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the safe height out of the lower half of the Z travel – it is where the machine lifts to', () => {
+    // the placeholder travel is Z −297 … 3
+    expect(settings.accepts({ ...doc(), safeMachineZ: -290 })).toBe(false);
+    expect(settings.accepts({ ...doc(), safeMachineZ: 50 })).toBe(false);
+    expect(settings.accepts({ ...doc(), safeMachineZ: -5 })).toBe(true);
+    expect(settings.accepts({ ...doc(), safeMachineZ: null })).toBe(true);
+  });
+
+  it('takes no key that only the object has in common with the settings (constructor, __proto__ …)', () => {
+    const theirs = JSON.parse(
+      '{"constructor":{"x":1},"toString":"boom","hasOwnProperty":5,"__proto__":{"y":2}}',
+    ) as Record<string, unknown>;
+    expect(settings.accepts({ ...doc(), ...theirs })).toBe(true);
+    settings.apply({ ...doc(), ...theirs });
+    const now = useWorkshop.getState().settings;
+    for (const key of ['constructor', 'toString', 'hasOwnProperty']) {
+      expect(Object.hasOwn(now, key), key).toBe(false);
+    }
+    expect(Object.keys(now).sort()).toEqual(Object.keys(DEFAULT_SETTINGS).sort());
+  });
+
+  it('accepts every document this app writes itself – none of the checks may wedge a device', () => {
+    expect(settings.accepts(settings.defaults())).toBe(true);
+    useWorkshop.getState().setSettings({
+      camera: { ...DEFAULT_SETTINGS.camera, offsetX: 12.3, pxPerMm: 17.5, scaleCalibrated: true },
+      toolChangePosition: { x: 10, y: 20 },
+      parkPosition: { x: 0, y: 0 },
+      safeMachineZ: -2,
+      toolSetter: { x: 5, y: 5, safeZ: -10 },
+      waypoints: [{ id: 'w', name: 'Anschlag', x: 1, y: 2 }],
+    });
+    expect(settings.accepts(settings.read())).toBe(true);
+  });
+});
+
+describe('the settings of a device that has met the Pi, against documents that would reset them', () => {
+  const calibrated = () =>
+    useWorkshop.getState().setSettings({
+      camera: { ...DEFAULT_SETTINGS.camera, offsetX: 12.3, pxPerMm: 17.5, scaleCalibrated: true },
+      waypoints: [{ id: 'w', name: 'Anschlag', x: 1, y: 2 }],
+    });
+  const round = async (remote: unknown, rev = 3, base = settings.read()) => {
+    const puts: unknown[] = [];
+    const deps: Deps = {
+      client: () => ({
+        state: async () => ({ keys: { settings: { rev, data: remote as never } } }),
+        putState: async (_k, _r, data) => {
+          puts.push(data);
+          return { ok: true, rev: rev + 1 };
+        },
+      }),
+      slices: [settings],
+      meta: {
+        get: () => ({ rev: 2, base }),
+        set: () => {},
+      },
+      safeToApply: () => true,
+      simulator: () => false,
+      say: () => {},
+      name: (_s, k) => k,
+    };
+    const outcome = await syncOnce(deps);
+    return { outcome, puts };
+  };
+  beforeEach(() => {
+    useWorkshop.setState({ settings: { ...DEFAULT_SETTINGS } });
+    useJob.setState({ profile: LOWRIDER_V4_PROFILE });
+  });
+
+  it('keeps its calibration when the Pi serves an empty document, and gives the Pi the missing parts back', async () => {
+    calibrated();
+    const { outcome, puts } = await round({});
+    expect(outcome).toBe('ok');
+    expect(useWorkshop.getState().settings.camera).toMatchObject({ offsetX: 12.3, pxPerMm: 17.5 });
+    expect(useWorkshop.getState().settings.waypoints).toHaveLength(1);
+    expect((puts[0] as { camera: unknown }).camera).toMatchObject({ offsetX: 12.3 });
+  });
+
+  it('keeps it when the Pi serves a camera that is nothing, or is no document at all – nothing is overwritten', async () => {
+    calibrated();
+    for (const remote of [
+      { ...settings.read(), camera: null },
+      { ...settings.read(), camera: {} },
+      'x',
+      5,
+    ]) {
+      const { outcome, puts } = await round(remote);
+      expect(outcome, JSON.stringify(remote)).toBe('refused');
+      expect(puts).toEqual([]);
+      expect(useWorkshop.getState().settings.camera).toMatchObject({ offsetX: 12.3 });
+    }
+  });
+
+  it('carries a setting a newer app wrote along, and does not reset it', async () => {
+    calibrated();
+    const base = settings.read();
+    const remote = { ...base, newerSetting: { x: 1 } };
+    // nothing of ours changed, nothing of the Pi's we know: nothing is done for it
+    const quiet = await round(remote, 3, base);
+    expect(quiet.outcome).toBe('ok');
+    expect(quiet.puts).toEqual([]);
+    // a change of ours goes out with the key still in it – and the key does not get into the settings
+    useWorkshop.getState().setSettings({ safeMachineZ: -2 });
+    const sent = await round(remote, 3, base);
+    expect(sent.puts).toHaveLength(1);
+    expect(sent.puts[0]).toMatchObject({ safeMachineZ: -2, newerSetting: { x: 1 } });
+    expect(useWorkshop.getState().settings).not.toHaveProperty('newerSetting');
+  });
+});
+
+describe('the values of the machine against what a Pi may send', () => {
+  const entered = {
+    travel: { x: { min: -1220, max: 0 }, y: { min: -2440, max: 0 }, z: { min: -120, max: 0 } },
+    softLimits: true,
+    jogFeed: { xy: 3000, z: 600 },
+  };
+  afterEach(() => useJob.setState({ profile: LOWRIDER_V4_PROFILE }));
+
+  it('refuses kinematics and controller that are not what a config import makes – they would break the screens', () => {
+    const s = slice('profile');
+    const kinematics = LOWRIDER_V4_PROFILE.kinematics;
+    for (const bad of [
+      { kinematics: {} },
+      { kinematics: { ...kinematics, axes: {} } },
+      { kinematics: { ...kinematics, axes: { x: kinematics.axes.x } } },
+      {
+        kinematics: {
+          ...kinematics,
+          axes: { ...kinematics.axes, y: { maxRate: 0, acceleration: 1 } },
+        },
+      },
+      { kinematics: { ...kinematics, axes: { ...kinematics.axes, q: kinematics.axes.x } } },
+      { kinematics: { ...kinematics, junctionDeviation: 'x' } },
+      { kinematics: { ...kinematics, arcTolerance: 0 } },
+      { kinematics: { ...kinematics, pauseSeconds: -1 } },
+      { controller: {} },
+      { controller: { ...LOWRIDER_V4_PROFILE.controller, mustHome: 'yes' } },
+      { controller: { ...LOWRIDER_V4_PROFILE.controller, source: 5 } },
+    ]) {
+      expect(s.accepts({ ...entered, ...bad }), JSON.stringify(bad).slice(0, 80)).toBe(false);
+    }
+    // what a config import and the stock values make is fine – and null means "none"
+    expect(s.accepts({ ...entered, kinematics, controller: LOWRIDER_V4_PROFILE.controller })).toBe(
+      true,
+    );
+    expect(s.accepts({ ...entered, kinematics: null, controller: null })).toBe(true);
+  });
+
+  it('cannot break the analysis of a loaded program: what is accepted is applied without a throw', () => {
+    const s = slice('profile');
+    useJob.getState().load('x.nc', 'G0 X1\nG1 X10 F600\n');
+    const doc = {
+      ...entered,
+      kinematics: LOWRIDER_V4_PROFILE.kinematics,
+      controller: LOWRIDER_V4_PROFILE.controller,
+    };
+    expect(s.accepts(doc)).toBe(true);
+    expect(() => s.apply(doc)).not.toThrow();
+    expect(useJob.getState().profile.kinematics.axes.x.maxRate).toBe(9000);
+    expect(useJob.getState().analysis).not.toBeNull();
+    useJob.getState().unload();
+  });
+
+  it('is put back to the placeholder where there was none (the way back from a simulator session)', () => {
+    const s = slice('profile');
+    s.apply(entered);
+    expect(useJob.getState().profile.placeholder).toBe(false);
+    s.restore!({});
+    expect(useJob.getState().profile.placeholder).toBe(true);
+    expect(s.read()).toEqual({});
+    // and what was there is put back as it was
+    s.apply(entered);
+    s.restore!({ ...entered, jogFeed: { xy: 1000, z: 100 } });
+    expect(useJob.getState().profile.jogFeed).toEqual({ xy: 1000, z: 100 });
+  });
+
+  it('is not recovered from storage after the reset', async () => {
+    const { loadProfile, saveProfile, clearProfile } = await import('../src/lib/profile');
+    const store = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+    };
+    saveProfile(storage, entered);
+    expect(loadProfile(storage).placeholder).toBe(false);
+    clearProfile(storage);
+    expect(loadProfile(storage).placeholder).toBe(true);
+  });
+});
+
+describe('profile settings parsed from storage or the Pi', () => {
+  it('needs kinematics with positive rates in x, y and z, and keeps the rotary axis the controller does not report', () => {
+    const base = {
+      travel: { x: { min: 0, max: 1 }, y: { min: 0, max: 1 }, z: { min: 0, max: 1 } },
+      softLimits: true,
+      jogFeed: { xy: 1, z: 1 },
+    };
+    const k = {
+      axes: {
+        x: { maxRate: 1, acceleration: 1 },
+        y: { maxRate: 1, acceleration: 1 },
+        z: { maxRate: 1, acceleration: 1 },
+      },
+      junctionDeviation: 0,
+      arcTolerance: 0.1,
+    };
+    const parsed = parseSettings({ ...base, kinematics: k });
+    expect(parsed?.kinematics?.axes.a).toEqual(LOWRIDER_V4_PROFILE.kinematics.axes.a);
+    expect(parseSettings({ ...base, kinematics: { ...k, axes: null } })).toBeNull();
+    expect(
+      parseSettings({ ...base, kinematics: { ...k, axes: { ...k.axes, x: null } } }),
+    ).toBeNull();
+    expect(parseSettings({ ...base, kinematics: 5 })).toBeNull();
+    expect(parseSettings({ ...base, controller: 5 })).toBeNull();
+  });
+});
+
+describe('the reference, macros and learning against what a Pi may send', () => {
+  it('refuses a height of the reference tool that is no place of a machine', () => {
+    expect(slice('toolReference').accepts({ z: 1e9 })).toBe(false);
+    expect(slice('toolReference').accepts({ z: -42.5 })).toBe(true);
+  });
+
+  it('holds the learned correction of the feed to where it is learned', () => {
+    const s = slice('learning');
+    expect(s.accepts({ 'a|b': { factor: 9.9, jobs: 1 } })).toBe(false);
+    expect(s.accepts({ 'a|b': { factor: 0.4, jobs: 1 } })).toBe(false);
+    expect(s.accepts({ 'a|b': { factor: 0.5, jobs: 1 } })).toBe(true);
+    expect(s.accepts({ 'a|b': { factor: 1.5, jobs: 1 } })).toBe(true);
+  });
+
+  it('tells which macros came from the Pi and changed – by name, nothing when nothing did', () => {
+    const s = slice('macros');
+    const before = { list: [{ name: 'Z hoch', gcode: 'G53 G0 Z-5' }] };
+    expect(s.announce!(before, before)).toBeNull();
+    const after = {
+      list: [
+        { name: 'Z hoch', gcode: 'G53 G0 Z-5\nM5' },
+        { name: 'Neu', gcode: 'G4 P1' },
+        ...before.list.slice(1),
+      ],
+    };
+    expect(s.announce!(before, after)).toEqual({
+      key: 'sync.macrosFromPi',
+      params: { list: 'Z hoch, Neu' },
+    });
+    // a macro that was only removed is nothing to look at
+    expect(
+      s.announce!({ list: [...before.list, { name: 'Alt', gcode: 'M5' }] }, before),
+    ).toBeNull();
+  });
+});
+
+describe('when a measuring run is under way', () => {
+  afterEach(() => useCalibration.setState({ task: null }));
+  it('takes nothing from the Pi: the run reads the camera settings as it goes', () => {
+    expect(safeToApply()).toBe(true);
+    useCalibration.setState({ task: 'grid' });
+    expect(safeToApply()).toBe(false);
+  });
+});
+
+describe('the simulator, whatever this device has synced before', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    useMachine.setState({ connection: 'disconnected', url: '' });
+    useJob.setState({ profile: LOWRIDER_V4_PROFILE });
+  });
+
+  const isSimulator = () => {
+    const { connection, url } = useMachine.getState();
+    return connection !== 'disconnected' && url === 'simulator';
+  };
+  const simulate = (keep: ReturnType<typeof memoryKeep>, client: Deps['client'] | null) => {
+    const deps: Deps = {
+      client:
+        client ??
+        (() => ({
+          state: async () => ({ keys: {} }),
+          putState: async () => ({ ok: true as const, rev: 1 }),
+        })),
+      slices: SLICES,
+      meta: { get: () => undefined, set: () => {} },
+      safeToApply: () => true,
+      simulator: isSimulator,
+      say: () => {},
+      name: (_s, k) => k,
+      keep,
+    };
+    return deps;
+  };
+
+  it('is undone also on a device that never synced, and a profile the simulator described goes with it', async () => {
+    useWorkshop.setState({ settings: { ...DEFAULT_SETTINGS } });
+    const keep = memoryKeep();
+    const stop = startStateSync(60_000, simulate(keep, null));
+    await vi.advanceTimersByTimeAsync(10);
+    useMachine.setState({ connection: 'connected', url: 'simulator' });
+    expect(keep.load()).not.toBeNull();
+    // the simulator's camera and its machine
+    useWorkshop.getState().setSettings({ camera: { ...DEFAULT_SETTINGS.camera, offsetX: 50 } });
+    useJob.getState().setProfileSettings({
+      travel: { x: { min: -1, max: 0 }, y: { min: -1, max: 0 }, z: { min: -1, max: 0 } },
+      softLimits: true,
+      jogFeed: { xy: 1, z: 1 },
+    });
+    useMachine.setState({ connection: 'disconnected' });
+    expect(useWorkshop.getState().settings.camera.offsetX).toBe(0);
+    expect(useJob.getState().profile.placeholder).toBe(true);
+    expect(keep.load()).toBeNull();
+    stop();
+  });
+
+  it('is undone after a reload too: what was kept is put back at the start, before the first round', async () => {
+    useWorkshop.setState({ settings: { ...DEFAULT_SETTINGS } });
+    const kept = { settings: syncedSettings(DEFAULT_SETTINGS), profile: {} };
+    // the page was closed in the simulator: its settings are what this browser stored
+    useWorkshop.getState().setSettings({ camera: { ...DEFAULT_SETTINGS.camera, offsetX: 50 } });
+    const keep = memoryKeep(kept);
+    const stop = startStateSync(60_000, simulate(keep, null));
+    expect(useWorkshop.getState().settings.camera.offsetX).toBe(0);
+    expect(keep.load()).toBeNull();
+    stop();
+  });
+
+  it('does not touch a reload that happens while a simulator is the machine', async () => {
+    useWorkshop.setState({ settings: { ...DEFAULT_SETTINGS } });
+    useMachine.setState({ connection: 'connected', url: 'simulator' });
+    useWorkshop.getState().setSettings({ camera: { ...DEFAULT_SETTINGS.camera, offsetX: 50 } });
+    const keep = memoryKeep({ settings: syncedSettings(DEFAULT_SETTINGS) });
+    const stop = startStateSync(60_000, simulate(keep, null));
+    expect(useWorkshop.getState().settings.camera.offsetX).toBe(50);
+    expect(keep.load()).not.toBeNull();
+    stop();
+  });
+
+  it('keeps nothing where no Pi is configured – the simulator may change what it likes in this browser', async () => {
+    const keep = memoryKeep();
+    const stop = startStateSync(
+      60_000,
+      simulate(keep, () => null),
+    );
+    useMachine.setState({ connection: 'connected', url: 'simulator' });
+    expect(keep.load()).toBeNull();
+    stop();
+  });
+});
+
+describe('what this app writes itself is never refused by its own checks', () => {
+  // A stricter check that turned away a document of this very app would cut a device off from the Pi.
+  it('the stock machine profile, a profile read from a config.yaml, the stock macros, the settings the cards produce', async () => {
+    const { readMachineConfig } = await import('@lowrider/fluidnc-client');
+    const { settingsFromConfig } = await import('../src/lib/profile');
+    const config = readMachineConfig(
+      readFileSync(new URL('../../../machine/config.yaml', import.meta.url), 'utf8'),
+    );
+    const profile = slice('profile');
+    expect(profile.accepts(profileDoc({ ...LOWRIDER_V4_PROFILE, placeholder: false }))).toBe(true);
+    const imported = settingsFromConfig(config, LOWRIDER_V4_PROFILE)!;
+    expect(profile.accepts({ ...imported })).toBe(true);
+    // … and what that makes of the profile reads back as an acceptable document
+    profile.apply({ ...imported });
+    expect(profile.accepts(profile.read())).toBe(true);
+    useJob.setState({ profile: LOWRIDER_V4_PROFILE });
+    expect(slice('macros').accepts({ list: DEFAULT_MACROS })).toBe(true);
+    expect(slice('macros').accepts(slice('macros').defaults())).toBe(true);
+    for (const key of ['clamps', 'toolReference', 'learning', 'settings', 'profile']) {
+      expect(slice(key).accepts(slice(key).defaults()), key).toBe(true);
+    }
   });
 });

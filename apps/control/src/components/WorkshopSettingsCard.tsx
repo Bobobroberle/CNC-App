@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { t } from '../i18n';
 import { parseNumber } from '../lib/format';
+import { FEED_MAX, PLACE, safeHeightAllowed } from '../lib/stateSync';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
 import { useJobUnderWay } from '../store/underway';
@@ -49,12 +50,15 @@ export function WorkshopSettingsCard() {
     draft.changeX.trim() === '' && draft.changeY.trim() === ''
       ? null
       : { x: num(draft.changeX), y: num(draft.changeY) };
+  const zTravel = useJob((j) => j.profile.travel.z);
+  // The ranges are the ones the Pi's documents are held to: what this card takes, the Pi takes as well
   const valid =
     spindle.rpmMin > 0 &&
     spindle.rpmMax >= spindle.rpmMin &&
     spindle.maxFeed > 0 &&
-    (safe === null || Number.isFinite(safe)) &&
-    (underway || change === null || (Number.isFinite(change.x) && Number.isFinite(change.y)));
+    spindle.maxFeed <= FEED_MAX &&
+    (safe === null || (Number.isFinite(safe) && safeHeightAllowed(safe, zTravel))) &&
+    (underway || change === null || (Math.abs(change.x) <= PLACE && Math.abs(change.y) <= PLACE));
 
   const field = (key: keyof Draft, label: Parameters<typeof t>[0], disabled = false) => (
     <Field>

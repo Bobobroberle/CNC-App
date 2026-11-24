@@ -10,6 +10,8 @@ import { create } from 'zustand';
 import { browserStorage } from '../lib/persist';
 import type { PreparedPart } from '../lib/prepare';
 import {
+  clearProfile,
+  LOWRIDER_V4_PROFILE,
   loadProfile,
   saveProfile,
   type MachineProfile,
@@ -100,6 +102,8 @@ interface JobStore {
   setStockModel(model: { name: string; triangles: Float32Array } | null): void;
   /** Stores the operator's machine values; re-analyses the loaded job. */
   setProfileSettings(settings: ProfileSettings): void;
+  /** Back to the placeholder values of a machine nobody has described yet (after a simulator session) */
+  resetProfile(): void;
 }
 
 let programLock: (() => boolean) | null = null;
@@ -232,27 +236,36 @@ export const useJob = create<JobStore>((set, get) => ({
   setProfileSettings(settings) {
     saveProfile(storage, settings);
     set((s) => ({ profile: { ...s.profile, ...settings, placeholder: false } }));
-    // New speeds and accelerations change the time estimate.
-    const { fileName, lines } = get();
-    if (fileName !== null) {
-      // Not another program, only another estimate for the same one: it does not go through the
-      // lock (a machine value changed while a job runs must neither fail nor leave a stale time).
-      const { profile } = get();
-      const analysis = analyzeProgram(lines.join('\n'), {
-        kinematics: profile.kinematics,
-        rotaryAxis: profile.hasRotary,
-      });
-      set((s) => ({
-        analysis,
-        projection: analysis.usesRotary
-          ? 'unwrapped'
-          : s.projection === 'unwrapped'
-            ? 'top'
-            : s.projection,
-      }));
-    }
+    reanalyseProgram();
+  },
+  resetProfile() {
+    clearProfile(storage);
+    set({ profile: LOWRIDER_V4_PROFILE });
+    reanalyseProgram();
   },
 }));
+
+/**
+ * New speeds and accelerations change the time estimate. Not another program, only another estimate for the
+ * same one: it does not go through the lock (a machine value changed while a job runs must neither fail
+ * nor leave a stale time).
+ */
+function reanalyseProgram() {
+  const { fileName, lines, profile } = useJob.getState();
+  if (fileName === null) return;
+  const analysis = analyzeProgram(lines.join('\n'), {
+    kinematics: profile.kinematics,
+    rotaryAxis: profile.hasRotary,
+  });
+  useJob.setState((s) => ({
+    analysis,
+    projection: analysis.usesRotary
+      ? 'unwrapped'
+      : s.projection === 'unwrapped'
+        ? 'top'
+        : s.projection,
+  }));
+}
 
 /** Brings the table from above onto the stage – and leaves the view alone if it is there already. */
 export function showTable(): void {

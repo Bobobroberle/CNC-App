@@ -502,6 +502,14 @@ export const de = {
         effect: 'Der Ablauf bleibt an diesem Schritt stehen. Nichts wurde übernommen.',
         action: 'Den Schritt im Ablauf wiederholen – dort steht, was fehlt.',
       },
+      sync: {
+        cause:
+          'Beim Abgleich der Einstellungen mit dem Pi waren zwei Stände verschieden, oder der Pi hatte etwas, das diese App nicht lesen kann.',
+        effect:
+          'Wo die Meldung „ersetzt“ sagt, gilt jetzt der andere Wert; sonst wurde nichts überschrieben. Die Maschine selbst wurde nicht bewegt.',
+        action:
+          'Die Werte ansehen (Kamera und Kalibrierung unter Service, Orte unter Einstellungen). Ist ein Dokument auf dem Pi unbrauchbar: unter Einstellungen → Verbindung den Stand dieses Geräts auf den Pi schreiben.',
+      },
       jobLocked: {
         cause:
           'Ein Job ist unterwegs: Er läuft von der SD-Karte oder wird gestreamt, steht zwischen zwei Teilen, oder die Verbindung riss unter ihm ab.',
@@ -938,7 +946,8 @@ export const de = {
   },
   measurements: {
     title: 'Messprotokoll',
-    hint: 'Jede Messung und jede Korrektur der Maschine, mit Zeit und Werten – sie liegen auch auf dem Pi und sind auf jedem Gerät da. Was im Simulator gemessen wird, steht nicht darin.',
+    hint: 'Was an der Maschine gemessen und an der Steuerung korrigiert wurde, mit Zeit und Werten. Mit einem Pi als Companion liegt es auch dort und ist auf jedem Gerät da. Was im Simulator gemessen wird, steht nicht darin.',
+    more: 'Die letzten {shown} von {total} Einträgen.',
     empty: 'Noch nichts gemessen.',
     kinds: {
       'camera-scale': 'Kamera: Maßstab',
@@ -970,13 +979,26 @@ export const de = {
       ok: 'Auf dem Pi gesichert (zuletzt {time}).',
       offline: 'Der Pi antwortet nicht – es gilt vorerst nur auf diesem Gerät und wird nachgeholt.',
       unsupported:
-        'Der Companion auf dem Pi kennt diesen Speicher noch nicht – den Pi mit der neuen Version aktualisieren (setup.sh).',
+        'Der Companion auf dem Pi kennt diesen Speicher noch nicht – die neue Version auf den Pi kopieren und dort setup.sh ausführen (Anleitung: docs/companion.md).',
       paused: 'Pausiert, solange der Simulator läuft – was dort eingestellt wird, gilt nur dort.',
-      deferred: 'Neuere Werte vom Pi warten, bis die Maschine steht.',
+      deferred:
+        'Der Abgleich wartet, bis die Maschine steht – neuere Werte vom Pi liegen bereit, Änderungen dieses Geräts gehen danach hinaus.',
       refused:
         'Auf dem Pi liegen Einstellungen, die nicht zu dieser App passen – nichts übernommen.',
+      failed:
+        'Der Pi hat geantwortet, aber der Abgleich ist nicht gelungen – er wird beim nächsten Mal wieder versucht.',
     },
-    now: 'Jetzt abgleichen',
+    notThrough:
+      'Die Bibliotheken sind abgeglichen, die Einstellungen und Messwerte noch nicht – die Zeile darunter sagt, woran es liegt.',
+    overwrite: 'Stand dieses Geräts auf den Pi schreiben',
+    overwriteHint:
+      'Ersetzt, was auf dem Pi liegt und nicht zu dieser App passt, durch die Einstellungen dieses Geräts.',
+    overwritten: 'Auf dem Pi ersetzt durch den Stand dieses Geräts: {list}.',
+    applyFailed:
+      'Die Werte vom Pi ({field}) konnten nicht übernommen werden – dieses Gerät behält seinen Stand.',
+    rewound:
+      'Der Pi hat einen älteren Stand als beim letzten Abgleich (Wiederherstellung?) – übernommen: {list}.',
+    macrosFromPi: 'Makros vom Pi übernommen: {list}. Vor dem ersten Einsatz den Text ansehen.',
     refused:
       'Die Einstellungen auf dem Pi sind unbrauchbar ({field}) – nichts übernommen, nichts überschrieben.',
     replacedLocal: 'Vom Pi übernommen: {list}. Abweichende Werte dieses Geräts sind ersetzt.',
@@ -995,11 +1017,19 @@ export const de = {
       safeMachineZ: 'sichere Höhe',
       notifyCompanion: 'Benachrichtigung über den Pi',
       adaptive: 'adaptiver Vorschub',
-      language: 'Sprache',
-      expertMode: 'Expertenfunktionen',
       cornerPlate: 'Eckenplatte',
       recording: 'Aufzeichnung',
     },
+    // The other documents are named as a whole
+    slices: {
+      settings: 'Einstellungen',
+      clamps: 'Spannmittel',
+      toolReference: 'Referenzwerkzeug',
+      macros: 'Makros',
+      learning: 'Lernwerte',
+      profile: 'Maschinenwerte',
+    },
+    lastOk: 'Zuletzt gesichert: {time}.',
   },
   companion: {
     shutdownTitle: 'Pi herunterfahren',
@@ -1027,7 +1057,7 @@ export const de = {
       'Optional: ein Raspberry Pi oder Mini-PC an der Maschine hält Werkzeuge, Materialien und Historie, puffert Jobs, leitet FluidNC weiter und liefert Sensordaten.',
     address: 'Adresse des Companion',
     test: 'Verbindung testen',
-    sync: 'Bibliotheken abgleichen',
+    sync: 'Jetzt abgleichen',
     synced: 'Bibliotheken mit dem Companion abgeglichen.',
     online: 'Companion {version} erreichbar.',
     noRelay: 'Keine FluidNC-Weiterleitung eingerichtet.',

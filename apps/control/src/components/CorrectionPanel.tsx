@@ -2,6 +2,7 @@ import type { AxisErrors } from '@lowrider/workshop';
 import { useEffect, useState } from 'react';
 import { t } from '../i18n';
 import { formatNumber, parseNumber } from '../lib/format';
+import { PLACE } from '../lib/stateSync';
 import { proposeCorrections, useCalibration, type Correction } from '../store/calibration';
 import { useMachine } from '../store/machine';
 import { useWorkshop, type CalibrationSettings } from '../store/workshop';
@@ -23,11 +24,14 @@ export function NumberField({
   value,
   onChange,
   min = 0,
+  max = Infinity,
 }: {
   label: string;
   value: number | null;
   onChange: (v: number) => void;
   min?: number;
+  /** Beyond this the entry is not taken (what the Pi would refuse of it as well) */
+  max?: number;
 }) {
   const [text, setText] = useState(value === null ? '' : String(value));
   return (
@@ -40,7 +44,8 @@ export function NumberField({
         onChange={(e) => {
           setText(e.target.value);
           const v = num(e.target.value);
-          if (e.target.value.trim() !== '' && Number.isFinite(v) && v > min) onChange(v);
+          if (e.target.value.trim() !== '' && Number.isFinite(v) && v > min && v <= max)
+            onChange(v);
         }}
       />
     </Field>
@@ -87,6 +92,7 @@ export function CorrectionPanel({
       <div className="grid grid-cols-2 gap-2">
         <NumberField
           label={t('calibration.gantryWidth')}
+          max={PLACE}
           value={s.gantryWidth}
           onChange={(gantryWidth) => save({ gantryWidth })}
         />

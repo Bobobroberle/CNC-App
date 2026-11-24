@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { t } from '../i18n';
 import { formatNumber } from '../lib/format';
+import { PLACE, SETTLE_MAX_MS } from '../lib/stateSync';
 import { proposeCorrections, useCalibration } from '../store/calibration';
 import { useCamera } from '../store/camera';
 import { useJob } from '../store/job';
@@ -85,16 +86,19 @@ export function CalibrationWizard() {
       <div className="grid grid-cols-2 gap-2">
         <NumberField
           label={t('calibration.spanX')}
+          max={PLACE}
           value={s.spanX}
           onChange={(spanX) => save({ spanX })}
         />
         <NumberField
           label={t('calibration.spanY')}
+          max={PLACE}
           value={s.spanY}
           onChange={(spanY) => save({ spanY })}
         />
         <NumberField
           label={t('calibration.settle')}
+          max={SETTLE_MAX_MS}
           value={s.settleMs}
           onChange={(settleMs) => save({ settleMs })}
         />

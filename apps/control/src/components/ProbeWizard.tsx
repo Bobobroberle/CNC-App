@@ -12,6 +12,7 @@ import {
 import { useState } from 'react';
 import { t } from '../i18n';
 import { formatCoordinate, formatSigned, parseNumber } from '../lib/format';
+import { PLATE_MAX } from '../lib/stateSync';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
 import { useMeasurements } from '../store/measurements';
@@ -98,7 +99,8 @@ export function ProbeWizard({ kind }: { kind: ProbeKind }) {
     setPlateText(next);
     const top = num(next.top);
     const wall = num(next.wall);
-    if (top >= 0 && wall >= 0) setSettings({ cornerPlate: { ...plate, top, wall } });
+    if (top >= 0 && top <= PLATE_MAX && wall >= 0 && wall <= PLATE_MAX)
+      setSettings({ cornerPlate: { ...plate, top, wall } });
   };
 
   const routine = (): ProbeRoutine | null => {

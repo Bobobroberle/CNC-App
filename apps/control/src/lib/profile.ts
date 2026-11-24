@@ -103,6 +103,49 @@ function isNumber(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v);
 }
 
+const positive = (v: unknown): v is number => isNumber(v) && v > 0;
+
+/** Rates and accelerations of the axes (x, y, z at least) and the planner's two numbers. */
+export function parseKinematics(value: unknown): Kinematics | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const k = value as Partial<Kinematics>;
+  const axes = k.axes as Record<string, unknown> | undefined;
+  if (typeof axes !== 'object' || axes === null) return null;
+  for (const [name, limits] of Object.entries(axes)) {
+    const a = limits as Partial<{ maxRate: unknown; acceleration: unknown }> | null;
+    if (!['x', 'y', 'z', 'a'].includes(name)) return null;
+    if (typeof a !== 'object' || a === null || !positive(a.maxRate) || !positive(a.acceleration)) {
+      return null;
+    }
+  }
+  if (!axes.x || !axes.y || !axes.z) return null;
+  if (!isNumber(k.junctionDeviation) || k.junctionDeviation < 0) return null;
+  if (!positive(k.arcTolerance)) return null;
+  for (const seconds of [k.toolChangeSeconds, k.pauseSeconds, k.spindleSeconds]) {
+    if (seconds !== undefined && !(isNumber(seconds) && seconds >= 0)) return null;
+  }
+  // The planner reads every axis; the rotary one the controller does not report keeps the stock values
+  return {
+    ...k,
+    axes: { ...LOWRIDER_V4_KINEMATICS.axes, ...(axes as Kinematics['axes']) },
+  } as Kinematics;
+}
+
+/** What the controller does on its own, as a config import reads it. */
+export function parseController(value: unknown): ControllerInfo | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const c = value as Partial<ControllerInfo>;
+  const flags = [
+    c.softLimits,
+    c.toolChangeHandled,
+    c.useLineNumbers,
+    c.mustHome,
+    c.spindleControlled,
+  ];
+  if (typeof c.source !== 'string' || !flags.every((f) => typeof f === 'boolean')) return null;
+  return c as ControllerInfo;
+}
+
 /** Validates stored or entered settings; returns null if anything is off. */
 export function parseSettings(value: unknown): ProfileSettings | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -117,9 +160,17 @@ export function parseSettings(value: unknown): ProfileSettings | null {
   if (!v.jogFeed || !isNumber(v.jogFeed.xy) || !isNumber(v.jogFeed.z)) return null;
   if (v.jogFeed.xy <= 0 || v.jogFeed.z <= 0) return null;
   const settings: ProfileSettings = { travel, softLimits: v.softLimits, jogFeed: v.jogFeed };
-  // Imported controller values are kept as they are; they came from a parsed config.
-  if (typeof v.kinematics === 'object' && v.kinematics !== null) settings.kinematics = v.kinematics;
-  if (typeof v.controller === 'object' && v.controller !== null) settings.controller = v.controller;
+  // What a config import made: these values drive the time estimate and the checks, so they must be what one is
+  if (v.kinematics !== undefined && v.kinematics !== null) {
+    const kinematics = parseKinematics(v.kinematics);
+    if (!kinematics) return null;
+    settings.kinematics = kinematics;
+  }
+  if (v.controller !== undefined && v.controller !== null) {
+    const controller = parseController(v.controller);
+    if (!controller) return null;
+    settings.controller = controller;
+  }
   const probe = parseProbe(v.probe);
   if (probe) settings.probe = probe;
   return settings;
@@ -133,6 +184,15 @@ export function loadProfile(storage: Pick<Storage, 'getItem'> | undefined): Mach
     // unreadable storage → defaults
   }
   return LOWRIDER_V4_PROFILE;
+}
+
+/** Forgets the stored values: the next start has the placeholder profile again. */
+export function clearProfile(storage: Pick<Storage, 'setItem'> | undefined) {
+  try {
+    storage?.setItem(STORAGE_KEY, 'null');
+  } catch {
+    // storage may be unavailable (private mode)
+  }
 }
 
 export function saveProfile(
