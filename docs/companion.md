@@ -24,6 +24,12 @@ dazu:
 Ziel: Pi 4 sitzt auf der Maschine, die USB-Kamera am Fräskopf hängt am Pi, optional der LSM6DSO
 am I²C. Alles startet beim Einschalten von selbst.
 
+**Vorher bereithalten:** den Namen des Pi und den Benutzer (Schritt 1), die Adresse der Fräsensteuerung (Jackpot, z. B.
+`192.168.178.40`), und der Pi braucht beim allerersten Mal **Internet** (LAN-Kabel zum Router – das Skript lädt Pakete und Node
+nach; ohne sie bricht es ab, bevor etwas geändert ist). Am Ende zeigt das Skript einmal den **Pi-Code** (zwischen den `====`-Linien):
+aufschreiben. Ging das Fenster zu: das Skript noch einmal laufen lassen (zeigt ihn wieder), oder an einem angemeldeten Gerät
+_Pi-Code anzeigen_.
+
 1. **Karte beschreiben** – am PC den [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
    öffnen: Gerät _Raspberry Pi 4_, System _Raspberry Pi OS (other) → Raspberry Pi OS Lite (64-bit)_,
    Karte wählen. Bei _Einstellungen bearbeiten_:
@@ -47,6 +53,9 @@ am I²C. Alles startet beim Einschalten von selbst.
    bash ~/pi/setup.sh --fluidnc 192.168.178.40
    sudo reboot
    ```
+
+   Am Ende steht der **Pi-Code**: damit meldet sich jedes Gerät einmal an (_Einstellungen → Verbindung → Anmeldung am Pi_) – die
+   Home-Bildschirm-App des iPad und Safari sind dabei zwei Geräte. Ohne Anmeldung gehen das Aktualisieren und das Herunterfahren nicht.
 
    Das Skript installiert Node 22, [ustreamer](https://github.com/pikvm/ustreamer), smbus2 und
    i2c-tools, schaltet I²C mit 400 kHz ein und legt drei Dienste an:
@@ -74,7 +83,7 @@ am I²C. Alles startet beim Einschalten von selbst.
    „Pi fährt herunter“, dann einen Countdown, sobald er nicht mehr antwortet, und zum Schluss
    „Pi ist aus – du kannst den Stecker jetzt ziehen“ (die grüne LED am Pi ist dann dunkel). Die
    Fräse bleibt dabei an; eine Verbindung über die Weiterleitung trennt die App vorher selbst.
-   Während die Maschine fährt, ist der Knopf gesperrt. Das Skript erlaubt dem Companion dafür
+   Während die Maschine fährt, ist der Knopf gesperrt, und ohne Anmeldung am Pi (s. u.) geht er nicht. Das Skript erlaubt dem Companion dafür
    genau einen Befehl als root (`/etc/sudoers.d/lowrider-power`: `systemctl poweroff`). Ohne
    App: `ssh pi@lowrider.local` (bzw. dein Benutzer) und `sudo poweroff`.
 
@@ -117,6 +126,11 @@ FLUIDNC_URL=ws://192.168.178.40:81 LOWRIDER_APP=./app SENSOR_SIMULATOR=1 node co
 | `LOWRIDER_BACKUP`                  | `0` = die tägliche Datensicherung der Datenbank abschalten             | an                                          |
 | `LOWRIDER_BACKUP_DIR`              | Ordner der Sicherungen – **besser ein zweites Medium (USB-Stick)**     | `backups/` neben der Datenbank              |
 | `LOWRIDER_BACKUP_KEEP`             | Wie viele Tagessicherungen bleiben                                     | `7`                                         |
+| `LOWRIDER_DIR`                     | Ordner der Einrichtung (`releases/`, `current`, `data/`) – nötig für das Update aus der App | –                      |
+| `LOWRIDER_UPDATE`                  | `1` = Update aus der App erlauben (`setup.sh` setzt es)                | aus                                         |
+| `LOWRIDER_CODE_FILE`               | Datei des Pi-Codes                                                     | `pi-code.txt` neben der Datenbank           |
+| `LOWRIDER_CONFIRM_MS`              | Wie lange eine neue Version laufen muss, bis sie sich bestätigt        | `30000`                                     |
+| `LOWRIDER_GATE_SECONDS`            | Wie lange `health-gate.sh` auf die Antwort einer Version in der Probezeit wartet | `30`                              |
 
 **Datensicherung:** einmal am Tag (und beim Start, wenn die von heute fehlt) macht der Companion eine vollständige Kopie der
 Datenbank (`lowrider-JJJJ-MM-TT.db`: Werkzeuge, Materialien, Nullpunkte, Historie, abgelegte Jobs …) in einem eigenen Prozess,
@@ -152,31 +166,74 @@ eine Kopie (sie gilt, wenn der Pi weg ist, und wird nachgeholt).
 - **Ein Dokument auf dem Pi ist unbrauchbar** (zum Beispiel von Hand falsch geschrieben): die App übernimmt es nicht, überschreibt es
   nicht und sagt es einmal. Unter _Einstellungen → Verbindung_ ersetzt ein langes Drücken auf „Stand dieses Geräts auf den Pi
   schreiben“ es durch den Stand dieses Geräts.
-- **Vertrauen:** der Companion hat keine Anmeldung und antwortet jeder Webseite im Netz (CORS `*`) – das war schon immer so, das
-  Werkstattnetz gilt als vertrauenswürdig. Was von ihm kommt, prüft die App trotzdem: Zahlen im Rahmen dessen, was die Karten
-  zulassen, ein echtes Maschinenprofil, Makros nur mit Hinweis (sie laufen als Text an der Maschine).
+- **Vertrauen:** die Dokumente (`/api/state`), die Bibliotheken und die Weiterleitung zur Fräse brauchen **keine** Anmeldung und
+  der Companion antwortet jeder Webseite im Netz (CORS `*`) – das Werkstattnetz gilt als vertrauenswürdig; würde man sie
+  schützen, könnte jedes Gerät ohne Anmeldung seine Einstellungen nicht mehr sichern. Die Anmeldung (s. unten) schützt nur, was
+  Code auf den Pi lädt, ihn herunterfährt und sie selbst. Was vom Companion kommt, prüft die App trotzdem: Zahlen im Rahmen
+  dessen, was die Karten zulassen, ein echtes Maschinenprofil, Makros nur mit Hinweis (sie laufen als Text an der Maschine).
 - **Erste Verbindung eines Geräts:** hat der Pi schon einen Stand, gilt er dort, wo beide verschieden sind; die App sagt, was sie
   ersetzt hat. Ein Pi **ohne** diese Schnittstelle (alte Version) wird erkannt; der Kasten Companion sagt es, alles andere geht weiter.
 - **Sicherung:** die Dokumente liegen in derselben Datenbank wie die Bibliotheken; die tägliche Sicherung deckt sie mit.
 
+## Anmeldung und Update aus der App
+
+**Anmeldung.** Das Aktualisieren, das Herunterfahren und die Verwaltung der Anmeldung brauchen ein angemeldetes Gerät; alles andere
+(Bibliotheken, Einstellungen, Weiterleitung zur Fräse) bleibt offen wie vorher. Der **Pi-Code** (`ABCD-EFGH-JKLM`) steht am Ende
+von `setup.sh`, in `~/lowrider/data/pi-code.txt` und – auf einem Gerät, das schon angemeldet ist – in der App. _Einstellungen →
+Verbindung → Anmeldung am Pi_: Code eingeben, dem Gerät einen Namen geben, anmelden. Dort lassen sich Geräte entfernen, der Code
+anzeigen und erneuern und alle anderen Geräte abmelden. Fünf falsche Versuche innerhalb von fünf Minuten sperren die Adresse, bis der älteste älter als fünf Minuten ist (die App nennt die Wartezeit); höchstens 20 Geräte sind angemeldet.
+Details und Grenzen: `docs/update-konzept.md`.
+
+**Update.** _Einstellungen → Verbindung → Update des Pi_: die Datei `lowrider-pi.zip` wählen (optional die Prüfsumme, die du mit der
+Datei bekommen hast, eintippen), der Pi prüft sie und zeigt, was drin ist; ein **Halten** spielt sie ein. Der Pi sichert die
+Datenbank, probiert die neue Version aus, hängt sie ein und startet neu; die App wartet und sagt, welcher Stand läuft – oder dass
+der Pi von selbst zur alten Version zurückgekehrt ist. Dasselbe in die andere Richtung: „Zur vorherigen Version zurück“.
+
+- **Das erste Mal** geht noch über den PC: `lowrider-pi.zip` entpacken, **`update-pi.bat`** doppelklicken (Windows; fragt beim
+  ersten Mal nach dem Namen des Pi, dem Benutzer und der Adresse der Fräsensteuerung – Jackpot –, danach zweimal nach dem
+  Passwort des Pi, kopiert den Ordner `pi` und führt dort `setup.sh` aus). Name und Benutzer stehen danach in
+  `update-pi.einstellungen.txt` neben dem Skript (erst nach einem erfolgreichen Kopieren geschrieben; ein neuer Name:
+  `update-pi.bat neu` oder die Datei löschen); die Jackpot-Adresse behält der Pi selbst und wird nur in dem Lauf mitgegeben, in dem sie
+  eingegeben wurde. Nach einem Fehler fragt das Skript auf Wunsch noch einmal. Das Fenster während der Einrichtung nicht schließen. Erst nach diesem ersten Mal kennt der Pi die Anmeldung und das Update aus der App.
+  `update-pi.bat` bleibt der sichere Weg, wenn etwas nicht mehr antwortet. `setup.sh` verweigert den Neustart, solange ein
+  Browser über den Pi mit der Fräse verbunden ist (ein darüber gestreamter Auftrag würde abbrechen; `--force` geht trotzdem), und
+  stellt jede Version, die es einspielt, wie ein Update aus der App unter Beobachtung (`trial`) – wo schon eine Version läuft, zu der es
+  zurückgehen kann; bei der allerersten Einrichtung gibt es keine.
+- **Aufbau auf dem Pi:** `~/lowrider/releases/<Name>/` (je Version `companion.mjs`, `app/`, `lsm6dso.py`, `release.json`), `current`
+  (was läuft) und `previous` (was davor lief) sind Symlinks, `data/` (Datenbank, Aufnahmen, Sicherungen) gehört keiner Version.
+  `setup.sh` legt das an (eine ältere, flache Einrichtung wird als Version kopiert, die flachen Dateien gehen erst, wenn die neue
+  antwortet), schreibt `LOWRIDER_DIR`, `LOWRIDER_UPDATE=1` und `LOWRIDER_APP=…/current/app` in `/etc/lowrider.env` (Zeilen, die es nicht
+  kennt, bleiben) und nimmt beim erneuten Lauf die Adresse der Fräse und die Kameraeinstellungen aus dieser Datei – ein Update
+  braucht keine Angaben.
+- **Der Wächter** (`~/lowrider/guard.sh`, `ExecStartPre` des Dienstes): eine neue Version, die sich nicht bestätigt (30 s laufen),
+  wird beim dritten Start ohne Bestätigung durch die vorherige ersetzt. `~/lowrider/update-last.json` sagt, wie das letzte Update
+  ausging.
+- **Was ein Update aus der App nie ändert:** `setup.sh`, den Wächter, die Dienste, die sudoers-Regel, Pakete. Braucht eine Version
+  mehr, lehnt der Pi ab („update-pi.bat“).
+- **Prüfsumme:** `pnpm bundle` schreibt `release/lowrider-pi.zip.sha256`; die Summe bekommst du auf einem zweiten Weg (in der
+  Nachricht, nicht in der Datei). Der Pi rechnet sie selbst nach.
+
 ## Schnittstelle
 
-| Methode und Pfad                            | Zweck                                                                |
-| ------------------------------------------- | -------------------------------------------------------------------- |
-| `GET /api/health`                           | Version, Weiterleitung, Sensorquelle, Kamera-Stream                  |
-| `GET /api/state`, `PUT /api/state/:key`     | Einstellungen der Maschine (Dokumente mit Version, s. oben)          |
-| `POST /api/system/shutdown`                 | Pi herunterfahren (antwortet erst, fährt dann nach 0,5 s)            |
-| `GET/PUT/DELETE /api/library/:sammlung/:id` | tools, materials, zeros, jigs, macros, history, learning, profiles … |
-| `POST /api/library/:sammlung`               | mehrere Einträge auf einmal (Import)                                 |
-| `GET/PUT/DELETE /api/jobs/:name`            | Job-Puffer (G-Code als Text)                                         |
-| `GET/PUT /api/notify`, `POST /api/notify`   | Benachrichtigung einstellen bzw. senden                              |
-| `GET/POST /api/sensors`                     | letzter Sensorwert bzw. neuen Wert melden                            |
-| `WS /api/sensors/stream`                    | Sensorwerte live                                                     |
-| `WS /fluidnc`                               | Weiterleitung zum Jackpot                                            |
-| `GET /api/recordings`                       | Aufnahmen, laufende Aufnahme, ffmpeg/Video-Chip vorhanden            |
-| `POST /api/recordings/start`, `/stop`       | Mitschnitt starten (`mode`, `intervalSeconds`, …) bzw. beenden       |
-| `GET /api/recordings/:id/file?kind=…`       | `video` oder `timelapse` als MP4 (mit Range, für iPad/Safari)        |
-| `DELETE /api/recordings/:id`                | Aufnahme löschen                                                     |
+| Methode und Pfad                                              | Zweck                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET /api/health`                                             | Version, Build, Weiterleitung, Sensorquelle, Kamera-Stream, Anmeldung/Update an |
+| `GET /api/state`, `PUT /api/state/:key`                       | Einstellungen der Maschine (Dokumente mit Version, s. oben)                     |
+| `POST /api/auth/login`, `GET/POST/DELETE /api/auth/…`         | Anmeldung: mit dem Pi-Code anmelden, Geräte, Code anzeigen/erneuern             |
+| `GET /api/update`, `POST /api/update/{upload,apply,rollback}` | Update aus der App (mit Anmeldung, s. oben)                                     |
+| `DELETE /api/update/staged`                                   | Eine hochgeladene Datei verwerfen (sie bleibt sonst 30 Minuten im Speicher des Pi) |
+| `POST /api/system/shutdown`                                   | Pi herunterfahren (mit Anmeldung; antwortet erst, fährt dann nach 0,5 s)        |
+| `GET/PUT/DELETE /api/library/:sammlung/:id`                   | tools, materials, zeros, jigs, macros, history, learning, profiles …            |
+| `POST /api/library/:sammlung`                                 | mehrere Einträge auf einmal (Import)                                            |
+| `GET/PUT/DELETE /api/jobs/:name`                              | Job-Puffer (G-Code als Text)                                                    |
+| `GET/PUT /api/notify`, `POST /api/notify`                     | Benachrichtigung einstellen bzw. senden                                         |
+| `GET/POST /api/sensors`                                       | letzter Sensorwert bzw. neuen Wert melden                                       |
+| `WS /api/sensors/stream`                                      | Sensorwerte live                                                                |
+| `WS /fluidnc`                                                 | Weiterleitung zum Jackpot                                                       |
+| `GET /api/recordings`                                         | Aufnahmen, laufende Aufnahme, ffmpeg/Video-Chip vorhanden                       |
+| `POST /api/recordings/start`, `/stop`                         | Mitschnitt starten (`mode`, `intervalSeconds`, …) bzw. beenden                  |
+| `GET /api/recordings/:id/file?kind=…`                         | `video` oder `timelapse` als MP4 (mit Range, für iPad/Safari)                   |
+| `DELETE /api/recordings/:id`                                  | Aufnahme löschen                                                                |
 
 ## Sensoren anschließen
 
@@ -208,12 +265,12 @@ while True:
 **Vibration (Rattern) mit LSM6DSO:** SparkFun-Platine per Qwiic-Kabel (oder 4 Adern, ≤ 1 m) an den
 Pi: 3,3 V → Pin 1, SDA → Pin 3, SCL → Pin 5, GND → Pin 6. Die Platine starr an der Z-Achse bzw.
 der Fräserhalterung verschrauben. `scripts/pi/lsm6dso.py` (vom Einrichtungsskript nach
-`~/lowrider` kopiert) liest den FIFO des Sensors mit 3,33 kHz, ±8 g, und meldet alle 250 ms einen
+`~/lowrider/current/` abgelegt) liest den FIFO des Sensors mit 3,33 kHz, ±8 g, und meldet alle 250 ms einen
 Block an den Companion. Erst prüfen:
 
 ```sh
 i2cdetect -y 1                          # 6b (SparkFun) oder 6a muss erscheinen
-python3 ~/lowrider/lsm6dso.py --selftest # Schwerkraft ≈ 1,000 g
+python3 ~/lowrider/current/lsm6dso.py --selftest # Schwerkraft ≈ 1,000 g
 sudo systemctl enable --now lowrider-sensor
 ```
 

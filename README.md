@@ -1057,6 +1057,23 @@ Breite, nur _Kamera_ behält das Bild.
     andere geht weiter. Liegt auf dem Pi ein Dokument, das die App nicht lesen kann, sagt sie es
     einmal und überschreibt nichts; ein langes Drücken auf _Stand dieses Geräts auf den Pi
     schreiben_ ersetzt es.
+  - Karte _Anmeldung am Pi_: Das Aktualisieren und das Herunterfahren des Pi und die Verwaltung der
+    Anmeldung brauchen ein angemeldetes Gerät (alles andere – Bibliotheken, Einstellungen, die
+    Weiterleitung zur Fräse – bleibt offen wie bisher). Einmal pro Gerät den **Pi-Code** eingeben
+    (`ABCD-EFGH-JKLM`; er steht am Ende der Einrichtung auf dem Pi und, auf einem Gerät, das schon
+    angemeldet ist, hier); die Karte zeigt die angemeldeten Geräte (einzeln entfernen), den Code
+    (anzeigen, erneuern, alle anderen Geräte abmelden – jeweils Halten). Fünf falsche Versuche
+    sperren die Adresse für bis zu fünf Minuten. Code und Anmeldung gehen unverschlüsselt durchs WLAN: das
+    hält andere Webseiten und Gäste-Geräte fern, nicht jemanden, der den Funkverkehr mitliest.
+  - Karte _Update des Pi_: `lowrider-pi.zip` wählen (optional die Prüfsumme eintippen, die man getrennt von der
+    Datei genannt bekommen hat), der Pi prüft die Datei und zeigt, was drin ist; ein **Halten** spielt sie
+    ein – nach einer frischen Kopie der Datenbank und einem Probelauf der neuen Version. Die App wartet
+    auf den Neustart und sagt, welcher Stand läuft; startet die neue Version nicht, kehrt der Pi
+    von selbst zur alten zurück (und die Karte sagt es). _Zur vorherigen Version zurück_ (Halten)
+    tut dasselbe von Hand. Ein Update aus der App ändert nie die Einrichtung selbst (`setup.sh`,
+    Dienste, Rechte): braucht eine Version mehr, lehnt der Pi ab, und `update-pi.bat` (Doppelklick
+    auf dem PC, liegt in `lowrider-pi.zip` neben dem Ordner `pi`) spielt sie ein – so auch beim
+    allerersten Mal. Einzelheiten und Grenzen: `docs/update-konzept.md`, `docs/companion.md`.
   - Karte _Simulator_ nur, solange der Simulator verbunden ist – siehe **Simulator**.
 - _Maschine:_ _Darstellung_ (_Dunkel_ oder _Hell_, wird gemerkt), danach eingeklappt
   _Maschinenprofil_, _Werkstatt und Benachrichtigungen_ und _Makros_, die Karte _Funktionen_ (je ein
@@ -1237,7 +1254,7 @@ pnpm install
 pnpm dev            # UI unter http://localhost:5173 (auch im WLAN erreichbar)
 pnpm check          # Typecheck, Tests mit Coverage, Build
 pnpm e2e            # Playwright-Tests der UI
-pnpm bundle         # release/lowrider-control.html und release/companion.mjs
+pnpm bundle         # release/: lowrider-control.html, companion.mjs, pi/ und lowrider-pi.zip (mit update-pi.bat) samt .sha256
 ```
 
 `lowrider-control.html` ist **eine einzige Datei**: per Doppelklick (`file://`), von jedem Webserver

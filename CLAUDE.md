@@ -471,8 +471,44 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   flags) and keeps the latest 5000. Per device stay: the photo map, the recent jobs, running flip and sections flows, the look of
   the app. A new setting of the machine needs nothing (it is in the settings document – but give a number a range in `insane`); one
   of the device goes into the local lists; a new document is a `Slice` (with `keys`) plus its key at the companion. **Known and
-  accepted:** the companion has no login and answers CORS `*` (as before this feature – the workshop network is trusted), so any
+  accepted:** the state, the libraries and the relay need no login and the companion answers CORS `*` (as before this feature – the workshop network is trusted; the login protects only update, power-off and itself), so any
   page the operator opens could write the state; probe, hole, tag and tool-length results are not in the log yet.
+- **Login and update of the Pi** (`docs/update-konzept.md`; companion `src/auth.ts`, `zip.ts`, `release.ts`, `updater.ts`, `version.ts`,
+  `scripts/pi/{setup.sh,lib.sh,guard.sh,update-pi.bat}`; app `store/piLogin.ts`, `store/piUpdate.ts`, `lib/piUpdate.ts`,
+  `components/PiAccessCard.tsx`, `PiUpdateCard.tsx`, under Einstellungen → Verbindung). **What the login protects** – and only this:
+  loading code onto the Pi (`/api/update/*`), powering it down, and the login's own administration; libraries, `/api/state` and
+  the FluidNC relay stay open (protecting them would stop every device that has not logged in from saving its settings). A device
+  types the **Pi code** (12 characters, made at the first start into `data/pi-code.txt`, mode 600, shown by `setup.sh`) once and keeps a
+  **token** (the Pi keeps only its SHA-256); the app holds it under its own storage key `lowrider-control.piLogin`, **never in the
+  settings** (they sync to the Pi and every device), bound to the companion's address and sent to no other (`tokenFor`,
+  `companion()`). Five wrong tries per address in five minutes lock that address, 40 from anywhere lock all. **The update**: the zip of
+  `release/pi` (what `pnpm bundle` also writes as `release/lowrider-pi.zip` with its `.sha256` – deterministic, the build is the
+  _time of the commit_, never a counter; a tree with uncommitted changes gets the time of the build and `+dirty`, and then is not reproducible) is read strictly (`zip.ts`: sizes bounded before inflating, CRC, plain names, no
+  zip64/encryption/links/duplicates), mapped by a whitelist onto fixed names (`release.ts`; `setup.sh`, `lib.sh`, `guard.sh`, `health-gate.sh` are
+  **never applied from an upload**), put beside the running version under `releases/`, **tried** (`node companion.mjs --check`: loads,
+  builds its server, answers – no port, no real database – and must be the build its `release.json` names), and only then
+  `current` is swapped atomically (symlink + rename); `previous` is the way back. Before: a copy of the database _now_
+  (`runUpdateBackup`; refuses when it cannot), `busy()` (a browser on the relay – the app closes its own connection first and asks again –
+  or a recording), the setup level (`SETUP_LEVEL` in `setup.sh` = `version.ts` – a test holds them together; a version that needs
+  more is refused: that one goes through `update-pi.bat`). The new version confirms itself after 30 s up (`LOWRIDER_CONFIRM_MS`);
+  until then `trial` exists and **`guard.sh` (ExecStartPre, must always exit 0)** counts starts and, at the third without a
+  confirmation, points `current` back at `previous` (**`health-gate.sh`**, `ExecStartPost`, exits 1 while a trial exists and the companion does not answer in 30 s, so systemd restarts it and the guard counts that start too – the hang case; whether systemd restarts after a failed `ExecStartPost` is **not tested here**) – at once when `current/companion.mjs` is missing or empty (a power cut; the updater
+  writes files with fsync and swaps `current` first when rolling back, and the confirmation takes the same lock as an apply, so a
+  half-made `.incoming-*` is never cleared under it). The app waits (`waitForRestart`: the process must go away – it answers with the
+  old build for a moment – and then answer with the new one; another build after that means the guard took it away). **Layout is
+  `scripts/pi/lib.sh`** (shell functions, tested under `set -euo pipefail`): `setup.sh` migrates a flat setup into a release
+  (a copy; the flat files go only after the health check passes), keeps the Jackpot and camera values and unknown lines of
+  `/etc/lowrider.env`, switches back and says so loudly when the new version does not answer, and prints the Pi code last. **What
+  could not be tested here (one list, the same in `docs/update-konzept.md` and decision 41):** systemd itself (`ExecStartPre`,
+  `ExecStartPost`, `Restart=always`, the exit code of `systemctl restart` after a failed `ExecStartPost`, `TimeoutStopSec`), the
+  flow of `setup.sh` between its early questions and its end (packages, `sudo`, `visudo`, `raspi-config`, NodeSource, the services,
+  the health wait and the switch-back – a reviewer ran it against stubs and a self-made fake systemd, no more), `scp`/`ssh` and
+  `cmd.exe` reading the bat (the bat is only checked as text), the Pi, and the app's client against a real companion (the e2e uses
+  a hand-written fake Pi, `pi.test.ts` plain `fetch`). `apps/companion/test/pi.test.ts` plays systemd with the real bundle, `lib.sh`,
+  `guard.sh` and `health-gate.sh`. The code and the token travel in
+  clear over http: they keep other web pages and guests out, not someone who reads the WLAN; where the service user may `sudo`
+  without a password, the Pi code is root on the Pi. `update-pi.bat` is plain ASCII with CRLF (the bundle makes it so), runs
+  `scp` + `ssh -t`, and stays the way when the Pi no longer answers.
 - Rotary axis A: prepared only – the DRO shows A and the jog panel gets A−/A+ (steps in degrees)
   when the machine profile has a rotary axis; nothing else.
 - Connecting (`store/machine.ts` `connect`/`link`, pure `lib/link.ts`): a connection is up only once
