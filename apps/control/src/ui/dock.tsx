@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useEffect, useRef } from 'react';
 import { cn } from './utils';
 
 /**
@@ -10,4 +11,18 @@ import { cn } from './utils';
  */
 export function Dock({ className, ...props }: React.ComponentProps<'div'>): React.ReactElement {
   return <div data-slot="dock" className={cn('dock', className)} {...props} />;
+}
+
+/**
+ * What a docked action leaves behind (a result, a warning, a way back): it appears in the card's
+ * flow, which may lie below where the dock is stuck – so it is brought into view when it shows,
+ * above the dock (the panel's `scroll-padding-bottom` keeps it clear of it). A card that is not
+ * taller than its panel does not move.
+ */
+export function Result({ className, ...props }: React.ComponentProps<'div'>): React.ReactElement {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.scrollIntoView?.({ block: 'nearest' });
+  }, []);
+  return <div ref={ref} data-slot="result" className={className} {...props} />;
 }

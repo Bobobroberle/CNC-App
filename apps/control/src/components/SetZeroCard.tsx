@@ -20,7 +20,7 @@ import { Label } from '../ui/label';
 import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
 import { Reason } from '../ui/tooltip';
 import { HoldButton } from './HoldButton';
-import { Dock } from '../ui/dock';
+import { Dock, Result } from '../ui/dock';
 
 const FINE_STEPS = [0.01, 0.1, 1] as const;
 type Reference = 'camera' | 'tool';
@@ -278,9 +278,11 @@ export function SetZeroCard() {
         <li>
           <h3>{t('zeroFlow.step4')}</h3>
           {done ? (
-            <Alert variant="success" data-testid="zero-set-done">
-              {t('zeroFlow.done')}
-            </Alert>
+            <Result>
+              <Alert variant="success" data-testid="zero-set-done">
+                {t('zeroFlow.done')}
+              </Alert>
+            </Result>
           ) : null}
         </li>
       </ol>

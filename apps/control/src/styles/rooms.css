@@ -1731,6 +1731,18 @@
 
 /* The panel's own bottom padding lies under a sticky box: without this the content that scrolls
    past would peek through that strip below the dock. */
+/* Two actions side by side (going on and giving up), 24 px apart (DESIGN.md §8): the dock stays as low
+   as one button's, which matters where the panel is short. */
+.dock.dock-row {
+  flex-direction: row;
+  gap: 1.5rem;
+}
+
+.dock-row > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .dock::after {
   content: '';
   position: absolute;

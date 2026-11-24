@@ -22,7 +22,7 @@ import { Card, CardTitle } from '../ui/card';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
-import { Dock } from '../ui/dock';
+import { Dock, Result } from '../ui/dock';
 
 export type ProbeKind = 'corner' | 'edge' | 'center' | 'toolLength';
 type Kind = ProbeKind;
@@ -325,93 +325,99 @@ export function ProbeWizard({ kind }: { kind: ProbeKind }) {
       </Dock>
 
       {result ? (
-        <Alert variant="success" className="justify-items-start gap-y-2" data-testid="probe-result">
-          {result.kind === 'center' ? (
-            <p>
-              {t('probeWizard.bore', {
-                x: formatCoordinate(boreDiameter(result.r, params.toolDiameter).x, 2),
-                y: formatCoordinate(boreDiameter(result.r, params.toolDiameter).y, 2),
-              })}
-            </p>
-          ) : null}
-          {result.kind === 'toolLength' ? (
-            <>
-              <p>{t('probeWizard.measured', { z: formatCoordinate(result.r.z!, 3) })}</p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    setToolReferenceZ(result.r.z!);
-                    addLog('info', t('probeWizard.referenceSaved'));
-                  }}
-                >
-                  {t('probeWizard.asReference')}
-                </Button>
-                <Button
-                  reason="missing"
-                  className="flex-1"
-                  disabled={reference === null}
-                  onClick={() => {
-                    const cmd = toolLengthOffsetCommand(reference!, result.r.z!);
-                    void command(cmd).then(
-                      (ok) => ok && addLog('info', t('probeWizard.tloApplied', { cmd })),
-                    );
-                  }}
-                >
-                  {t('probeWizard.applyTlo')}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <dl className="facts" data-testid="probe-deviation">
-                {AXES.filter((axis) => result.zero[axis] !== undefined).map((axis) => (
-                  <div key={axis} className="contents">
-                    <dt>{t('probeWizard.zeroAxis', { axis: axis.toUpperCase() })}</dt>
-                    <dd>
-                      {formatCoordinate(result.zero[axis]!, 3)} mm ·{' '}
-                      {t('probeWizard.deviation', {
-                        mm: formatSigned(
-                          result.zero[axis]! - (result.before[AXES.indexOf(axis)] ?? 0),
-                          3,
-                          true,
-                        ),
-                      })}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              {result.state === 'measured' ? (
-                <div className="flex w-full gap-3">
+        <Result>
+          <Alert
+            variant="success"
+            className="justify-items-start gap-y-2"
+            data-testid="probe-result"
+          >
+            {result.kind === 'center' ? (
+              <p>
+                {t('probeWizard.bore', {
+                  x: formatCoordinate(boreDiameter(result.r, params.toolDiameter).x, 2),
+                  y: formatCoordinate(boreDiameter(result.r, params.toolDiameter).y, 2),
+                })}
+              </p>
+            ) : null}
+            {result.kind === 'toolLength' ? (
+              <>
+                <p>{t('probeWizard.measured', { z: formatCoordinate(result.r.z!, 3) })}</p>
+                <div className="flex gap-3">
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => setResult({ ...result, state: 'discarded' })}
+                    onClick={() => {
+                      setToolReferenceZ(result.r.z!);
+                      addLog('info', t('probeWizard.referenceSaved'));
+                    }}
                   >
-                    {t('probeWizard.discard')}
+                    {t('probeWizard.asReference')}
                   </Button>
                   <Button
-                    reason="machine"
+                    reason="missing"
                     className="flex-1"
-                    disabled={!idle}
-                    onClick={() => void apply()}
+                    disabled={reference === null}
+                    onClick={() => {
+                      const cmd = toolLengthOffsetCommand(reference!, result.r.z!);
+                      void command(cmd).then(
+                        (ok) => ok && addLog('info', t('probeWizard.tloApplied', { cmd })),
+                      );
+                    }}
                   >
-                    {t('probeWizard.apply')}
+                    {t('probeWizard.applyTlo')}
                   </Button>
                 </div>
-              ) : (
-                <p data-testid="probe-outcome">
-                  {t(
-                    result.state === 'applied'
-                      ? 'probeWizard.zeroApplied'
-                      : 'probeWizard.discarded',
-                  )}
-                </p>
-              )}
-            </>
-          )}
-        </Alert>
+              </>
+            ) : (
+              <>
+                <dl className="facts" data-testid="probe-deviation">
+                  {AXES.filter((axis) => result.zero[axis] !== undefined).map((axis) => (
+                    <div key={axis} className="contents">
+                      <dt>{t('probeWizard.zeroAxis', { axis: axis.toUpperCase() })}</dt>
+                      <dd>
+                        {formatCoordinate(result.zero[axis]!, 3)} mm ·{' '}
+                        {t('probeWizard.deviation', {
+                          mm: formatSigned(
+                            result.zero[axis]! - (result.before[AXES.indexOf(axis)] ?? 0),
+                            3,
+                            true,
+                          ),
+                        })}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                {result.state === 'measured' ? (
+                  <div className="flex w-full gap-3">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setResult({ ...result, state: 'discarded' })}
+                    >
+                      {t('probeWizard.discard')}
+                    </Button>
+                    <Button
+                      reason="machine"
+                      className="flex-1"
+                      disabled={!idle}
+                      onClick={() => void apply()}
+                    >
+                      {t('probeWizard.apply')}
+                    </Button>
+                  </div>
+                ) : (
+                  <p data-testid="probe-outcome">
+                    {t(
+                      result.state === 'applied'
+                        ? 'probeWizard.zeroApplied'
+                        : 'probeWizard.discarded',
+                    )}
+                  </p>
+                )}
+              </>
+            )}
+          </Alert>
+        </Result>
       ) : null}
     </Card>
   );

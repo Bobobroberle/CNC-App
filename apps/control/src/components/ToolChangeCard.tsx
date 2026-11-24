@@ -138,8 +138,9 @@ export function ToolChangePanel({
       <p className="text-muted-foreground text-sm">{t('toolChange.plateHint')}</p>
       {measured ? <Alert variant="success">{t('toolChange.measured')}</Alert> : null}
       {/* Going on and giving up are docked: under the picture ("Großbild") the card is taller than
-          the strip it lies in, and they stay at the strip's bottom instead of below its fold. */}
-      <Dock>
+          the strip it lies in, and they stay at the strip's bottom instead of below its fold.
+          Side by side, 24 px apart: the dock is no taller than one button's on the small screen. */}
+      <Dock className="dock-row">
         <Reason reason={continueReason} className="block w-full">
           <HoldButton
             variant="accent"

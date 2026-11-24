@@ -11,7 +11,7 @@ import { Card, CardTitle } from '../ui/card';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
-import { Dock } from '../ui/dock';
+import { Dock, Result } from '../ui/dock';
 
 const FIELDS: { key: keyof ProbeSettings; label: Parameters<typeof t>[0]; unit: string }[] = [
   { key: 'plateThickness', label: 'probe.plate', unit: 'mm' },
@@ -100,32 +100,38 @@ export function ProbeCard() {
           {t('probe.start')}
         </HoldButton>
       </Dock>
-      {done ? <Alert variant="warning">{t('probe.removePlate')}</Alert> : null}
+      {done ? (
+        <Result>
+          <Alert variant="warning">{t('probe.removePlate')}</Alert>
+        </Result>
+      ) : null}
       {done && before !== null && nowZ !== undefined ? (
-        <Alert
-          variant="success"
-          className="justify-items-start gap-y-2"
-          data-testid="probe-z-result"
-        >
-          <p className="tabular-nums">
-            {undone
-              ? t('probe.undone')
-              : t('probe.result', {
-                  z: formatCoordinate(nowZ, 3),
-                  mm: formatSigned(nowZ - before, 3, true),
-                })}
-          </p>
-          {!undone ? (
-            <Button
-              reason="machine"
-              variant="outline"
-              disabled={!idle}
-              onClick={() => void setZeroAt({ z: before }).then((ok) => setUndone(ok))}
-            >
-              {t('probe.discard')}
-            </Button>
-          ) : null}
-        </Alert>
+        <Result>
+          <Alert
+            variant="success"
+            className="justify-items-start gap-y-2"
+            data-testid="probe-z-result"
+          >
+            <p className="tabular-nums">
+              {undone
+                ? t('probe.undone')
+                : t('probe.result', {
+                    z: formatCoordinate(nowZ, 3),
+                    mm: formatSigned(nowZ - before, 3, true),
+                  })}
+            </p>
+            {!undone ? (
+              <Button
+                reason="machine"
+                variant="outline"
+                disabled={!idle}
+                onClick={() => void setZeroAt({ z: before }).then((ok) => setUndone(ok))}
+              >
+                {t('probe.discard')}
+              </Button>
+            ) : null}
+          </Alert>
+        </Result>
       ) : null}
     </Card>
   );
