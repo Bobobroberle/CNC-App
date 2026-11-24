@@ -12,6 +12,7 @@ import { Button } from '../ui/button';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { Fold } from './Fold';
+import { useBetweenParts } from '../store/runView';
 
 /** Continue an aborted job at line N with the modal state of that line restored. */
 export function ResumeCard() {
@@ -29,6 +30,8 @@ export function ResumeCard() {
       s.stream?.result !== 'running',
   );
   const homed = useMachine((s) => s.homed);
+  // Between two parts of a job the next one starts in the tool change card
+  const between = useBetweenParts();
   const { streamJob } = useMachine.getState();
   const suggestion = (lastStreamed ?? trackedLine ?? 0) + 1;
   const [lineText, setLineText] = useState('');
@@ -84,7 +87,8 @@ export function ResumeCard() {
       <HoldButton
         variant="accent"
         duration={1000}
-        disabled={!result || !ready || !homed}
+        disabled={!result || !ready || !homed || between}
+        reason={between ? t('run5.waitingInPanel') : undefined}
         onConfirm={() => result && streamJob(name, result.text)}
       >
         {t('resume.start', { line })}

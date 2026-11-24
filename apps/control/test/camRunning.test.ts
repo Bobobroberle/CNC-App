@@ -454,6 +454,28 @@ describe('the drawing never changes the program under a running job', () => {
     expect(cam().ahead).toBe(false);
   });
 
+  it('a drawing whose parts give no moves: an edit keeps the finished program, the tap takes it off', () => {
+    cam().addSketch(RECT);
+    const name = loaded();
+    running();
+    cam().addSketch(HOLE);
+    useRun.setState({ phase: 'done' });
+    stopped();
+    expect(cam().ahead).toBe(true);
+    // only a 2 mm circle is left, cut on the inside with the 6 mm tool: a part, but nothing to cut
+    for (const item of [...cam().project!.items]) cam().removeItem(item.id);
+    cam().addSketch({ type: 'circle', d: 2 });
+    cam().setItem(cam().project!.items[0]!.id, { kind: 'inside' });
+    expect(cam().project!.items).toHaveLength(1);
+    expect(cam().remake()).toBe(false);
+    expect(loaded()).toBe(name);
+    expect(cam().ahead).toBe(true);
+    // the tap: the program that is not the drawing's any more goes
+    expect(cam().remake({ take: true })).toBe(false);
+    expect(loaded()).toBeNull();
+    expect(cam().ahead).toBe(false);
+  });
+
   it('series: the same program again stays where it is – a finished series keeps its summary', () => {
     cam().addSketch(RECT);
     useMachine.setState({ status: { wco: [0, 0, 0] } as never });

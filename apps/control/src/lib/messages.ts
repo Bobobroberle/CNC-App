@@ -50,6 +50,7 @@ export type MessageGroup =
   | 'file'
   | 'flow'
   | 'limit'
+  | 'jobLocked'
   | 'done'
   | 'general';
 
@@ -93,7 +94,7 @@ const GROUP_OF_KEY: Record<string, MessageGroup> = {
   'drive.limited': 'limit',
   'goto.limited': 'limit',
   // The program stays while a job is under way: nothing went wrong, nothing was changed
-  'job.locked': 'general',
+  'job.locked': 'jobLocked',
 };
 
 export function groupOf(key: string | undefined): MessageGroup {

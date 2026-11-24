@@ -133,6 +133,7 @@ describe('what a line of the log becomes', () => {
       'file',
       'flow',
       'limit',
+      'jobLocked',
       'done',
       'general',
     ];
@@ -142,6 +143,11 @@ describe('what a line of the log becomes', () => {
       }
     }
     for (const level of LEVELS) expect(hasKey(`messages.levels.${level}`)).toBe(true);
+  });
+
+  it('puts a refused change of the program in its own group, whose next step is not "repeat"', () => {
+    expect(groupOf('job.locked')).toBe('jobLocked');
+    expect(groupOf('job.loadError')).toBe('file');
   });
 });
 

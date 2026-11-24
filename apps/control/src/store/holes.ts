@@ -9,6 +9,7 @@ import { useCamera } from './camera';
 import { useJob } from './job';
 import { useMachine } from './machine';
 import { useWorkshop } from './workshop';
+import { programRefused } from './underway';
 
 /** Found holes farther off the job's distance than this are refused, mm */
 export const HOLE_DISTANCE_LIMIT = 1;
@@ -73,6 +74,8 @@ export const useHoles = create<HoleStore>((set, get) => ({
   async applyTwoHoles() {
     const { a, b, jobA, jobB } = get();
     if (!a || !b) return false;
+    // The zero moves and the program turns together: with a job under way neither happens.
+    if (programRefused()) return false;
     const fit = twoHoleAlignment({ a, b }, { a: jobA, b: jobB });
     const { addLog, setZeroAt } = useMachine.getState();
     if (!fit || Math.abs(fit.distanceError) > HOLE_DISTANCE_LIMIT) {

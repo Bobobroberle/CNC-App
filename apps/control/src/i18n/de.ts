@@ -492,6 +492,13 @@ export const de = {
         effect: 'Der Ablauf bleibt an diesem Schritt stehen. Nichts wurde übernommen.',
         action: 'Den Schritt im Ablauf wiederholen – dort steht, was fehlt.',
       },
+      jobLocked: {
+        cause:
+          'Ein Job ist unterwegs: Er läuft von der SD-Karte oder wird gestreamt, steht zwischen zwei Teilen, oder die Verbindung riss unter ihm ab.',
+        effect: 'Das Programm auf dem Tisch ist geblieben, wie es ist; nichts wurde verändert.',
+        action:
+          'Den Job zu Ende laufen lassen – oder in Fräsen beenden („Job abbrechen“, zwischen zwei Teilen „Restliche Teile abbrechen“) – und es dann noch einmal versuchen.',
+      },
       limit: {
         cause: 'Die Bewegung hätte den Verfahrweg verlassen.',
         effect: 'Gefahren wurde höchstens bis zur Grenze.',
@@ -986,7 +993,7 @@ export const de = {
     fit: 'Einpassen',
     loadError: 'Datei konnte nicht gelesen werden: {reason}',
     locked:
-      'Ein Job läuft: das Programm auf dem Tisch wird jetzt nicht getauscht. Die Datei lässt sich danach öffnen.',
+      'Ein Job ist unterwegs: das Programm auf dem Tisch bleibt, wie es ist. Nach dem Job – oder wenn er in Fräsen beendet wird – lässt es sich ändern.',
     issueToolChange:
       'Werkzeugwechsel auf T{tool}: FluidNC selbst hält bei M6 nicht an. Aus der App gestartet hält der Job hier; für die SD-Karte wird er pro Werkzeug geteilt.',
     issueOptionalStop: 'M1 (optionaler Halt) ignoriert FluidNC – die Maschine hält hier nicht.',

@@ -116,7 +116,10 @@ export function AccuracyCheck() {
     const depth = num(a.depth);
     if (!(nominal.x > 0 && nominal.y > 0 && depth > 0)) return;
     const name = `genauigkeit_${nominal.x}x${nominal.y}.nc`;
-    useJob.getState().load(name, accuracyPattern(nominal.x, nominal.y, depth, toolDiameter));
+    // A job under way keeps its program: nothing was loaded, so nothing is said to be.
+    if (!useJob.getState().load(name, accuracyPattern(nominal.x, nominal.y, depth, toolDiameter))) {
+      return;
+    }
     addLog('info', t('accuracy.loaded', { name }));
     go('run', 'check');
   };

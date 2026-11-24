@@ -532,6 +532,11 @@
   overflow-y: auto;
 }
 
+/* Nothing asked: no strip (and no gap of the column) taken from the picture. */
+.stage-prompt:empty {
+  display: none;
+}
+
 .stage-wrap {
   position: relative;
   flex: 1;

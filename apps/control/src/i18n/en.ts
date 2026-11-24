@@ -484,6 +484,13 @@ export const en: DictionaryShape = {
         effect: 'The flow stays at this step. Nothing was taken.',
         action: 'Repeat the step in the flow – it says what is missing.',
       },
+      jobLocked: {
+        cause:
+          'A job is under way: it runs from the SD card or is streamed, stands between two parts, or the link was lost under it.',
+        effect: 'The program on the table stays as it is; nothing was changed.',
+        action:
+          'Let the job finish – or end it in Fräsen (“Abort job”, between two parts “Abort remaining parts”) – and try again.',
+      },
       limit: {
         cause: 'The move would have left the travel.',
         effect: 'The machine went to the limit at most.',
@@ -975,7 +982,7 @@ export const en: DictionaryShape = {
     fit: 'Fit',
     loadError: 'Could not read file: {reason}',
     locked:
-      'A job is running: the program on the table is not replaced now. Open the file after it.',
+      'A job is under way: the program on the table stays as it is. It can be changed after the job – or once it is ended in Fräsen.',
     issueToolChange:
       'Tool change to T{tool}: FluidNC itself does not stop at M6. Started from the app, the job pauses here; for the SD card it is split per tool.',
     issueOptionalStop: 'FluidNC ignores M1 (optional stop) – the machine does not stop here.',

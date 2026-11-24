@@ -141,7 +141,7 @@ export function AutolevelCard() {
           <Button
             onClick={() => {
               const r = applyHeightMap(lines.join('\n'), map);
-              loadDerived(`${fileName.replace(/\.[^.]*$/, '')}_autolevel.nc`, r.text);
+              if (!loadDerived(`${fileName.replace(/\.[^.]*$/, '')}_autolevel.nc`, r.text)) return;
               addLog('info', t('autolevel.applied', { warnings: r.warnings.length }));
             }}
           >

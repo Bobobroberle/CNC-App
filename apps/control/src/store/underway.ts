@@ -90,9 +90,17 @@ export function useJobUnderWay(): boolean {
   });
 }
 
-// Nothing replaces or takes off the program while a job is under way – whichever way it comes.
-setProgramLock(() => {
+/**
+ * True – and the operator is told why – while a job is under way: whoever was about to change the
+ * program on the table (or to do something that only makes sense with the new one) stops there.
+ * The flows ask this *before* their first step (a zero moved, a plan changed), not only after
+ * `load` said no; `load`, `loadDerived` and `unload` ask it themselves as the backstop.
+ */
+export function programRefused(): boolean {
   if (!jobUnderWay()) return false;
   useMachine.getState().addLog('error', t('job.locked'), 'job.locked');
   return true;
-});
+}
+
+// Nothing replaces or takes off the program while a job is under way – whichever way it comes.
+setProgramLock(programRefused);

@@ -25,11 +25,12 @@ export function alignJobTo(angle: number): boolean {
   if (!fileName) return false;
   const source = original ?? { fileName, text: lines.join('\n') };
   const r = transformProgram(source.text, { rotation: angle, pivot: { x: 0, y: 0 } });
-  // `loadDerived` keeps the job as loaded to go back to.
-  loadDerived(`${source.fileName.replace(/\.[^.]*$/, '')}_ausgerichtet.nc`, r.text, {
+  // `loadDerived` keeps the job as loaded to go back to – and says no while a job is under way.
+  const turned = loadDerived(`${source.fileName.replace(/\.[^.]*$/, '')}_ausgerichtet.nc`, r.text, {
     by: rotation(angle),
     from: 'original',
   });
+  if (!turned) return false;
   setMeasuredAngle(angle);
   useMachine.getState().addLog('info', t('camera.aligned', { angle: formatNumber(angle, 2) }));
   return true;

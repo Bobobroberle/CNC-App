@@ -209,8 +209,7 @@ export function JobDashboard() {
             <Button
               variant="outline"
               onClick={() => {
-                load('demo.nc', demo);
-                useRecent.getState().rememberLoaded();
+                if (load('demo.nc', demo)) useRecent.getState().rememberLoaded();
               }}
             >
               {t('job.sample')}

@@ -8,6 +8,7 @@ import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
+import { useBetweenParts } from '../store/runView';
 
 /** Files on the SD card; starting one loads its prepared part for live tracking. */
 export function SdCard() {
@@ -22,6 +23,9 @@ export function SdCard() {
   const preparedParts = useJob((s) => s.preparedParts);
   const profile = useJob((s) => s.profile);
   const load = useJob((s) => s.load);
+  // Between two parts of a job the next one is started in the tool change card, with its lock and
+  // its confirmation – not from the list (it would run a file the run knows nothing of).
+  const between = useBetweenParts();
 
   useEffect(() => {
     if (connected) void refreshSdFiles();
@@ -75,9 +79,11 @@ export function SdCard() {
               </div>
               <HoldButton
                 variant="accent"
-                disabled={!idle || fileJob !== null || blocked}
+                disabled={!idle || fileJob !== null || blocked || between}
+                reason={between ? t('run5.waitingInPanel') : undefined}
                 onConfirm={() => {
-                  if (part) load(part.fileName, part.text);
+                  // The file shown is the file that runs: a refused load stops here
+                  if (part && !load(part.fileName, part.text)) return;
                   void runSdFile(file.name);
                 }}
               >

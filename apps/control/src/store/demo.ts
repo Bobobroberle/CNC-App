@@ -34,6 +34,7 @@ import { useJob } from './job';
 import { useMachine } from './machine';
 import { useUi } from './ui';
 import { useWorkshop } from './workshop';
+import { programRefused } from './underway';
 
 /**
  * Demo start: opened as `…#simulator` (or built as the simulator page), the
@@ -115,6 +116,8 @@ export async function loadLongDemo(): Promise<boolean> {
   const sim = simulator();
   const machine = useMachine.getState();
   if (!machine.status) return false;
+  // The zero moves with the program: with a job under way neither happens.
+  if (programRefused()) return false;
   const { settings } = useCam.getState();
   const tool = camToolDiameter(settings);
   const { shapes, holes } = demoLongContours(tool);

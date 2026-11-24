@@ -55,9 +55,10 @@ interface JobStore {
   speed: number;
   /** Increments to ask the stage to fit the job into view */
   fitRequest: number;
-  load(fileName: string, text: string): void;
-  /** Takes the job off the stage: nothing is loaded, as at the start */
-  unload(): void;
+  /** Puts a program on the table; false when a job under way keeps the one that is there (see `setProgramLock`) */
+  load(fileName: string, text: string): boolean;
+  /** Takes the job off the stage: nothing is loaded, as at the start (false: a job under way keeps it) */
+  unload(): boolean;
   setToolDiameter(mm: number): void;
   setRotaryDiameter(mm: number): void;
   setView(view: ViewMode): void;
@@ -89,8 +90,8 @@ interface JobStore {
     fileName: string,
     text: string,
     turn?: { by: Matrix; from: 'original' | 'current' },
-  ): void;
-  restoreOriginal(): void;
+  ): boolean;
+  restoreOriginal(): boolean;
   /** Edge angle measured with the camera, degrees; offered for the alignment */
   measuredAngle: number | null;
   setMeasuredAngle(angle: number | null): void;
@@ -138,22 +139,23 @@ export const useJob = create<JobStore>((set, get) => ({
   measuredAngle: null,
   setMeasuredAngle: (measuredAngle) => set({ measuredAngle }),
   loadDerived(fileName, text, turn) {
-    if (locked()) return;
+    if (locked()) return false;
     const { original, fileName: current, lines, pose: before } = get();
     const keep =
       original ?? (current !== null ? { fileName: current, text: lines.join('\n') } : null);
     const pose = !turn ? before : turn.from === 'original' ? turn.by : compose(turn.by, before);
     get().load(fileName, text);
     set({ original: keep, pose });
+    return true;
   },
   restoreOriginal() {
     const { original } = get();
-    if (!original) return;
-    get().load(original.fileName, original.text);
+    if (!original) return false;
+    return get().load(original.fileName, original.text);
   },
 
   unload() {
-    if (locked()) return;
+    if (locked()) return false;
     set((s) => ({
       fileName: null,
       lines: [],
@@ -165,6 +167,7 @@ export const useJob = create<JobStore>((set, get) => ({
       playing: false,
       projection: s.projection === 'unwrapped' ? 'top' : s.projection,
     }));
+    return true;
   },
 
   setPreparedParts(parts) {
@@ -178,7 +181,7 @@ export const useJob = create<JobStore>((set, get) => ({
   },
 
   load(fileName, text) {
-    if (locked()) return;
+    if (locked()) return false;
     const { profile } = get();
     const analysis = analyzeProgram(text, {
       kinematics: profile.kinematics,
@@ -206,6 +209,7 @@ export const useJob = create<JobStore>((set, get) => ({
           : s.projection,
       fitRequest: s.fitRequest + 1,
     }));
+    return true;
   },
   setToolDiameter: (mm) => set({ toolDiameter: Math.min(100, Math.max(0.1, mm)) }),
   setRotaryDiameter: (mm) => set({ rotaryDiameter: Math.min(1000, Math.max(1, mm)) }),
@@ -229,10 +233,23 @@ export const useJob = create<JobStore>((set, get) => ({
     saveProfile(storage, settings);
     set((s) => ({ profile: { ...s.profile, ...settings, placeholder: false } }));
     // New speeds and accelerations change the time estimate.
-    const { fileName, lines, original, pose } = get();
+    const { fileName, lines } = get();
     if (fileName !== null) {
-      get().load(fileName, lines.join('\n'));
-      set({ original, pose });
+      // Not another program, only another estimate for the same one: it does not go through the
+      // lock (a machine value changed while a job runs must neither fail nor leave a stale time).
+      const { profile } = get();
+      const analysis = analyzeProgram(lines.join('\n'), {
+        kinematics: profile.kinematics,
+        rotaryAxis: profile.hasRotary,
+      });
+      set((s) => ({
+        analysis,
+        projection: analysis.usesRotary
+          ? 'unwrapped'
+          : s.projection === 'unwrapped'
+            ? 'top'
+            : s.projection,
+      }));
     }
   },
 }));

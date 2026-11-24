@@ -42,25 +42,37 @@ describe('the program on the table while a job is under way', () => {
     expect(messages()).toBe(0);
   });
 
-  it('refuses every way to change it, and says why', () => {
+  it('refuses every way to change it, says why – and says so to the caller', () => {
+    // a turned copy is on the table, the program as loaded behind it: `restoreOriginal` has a target
+    const pose = { a: 0, b: 1, c: -1, d: 0, e: 0, f: 0 };
+    useJob
+      .getState()
+      .loadDerived('part_ausgerichtet.nc', 'G0 X3\n', { by: pose, from: 'original' });
+    expect(useJob.getState().original?.fileName).toBe('part.nc');
+    useMachine.setState({ log: [] });
     running();
-    useJob.getState().load('other.nc', 'G0 X2\n');
-    expect(loaded()).toBe('part.nc');
+    expect(useJob.getState().load('other.nc', 'G0 X2\n')).toBe(false);
+    expect(loaded()).toBe('part_ausgerichtet.nc');
     expect(messages()).toBe(1);
     // a derived program changes neither the program nor the pose it keeps
-    const { pose } = useJob.getState();
-    useJob.getState().loadDerived('part_ausgerichtet.nc', 'G0 X3\n', {
-      by: { a: 0, b: 1, c: -1, d: 0, e: 0, f: 0 },
-      from: 'original',
-    });
-    expect(loaded()).toBe('part.nc');
+    expect(
+      useJob.getState().loadDerived('x.nc', 'G0 X4\n', {
+        by: { a: 1, b: 0, c: 0, d: 1, e: 5, f: 0 },
+        from: 'original',
+      }),
+    ).toBe(false);
+    expect(loaded()).toBe('part_ausgerichtet.nc');
     expect(useJob.getState().pose).toEqual(pose);
-    expect(useJob.getState().original).toBeNull();
-    useJob.getState().unload();
+    expect(useJob.getState().original?.fileName).toBe('part.nc');
+    expect(useJob.getState().unload()).toBe(false);
+    expect(loaded()).toBe('part_ausgerichtet.nc');
+    expect(useJob.getState().restoreOriginal()).toBe(false);
+    expect(loaded()).toBe('part_ausgerichtet.nc');
+    expect(messages()).toBe(4);
+    // after the job every one of them works again
+    stopped();
+    expect(useJob.getState().restoreOriginal()).toBe(true);
     expect(loaded()).toBe('part.nc');
-    useJob.getState().restoreOriginal();
-    expect(loaded()).toBe('part.nc');
-    expect(messages()).toBe(3);
   });
 
   it('turns a dropped file away with one message and does not step to the Job', async () => {

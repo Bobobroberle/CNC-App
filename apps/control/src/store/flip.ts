@@ -20,6 +20,7 @@ import { useMachine } from './machine';
 import { onJobEnd } from './recorder';
 import { settled } from './settle';
 import { useWorkshop } from './workshop';
+import { programRefused } from './underway';
 
 const KEY = 'lowrider-control.flip';
 
@@ -165,10 +166,12 @@ export const useFlip = create<FlipStore>((set, get) => {
       useMachine.getState().addLog('error', t('camera.holesMismatch'), 'camera.holesMismatch');
       return false;
     }
+    // Zero and program belong together: with a job under way neither is touched.
+    if (programRefused()) return false;
     const back = backHoles(plan);
     useHoles.setState({ a: found.a, b: found.b, jobA: back.a, jobB: back.b });
     // From the program as made: the alignment turns it about its zero.
-    useJob.getState().load(plan.back.fileName, plan.back.text);
+    if (!useJob.getState().load(plan.back.fileName, plan.back.text)) return false;
     if (!(await useHoles.getState().applyTwoHoles())) return false;
     set({ phase: 'back', fit: { rotation: fit.rotation, distanceError: fit.distanceError } });
     save();
@@ -249,6 +252,8 @@ export const useFlip = create<FlipStore>((set, get) => {
       const { plan, cut } = get();
       const machine = useMachine.getState();
       if (!plan || !cut || !machine.status) return false;
+      // The back goes on the table before the turn counts: not while a job is under way.
+      if (programRefused()) return false;
       // Once per job: confirming the turn again (to find the part anew) leaves the board as it lies.
       if (isSimulatorAddress(machine.url) && !get().simulated) {
         turnSimulatedBoard(plan, cut);
@@ -312,7 +317,7 @@ export const useFlip = create<FlipStore>((set, get) => {
 
     relocate() {
       const { plan, cut } = get();
-      if (!plan || !cut || plan.method !== 'camera') return;
+      if (!plan || !cut || plan.method !== 'camera' || programRefused()) return;
       loadBack(plan, cut);
       set({ phase: 'locate', found: NOT_FOUND, fit: null, trouble: null });
       save();

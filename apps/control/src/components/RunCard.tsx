@@ -12,6 +12,7 @@ import { Icon } from './Icon';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Card, CardTitle } from '../ui/card';
+import { useBetweenParts } from '../store/runView';
 
 /**
  * Streaming the loaded job from the iPad: the app sends it line by line and
@@ -28,6 +29,8 @@ export function RunCard() {
   const busy = useMachine((s) => s.fileJob !== null || s.stream?.result === 'running');
   const { streamJob, addLog, setSingleStep } = useMachine.getState();
   const readiness = useReadiness();
+  // Between two parts the next one starts in the tool change card (its lock, its confirmation)
+  const between = useBetweenParts();
 
   const text = useMemo(
     () => ensureModalPreamble(removeToolLengthTable(lines.join('\n')).text).text,
@@ -50,7 +53,8 @@ export function RunCard() {
         <HoldButton
           variant="go"
           duration={1000}
-          disabled={!ready || blocked}
+          disabled={!ready || blocked || between}
+          reason={between ? t('run5.waitingInPanel') : undefined}
           onConfirm={() => {
             useRecent.getState().rememberZero();
             streamJob(fileName, text);

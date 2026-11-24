@@ -246,9 +246,16 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   connected; the program of a finished job stays – with its summary, also when the drawing is emptied (`offStage`) –
   until that tap, **as long as the drawing was ahead of it**; a drawing that did not change during the job follows
   the edits as always. **Every other way to load, replace or take off the program goes through the central lock**
-  in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived` and `unload` do nothing
-  while a job is under way and say why (`job.locked`); a dropped file or a job of the recent list is turned away
-  with one message before anything else happens.
+  in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived`, `unload` and
+  `restoreOriginal` do nothing while a job is under way, say why (`job.locked`, its own message group `jobLocked`)
+  and **return `false`** – a caller never reports "loaded" after that; a dropped file or a job of the recent list is
+  turned away with one message before anything else happens. **A flow that does more than load** (the two-hole
+  alignment, turning the board, the long example, the jigs, the sections) asks `programRefused()`
+  (`store/underway.ts`) *before its first step* – a zero moved or a plan changed must not outlive a refused load;
+  `jigs.ts` and `sections.ts` use `jobUnderWay()` as their `running()`. Changing the machine profile re-analyses the
+  loaded program directly (it is no other program) and so is not refused. **Between two parts** the next part starts
+  only in the tool change card or the action bar (decision 32): the SD list, "Programm starten" and "Ab Zeile
+  fortsetzen" are disabled with the reason `run5.waitingInPanel`.
 - Two-sided parts ("Wenden"): the drawing shows both sides as seen from the front; the pure maths
   (flip line, mirrored back, registration holes, what the sides do to each other) is
   `packages/cam/src/flip.ts`, the plan and its hand-checked chain to the table `lib/flip.ts`, the
@@ -347,7 +354,11 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   machine's jog functions themselves. The layer sends a jog only while the machine takes one,
   remembers the axis moved last and registers whatever is held in `lib/holds.ts`. The mouse wheel
   jogs fine (never coarser than 0.1 mm) only while the mouse button is held on its field
-  (`WheelFine`) – a wheel that just turns moves nothing.
+  (`WheelFine`) – a wheel that just turns moves nothing. **A step jog counts its absolute target from a report
+  that is not older than the last move** (`store/machine.ts` `jog`): where the machine still moves, or a move or stop
+  of the app's own went out after the last report (`reportOld`), the step waits for the next report at rest
+  (`atRest`, 1.5 s, then the hint `drive.notAtRest`); `jogEpoch` makes "Jog stoppen", NOT-HALT, PAUSE, stopping the
+  job, a goto, a reset and an alarm drop a step that waits.
 - Messages (DESIGN.md §6.3; pure `lib/messages.ts`, `store/messages.ts`, `components/Messages.tsx`):
   five levels. An `error` line of the log is a **warning** (toast, acknowledged in the centre,
   blocks nothing); a few `info` lines are an **information** (a toast that goes) or a **hint**

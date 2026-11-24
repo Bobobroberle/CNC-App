@@ -52,6 +52,7 @@ import { onJobEnd } from './recorder';
 import { settled, wait } from './settle';
 import { useUi } from './ui';
 import { useWorkshop } from './workshop';
+import { jobUnderWay } from './underway';
 
 const KEY = 'lowrider-control.sections';
 
@@ -175,10 +176,7 @@ const loadedName = () => {
   return original?.fileName ?? fileName;
 };
 
-const running = () => {
-  const m = useMachine.getState();
-  return m.fileJob !== null || m.stream?.result === 'running';
-};
+const running = () => jobUnderWay();
 
 const round = (v: number) => Number(v.toFixed(3));
 

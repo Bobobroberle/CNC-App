@@ -40,6 +40,7 @@ import { useSeries } from './series';
 import { settled, wait } from './settle';
 import { useUi } from './ui';
 import { useWorkshop } from './workshop';
+import { jobUnderWay } from './underway';
 
 /**
  * Jigs with printed tags, against the live machine: which tags the camera
@@ -120,10 +121,7 @@ function spindle(): Point | null {
 }
 
 /** A job is running: no looking around, no measuring. */
-const running = () => {
-  const m = useMachine.getState();
-  return m.fileJob !== null || m.stream?.result === 'running';
-};
+const running = () => jobUnderWay();
 
 /** The machine is connected and stands still. */
 const idle = () => {

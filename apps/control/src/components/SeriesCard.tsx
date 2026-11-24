@@ -453,7 +453,7 @@ function CheckStep() {
       ) : null}
       {!connected ? <Alert variant="warning">{t('series.offline')}</Alert> : null}
       <Button
-        reason="machine"
+        reason={running ? t('cam.jobRuns') : 'machine'}
         disabled={cut.length === 0 || busy !== null || running || !connected}
         data-testid="series-make"
         onClick={() => {
