@@ -68,7 +68,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   the strip under the picture with "Großbild", where `SingleStepPanel` also lies). Sticky stops silently if any ancestor
   between the button and `.panel-body` clips (`overflow`); `e2e/dock.spec.ts` and the geometry checks in
   `control.spec.ts` measure (`inReach` in `e2e/helpers.ts`: the control's box lies inside the scroll box *and* a touch at
-  its middle reaches it – `toBeVisible` cannot see clipping). `.panel-body` has `scroll-padding-bottom` so a control
+  its middle reaches it – `toBeVisible` cannot see clipping). A `.panel-body` that holds a dock has `scroll-padding-bottom` (`:has(.dock)` – a padding elsewhere would scroll things that are in view, which `e2e/areas.spec.ts` caught in the jog panel) so a control
   brought into view stops above the dock. **Deliberately not docked:** the CAM hand-over (one tap that replaces a
   program that is not the drawing's own – next to content that is being edited it would invite a slip), and anything
   in the action bar. On the machine's small screen the sheet at "half" is too short for a card and its dock beside the

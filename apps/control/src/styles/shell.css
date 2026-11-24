@@ -559,15 +559,18 @@
 .panel-body {
   flex: 1;
   height: 100%;
-  /* A control brought into view (a tap, the quick search, the focus) stops above a docked action,
-     not under it. */
-  scroll-padding-bottom: 5rem;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 2px;
   touch-action: pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+/* A control brought into view (a tap, the quick search, the focus) stops above a docked action, not
+   under it – only where there is one: elsewhere a padding would scroll things that are in view. */
+.panel-body:has(.dock) {
+  scroll-padding-bottom: 5rem;
 }
 
 .panel-head {
