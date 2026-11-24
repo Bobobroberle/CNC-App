@@ -1,7 +1,8 @@
 import { execFile, spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
-import { mkdir, readdir, readFile, rm, stat, statfs, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, statfs, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { runBackup, type BackupStatus } from './backup';
 import { Store } from './db';
 import { Recorder } from './recorder';
 import { SensorHub, simulatedSample } from './sensors';
@@ -17,7 +18,10 @@ import { buildServer } from './server';
  *   `sudo -n /usr/bin/systemctl poweroff`; scripts/pi/setup.sh installs the sudoers rule),
  *   LOWRIDER_RECORDINGS=0 to disable recording the camera during jobs (needs ffmpeg),
  *   RECORD_STREAM / RECORD_SNAPSHOT (ustreamer on this host: http://127.0.0.1:8081/stream
- *   and /snapshot). Recordings go to `recordings/` next to the database.
+ *   and /snapshot). Recordings go to `recordings/` next to the database,
+ *   LOWRIDER_BACKUP=0 to switch the daily backup of the database off, LOWRIDER_BACKUP_DIR
+ *   (`backups/` next to the database – put it on a second medium, a USB stick: on the same card it
+ *   guards against a damaged database, not against the card dying), LOWRIDER_BACKUP_KEEP (7).
  */
 const env = process.env;
 const dbPath = resolve(env.LOWRIDER_DB ?? 'data/lowrider.db');
@@ -82,8 +86,31 @@ const recorder =
         wait: (ms) => new Promise((done) => setTimeout(done, ms)),
       });
 void recorder?.recover();
+// The daily backup of the database: when it starts, and a look every few hours (the Pi may run for weeks).
+let backup: BackupStatus | null = null;
+const backupDir = resolve(env.LOWRIDER_BACKUP_DIR ?? join(dirname(dbPath), 'backups'));
+const backupNow = async () => {
+  backup = await runBackup({
+    dir: backupDir,
+    keep: Math.max(1, Number(env.LOWRIDER_BACKUP_KEEP ?? 7) || 7),
+    now: Date.now(),
+    fs: {
+      mkdir: async (path) => void (await mkdir(path, { recursive: true })),
+      list: (path) => readdir(path).catch(() => []),
+      rename,
+      remove: (path) => rm(path, { force: true }),
+    },
+    snapshot: (path) => store.snapshot(path),
+  });
+  if (backup.error) console.error(`backup failed: ${backup.error}`);
+};
+if (env.LOWRIDER_BACKUP !== '0') {
+  void backupNow();
+  setInterval(() => void backupNow(), 6 * 3_600_000).unref();
+}
 const app = await buildServer({
   store,
+  backup: () => (env.LOWRIDER_BACKUP === '0' ? null : backup),
   sensors,
   staticDir: env.LOWRIDER_APP ? resolve(env.LOWRIDER_APP) : undefined,
   fluidncUrl: env.FLUIDNC_URL,

@@ -337,6 +337,19 @@ describe('camera', () => {
   });
 });
 
+describe('the daily backup in the health report', () => {
+  it('says nothing without one, and what the last run did when there is one', async () => {
+    const without = await setup();
+    expect((await without.inject('/api/health')).json()).toMatchObject({ backup: null });
+    const status = { last: 'lowrider-2026-05-10.db', count: 3, error: null };
+    const a = await setup({ backup: () => status });
+    expect((await a.inject('/api/health')).json()).toMatchObject({ backup: status });
+    // switched off or not yet run: null
+    const off = await setup({ backup: () => null });
+    expect((await off.inject('/api/health')).json()).toMatchObject({ backup: null });
+  });
+});
+
 describe('host shutdown', () => {
   it('answers 501 when the host cannot be powered down', async () => {
     const a = await setup();

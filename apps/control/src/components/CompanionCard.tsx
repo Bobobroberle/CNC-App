@@ -88,6 +88,19 @@ export function CompanionCard() {
           {health.camera ? t('companion.camera', { url: health.camera }) : null}
         </Alert>
       ) : null}
+      {health?.backup ? (
+        health.backup.error ? (
+          <Alert variant="warning" data-testid="backup-failed">
+            {t('companion.backupFailed', { error: health.backup.error })}
+          </Alert>
+        ) : (
+          <p className="text-muted-foreground text-sm" data-testid="backup-status">
+            {health.backup.last
+              ? t('companion.backup', { name: health.backup.last, count: health.backup.count })
+              : t('companion.backupNone')}
+          </p>
+        )
+      ) : null}
       <ShutdownPanel />
     </Card>
   );

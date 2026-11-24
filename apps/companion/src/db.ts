@@ -132,6 +132,14 @@ export class Store {
       .run(key, JSON.stringify(value));
   }
 
+  /**
+   * A consistent copy of the whole database in one file (`VACUUM INTO`): also while it is being
+   * written to, and compacted. The target must not exist yet.
+   */
+  snapshot(path: string): void {
+    this.db.prepare('VACUUM INTO ?').run(path);
+  }
+
   close(): void {
     this.db.close();
   }

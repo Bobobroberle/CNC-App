@@ -16,6 +16,8 @@ export interface CompanionHealth {
   shutdownError?: string | null;
   /** Whether it can record the camera during jobs (`/api/recordings`) */
   recordings?: boolean;
+  /** The daily backup of its database: the newest file, how many are kept, why the last run failed (null: off) */
+  backup?: { last: string | null; count: number; error: string | null } | null;
 }
 
 export type RecordingMode = 'timelapse' | 'video' | 'both';

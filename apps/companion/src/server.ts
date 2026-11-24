@@ -13,6 +13,7 @@ import {
 import { Recorder, RecorderError, validateStart } from './recorder';
 import { FluidNCRelay, type RelayClient } from './relay';
 import { SensorHub, validateSample } from './sensors';
+import type { BackupStatus } from './backup';
 
 export const VERSION = '0.1.0';
 
@@ -60,6 +61,8 @@ export interface ServerOptions {
   shutdownDelayMs?: number;
   /** Camera recording during jobs; without it the recording routes answer 501. */
   recorder?: Recorder;
+  /** What the daily backup of the database did last (null: switched off, or not yet run) */
+  backup?: () => BackupStatus | null;
 }
 
 /** Parses a single-range `Range: bytes=a-b` header against a file size. */
@@ -118,6 +121,7 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     shutdownError,
     // Only true when it can really record (ffmpeg on the Pi).
     recordings: options.recorder ? (await options.recorder.capabilities()).ffmpeg : false,
+    backup: options.backup?.() ?? null,
   }));
 
   // Host power: the app shows feedback by polling /api/health until it stops answering.
