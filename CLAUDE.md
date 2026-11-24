@@ -42,7 +42,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   coverage of the four libraries, the quick-search registry and `settled()` stays in force. The
   rebuild ran in three stages (11–13, done); `docs/umbau-guide.md` says where every old card lives
   now, where the app deviates from the guide and why, the acceptance per screen (§11) and what is left.
-- **"Umbau 2" (`docs/umbau-guide.md`): six areas instead of the five steps – stages 1 and 2 are in the code, stage 3 is open.**
+- **"Umbau 2" (`docs/umbau-guide.md`): six areas instead of the five steps – stages 1, 2 and 3 are in the code.**
   Tabs: Job · CAM (`cam`) · Einrichten (`setup`) · Fräsen (`run`, with the views Prüfen and Fräsen; the job's tools
   and the readiness list live in Prüfen) · Service · Einstellungen. Tool list and console stay in the menu. `tools` and
   `check` are no places any more (a stored one falls back to `run`). There is **no "Weiter: …" chain and no
@@ -60,8 +60,19 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   mode switch or stage tools; Einpassen and Großbild stay): `shellParts(place)` in `store/ui.ts` is the one predicate
   every piece of the shell asks (`App`, `Stage`, `setJogOpen` – which from the CAM opens the jog panel over Einrichten –,
   the search's `goTo`, `TableView`: no tap tool and no clamp reaches the finger there, no tool marks are drawn). The
-  PAUSE and NOT-HALT, the alarm banner, the tool-change card and the critical message stay everywhere. **Still open:**
-  stage 3 – the primary action docked to each panel.
+  PAUSE and NOT-HALT, the alarm banner, the tool-change card and the critical message stay everywhere. **Stage 3 – the
+  docked main action** (`ui/dock.tsx`, `.dock` in `rooms.css`): the card that has a main action puts it in a `Dock`, a
+  sticky footer of the card at the bottom of the panel that scrolls – the one button stays in its card (never a second
+  copy: `hold(page, /name/)` and screen readers find one). It is in `SetZeroCard` ("Nullpunkt hier setzen"),
+  `ProbeCard`/`ProbeWizard` (the probing start) and `ToolChangePanel` (going on and giving up – so they stay in reach in
+  the strip under the picture with "Großbild", where `SingleStepPanel` also lies). Sticky stops silently if any ancestor
+  between the button and `.panel-body` clips (`overflow`); `e2e/dock.spec.ts` and the geometry checks in
+  `control.spec.ts` measure (`inReach` in `e2e/helpers.ts`: the control's box lies inside the scroll box *and* a touch at
+  its middle reaches it – `toBeVisible` cannot see clipping). `.panel-body` has `scroll-padding-bottom` so a control
+  brought into view stops above the dock. **Deliberately not docked:** the CAM hand-over (one tap that replaces a
+  program that is not the drawing's own – next to content that is being edited it would invite a slip), and anything
+  in the action bar. On the machine's small screen the sheet at "half" is too short for a card and its dock beside the
+  row above it (800 × 600: ~100 px of body): the sheet's "Größer" is the way (the spec measures at that rest).
 - Navigation (`store/ui.ts`): a `Place` is `start`, one of the three areas of the work `job`, `setup`, `run`
   (Job, Einrichten, Fräsen), the drawing workspace `cam`, or an area `toollist`, `service`, `settings`, `console`
   (the console only with the expert switch). **The one way into the CAM is `openCam()`** (`store/camPlace.ts`: an

@@ -148,6 +148,36 @@ function RunReady({ start }: { start: Start }) {
 }
 
 /**
+ * A stream in single-step mode stands at a block and waits: the one place that goes on – in the panel
+ * while the job runs, and under the picture when the panel is put away ("Großbild", `App.tsx`).
+ */
+export function SingleStepPanel() {
+  const stepAt = useMachine((s) => s.stream?.stepAt ?? null);
+  const streamLines = useMachine((s) => s.stream?.lines);
+  const { stepNext, setSingleStep } = useMachine.getState();
+  if (stepAt === null) return null;
+  return (
+    <Alert
+      variant="warning"
+      className="justify-items-start gap-y-2 step-panel"
+      data-testid="single-step"
+    >
+      <p>
+        {t('run.stepAt', { line: stepAt + 1 })} <code>{streamLines?.[stepAt]}</code>
+      </p>
+      <div className="flex gap-3">
+        <Button variant="success" className="flex-1" onClick={stepNext}>
+          <Icon name="step" /> {t('run.nextBlock')}
+        </Button>
+        <Button variant="outline" onClick={() => setSingleStep(false)}>
+          {t('run.stepOff')}
+        </Button>
+      </div>
+    </Alert>
+  );
+}
+
+/**
  * While the job runs: readable from two metres (DESIGN.md §5) – how far, how
  * long still, what is being cut – then the overrides. Pause is in the status
  * bar and the action bar; going on and aborting are deliberate steps here.
@@ -157,20 +187,11 @@ function RunLive() {
   const status = useMachine((s) => s.status);
   const fileJob = useMachine((s) => s.fileJob);
   const stream = useMachine((s) => (s.stream?.result === 'running' ? s.stream : null));
-  const stepAt = useMachine((s) => s.stream?.stepAt ?? null);
-  const streamLines = useMachine((s) => s.stream?.lines);
   const trend = useRecorder((s) => s.trend);
   const lineIndex = useTrack((s) => s.lineIndex);
   const lines = useJob((s) => s.lines);
   const { current, operations } = useOperation(lineIndex);
-  const {
-    stepNext,
-    setSingleStep,
-    stopJob,
-    setFeedOverride,
-    setSpindleOverride,
-    setRapidOverride,
-  } = useMachine.getState();
+  const { stopJob, setFeedOverride, setSpindleOverride, setRapidOverride } = useMachine.getState();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -224,25 +245,7 @@ function RunLive() {
           {t('run5.held')}
         </Alert>
       ) : null}
-      {stepAt !== null ? (
-        <Alert
-          variant="warning"
-          className="justify-items-start gap-y-2 step-panel"
-          data-testid="single-step"
-        >
-          <p>
-            {t('run.stepAt', { line: stepAt + 1 })} <code>{streamLines?.[stepAt]}</code>
-          </p>
-          <div className="flex gap-3">
-            <Button variant="success" className="flex-1" onClick={stepNext}>
-              <Icon name="step" /> {t('run.nextBlock')}
-            </Button>
-            <Button variant="outline" onClick={() => setSingleStep(false)}>
-              {t('run.stepOff')}
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
+      <SingleStepPanel />
       <h3 className="font-medium text-muted-foreground text-sm" data-find="overrides">
         {t('overrides.title')}
       </h3>

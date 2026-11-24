@@ -5,7 +5,7 @@ import { t } from '../src/i18n';
 import { useJob } from '../src/store/job';
 import { useMachine } from '../src/store/machine';
 import { useRun } from '../src/store/run';
-import { useStart } from '../src/store/start';
+import { requestStart, useStart } from '../src/store/start';
 
 // The readiness list is its own subject (readiness.test.ts): here nothing in it blocks, so the
 // reasons that are the hook's own – no link, a viewer, an upload, a job running, a machine that is
@@ -74,5 +74,55 @@ describe('why the start cannot be held (store/start.ts)', () => {
   it('has no start at all without a program', () => {
     useJob.getState().unload();
     expect(renderHook(() => useStart()).result.current).toBeNull();
+  });
+
+  describe('the start between two parts – the same question as the bar asks', () => {
+    const between = () =>
+      useRun.setState({
+        phase: 'between',
+        jobKey: `part.nc:${useJob.getState().lines.length}`,
+        partIndex: 0,
+        confirmed: [],
+        asking: null,
+      });
+
+    it('asks first when something is left to confirm: nothing starts', () => {
+      const startPart = vi.fn(async () => {});
+      useRun.setState({ startPart } as never);
+      between();
+      // a zero that has never been set is confirmed before a start (DESIGN.md §6.4)
+      useMachine.setState({ status: { state: 'Idle', mpos: [0, 0, 5], wco: [0, 0, 0] } as never });
+      const start = renderHook(() => useStart()).result.current!;
+      expect(start.phase).toBe('between');
+      expect(start.pending).toEqual(['zero']);
+      requestStart(start);
+      expect(startPart).not.toHaveBeenCalled();
+      expect(useRun.getState().asking).toEqual(['zero']);
+    });
+
+    it('starts the part at once when everything was confirmed before', () => {
+      const startPart = vi.fn(async () => {});
+      useRun.setState({ startPart } as never);
+      between();
+      useRun.setState({ confirmed: ['zero'] });
+      useMachine.setState({ status: { state: 'Idle', mpos: [0, 0, 5], wco: [0, 0, 0] } as never });
+      const start = renderHook(() => useStart()).result.current!;
+      expect(start.pending).toEqual([]);
+      requestStart(start);
+      expect(startPart).toHaveBeenCalledWith(start.index);
+      expect(useRun.getState().asking).toBeNull();
+    });
+
+    it('does nothing at all while something blocks the start', () => {
+      const startPart = vi.fn(async () => {});
+      useRun.setState({ startPart } as never);
+      between();
+      useMachine.setState({ connection: 'disconnected' });
+      const start = renderHook(() => useStart()).result.current!;
+      expect(start.reason).not.toBeNull();
+      requestStart(start);
+      expect(startPart).not.toHaveBeenCalled();
+      expect(useRun.getState().asking).toBeNull();
+    });
   });
 });

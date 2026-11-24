@@ -11,6 +11,7 @@ import {
   followMoves,
   goTo,
   hold,
+  inReach,
   installFakeFluidNC,
   jobView,
   moreOptions,
@@ -452,6 +453,14 @@ test('runs a real job from the SD card, one part per tool', async ({ page }) => 
   await expect(page.locator('.panel-body')).toHaveCount(0);
   await expect(change).toBeVisible();
   await expect(change).toContainText('T2');
+  // The card is taller than the strip under the picture: going on and giving up stay docked at the
+  // strip's bottom, in reach without scrolling it (`toBeVisible` cannot see a clipped button).
+  const prompt = page.locator('.stage-prompt');
+  for (const control of [goOn, change.getByRole('button', { name: 'Restliche Teile abbrechen' })]) {
+    const r = await inReach(page, control, prompt);
+    expect(r.inside, JSON.stringify(r)).toBe(true);
+    expect(r.reached, JSON.stringify(r)).toBe(true);
+  }
   await page.getByTestId('stage-wide').click();
   await expect(change).toBeVisible();
 
@@ -1432,9 +1441,18 @@ test('runs a job block by block in single step', async ({ page }) => {
   const step = page.getByTestId('single-step');
   await expect(step).toContainText('Zeile 1');
   expect(await sent(page)).not.toContain('G21G90');
-  await step.getByRole('button', { name: /Nächster Satz/ }).click();
+  // "Großbild" puts the panel away – the block still waits for a tap, under the picture, in reach
+  await page.getByTestId('stage-wide').click();
+  await expect(page.locator('.panel-body')).toHaveCount(0);
+  const next = step.getByRole('button', { name: /Nächster Satz/ });
+  const reach = await inReach(page, next, page.locator('.stage-prompt'));
+  expect(reach.inside, JSON.stringify(reach)).toBe(true);
+  expect(reach.reached, JSON.stringify(reach)).toBe(true);
+  await next.click();
   await expect(step).toContainText('Zeile 2');
   expect(await sent(page)).toContain('G21G90');
+  await page.getByTestId('stage-wide').click();
+  await expect(step).toBeVisible();
   await step.getByRole('button', { name: /Nächster Satz/ }).click();
   await expect(step).toContainText('Zeile 3');
   expect(await sent(page)).not.toContain('G0X2');

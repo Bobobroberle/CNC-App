@@ -9,6 +9,7 @@ import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
 import { Card, CardTitle } from '../ui/card';
 import { Reason } from '../ui/tooltip';
+import { Dock } from '../ui/dock';
 
 /** The streamed job holds at M6: spindle off, tool up, change, measure, continue. */
 export function ToolChangeCard() {
@@ -136,18 +137,22 @@ export function ToolChangePanel({
       </HoldButton>
       <p className="text-muted-foreground text-sm">{t('toolChange.plateHint')}</p>
       {measured ? <Alert variant="success">{t('toolChange.measured')}</Alert> : null}
-      <Reason reason={continueReason} className="block w-full">
-        <HoldButton
-          variant="accent"
-          disabled={!idle || busy || continueReason !== null}
-          onConfirm={() => void onContinue().then(() => setMeasured(null))}
-        >
-          {continueLabel}
+      {/* Going on and giving up are docked: under the picture ("Großbild") the card is taller than
+          the strip it lies in, and they stay at the strip's bottom instead of below its fold. */}
+      <Dock>
+        <Reason reason={continueReason} className="block w-full">
+          <HoldButton
+            variant="accent"
+            disabled={!idle || busy || continueReason !== null}
+            onConfirm={() => void onContinue().then(() => setMeasured(null))}
+          >
+            {continueLabel}
+          </HoldButton>
+        </Reason>
+        <HoldButton variant="danger" onConfirm={onAbort}>
+          {abortLabel}
         </HoldButton>
-      </Reason>
-      <HoldButton variant="danger" onConfirm={onAbort}>
-        {abortLabel}
-      </HoldButton>
+      </Dock>
     </Card>
   );
 }

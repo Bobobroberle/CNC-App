@@ -21,7 +21,7 @@ import { StartScreen } from './components/StartScreen';
 import { StatusBar } from './components/StatusBar';
 import { Timeline } from './components/Timeline';
 import { Toasts } from './components/Toasts';
-import { BetweenParts } from './components/RunScreen';
+import { BetweenParts, SingleStepPanel } from './components/RunScreen';
 import { ToolChangeCard } from './components/ToolChangeCard';
 import { useTabSwipe } from './components/useTabSwipe';
 import { t } from './i18n';
@@ -221,6 +221,7 @@ export function App() {
                   <div className="stage-prompt">
                     <ToolChangeCard />
                     <BetweenParts />
+                    <SingleStepPanel />
                   </div>
                 ) : null}
                 {/* ④ Prüfen: the simulation's timeline lies under its picture (3D). On the

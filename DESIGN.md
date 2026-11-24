@@ -6,7 +6,8 @@
 > **Stand:** Der Betreiber hat entschieden, die fünf festen Schritte durch **sechs Bereiche** zu ersetzen (§3.2). Dieser
 > Guide beschreibt das Zielbild; der Umbau läuft in Stufen (`docs/umbau-guide.md`, Abschnitt „Umbau 2“). **Stufen 1 und 2 sind
 > im Code** (sechs Reiter, das CAM als eigener Bereich und dort nur das CAM mit der Statusleiste, keine Kette „Weiter“, keine
-> Taste dafür); offen ist Stufe 3 (angedockte Hauptaktion).
+> Taste dafür); **Stufe 3 (angedockte Hauptaktion) ist gebaut** – das Dock sitzt an den Karten, die eine Hauptaktion haben (siehe
+> `docs/umbau-guide.md`).
 
 ---
 
