@@ -14,7 +14,8 @@ import { Recorder, RecorderError, validateStart } from './recorder';
 import { FluidNCRelay, type RelayClient } from './relay';
 import { SensorHub, validateSample } from './sensors';
 import type { BackupStatus } from './backup';
-import { isStateKey, readWrite, STATE_KEYS, type StateDocument } from './state';
+import { MAX_MEASUREMENTS, validateMeasurement } from './measurements';
+import { isStateKey, readWrite, STATE_BODY_LIMIT, STATE_KEYS, type StateDocument } from './state';
 
 export const VERSION = '0.1.0';
 
@@ -32,8 +33,8 @@ export const COLLECTIONS: Record<string, (v: unknown) => unknown> = {
   profiles: hasId,
   heightmaps: hasId,
   fixtures: hasId,
-  // What was measured, one entry each (a log, like the history)
-  measurements: hasId,
+  // What was measured, one entry each (a log, like the history): checked and bounded
+  measurements: validateMeasurement,
 };
 
 const SAFE_NAME = /^[\w][\w .-]{0,99}$/;
@@ -144,6 +145,18 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     return { ok: true };
   });
 
+  // A log keeps its latest entries: when there are more than the cap, the oldest go
+  const CAPS: Record<string, number> = { measurements: MAX_MEASUREMENTS };
+  const trim = (collection: string) => {
+    const cap = CAPS[collection];
+    if (cap === undefined || store.count(collection) <= cap) return;
+    const entries = store.list(collection).map((d) => d.data as { id: string; at: string });
+    entries.sort((a, b) => (a.at === b.at ? (a.id < b.id ? -1 : 1) : a.at < b.at ? -1 : 1));
+    store.transaction(() => {
+      for (const e of entries.slice(0, entries.length - cap)) store.delete(collection, e.id);
+    });
+  };
+
   // Libraries
   app.get<{ Params: { collection: string } }>('/api/library/:collection', async (req, reply) => {
     if (!(req.params.collection in COLLECTIONS))
@@ -168,6 +181,7 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
       if (!doc || doc.id !== req.params.id)
         return reply.code(400).send({ error: 'invalid-document' });
       store.put(req.params.collection, doc.id, doc);
+      trim(req.params.collection);
       return { ok: true };
     },
   );
@@ -183,6 +197,7 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
       store.transaction(() => {
         for (const d of docs) store.put(req.params.collection, d!.id, d);
       });
+      trim(req.params.collection);
       return { ok: true, count: docs.length };
     },
   );
@@ -206,20 +221,28 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     }
     return { keys };
   });
-  app.put<{ Params: { key: string }; Body: unknown }>('/api/state/:key', async (req, reply) => {
-    if (!isStateKey(req.params.key)) return reply.code(404).send({ error: 'unknown-key' });
-    const write = readWrite(req.body);
-    if (write === 'too-large') return reply.code(413).send({ error: 'too-large' });
-    if (write === 'invalid') return reply.code(400).send({ error: 'invalid-document' });
-    // No `await` between the read and the write: nobody else can write in between.
-    const current = store.get('state', req.params.key)?.data as StateDocument | undefined;
-    const rev = current?.rev ?? 0;
-    if (write.baseRev !== rev) {
-      return reply.code(409).send({ error: 'conflict', rev, data: current?.data ?? null });
-    }
-    store.put('state', req.params.key, { rev: rev + 1, data: write.data } satisfies StateDocument);
-    return { ok: true, rev: rev + 1 };
-  });
+  // A document is small: the body is bounded before it is read, not after (the rest of the API takes uploads)
+  app.put<{ Params: { key: string }; Body: unknown }>(
+    '/api/state/:key',
+    { bodyLimit: STATE_BODY_LIMIT },
+    async (req, reply) => {
+      if (!isStateKey(req.params.key)) return reply.code(404).send({ error: 'unknown-key' });
+      const write = readWrite(req.body);
+      if (write === 'too-large') return reply.code(413).send({ error: 'too-large' });
+      if (write === 'invalid') return reply.code(400).send({ error: 'invalid-document' });
+      // No `await` between the read and the write: nobody else can write in between.
+      const current = store.get('state', req.params.key)?.data as StateDocument | undefined;
+      const rev = current?.rev ?? 0;
+      if (write.baseRev !== rev) {
+        return reply.code(409).send({ error: 'conflict', rev, data: current?.data ?? null });
+      }
+      store.put('state', req.params.key, {
+        rev: rev + 1,
+        data: write.data,
+      } satisfies StateDocument);
+      return { ok: true, rev: rev + 1 };
+    },
+  );
 
   // Job buffer
   app.get('/api/jobs', async () => store.listJobs());

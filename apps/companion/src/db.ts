@@ -58,6 +58,13 @@ export class Store {
     return r ? { id: r.id, data: JSON.parse(r.data), updatedAt: r.updated_at } : null;
   }
 
+  count(collection: string): number {
+    const row = this.db
+      .prepare('SELECT COUNT(*) AS n FROM documents WHERE collection = ?')
+      .get(collection) as { n: number | bigint };
+    return Number(row.n);
+  }
+
   put(collection: string, id: string, data: unknown, now = Date.now()): void {
     this.db
       .prepare(

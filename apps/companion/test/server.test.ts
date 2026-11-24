@@ -9,6 +9,7 @@ import { Store } from '../src/db';
 import { Recorder } from '../src/recorder';
 import { FluidNCRelay, type Upstream } from '../src/relay';
 import { SensorHub } from '../src/sensors';
+import { MAX_MEASUREMENTS } from '../src/measurements';
 import { buildServer, parseRange } from '../src/server';
 import { rig } from './recorderRig';
 
@@ -207,6 +208,7 @@ describe('state API', () => {
       id: '2026-11-24T10:00:00.000Z-camera-scale',
       at: '2026-11-24T10:00:00.000Z',
       kind: 'camera-scale',
+      values: { pxPerMm: 17.5, ok: true, note: 'x', none: null },
     };
     expect(
       (
@@ -222,6 +224,125 @@ describe('state API', () => {
       (await a.inject({ method: 'PUT', url: '/api/library/measurements/other', payload: record }))
         .statusCode,
     ).toBe(400);
+  });
+
+  it('keeps only entries that are what the app writes: a few names with numbers, texts or flags', async () => {
+    const a = await setup();
+    const good = {
+      id: 'm1',
+      at: '2026-11-24T10:00:00.000Z',
+      kind: 'machine-grid',
+      values: { x: 1 },
+    };
+    const put = (payload: unknown) =>
+      a.inject({
+        method: 'PUT',
+        url: `/api/library/measurements/${(payload as { id: string }).id}`,
+        payload: payload as object,
+      });
+    expect((await put(good)).statusCode).toBe(200);
+    // an extra field is dropped, not stored
+    await put({ ...good, id: 'm2', evil: 'x'.repeat(1000) });
+    expect((await a.inject('/api/library/measurements/m2')).json()).toEqual({ ...good, id: 'm2' });
+    const many = Object.fromEntries(Array.from({ length: 41 }, (_, i) => [`v${i}`, i]));
+    for (const bad of [
+      { ...good, id: 'b1', kind: 'Not A Kind' },
+      { ...good, id: 'b2', kind: 5 },
+      { ...good, id: 'b3', at: 'yesterday' },
+      { ...good, id: 'b4', at: 5 },
+      { ...good, id: 'b5', values: [1] },
+      { ...good, id: 'b6', values: null },
+      { ...good, id: 'b7', values: many },
+      { ...good, id: 'b8', values: { ['n'.repeat(61)]: 1 } },
+      { ...good, id: 'b9', values: { x: 'x'.repeat(401) } },
+      { ...good, id: 'b10', values: { x: { deep: 1 } } },
+      { ...good, id: 'b11', values: { x: [1] } },
+      [good],
+    ]) {
+      expect((await put(bad)).statusCode, JSON.stringify(bad).slice(0, 60)).toBe(400);
+    }
+    // an id that is too long or none is refused by the import as well
+    for (const id of ['x'.repeat(121), '']) {
+      const res = await a.inject({
+        method: 'POST',
+        url: '/api/library/measurements',
+        payload: [{ ...good, id }],
+      });
+      expect(res.statusCode, `id of ${id.length}`).toBe(400);
+    }
+    // a number that is none (JSON can say 1e999; the parser makes Infinity of it)
+    const infinite = await a.inject({
+      method: 'PUT',
+      url: '/api/library/measurements/b12',
+      headers: { 'content-type': 'application/json' },
+      payload:
+        '{"id":"b12","at":"2026-11-24T10:00:00.000Z","kind":"machine-grid","values":{"x":1e999}}',
+    });
+    expect(infinite.statusCode).toBe(400);
+  });
+
+  it('keeps the latest entries of the log and lets the oldest go beyond its cap', async () => {
+    const a = await setup();
+    const entry = (n: number) => ({
+      id: `m${String(n).padStart(5, '0')}`,
+      at: new Date(Date.UTC(2026, 0, 1) + n * 1000).toISOString(),
+      kind: 'machine-grid',
+      values: { n },
+    });
+    // newest first, in one import: the cap goes by time, not by the order they came in
+    const batch = Array.from({ length: MAX_MEASUREMENTS + 3 }, (_, i) =>
+      entry(MAX_MEASUREMENTS + 2 - i),
+    );
+    const res = await a.inject({
+      method: 'POST',
+      url: '/api/library/measurements',
+      payload: batch,
+    });
+    expect(res.statusCode).toBe(200);
+    const kept = (await a.inject('/api/library/measurements')).json() as { id: string }[];
+    expect(kept).toHaveLength(MAX_MEASUREMENTS);
+    expect(kept.map((e) => e.id)).not.toContain('m00000');
+    expect(kept.map((e) => e.id)).not.toContain('m00002');
+    expect(kept.map((e) => e.id)).toContain('m00003');
+    expect(kept.map((e) => e.id)).toContain(`m${MAX_MEASUREMENTS + 2}`.replace('m', 'm0'));
+    // one more by a single write takes the oldest of those left
+    await a.inject({
+      method: 'PUT',
+      url: `/api/library/measurements/${entry(9000).id}`,
+      payload: entry(9000),
+    });
+    const after = (await a.inject('/api/library/measurements')).json() as { id: string }[];
+    expect(after).toHaveLength(MAX_MEASUREMENTS);
+    expect(after.map((e) => e.id)).not.toContain('m00003');
+    // the other libraries have no cap
+    expect(
+      (await a.inject({ method: 'PUT', url: '/api/library/history/h1', payload: { id: 'h1' } }))
+        .statusCode,
+    ).toBe(200);
+  });
+});
+
+describe('state API limits', () => {
+  it('refuses a request body beyond a megabyte before it is read into a document – the rest of the API takes uploads', async () => {
+    const a = await setup();
+    const big = await a.inject({
+      method: 'PUT',
+      url: '/api/state/settings',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ baseRev: 0, data: { text: 'x'.repeat(1100 * 1024) } }),
+    });
+    expect(big.statusCode).toBe(413);
+    // refused by the server before the body is parsed – not by the document check afterwards
+    expect(big.json().code).toBe('FST_ERR_CTP_BODY_TOO_LARGE');
+    expect((await a.inject('/api/state')).json()).toEqual({ keys: {} });
+    // other routes still take their large bodies
+    const upload = await a.inject({
+      method: 'PUT',
+      url: '/api/jobs/big.nc',
+      headers: { 'content-type': 'text/plain' },
+      payload: 'G0 X1\n'.repeat(400_000),
+    });
+    expect(upload.statusCode).toBe(200);
   });
 });
 

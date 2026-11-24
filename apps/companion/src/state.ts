@@ -20,6 +20,9 @@ export type StateKey = (typeof STATE_KEYS)[number];
 /** A document larger than this is no state of a machine. */
 export const MAX_STATE_BYTES = 512 * 1024;
 
+/** What a request for one may carry in all (the rest of the API takes uploads: this route must not). */
+export const STATE_BODY_LIMIT = 1024 * 1024;
+
 export interface StateDocument {
   rev: number;
   data: unknown;
