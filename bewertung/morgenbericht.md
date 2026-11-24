@@ -5,7 +5,7 @@ Stand: wird von mir Stufe für Stufe fortgeschrieben. **Alles, was unten als „
 ## 1. Stand in einem Satz
 Die Bereichs-Oberfläche ist in allen drei Stufen gebaut (sechs Reiter, im CAM nur das CAM, angedockte Hauptaktion), vier Prüf-Durchgänge mit Gegenprüfern haben Programm-Schloss, Start zwischen zwei Teilen, Schritt-Jog und Stream-Abbruch gehärtet, und die vier Gruppen der Änderungsliste sind bearbeitet (Update-Knopf und Farben nur als Entwurf bzw. Inventar – das sind deine Entscheidungen). Offen bleibt, was nur an der Maschine zu klären ist, und deine Festlegungen unter 3 und 5d.
 
-## 2. Was gepusht ist (Stand e099100; alle drei E2E-Projekte grün: 307 bestanden/1 übersprungen, `pnpm check` grün)
+## 2. Was gepusht ist (Stand 519173e; alle drei E2E-Projekte grün: 309 bestanden/1 übersprungen, `pnpm check` grün)
 | Commit | Inhalt |
 |---|---|
 | 39ebdea … 5d0846d | Vierter und fünfter Prüf-Durchgang: Programm-Schloss auf dem Programm, Start zwischen den Teilen gesperrt und bestätigt, Schritt-Jog mit frischem Bericht, Stream-Abbruch im Werkzeugwechsel |
@@ -17,6 +17,7 @@ Die Bereichs-Oberfläche ist in allen drei Stufen gebaut (sechs Reiter, im CAM n
 | 567b3a6 | Änderungsliste 3: Projektdateien `*.lowrider.json`; Messprotokoll Kamera und Entwurf Update-Knopf als Dokumente |
 | e3bb791 | Spec der Merkpunkte (strict-Locator) und Farben-Inventar |
 | 43e2bb6 | Änderungsliste 4: Ausblend-Schalter (Einstellungen → Maschine → Funktionen) |
+| 519173e | Grenzen der Projektdatei wie die Felder im CAM; weggelassene Einstellungen werden beim Öffnen genannt; Messung des Ergebnisses nach dem Antasten bei 800 × 600 |
 | b255b2d, 28f33dd, e099100 | **Prüf-Durchgang 6** (drei Linsen über Stufe 3 und die Änderungsliste): Dock-Ergebnisse und Werkzeugwechsel-Zeile, Projektdatei streng und ganz-oder-gar-nicht, Vorschub folgt der Drehzahl, Lösch-Kreuz der Merkpunkte, Datensicherung (fremde Dateien, Uhr, Platz, Fehlertext, fehlendes Medium) – Einzelheiten im Entscheidungsprotokoll |
 
 ## 3. Festlegungen, bitte prüfen (ich habe sie nach Regel 30 selbst getroffen)
@@ -29,6 +30,9 @@ Die Bereichs-Oberfläche ist in allen drei Stufen gebaut (sechs Reiter, im CAM n
 - **Schritt-Jog**: nur im Simulator getestet. An der Maschine prüfen: ein Schritt direkt nach dem Loslassen einer Dauerfahrt (fährt nicht zurück?), und ob die schmale Lücke aus Fund 16/j (ein Bericht, der kurz vor dem Befehl entstand) real vorkommt.
 - **Echte FluidNC**: bleibt `SD:` im Statusbericht in `Hold`/`Door` stehen? (Davon hängt ab, ob ein Job gezählt wird, den nur die Steuerung meldet.) Und: nach einem Alarm im SD-Job – bleibt `fileJob` hängen, und lässt sich dann entsperren (Fund 2)?
 - **Relais-Übergabe** bei sichtbarem, aber ruhendem Steuer-Tab (10 s) – noch nicht geprüft.
+- **Am Pi:** Datensicherung mit `LOWRIDER_BACKUP_DIR` auf einem Stick, **Stick gezogen** (es muss ein Fehler im Kasten Companion stehen, keine heimliche Kopie auf der Karte); danach Stick stecken und prüfen, dass die Kopie von heute dort liegt; Uhr falsch gestellt (die Kopie von heute darf nicht gleich wieder verschwinden). Wie lange dauert die Kopie auf der echten Karte, und ruckelt die Weiterleitung dabei?
+- **Am Berührungsbildschirm der Maschine (800 × 600):** das Ergebnis nach dem Antasten (Warnung „Platte und Klemme entfernen“) steht im Bild und die Köpfe (PAUSE, NOT-HALT) bleiben stehen (im Browser gemessen, nicht am Gerät); der Werkzeugwechsel (Fortsetzen und Abbrechen nebeneinander – bricht „Restliche Teile abbrechen“ im schmalen Feld um?); das Lösch-Kreuz der Merkpunkte; die vier Schnellaktionen (im schmalen Feld zwei mal zwei).
+- **Kamera:** das Messprotokoll (`docs/messprotokoll-kamera.md`) ist nicht ausgefüllt – die Zahlen der README für die Kamera sind weiter Annahmen.
 
 ## 4b. Testaufbau (Entscheidung 37 – erledigt)
 React Testing Library und jsdom sind als Dev-Abhängigkeit installiert (`apps/control/package.json`, Lockfile); der erste Test ist `test/startHook.test.ts` (Docblock `// @vitest-environment jsdom`). Er schließt die Mutation `start.ts:108`, die seit der Bewertung überlebte. Die Release-Datei ändert sich dadurch nicht.
@@ -37,6 +41,8 @@ React Testing Library und jsdom sind als Dev-Abhängigkeit installiert (`apps/co
 - Telefon-Monitor meldet „Läuft“, während ein Stream auf den Werkzeugwechsel wartet, und zeigt dazu keine Karte (vorher schon so).
 - „Prüfen“ ist tippbar, aber ohne Wirkung, solange ein Job wartet, ohne Grund (Fund 12).
 - `moveTo`/`moveZ` und das Zurücksetzen bei Reset/Alarm des Schritt-Jogs sind nicht einzeln getestet.
+- Der Werkzeugprüfer (`JobTools`, `CuttingAdvisor`) kennt eigene Werkzeugwerte ohne Material nicht und rechnet mit dem gelernten Faktor, das CAM nicht – beide können verschiedene Vorschübe nennen (vorher schon so).
+- Das Blatt mit den Passmarken für „In Abschnitten“ wird nur im Kasten „Vorrichtungen mit Markern“ gedruckt; wer ihn ausblendet, erreicht es nur über den Schalter „Funktionen“ (Vorschlag im Protokoll).
 
 ## 5b. Stufe 3 – angedockte Hauptaktion (gebaut, gepusht)
 „Nullpunkt hier setzen“, das Antasten und im Werkzeugwechsel „Fortsetzen“/„Abbrechen“ sitzen jetzt am unteren Rand des Bedienfelds (bzw. des Streifens unter dem Bild bei „Großbild“), solange ihre Karte im Bild ist – der Knopf liegt nur einmal vor, in seiner Karte. Gemessen mit `e2e/dock.spec.ts` bei vier Fenstergrößen. Zählung neu: A 12 Eingaben (vorher 13), B 13 (vorher 14). **Festlegungen, bitte prüfen:** das CAM-„G-Code erzeugen“ bleibt absichtlich ungedockt (es ersetzt ein fremdes Programm mit einem Tipp); das Dock sitzt in der Karte, nicht am ganzen Bedienfeld (damit „Antasten starten“ nie sichtbar ist, bevor man die Werte der Karte gesehen hat); auf dem Maschinen-Bildschirm braucht das Blatt dafür die Stellung „ganz“. Screenshots: `bewertung/screenshots/Dock-*.png`.
