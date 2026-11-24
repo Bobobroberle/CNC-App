@@ -103,6 +103,21 @@ describe('community profiles', () => {
     });
   });
 
+  it('keeps the own cutting values of a tool through sharing – and refuses broken ones', () => {
+    const own = { rpm: 18000, feed: 1800, stepover: 0.4 };
+    const tools = DEFAULT_TOOLS.map((t, i) => (i === 0 ? { ...t, cutting: own } : t));
+    const shared = createSharedProfile(
+      { name: 'x', machine: { travel: 1 }, tools, materials: DEFAULT_MATERIALS, macros: [] },
+      new Date('2026-01-02T03:04:05Z'),
+    );
+    const back = parseSharedProfile(JSON.stringify(shared), machineOk);
+    expect('profile' in back && back.profile.tools[0]!.cutting).toEqual(own);
+    const broken = { ...shared, tools: [{ ...tools[0]!, cutting: { feed: -5 } }] };
+    expect(parseSharedProfile(JSON.stringify(broken), machineOk)).toEqual({
+      error: 'invalid-tool',
+    });
+  });
+
   it('fills in a missing date and drops odd fields', () => {
     const { createdAt: _c, ...rest } = profile;
     const r = parseSharedProfile(JSON.stringify({ ...rest, author: 5, extra: 1 }), machineOk);

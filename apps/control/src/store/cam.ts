@@ -54,7 +54,7 @@ import {
   type TextOptions,
 } from '@lowrider/cam';
 import { splitLines } from '@lowrider/gcode-core';
-import { suggestCutting } from '@lowrider/workshop';
+import { suggestFor, toolOwnValues } from '@lowrider/workshop';
 import { create } from 'zustand';
 import {
   framePoint,
@@ -1120,15 +1120,20 @@ export const useCam = create<CamStore>((set, get) => {
       const { settings } = get();
       const tool = tools.find((t) => t.id === settings.toolId);
       const material = materials.find((m) => m.id === setup.materialId);
-      if (!tool || !material) return;
-      const s = suggestCutting(tool, material, ws.spindle);
-      get().setSettings({
-        rpm: Math.round(s.rpm),
-        feed: Math.round(s.feed),
-        plungeFeed: Math.round(s.plunge),
-        stepdown: Number(s.depthPerPass.toFixed(1)),
-        stepover: Number((s.stepover / tool.diameter).toFixed(2)),
-      });
+      if (!tool) return;
+      // The material's suggestion with the tool's own values over it – or, without a material,
+      // just what the tool says (what it leaves empty stays as it is).
+      const s = material
+        ? suggestFor(tool, material, ws.spindle)
+        : { ...toolOwnValues(tool, ws.spindle) };
+      const patch: Partial<CamSettings> = {};
+      if (s.rpm !== undefined) patch.rpm = Math.round(s.rpm);
+      if (s.feed !== undefined) patch.feed = Math.round(s.feed);
+      if (s.plunge !== undefined) patch.plungeFeed = Math.round(s.plunge);
+      if (s.depthPerPass !== undefined) patch.stepdown = Number(s.depthPerPass.toFixed(1));
+      if (s.stepover !== undefined)
+        patch.stepover = Number((s.stepover / tool.diameter).toFixed(2));
+      if (Object.keys(patch).length > 0) get().setSettings(patch);
     },
     remake(opts) {
       const p = get().project;

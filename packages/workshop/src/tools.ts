@@ -2,6 +2,23 @@ import type { ToolShape } from '@lowrider/gcode-core';
 
 export type ToolKind = 'flat' | 'ball' | 'vbit' | 'drill' | 'chamfer';
 
+/**
+ * The operator's own cutting values for a tool (all optional): they replace what the material and
+ * what was learned would suggest, and work without a material at all.
+ */
+export interface ToolCutting {
+  /** Spindle speed, rpm */
+  rpm?: number;
+  /** Cutting feed, mm/min */
+  feed?: number;
+  /** Plunge feed, mm/min */
+  plungeFeed?: number;
+  /** Depth per pass, mm */
+  stepdown?: number;
+  /** Stepover as a fraction of the diameter (pockets and bores), 0 to 1 */
+  stepover?: number;
+}
+
 export interface Tool {
   id: string;
   /** T number used in the G-code */
@@ -24,6 +41,8 @@ export interface Tool {
    * A job that uses it and switches the spindle on asks before every start.
    */
   probe?: boolean;
+  /** Own cutting values; absent: from the material */
+  cutting?: ToolCutting;
   /** Small photo as data URL */
   image?: string;
 }
@@ -88,7 +107,20 @@ export function validateTool(value: unknown): Tool | null {
   if (!Number.isInteger(t.flutes) || t.flutes! < 1) return null;
   if ((t.kind === 'vbit' || t.kind === 'chamfer') && !positive(t.angle)) return null;
   if (typeof t.holder !== 'string') return null;
+  if (t.cutting !== undefined && !validCutting(t.cutting)) return null;
   return t as Tool;
+}
+
+const CUTTING_KEYS = ['rpm', 'feed', 'plungeFeed', 'stepdown', 'stepover'] as const;
+
+/** Own cutting values: an object, each value a positive number; the stepover is a fraction. */
+function validCutting(value: unknown): value is ToolCutting {
+  if (typeof value !== 'object' || value === null) return false;
+  const c = value as Record<string, unknown>;
+  return (
+    CUTTING_KEYS.every((key) => c[key] === undefined || positive(c[key])) &&
+    (c.stepover === undefined || (c.stepover as number) <= 1)
+  );
 }
 
 /** Cutter shape for the material-removal simulation. */

@@ -27,9 +27,17 @@ type Draft = Record<
   | 'stickout'
   | 'holder'
   | 'holderDiameter'
-  | 'notes',
+  | 'notes'
+  | 'cutRpm'
+  | 'cutFeed'
+  | 'cutPlunge'
+  | 'cutStepdown'
+  | 'cutStepover',
   string
 > & { kind: ToolKind; image?: string; id: string; probe: boolean };
+
+/** An own cutting value as it is typed: empty where the tool has none. */
+const own = (n: number | undefined) => (n === undefined ? '' : String(n).replace('.', ','));
 
 const toDraft = (tool: Tool): Draft => ({
   id: tool.id,
@@ -44,13 +52,35 @@ const toDraft = (tool: Tool): Draft => ({
   holder: tool.holder,
   holderDiameter: String(tool.holderDiameter),
   notes: tool.notes ?? '',
+  cutRpm: own(tool.cutting?.rpm),
+  cutFeed: own(tool.cutting?.feed),
+  cutPlunge: own(tool.cutting?.plungeFeed),
+  cutStepdown: own(tool.cutting?.stepdown),
+  cutStepover: own(tool.cutting?.stepover),
   probe: tool.probe === true,
   ...(tool.image ? { image: tool.image } : {}),
 });
 
 const num = (s: string) => parseNumber(s);
 
+/** What is typed under the own cutting values; a value that is no number is kept as NaN, so the tool is refused. */
+function cuttingOf(d: Draft) {
+  const typed = {
+    rpm: d.cutRpm,
+    feed: d.cutFeed,
+    plungeFeed: d.cutPlunge,
+    stepdown: d.cutStepdown,
+    stepover: d.cutStepover,
+  };
+  const out: Record<string, number> = {};
+  for (const [key, text] of Object.entries(typed)) {
+    if (text.trim() !== '') out[key] = num(text);
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 function fromDraft(d: Draft): Tool | null {
+  const cutting = cuttingOf(d);
   return validateTool({
     id: d.id,
     number: num(d.number),
@@ -65,11 +95,20 @@ function fromDraft(d: Draft): Tool | null {
     holderDiameter: num(d.holderDiameter),
     ...(d.notes.trim() !== '' ? { notes: d.notes.trim() } : {}),
     ...(d.probe ? { probe: true } : {}),
+    ...(cutting ? { cutting } : {}),
     ...(d.image ? { image: d.image } : {}),
   });
 }
 
-const FIELDS: { key: keyof Omit<Draft, 'kind' | 'image' | 'id' | 'probe'>; decimal?: boolean }[] = [
+const CUTTING_FIELDS = ['cutRpm', 'cutFeed', 'cutPlunge', 'cutStepdown', 'cutStepover'] as const;
+
+const FIELDS: {
+  key: Exclude<
+    keyof Omit<Draft, 'kind' | 'image' | 'id' | 'probe'>,
+    (typeof CUTTING_FIELDS)[number]
+  >;
+  decimal?: boolean;
+}[] = [
   { key: 'number' },
   { key: 'name' },
   { key: 'diameter', decimal: true },
@@ -173,6 +212,24 @@ export function ToolLibrary() {
                   }
                   value={draft[f.key]}
                   onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+                />
+              </Field>
+            ))}
+          </div>
+          {/* Own cutting values: over the material's suggestion, and no material needed. */}
+          <h3 className="font-medium text-sm">
+            {t('tools.cuttingTitle')}
+          </h3>
+          <p className="text-muted-foreground text-sm">{t('tools.cuttingHint')}</p>
+          <div className="grid grid-cols-2 gap-2" data-testid="tool-cutting">
+            {CUTTING_FIELDS.map((key) => (
+              <Field key={key}>
+                <FieldLabel>{t(`tools.fields.${key}`)}</FieldLabel>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={draft[key]}
+                  onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
                 />
               </Field>
             ))}

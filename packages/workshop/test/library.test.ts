@@ -7,7 +7,9 @@ import {
   learnedFactor,
   learningKey,
   suggestCutting,
+  suggestFor,
   toolByNumber,
+  toolOwnValues,
   toolShape,
   validateMaterial,
   validateTool,
@@ -123,6 +125,91 @@ describe('cutting values', () => {
     const s = suggestCutting(v, mdf, { ...spindle, maxFeed: 1e6 });
     expect(s.chipLoad).toBeCloseTo(0.08, 3);
     expect(s.feed).toBe(Math.round(0.08 * 2 * s.rpm));
+  });
+});
+
+describe("a tool's own cutting values", () => {
+  const own = { rpm: 18000, feed: 1800, plungeFeed: 600, stepdown: 2.5, stepover: 0.4 };
+
+  it('are accepted when each is a positive number, the stepover a fraction up to one', () => {
+    expect(validateTool({ ...t1, cutting: own })).not.toBeNull();
+    expect(validateTool({ ...t1, cutting: {} })).not.toBeNull();
+    expect(validateTool({ ...t1, cutting: { feed: 900 } })).not.toBeNull();
+    expect(validateTool({ ...t1, cutting: { stepover: 1 } })).not.toBeNull();
+    // a shared profile goes through the same check: nothing broken gets in
+    const bad: unknown[] = [
+      null,
+      'fast',
+      5,
+      { rpm: 0 },
+      { rpm: -1 },
+      { feed: Number.NaN },
+      { feed: Number.POSITIVE_INFINITY },
+      { feed: '900' },
+      { plungeFeed: 0 },
+      { stepdown: -2 },
+      { stepover: 0 },
+      { stepover: 1.5 },
+    ];
+    for (const cutting of bad) expect(validateTool({ ...t1, cutting }), String(cutting)).toBeNull();
+    // the tools of the library stay as they are
+    expect(toolOwnValues(t1, spindle)).toEqual({});
+  });
+
+  it('are what the tool says, within the spindle and the machine – and nothing for what is empty', () => {
+    expect(toolOwnValues({ ...t1, cutting: own }, spindle)).toEqual({
+      rpm: 18000,
+      feed: 1800,
+      plunge: 600,
+      depthPerPass: 2.5,
+      stepover: 3.2,
+    });
+    expect(toolOwnValues({ ...t1, cutting: { feed: 900 } }, spindle)).toEqual({ feed: 900 });
+    // beyond what the machine does: cut to it
+    expect(toolOwnValues({ ...t1, cutting: { rpm: 60000, feed: 9000 } }, spindle)).toEqual({
+      rpm: 30000,
+      feed: 5000,
+    });
+    expect(toolOwnValues({ ...t1, cutting: { rpm: 5000 } }, spindle)).toEqual({ rpm: 10000 });
+  });
+
+  it('go over the suggestion of the material, field by field', () => {
+    const base = suggestCutting(t1, mdf, spindle, 0.8);
+    // nothing typed: the suggestion as it was
+    expect(suggestFor(t1, mdf, spindle, 0.8)).toEqual(base);
+    // only the feed typed: the plunge feed keeps the material's ratio, learning does not scale it
+    const feed = suggestFor({ ...t1, cutting: { feed: 1000 } }, mdf, spindle, 0.8);
+    expect(feed.feed).toBe(1000);
+    expect(feed.plunge).toBe(Math.round(1000 * mdf.plungeFactor));
+    expect(feed.learnedFactor).toBe(1);
+    expect(feed.rpm).toBe(base.rpm);
+    expect(feed.depthPerPass).toBe(base.depthPerPass);
+    expect(feed.stepover).toBe(base.stepover);
+    expect(feed.chipLoad).toBeCloseTo(1000 / (t1.flutes * base.rpm), 4);
+    // everything typed
+    const all = suggestFor({ ...t1, cutting: own }, mdf, spindle);
+    expect(all).toMatchObject({
+      rpm: 18000,
+      feed: 1800,
+      plunge: 600,
+      depthPerPass: 2.5,
+      stepover: 3.2,
+      learnedFactor: 1,
+    });
+    expect(all.chipLoad).toBeCloseTo(1800 / (t1.flutes * 18000), 4);
+    // a typed rpm without a typed feed: the feed stays the material's (and learning keeps scaling it)
+    const rpm = suggestFor({ ...t1, cutting: { rpm: 12000 } }, mdf, spindle, 0.8);
+    expect(rpm.feed).toBe(base.feed);
+    expect(rpm.learnedFactor).toBe(0.8);
+    // a V-bit counts two flutes for the chip load of what was typed
+    const v: Tool = {
+      ...t1,
+      kind: 'vbit',
+      angle: 90,
+      flutes: 4,
+      cutting: { feed: 800, rpm: 20000 },
+    };
+    expect(suggestFor(v, mdf, spindle).chipLoad).toBeCloseTo(800 / (2 * 20000), 4);
   });
 });
 

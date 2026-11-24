@@ -1557,9 +1557,18 @@ export const de = {
       holder: 'Halter / Spannzange',
       holderDiameter: 'Halter-Ø (mm)',
       notes: 'Notiz',
+      cutRpm: 'Drehzahl (U/min)',
+      cutFeed: 'Vorschub (mm/min)',
+      cutPlunge: 'Eintauchvorschub (mm/min)',
+      cutStepdown: 'Zustellung (mm)',
+      cutStepover: 'Bahnabstand (Anteil vom Ø, 0–1)',
     },
+    cuttingTitle: 'Eigene Schnittwerte (optional)',
+    cuttingHint:
+      'Was hier steht, ersetzt den Vorschlag aus Material und Lernen – auch ganz ohne Material. Leer lassen, was das Material bestimmen soll.',
     photo: 'Foto',
-    invalid: 'Bitte Name, T-Nummer und positive Maße eintragen (Winkel bei V-Nut/Fase).',
+    invalid:
+      'Bitte Name, T-Nummer und positive Maße eintragen (Winkel bei V-Nut/Fase); Schnittwerte nur als positive Zahlen, der Bahnabstand von 0 bis 1.',
     save: 'Speichern',
     saved: 'Werkzeug „{name}“ gespeichert.',
     cancel: 'Abbrechen',
@@ -2240,7 +2249,8 @@ export const de = {
     tabs: 'Haltestege',
     tool: 'Werkzeug',
     suggest: 'Werte aus Werkzeug und Material vorschlagen',
-    suggestNeedsMaterial: 'Für Vorschläge erst unter „Vorbereiten“ das Material wählen',
+    suggestNeedsMaterial:
+      'Für Vorschläge erst unter „Vorbereiten“ das Material wählen – oder am Werkzeug eigene Schnittwerte eintragen',
     depth: 'Tiefe (mm)',
     engraveDepth: 'Gravurtiefe (mm)',
     allowance: 'Schlichtzugabe (mm, 0 = aus)',
@@ -3177,7 +3187,7 @@ export const de = {
       console:
         'konsole, terminal, befehl senden, gcode eingeben, kommando, console, mdi, befehlszeile, handeingabe',
       toolLibrary:
-        'werkzeuge, fräser, fräserliste, werkzeugliste, bits, endmills, werkzeug anlegen, tool library, durchmesser, schneiden',
+        'werkzeuge, fräser, fräserliste, werkzeugliste, bits, endmills, werkzeug anlegen, tool library, durchmesser, schneiden, schnittwerte, eigene schnittwerte, vorschub pro werkzeug, drehzahl pro werkzeug, zustellung, ohne material',
       materialLibrary:
         'materialien, materialliste, holzarten, werkstoffe, material anlegen, materials, sperrholz, mdf',
       cutting:

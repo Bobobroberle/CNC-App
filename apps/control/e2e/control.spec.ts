@@ -887,8 +887,21 @@ test('suggests cutting values and keeps tool and material libraries', async ({ p
   await tools.getByRole('button', { name: 'V-Nut', exact: true }).click();
   await expect(tools).toContainText('Bitte Name');
   await tools.getByLabel('Winkel (°, V-Nut/Fase)').fill('60');
+  // Own cutting values: a value that is no positive number refuses the tool, a good one is kept
+  await tools.getByLabel('Vorschub (mm/min)', { exact: true }).fill('-5');
+  await expect(tools).toContainText('Bitte Name');
+  await expect(tools.getByRole('button', { name: 'Speichern' })).toBeDisabled();
+  await tools.getByLabel('Vorschub (mm/min)', { exact: true }).fill('900');
+  await tools.getByLabel('Bahnabstand (Anteil vom Ø, 0–1)').fill('0,4');
   await tools.getByRole('button', { name: 'Speichern' }).click();
   await expect(tools).toContainText('V-Nut 60°');
+  await tools
+    .getByRole('row', { name: /V-Nut 60°/ })
+    .getByRole('button', { name: 'Ändern' })
+    .click();
+  await expect(tools.getByLabel('Vorschub (mm/min)', { exact: true })).toHaveValue('900');
+  await expect(tools.getByLabel('Bahnabstand (Anteil vom Ø, 0–1)')).toHaveValue('0,4');
+  await tools.getByRole('button', { name: 'Abbrechen' }).click();
   await page.reload();
   await goTo(page, 'Werkzeugliste');
   await expect(page.getByTestId('tool-library')).toContainText('V-Nut 60°');

@@ -1538,9 +1538,18 @@ export const en: DictionaryShape = {
       holder: 'Holder / collet',
       holderDiameter: 'Holder Ø (mm)',
       notes: 'Note',
+      cutRpm: 'Spindle speed (rpm)',
+      cutFeed: 'Feed (mm/min)',
+      cutPlunge: 'Plunge feed (mm/min)',
+      cutStepdown: 'Depth per pass (mm)',
+      cutStepover: 'Stepover (fraction of Ø, 0–1)',
     },
+    cuttingTitle: 'Own cutting values (optional)',
+    cuttingHint:
+      'What is entered here replaces the suggestion from material and learning – even without a material. Leave empty what the material should decide.',
     photo: 'Photo',
-    invalid: 'Enter name, T number and positive dimensions (angle for V-bit/chamfer).',
+    invalid:
+      'Enter name, T number and positive dimensions (angle for V-bit/chamfer); cutting values only as positive numbers, the stepover from 0 to 1.',
     save: 'Save',
     saved: 'Tool “{name}” saved.',
     cancel: 'Cancel',
@@ -2209,7 +2218,8 @@ export const en: DictionaryShape = {
     tabs: 'Tabs',
     tool: 'Tool',
     suggest: 'Suggest values from tool and material',
-    suggestNeedsMaterial: 'For suggestions choose the material under "Prepare" first',
+    suggestNeedsMaterial:
+      'For suggestions choose the material under "Prepare" first – or enter own cutting values on the tool',
     depth: 'Depth (mm)',
     engraveDepth: 'Engraving depth (mm)',
     allowance: 'Finishing allowance (mm, 0 = off)',
@@ -3115,7 +3125,7 @@ export const en: DictionaryShape = {
       console:
         'console, terminal, send a command, type gcode, command line, mdi, manual data input',
       toolLibrary:
-        'tools, cutters, cutter list, tool list, bits, endmills, add a tool, diameter, flutes',
+        'tools, cutters, cutter list, tool list, bits, endmills, add a tool, diameter, flutes, cutting values, own cutting values, feed per tool, speed per tool, depth per pass, without material',
       materialLibrary: 'materials, material list, kinds of wood, add a material, plywood, mdf',
       cutting:
         'cutting values, feed, speed, rpm, stepdown, calculator, recommendation, feeds and speeds, chipload, chip load, how fast',

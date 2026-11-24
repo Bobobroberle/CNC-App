@@ -1,6 +1,6 @@
 import {
   learnedFactor,
-  suggestCutting,
+  suggestFor,
   toolLengthOffsetCommand,
   toolLengthRoutine,
   type Tool,
@@ -154,7 +154,7 @@ function ToolRow({ row, first }: { row: JobTool; first: boolean }) {
   const material = materials.find((m) => m.id === setup.materialId) ?? null;
   const suggestion =
     tool && material
-      ? suggestCutting(tool, material, spindle, learnedFactor(learning, tool.id, material.id))
+      ? suggestFor(tool, material, spindle, learnedFactor(learning, tool.id, material.id))
       : null;
   const ratio = suggestion ? feedRatio(analysis.feedRange, suggestion.feed) : null;
   const choose = (id: string) => {

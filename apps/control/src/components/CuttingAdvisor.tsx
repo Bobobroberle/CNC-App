@@ -1,4 +1,4 @@
-import { learnedFactor, learningKey, suggestCutting } from '@lowrider/workshop';
+import { learnedFactor, learningKey, suggestFor } from '@lowrider/workshop';
 import { useState } from 'react';
 import { t } from '../i18n';
 import { formatNumber } from '../lib/format';
@@ -26,7 +26,7 @@ export function CuttingAdvisor({
   if (!tool || !material) return null;
   const factor = learnedFactor(learning, tool.id, material.id);
   const jobs = learning[learningKey(tool.id, material.id)]?.jobs ?? 0;
-  const s = suggestCutting(tool, material, spindle, factor);
+  const s = suggestFor(tool, material, spindle, factor);
 
   return (
     <Card className="gap-3 p-4" data-testid="cutting-advisor" data-find="cutting">

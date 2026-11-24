@@ -1,6 +1,6 @@
 import { circle, holeGrid, rectangle, type Sketch } from '@lowrider/cam';
 import { frameAngle, selectionFrame } from '../src/lib/camEdit';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { holeCentre, isSelected, itemAt, itemsBounds, partsOf } from '../src/lib/camItems';
 import { blocksFlip, itemOperation, useCam } from '../src/store/cam';
 import { useFlip } from '../src/store/flip';
@@ -615,6 +615,50 @@ describe('a part for both sides in the drawing', () => {
     expect(useJob.getState().fileName).toBe('zeichnung_vorderseite.nc');
     useFlip.getState().cancel();
     expect(useFlip.getState().plan).toBeNull();
+  });
+});
+
+describe("a tool's own cutting values in the drawing", () => {
+  beforeEach(() => {
+    useCam.getState().close();
+    useJob.getState().unload();
+    useCam.getState().setSettings({ toolId: 't2', depth: 6, allowance: 0, engraveDepth: 1 });
+    useWorkshop.getState().setSetup({ materialId: null });
+  });
+  const t2 = () => useWorkshop.getState().tools.find((t) => t.id === 't2')!;
+  afterEach(() => {
+    const { cutting: _gone, ...plain } = t2();
+    useWorkshop.getState().saveTool(plain);
+    useWorkshop.getState().setSetup({ materialId: null });
+  });
+
+  it('are the suggestion without any material – and leave what they do not name as it is', () => {
+    useWorkshop.getState().saveTool({ ...t2(), cutting: { feed: 900, stepdown: 2 } });
+    useCam.getState().setSettings({ feed: 1234, rpm: 15000, plungeFeed: 111 });
+    useCam.getState().suggest();
+    const { settings } = useCam.getState();
+    expect(settings.feed).toBe(900);
+    expect(settings.stepdown).toBe(2);
+    expect(settings.rpm).toBe(15000);
+    expect(settings.plungeFeed).toBe(111);
+  });
+
+  it('go over the suggestion of the material when there is one', () => {
+    useWorkshop.getState().saveTool({ ...t2(), cutting: { feed: 900 } });
+    const materials = useWorkshop.getState().materials;
+    useWorkshop.getState().setSetup({ materialId: materials[0]!.id });
+    useCam.getState().suggest();
+    const { settings } = useCam.getState();
+    expect(settings.feed).toBe(900);
+    // the rest comes from the material
+    expect(settings.rpm).toBeGreaterThan(0);
+    expect(settings.plungeFeed).toBe(Math.round(900 * materials[0]!.plungeFactor));
+  });
+
+  it('suggest nothing when there is neither a material nor an own value', () => {
+    useCam.getState().setSettings({ feed: 1234 });
+    useCam.getState().suggest();
+    expect(useCam.getState().settings.feed).toBe(1234);
   });
 });
 

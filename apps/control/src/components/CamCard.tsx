@@ -310,6 +310,10 @@ export function CamCard() {
   const cam = useCam.getState();
   const tools = useWorkshop((s) => s.tools);
   const material = useWorkshop((s) => s.setup.materialId);
+  // The cutter has cutting values of its own: a suggestion needs no material then
+  const ownValues = useWorkshop(
+    (s) => Object.keys(s.tools.find((x) => x.id === settings.toolId)?.cutting ?? {}).length > 0,
+  );
   const addLog = useMachine((s) => s.addLog);
   const lines = useJob((s) => s.lines);
   const fileName = useJob((s) => s.fileName);
@@ -424,13 +428,13 @@ export function CamCard() {
         <Button
           reason="missing"
           variant="outline"
-          disabled={!material}
+          disabled={!material && !ownValues}
           onClick={() => {
             cam.suggest();
             cam.remake();
           }}
         >
-          {material ? t('cam.suggest') : t('cam.suggestNeedsMaterial')}
+          {material || ownValues ? t('cam.suggest') : t('cam.suggestNeedsMaterial')}
         </Button>
         <Fold title={t('cam.advanced')} testId="cam-advanced" find="cam-advanced">
           <div className="contents">

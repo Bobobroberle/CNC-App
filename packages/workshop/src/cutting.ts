@@ -34,6 +34,10 @@ export function chipLoad(material: Material, diameter: number): number {
  * n = vc·1000 / (π·d), f = fz·z·n, with the machine's limits and the
  * correction learned from earlier jobs.
  */
+/** V-bits and chamfer cutters cut with at most two edges. */
+const flutesOf = (tool: Tool) =>
+  tool.kind === 'vbit' || tool.kind === 'chamfer' ? Math.min(tool.flutes, 2) : tool.flutes;
+
 export function suggestCutting(
   tool: Tool,
   material: Material,
@@ -50,8 +54,7 @@ export function suggestCutting(
     rpm = spindle.rpmMax;
     limits.push('rpm-low');
   }
-  const flutes =
-    tool.kind === 'vbit' || tool.kind === 'chamfer' ? Math.min(tool.flutes, 2) : tool.flutes;
+  const flutes = flutesOf(tool);
   let feed = chipLoad(material, tool.diameter) * flutes * rpm * learnedFactor;
   if (feed > spindle.maxFeed) {
     feed = spindle.maxFeed;
@@ -66,6 +69,57 @@ export function suggestCutting(
     chipLoad: Number((feed / (flutes * rpm)).toFixed(4)),
     learnedFactor,
     limits,
+  };
+}
+
+/** What the tool's own values say, as the CAM takes them: within the machine's limits, nothing guessed. */
+export type OwnValues = Partial<
+  Pick<CuttingSuggestion, 'rpm' | 'feed' | 'plunge' | 'depthPerPass' | 'stepover'>
+>;
+
+/**
+ * The values the operator typed for a tool (`Tool.cutting`), cut to what the spindle and the machine
+ * can do – and nothing for what they left empty. The learned correction does not touch them.
+ */
+export function toolOwnValues(tool: Tool, spindle: SpindleLimits): OwnValues {
+  const c = tool.cutting;
+  const out: OwnValues = {};
+  if (!c) return out;
+  if (c.rpm !== undefined)
+    out.rpm = Math.round(Math.min(spindle.rpmMax, Math.max(spindle.rpmMin, c.rpm)));
+  if (c.feed !== undefined) out.feed = Math.round(Math.min(spindle.maxFeed, c.feed));
+  if (c.plungeFeed !== undefined) out.plunge = Math.round(c.plungeFeed);
+  if (c.stepdown !== undefined) out.depthPerPass = Number(c.stepdown.toFixed(2));
+  if (c.stepover !== undefined) out.stepover = Number((c.stepover * tool.diameter).toFixed(2));
+  return out;
+}
+
+/**
+ * The suggestion of the material, with the tool's own values over it: what the CAM applies and what
+ * the check compares the program with. A typed feed without a typed plunge feed keeps the material's
+ * plunge ratio; a typed feed is not scaled by what was learned.
+ */
+export function suggestFor(
+  tool: Tool,
+  material: Material,
+  spindle: SpindleLimits,
+  learned = 1,
+): CuttingSuggestion {
+  const base = suggestCutting(tool, material, spindle, learned);
+  const own = toolOwnValues(tool, spindle);
+  const rpm = own.rpm ?? base.rpm;
+  const feed = own.feed ?? base.feed;
+  return {
+    ...base,
+    rpm,
+    feed,
+    plunge:
+      own.plunge ??
+      (own.feed === undefined ? base.plunge : Math.round(feed * material.plungeFactor)),
+    depthPerPass: own.depthPerPass ?? base.depthPerPass,
+    stepover: own.stepover ?? base.stepover,
+    chipLoad: Number((feed / (flutesOf(tool) * rpm)).toFixed(4)),
+    learnedFactor: own.feed === undefined ? base.learnedFactor : 1,
   };
 }
 
