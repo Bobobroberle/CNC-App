@@ -172,8 +172,12 @@ test.describe('the jog panel', () => {
       .getByTestId('change-card')
       .getByRole('button', { name: 'Aktuelle Position merken' })
       .click({ force: true });
+    // Every card of the panel carries the reason for its own button; the one tapped shows it
     await expect(
-      page.getByRole('tooltip').filter({ hasText: 'Erst die Referenzfahrt' }),
+      page
+        .getByTestId('change-card')
+        .getByRole('tooltip')
+        .filter({ hasText: 'Erst die Referenzfahrt' }),
     ).toBeVisible();
     await hold(page, /^Referenzfahrt/);
     await expect.poll(() => sent(page)).toContain('$H');
