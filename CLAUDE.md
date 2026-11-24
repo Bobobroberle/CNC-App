@@ -69,7 +69,10 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   between the button and `.panel-body` clips (`overflow`); `e2e/dock.spec.ts` and the geometry checks in
   `control.spec.ts` measure (`inReach` in `e2e/helpers.ts`: the control's box lies inside the scroll box *and* a touch at
   its middle reaches it – `toBeVisible` cannot see clipping). A `.panel-body` that holds a dock has `scroll-padding-bottom` (`:has(.dock)` – a padding elsewhere would scroll things that are in view, which `e2e/areas.spec.ts` caught in the jog panel) so a control
-  brought into view stops above the dock. **Deliberately not docked:** the CAM hand-over (one tap that replaces a
+  brought into view stops above the dock (`.stage-prompt:has(.dock)` too). **What a docked action leaves behind** (a result, a
+  warning) lies in the card's flow below the stuck dock: put it in `<Result>` (`ui/dock.tsx`), which brings it into view once when it
+  shows. Two actions side by side are `<Dock className="dock-row">` (24 px apart, as low as one button's – the tool change).
+  **Deliberately not docked:** the CAM hand-over (one tap that replaces a
   program that is not the drawing's own – next to content that is being edited it would invite a slip), and anything
   in the action bar. On the machine's small screen the sheet at "half" is too short for a card and its dock beside the
   row above it (800 × 600: ~100 px of body): the sheet's "Größer" is the way (the spec measures at that rest).
@@ -261,8 +264,14 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `placement` – never the derived `contours` –, how each part is cut, the two-sided state, the cutting settings) as
   `*.lowrider.json`, format `lowrider-cam-project` version 1. Reading is strict and refuses with stable codes (`too-large`,
   `invalid-json`, `wrong-format`, `newer-version`, `invalid-project`; non-finite numbers, duplicate ids, 2000 items / 400 000
-  points); a sketch or text style that cannot be trusted is dropped (the item keeps its contours); a cutter the workshop lacks
-  stays the chosen one and is said. Opening replaces the drawing in one step of undo, raises the id counter above the file's,
+  points; a name with control characters or over 120 characters – it goes into the program header and the file name –, ids that
+  are no safe integers, a circle that is not where its polygon is, a back side without the two-sided state, a part deeper than
+  100 mm); the cutting settings are held to fixed ranges (`SETTING_RANGES`: stepdown ≥ 0.05, tabs ≤ 50 …) and **one outside is
+  left out, not refused** (what is set now stays); a sketch or text style that cannot be trusted is dropped (the item keeps its
+  contours); a cutter the workshop lacks stays the chosen one and is said, and so is one of the same id with another
+  diameter (`toolDiameter` is in the file). Opening is **whole or not at all** (it catches what `generate` throws and puts
+  everything back), replaces the drawing in one step of undo that carries the **name and the settings** too (`Snapshot.name`/
+  `settings`, `alongWith` for the way forward), raises the id counter above the file's,
   and **never loads a program itself** – it goes through the drawing's own `update`, so the job lock and the "not its own
   program" rule hold. A part may have its own direction (`CamItem.climb` → `Operation.climb`, falling back to the job's).
   **Every other way to load, replace or take off the program goes through the central lock**

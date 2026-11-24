@@ -5,14 +5,19 @@ Stand: wird von mir Stufe für Stufe fortgeschrieben. **Alles, was unten als „
 ## 1. Stand in einem Satz
 Die Bereichs-Oberfläche ist in allen drei Stufen gebaut (sechs Reiter, im CAM nur das CAM, angedockte Hauptaktion), vier Prüf-Durchgänge mit Gegenprüfern haben Programm-Schloss, Start zwischen zwei Teilen, Schritt-Jog und Stream-Abbruch gehärtet, und die vier Gruppen der Änderungsliste sind bearbeitet (Update-Knopf und Farben nur als Entwurf bzw. Inventar – das sind deine Entscheidungen). Offen bleibt, was nur an der Maschine zu klären ist, und deine Festlegungen unter 3 und 5d.
 
-## 2. Was gepusht ist (alle grün: 283 E2E bestanden/1 übersprungen, `pnpm check` mit 652 Tests)
+## 2. Was gepusht ist (Stand e099100; alle drei E2E-Projekte grün: 307 bestanden/1 übersprungen, `pnpm check` grün)
 | Commit | Inhalt |
 |---|---|
-| 39ebdea | Vierter Prüf-Durchgang: „Job unterwegs“ ist, was die Steuerung mit SD-Datei meldet (nicht jedes `Run`); eine Ansicht von Fräsen, solange ein Job wartet; Start zwischen den Teilen gesperrt und bestätigt wie in der Leiste |
-| a6d005c | Zentrales Schloss auf dem Programm (`store/job.ts`): nichts wird geladen, ersetzt oder abgeräumt, solange ein Job unterwegs ist |
-| b289d67 | Veraltetes `stepAt` nach Abbruch; Schritt-Jog zählt nicht von einem veralteten Positionsbericht |
-| bb24995 / 20ed9bd / c72f295 | Korrekturen aus dem Review dazu: wartender Schritt-Jog stirbt bei „Jog stoppen“, NOT-HALT, PAUSE, neuer Fahrt; Stream-Abbruch während des Werkzeugwechsels schickt nichts mehr nach dem Reset; Abläufe prüfen das Schloss vor ihrem ersten Schritt |
-| 5d0846d | Enger Durchgang über diese Korrekturen: Karten sperren, was die Speicher verweigern; Ladungen werden nach jedem `await` geprüft |
+| 39ebdea … 5d0846d | Vierter und fünfter Prüf-Durchgang: Programm-Schloss auf dem Programm, Start zwischen den Teilen gesperrt und bestätigt, Schritt-Jog mit frischem Bericht, Stream-Abbruch im Werkzeugwechsel |
+| 76bd254, 58d7bf6, d0954eb | Stufe 3: angedockte Hauptaktion (Nullpunkt, Antasten, Werkzeugwechsel) |
+| f56d6c9, eb7fc47 | README komplett für die sechs Bereiche; Abnahme Stufe 3 |
+| 6214646, 08e1c05 | Änderungsliste 1: Laufrichtung je Teil; eigene Schnittwerte je Werkzeug |
+| c1c7353, b620a39 | Änderungsliste 2: Schnellaktion „Werkzeugwechsel“, Karte „Merkpunkte“ (nach Prüfung nachgebessert) |
+| cc06185 | Änderungsliste 3: tägliche Datensicherung der Pi-Datenbank |
+| 567b3a6 | Änderungsliste 3: Projektdateien `*.lowrider.json`; Messprotokoll Kamera und Entwurf Update-Knopf als Dokumente |
+| e3bb791 | Spec der Merkpunkte (strict-Locator) und Farben-Inventar |
+| 43e2bb6 | Änderungsliste 4: Ausblend-Schalter (Einstellungen → Maschine → Funktionen) |
+| b255b2d, 28f33dd, e099100 | **Prüf-Durchgang 6** (drei Linsen über Stufe 3 und die Änderungsliste): Dock-Ergebnisse und Werkzeugwechsel-Zeile, Projektdatei streng und ganz-oder-gar-nicht, Vorschub folgt der Drehzahl, Lösch-Kreuz der Merkpunkte, Datensicherung (fremde Dateien, Uhr, Platz, Fehlertext, fehlendes Medium) – Einzelheiten im Entscheidungsprotokoll |
 
 ## 3. Festlegungen, bitte prüfen (ich habe sie nach Regel 30 selbst getroffen)
 1. **Fund 5 und 6 des Prüf-Durchgangs 4** (Not-Halt während „Job fortsetzen“ und Abbruch im Werkzeugwechsel-Halt): behoben wie Entscheidung 34 (stale `stepAt`), weil das Programm-Schloss am Stream-Zustand hängt. Geändert in `store/machine.ts` (Prüfung „ist das noch derselbe laufende Stream“ nach jedem `await`).
