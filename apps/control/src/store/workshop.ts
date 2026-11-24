@@ -30,6 +30,7 @@ import {
 import { validHiddenFeatures, type FeatureId } from '../lib/features';
 import { pinFixtures, type FixtureFrame } from '../lib/clamps';
 import { browserStorage, listOf, loadJson, saveJson } from '../lib/persist';
+import { tokenFor, usePiLogin } from './piLogin';
 import { validWaypoints, type Waypoint } from '../lib/spots';
 
 export interface CameraSettings {
@@ -287,7 +288,10 @@ interface WorkshopStore {
 
 export function companion(): CompanionClient | null {
   const base = companionBase(useWorkshop.getState().settings.companionUrl);
-  return base ? new CompanionClient(base) : null;
+  // The token of this device's login goes with every request – to this address only
+  return base
+    ? new CompanionClient(base, undefined, tokenFor(base), () => usePiLogin.getState().expire(base))
+    : null;
 }
 
 /**

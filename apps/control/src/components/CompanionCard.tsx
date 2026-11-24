@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { t, type MessageKey } from '../i18n';
-import { relayUrl } from '../lib/companion';
+import { companionBase, relayUrl } from '../lib/companion';
 import { getLocale } from '../lib/format';
 import { hostOf } from '../lib/link';
 import { useMachine } from '../store/machine';
+import { usePiLogin } from '../store/piLogin';
 import { useShutdown, type ShutdownFailure } from '../store/shutdown';
 import { overwritePiNow, syncNow, useStateSync } from '../store/stateSync';
 import { adoptCompanion, companion, useWorkshop } from '../store/workshop';
@@ -148,6 +149,7 @@ const FAILURE_TEXT: Record<ShutdownFailure, Parameters<typeof t>[0]> = {
   request: 'companion.shutdownRequestFailed',
   host: 'companion.shutdownRefused',
   'still-running': 'companion.shutdownStillRunning',
+  login: 'companion.shutdownNeedsLogin',
 };
 
 /** Machine states in which the Pi must stay up (motion through the relay, job watch). */
@@ -158,6 +160,12 @@ function ShutdownPanel() {
   const offered = useWorkshop((s) => s.companionHealth?.shutdown === true);
   const { phase, failure, detail, remaining } = useShutdown();
   const busy = useMachine((s) => BUSY.has(s.status?.state ?? ''));
+  // Powering down needs the login: said before the machine connection is closed, not after
+  const url = useWorkshop((s) => s.settings.companionUrl);
+  const authOn = useWorkshop((s) => s.companionHealth?.auth === true);
+  const stored = usePiLogin((s) => s.login);
+  const base = companionBase(url);
+  const needsLogin = authOn && !(stored && base && stored.base === base);
   if (!offered && phase === 'idle') return null;
 
   const start = () => {
@@ -176,9 +184,17 @@ function ShutdownPanel() {
       {phase === 'idle' || phase === 'failed' ? (
         <>
           <p className="text-muted-foreground text-sm">{t('companion.shutdownHint')}</p>
-          <HoldButton variant="danger" disabled={busy} onConfirm={start}>
+          <HoldButton
+            variant="danger"
+            disabled={busy || needsLogin}
+            reason={needsLogin ? t('companion.shutdownNeedsLogin') : null}
+            onConfirm={start}
+          >
             {t('companion.shutdown')}
           </HoldButton>
+          {needsLogin ? (
+            <p className="text-muted-foreground text-sm">{t('companion.shutdownNeedsLogin')}</p>
+          ) : null}
           {busy ? (
             <p className="text-muted-foreground text-sm">{t('companion.shutdownBusy')}</p>
           ) : null}

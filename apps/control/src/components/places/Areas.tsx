@@ -14,6 +14,8 @@ import { CalibrationWizard } from '../CalibrationWizard';
 import { MeasurementLog } from '../MeasurementLog';
 import { CameraSetupCard } from '../CameraSetupCard';
 import { CompanionCard } from '../CompanionCard';
+import { PiAccessCard } from '../PiAccessCard';
+import { PiUpdateCard } from '../PiUpdateCard';
 import { ConfigEditor } from '../ConfigEditor';
 import { ConfigFileEditor } from '../ConfigFileEditor';
 import { ConnectionCard, ConsoleCard, ExpertSwitch, LogCard } from '../ConnectionCard';
@@ -157,6 +159,8 @@ export function SettingsArea() {
             <ConnectionCard />
             <SimulatorCard />
             <CompanionCard />
+            <PiAccessCard />
+            <PiUpdateCard />
           </>
         ) : null}
         {shown === 'machine' ? (

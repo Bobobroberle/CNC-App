@@ -14,9 +14,10 @@ export type ShutdownPhase = 'idle' | 'requesting' | 'stopping' | 'settling' | 'd
 /**
  * not-supported: the companion has no power-off (old version or LOWRIDER_SHUTDOWN=0);
  * request: the request did not get through; host: the Pi refused (sudoers rule missing);
- * still-running: the companion was still answering when the wait ran out.
+ * still-running: the companion was still answering when the wait ran out;
+ * login: powering the Pi down needs this device to be logged in (the Pi answered 401).
  */
-export type ShutdownFailure = 'not-supported' | 'request' | 'host' | 'still-running';
+export type ShutdownFailure = 'not-supported' | 'request' | 'host' | 'still-running' | 'login';
 
 export interface ShutdownState {
   phase: ShutdownPhase;
@@ -76,7 +77,12 @@ export async function runShutdown(
   } catch (e) {
     return set({
       phase: 'failed',
-      failure: (e as Error).message === 'HTTP 501' ? 'not-supported' : 'request',
+      failure:
+        (e as Error).message === 'HTTP 501'
+          ? 'not-supported'
+          : (e as Error).message === 'HTTP 401'
+            ? 'login'
+            : 'request',
     });
   }
 

@@ -1963,7 +1963,7 @@ test('says why the Pi did not shut down', async ({ page }) => {
     .click();
   await hold(page, /Pi herunterfahren/);
   await expect(page.getByTestId('pi-shutdown').getByRole('alert')).toContainText(
-    'setup.sh einspielen',
+    'update-pi.bat auf dem PC',
   );
 });
 

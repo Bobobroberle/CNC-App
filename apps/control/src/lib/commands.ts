@@ -341,6 +341,8 @@ export const COMMANDS: readonly Command[] = [
   settings('demo', 'demo.start', 'connection', 'connection'),
   settings('companion', 'companion.title', 'connection', 'companion'),
   settings('shutdown', 'companion.shutdownTitle', 'connection', ['pi-shutdown', 'companion']),
+  settings('piLogin', 'access.title', 'connection', 'pi-login'),
+  settings('piUpdate', 'update.title', 'connection', 'pi-update'),
   settings('appearance', 'appearance.title', 'machine', 'appearance'),
   settings('features', 'features.title', 'machine', 'features'),
   settings('profile', 'machine.profile', 'machine', 'profile'),

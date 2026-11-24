@@ -960,6 +960,139 @@ export const en: DictionaryShape = {
       toolReference: 'Z {z}',
     },
   },
+  access: {
+    title: 'Login at the Pi',
+    intro:
+      'So that not everybody on the WLAN can load code onto the Pi or power it down, updating and powering it down need a login. Once per device: type the Pi code (the home-screen app and Safari count as two devices). It is shown at the end of the setup on the Pi – if that window was closed: run update-pi.bat again, it shows it again at the end – and here, on a device that is logged in already.',
+    oldCompanion:
+      'The companion on the Pi has no login yet. Install the new version once: update-pi.bat on the PC (it is in lowrider-pi.zip).',
+    offline: 'The Pi does not answer – the login works as soon as it is back.',
+    code: 'Pi code',
+    codeHint:
+      '12 characters, for example ABCD-EFGH-JKLM – capitals or not, with or without dashes.',
+    name: 'Name of this device',
+    login: 'Log in',
+    loggedIn: 'Logged in as “{name}”.',
+    logout: 'Log this device out',
+    showCode: 'Show the Pi code',
+    hideCode: 'Hide the code',
+    codeShown: 'Pi code: {code}',
+    codeUse:
+      'With this code you log in another device. Whoever knows it may update and power down the Pi.',
+    devices: 'Logged-in devices',
+    thisDevice: 'this device',
+    device: {
+      androidPhone: 'Android phone',
+      androidTablet: 'Android tablet',
+      windows: 'Windows PC',
+      linux: 'Linux PC',
+      other: 'Device',
+    },
+    removeDevice: 'Remove {name}',
+    lastSeen: 'last seen {time}',
+    remove: 'Remove',
+    renew: 'Make a new Pi code (hold)',
+    renewHint: 'The old code stops working. Devices that are logged in stay logged in.',
+    revokeOthers: 'Log all other devices out (hold)',
+    revokeHint: 'Also makes a new Pi code. Every other device then has to log in again.',
+    renewed: 'New Pi code: {code}',
+    expired:
+      'This login no longer holds (the device was removed at the Pi, or the Pi is another one). Please log in again.',
+    plain:
+      'Note: the code and the login travel unencrypted through the WLAN. They keep foreign web pages and guest devices out – not someone who reads the radio traffic.',
+    errors: {
+      'wrong-code': 'The code is wrong.',
+      locked: 'Too many wrong tries – please wait {seconds} s.',
+      network: 'The Pi does not answer.',
+      other: 'That did not work.',
+    },
+  },
+  update: {
+    title: 'Update of the Pi',
+    intro:
+      'Installs a new version of the app and the companion on the Pi – without the command line: choose the file lowrider-pi.zip, check it, install it. The database stays, and is copied first. If the new version does not start, the Pi goes back to the old one by itself.',
+    notEnabled:
+      'This Pi cannot update itself from the app yet. Run update-pi.bat on the PC once – after that it works here.',
+    needLogin: 'Log in first to update (card “Login at the Pi”).',
+    running: 'Running: version {version}, build of {date} ({commit}).',
+    before: 'Before: build of {date} ({commit}).',
+    trial: 'The new version is still confirming itself (it has to run half a minute) …',
+    last: {
+      ok: 'Last update: succeeded ({date}).',
+      'rolled-back':
+        'Last update: the new version did not start – the Pi went back to the old one by itself ({date}).',
+      'rolled-back-by-hand': 'Last put back to the previous version by hand ({date}).',
+      pending: 'Last update: still starting …',
+    },
+    checksum: 'Checksum (SHA-256) of the file – recommended',
+    checksumHint:
+      'The long number (64 characters) that was given to you separately from the file – in the message you got the file with, say. The Pi uses it to check that the file was not changed on the way. Without it the Pi only checks that the file is sound in itself.',
+    choose: 'Choose the file (lowrider-pi.zip)',
+    uploading: 'The file is being sent to the Pi and checked …',
+    found: 'Found: version {version}, build of {date} ({commit}), {files} files.',
+    newer: 'Newer than the running version.',
+    notNewer: 'Not newer than the running version.',
+    allowOlder: 'Install it anyway (same or older version)',
+    sha: 'Checksum of the file, computed by the Pi: {sha}',
+    checked: 'The checksum is right.',
+    unchecked: 'Without a checksum: compare the number above with the one you were given.',
+    apply: 'Install on the Pi (hold)',
+    discard: 'Discard',
+    blocked: {
+      job: 'A job is running or waiting – end it first.',
+      moving: 'The machine is moving – wait.',
+      none: 'Choose a file first.',
+      working: 'Something is under way already.',
+    },
+    applying: 'Installing … (the Pi copies the database and tries the new version)',
+    restarting:
+      'The Pi restarts – the connection to the machine through it is gone and has to be made again afterwards …',
+    done: 'Done: the Pi runs the build of {date}. Please connect to the machine again.',
+    settling:
+      'The Pi runs the build of {date} and is still confirming itself – done in a moment. Do not reload until then …',
+    unconfirmed:
+      'The Pi runs the build of {date}, but has not confirmed itself yet. Please check again in a minute.',
+    recheck: 'Check again',
+    reload: 'Load the new version',
+    rollback: 'Back to the previous version (hold)',
+    rollbackHint: 'Puts the version that ran before back – held a second time, the new one again.',
+    busyWhy: {
+      'machine-connected':
+        'Another device is connected to the machine through the Pi. Disconnect there, then try again.',
+      recording: 'A recording is running.',
+      other: 'The Pi is busy with another update.',
+    },
+    errors: {
+      unauthorized: 'Not logged in – please log in under “Login at the Pi”.',
+      'not-enabled':
+        'This Pi cannot update itself from the app – run update-pi.bat on the PC once.',
+      'bad-zip': 'This is no valid lowrider-pi.zip (or it is damaged). Technical reason: {detail}',
+      'bad-release':
+        'Something is missing in the file, or something foreign is in it. Technical reason: {detail}',
+      'checksum-mismatch':
+        'The checksum is wrong – this is not the file you were given. The file has the checksum {detail}.',
+      'no-staged': 'The uploaded file is gone – please choose it again.',
+      'not-newer': 'This version is not newer than the running one.',
+      'needs-setup': 'This version needs a new setup of the Pi: run update-pi.bat on the PC.',
+      busy: 'Not possible now: {why}',
+      'backup-failed':
+        'The database could not be copied – so nothing was changed. Usually the card is too full: make room (delete old recordings) or put the backups on a USB stick. Technical reason: {detail}',
+      'check-failed':
+        'The new version does not start (trial run) – nothing was changed. Technical reason: {detail}',
+      'no-previous': 'There is no previous version.',
+      failed: 'That did not work. Technical reason: {detail}',
+      'expected-zip': 'This is no zip file.',
+      'too-large': 'The file is too large.',
+      network: 'The Pi does not answer.',
+      other: 'That did not work.',
+      'rolled-back':
+        'The new version did not start – the Pi went back to the old version by itself. Nothing is broken.',
+      'not-applied':
+        'It is unclear whether the update reached the Pi: it still runs the old version. Check the state in a minute (it shows here by itself), otherwise try again.',
+      'no-answer':
+        'The Pi did not answer again after the restart. Give it a minute; otherwise update-pi.bat on the PC – it sets it up again.',
+    },
+  },
   sync: {
     title: 'Settings and measurements on the Pi',
     state: {
@@ -969,7 +1102,7 @@ export const en: DictionaryShape = {
       offline:
         'The Pi does not answer – for now this holds on this device only and is made up for later.',
       unsupported:
-        'The companion on the Pi does not know this storage yet – copy the new version to the Pi and run setup.sh there (see docs/companion.md).',
+        'The companion on the Pi does not know this storage yet – install the new version: update-pi.bat on the PC.',
       paused: 'Paused while the simulator runs – what is set there holds there only.',
       deferred:
         'The sync waits until the machine stands still – newer values from the Pi are ready, this device’s changes go out after.',
@@ -1030,10 +1163,11 @@ export const en: DictionaryShape = {
     shutdownDone: 'Pi is off. If the green LED on the Pi stays dark, you can unplug it now.',
     shutdownAgain: 'Pi is running again',
     shutdownNotSupported:
-      'This Companion cannot shut the Pi down yet. Install the new version with setup.sh.',
+      'This Companion cannot shut the Pi down yet. Install the new version: update-pi.bat on the PC.',
     shutdownRequestFailed: 'Companion not reachable – the Pi was not shut down.',
     shutdownRefused:
-      'The Pi refused to shut down ({detail}). Run setup.sh again, it sets up the permission.',
+      'The Pi refused to shut down ({detail}). Run update-pi.bat again – it sets up the permission.',
+    shutdownNeedsLogin: 'Log in first to power down (card “Login at the Pi”).',
     shutdownStillRunning:
       'The Pi is still answering after a minute. Do not unplug – enter “sudo poweroff” via SSH.',
     offline: 'Companion not reachable.',
@@ -3278,6 +3412,10 @@ export const en: DictionaryShape = {
         'companion, raspberry, pi, companion computer, camera server, raspi, sensors, back up the libraries',
       shutdown:
         'shut down, shutdown, switch off, pi off, power off, turn off the raspberry, poweroff',
+      piLogin:
+        'login, log in, pi code, code, password, pin, log a device in, log out, devices, access, forgot the pi code, anmeldung',
+      piUpdate:
+        'update, upgrade, new version, update the pi, install a version, lowrider-pi.zip, zip, checksum, back to the old version, rollback, update-pi.bat, aktualisieren',
       connectionInfo:
         'connection info, connection details, firmware version, fluidnc version, address, ip, controller state, which firmware',
       axisTest:

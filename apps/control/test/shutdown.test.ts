@@ -50,6 +50,10 @@ describe('Pi shutdown', () => {
       phase: 'failed',
       failure: 'request',
     });
+    // the Pi wants a login for it: that is its own failure, with its own words
+    expect(
+      (await run({ health, shutdown: () => Promise.reject(new Error('HTTP 401')) })).end,
+    ).toMatchObject({ phase: 'failed', failure: 'login' });
     expect(health).not.toHaveBeenCalled();
   });
 

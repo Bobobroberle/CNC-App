@@ -971,6 +971,142 @@ export const de = {
       toolReference: 'Z {z}',
     },
   },
+  access: {
+    title: 'Anmeldung am Pi',
+    intro:
+      'Damit nicht jeder im WLAN Code auf den Pi laden oder ihn ausschalten kann, brauchen das Aktualisieren und das Herunterfahren eine Anmeldung. Einmal pro Gerät: den Pi-Code eingeben (die App auf dem Home-Bildschirm und Safari zählen als zwei Geräte). Er steht am Ende der Einrichtung auf dem Pi – ging das Fenster zu: update-pi.bat noch einmal ausführen, er steht wieder am Ende – und hier, auf einem Gerät, das schon angemeldet ist.',
+    oldCompanion:
+      'Der Companion auf dem Pi hat noch keine Anmeldung. Einmal die neue Version einspielen: update-pi.bat auf dem PC (sie liegt in lowrider-pi.zip).',
+    offline: 'Der Pi antwortet nicht – die Anmeldung geht, sobald er wieder da ist.',
+    code: 'Pi-Code',
+    codeHint: '12 Zeichen, zum Beispiel ABCD-EFGH-JKLM – groß oder klein, mit oder ohne Striche.',
+    name: 'Name dieses Geräts',
+    login: 'Anmelden',
+    loggedIn: 'Angemeldet als „{name}“.',
+    logout: 'Dieses Gerät abmelden',
+    showCode: 'Pi-Code anzeigen',
+    hideCode: 'Code verbergen',
+    codeShown: 'Pi-Code: {code}',
+    codeUse:
+      'Mit diesem Code meldest du ein weiteres Gerät an. Wer ihn kennt, darf den Pi aktualisieren und herunterfahren.',
+    devices: 'Angemeldete Geräte',
+    thisDevice: 'dieses Gerät',
+    device: {
+      androidPhone: 'Android-Handy',
+      androidTablet: 'Android-Tablet',
+      windows: 'Windows-PC',
+      linux: 'Linux-PC',
+      other: 'Gerät',
+    },
+    removeDevice: '{name} entfernen',
+    lastSeen: 'zuletzt gesehen {time}',
+    remove: 'Entfernen',
+    renew: 'Neuen Pi-Code erzeugen (halten)',
+    renewHint: 'Der alte Code gilt dann nicht mehr. Die angemeldeten Geräte bleiben angemeldet.',
+    revokeOthers: 'Alle anderen Geräte abmelden (halten)',
+    revokeHint:
+      'Erzeugt zugleich einen neuen Pi-Code. Danach muss sich jedes andere Gerät neu anmelden.',
+    renewed: 'Neuer Pi-Code: {code}',
+    expired:
+      'Diese Anmeldung gilt nicht mehr (das Gerät wurde auf dem Pi entfernt, oder der Pi ist ein anderer). Bitte neu anmelden.',
+    plain:
+      'Hinweis: Code und Anmeldung gehen unverschlüsselt durchs WLAN. Sie halten fremde Webseiten und Gäste-Geräte fern – nicht jemanden, der den Funkverkehr mitliest.',
+    errors: {
+      'wrong-code': 'Der Code stimmt nicht.',
+      locked: 'Zu viele falsche Versuche – bitte {seconds} s warten.',
+      network: 'Der Pi antwortet nicht.',
+      other: 'Das hat nicht geklappt.',
+    },
+  },
+  update: {
+    title: 'Update des Pi',
+    intro:
+      'Spielt eine neue Version der App und des Companions auf dem Pi ein – ohne Eingabeaufforderung: die Datei lowrider-pi.zip wählen, prüfen, einspielen. Die Datenbank bleibt, vorher wird sie gesichert. Startet die neue Version nicht, kehrt der Pi von selbst zur alten zurück.',
+    notEnabled:
+      'Dieser Pi kann sich noch nicht aus der App aktualisieren. Einmal update-pi.bat auf dem PC ausführen – danach geht es hier.',
+    needLogin: 'Zum Aktualisieren erst anmelden (Karte „Anmeldung am Pi“).',
+    running: 'Läuft: Version {version}, Stand {date} ({commit}).',
+    before: 'Davor: Stand {date} ({commit}).',
+    trial: 'Die neue Version bestätigt sich noch (sie muss eine halbe Minute laufen) …',
+    last: {
+      ok: 'Letztes Update: gelungen ({date}).',
+      'rolled-back':
+        'Letztes Update: die neue Version ist nicht angelaufen – der Pi ist von selbst zur alten zurückgekehrt ({date}).',
+      'rolled-back-by-hand': 'Zuletzt von Hand zur vorherigen Version zurückgestellt ({date}).',
+      pending: 'Letztes Update: läuft noch an …',
+    },
+    checksum: 'Prüfsumme (SHA-256) der Datei – empfohlen',
+    checksumHint:
+      'Die lange Zahl (64 Zeichen), die dir getrennt von der Datei genannt wurde – zum Beispiel in der Nachricht, mit der du die Datei bekommen hast. Der Pi prüft damit, dass die Datei unterwegs nicht verändert wurde. Ohne sie prüft er nur, ob die Datei in sich stimmt.',
+    choose: 'Datei wählen (lowrider-pi.zip)',
+    uploading: 'Die Datei wird zum Pi geschickt und geprüft …',
+    found: 'Gefunden: Version {version}, Stand {date} ({commit}), {files} Dateien.',
+    newer: 'Neuer als die laufende Version.',
+    notNewer: 'Nicht neuer als die laufende Version.',
+    allowOlder: 'Trotzdem einspielen (gleiche oder ältere Version)',
+    sha: 'Prüfsumme der Datei, vom Pi berechnet: {sha}',
+    checked: 'Die Prüfsumme stimmt.',
+    unchecked: 'Ohne Prüfsumme: vergleiche die Zahl oben mit der, die du bekommen hast.',
+    apply: 'Auf dem Pi einspielen (halten)',
+    discard: 'Verwerfen',
+    blocked: {
+      job: 'Ein Job läuft oder wartet – erst beenden.',
+      moving: 'Die Maschine bewegt sich – erst warten.',
+      none: 'Erst eine Datei wählen.',
+      working: 'Es läuft schon etwas.',
+    },
+    applying: 'Wird eingespielt … (der Pi sichert die Datenbank und probiert die neue Version aus)',
+    restarting:
+      'Der Pi startet neu – die Verbindung zur Maschine über den Pi ist weg und muss danach neu hergestellt werden …',
+    done: 'Fertig: der Pi läuft mit Stand {date}. Die Verbindung zur Maschine bitte neu herstellen.',
+    settling:
+      'Der Pi läuft mit Stand {date} und bestätigt sich noch – gleich ist es fertig. Bis dahin nichts neu laden …',
+    unconfirmed:
+      'Der Pi läuft mit Stand {date}, hat sich aber noch nicht bestätigt. Bitte in einer Minute noch einmal prüfen.',
+    recheck: 'Neu prüfen',
+    reload: 'Neue Version laden',
+    rollback: 'Zur vorherigen Version zurück (halten)',
+    rollbackHint:
+      'Stellt die Version wieder her, die davor lief – ein zweites Mal gehalten, wieder die neue.',
+    busyWhy: {
+      'machine-connected':
+        'Ein anderes Gerät ist über den Pi mit der Maschine verbunden. Dort trennen, dann noch einmal.',
+      recording: 'Eine Aufnahme läuft.',
+      other: 'Auf dem Pi läuft gerade ein anderes Update.',
+    },
+    errors: {
+      unauthorized: 'Nicht angemeldet – bitte unter „Anmeldung am Pi“ anmelden.',
+      'not-enabled':
+        'Dieser Pi kann sich nicht aus der App aktualisieren – einmal update-pi.bat auf dem PC.',
+      'bad-zip':
+        'Das ist keine gültige lowrider-pi.zip (oder sie ist beschädigt). Technischer Grund (englisch): {detail}',
+      'bad-release':
+        'In der Datei fehlt etwas, oder es ist etwas Fremdes darin. Technischer Grund (englisch): {detail}',
+      'checksum-mismatch':
+        'Die Prüfsumme stimmt nicht – das ist nicht die Datei, die du bekommen hast. Die Datei hat die Prüfsumme {detail}.',
+      'no-staged': 'Die hochgeladene Datei ist nicht mehr da – bitte noch einmal wählen.',
+      'not-newer': 'Diese Version ist nicht neuer als die laufende.',
+      'needs-setup':
+        'Diese Version braucht eine neue Einrichtung des Pi: update-pi.bat auf dem PC ausführen.',
+      busy: 'Gerade nicht möglich: {why}',
+      'backup-failed':
+        'Die Datenbank konnte nicht gesichert werden – darum wurde nichts geändert. Meist ist die Karte zu voll: Platz schaffen (alte Aufnahmen löschen) oder die Sicherungen auf einen USB-Stick legen. Technischer Grund (englisch): {detail}',
+      'check-failed':
+        'Die neue Version startet nicht (Probelauf) – nichts wurde geändert. Technischer Grund (englisch): {detail}',
+      'no-previous': 'Es gibt keine vorherige Version.',
+      failed: 'Das hat nicht geklappt. Technischer Grund (englisch): {detail}',
+      'expected-zip': 'Das ist keine Zip-Datei.',
+      'too-large': 'Die Datei ist zu groß.',
+      network: 'Der Pi antwortet nicht.',
+      other: 'Das hat nicht geklappt.',
+      'rolled-back':
+        'Die neue Version ist nicht angelaufen – der Pi ist von selbst zur alten Version zurückgekehrt. Es ist nichts kaputt.',
+      'not-applied':
+        'Ob das Update beim Pi angekommen ist, ist unklar: er läuft noch mit der alten Version. In einer Minute den Stand prüfen (er erscheint hier von selbst), sonst noch einmal versuchen.',
+      'no-answer':
+        'Der Pi hat sich nach dem Neustart nicht wieder gemeldet. Gib ihm ein paar Minuten; sonst update-pi.bat auf dem PC – das stellt ihn wieder auf.',
+    },
+  },
   sync: {
     title: 'Einstellungen und Messwerte auf dem Pi',
     state: {
@@ -979,7 +1115,7 @@ export const de = {
       ok: 'Auf dem Pi gesichert (zuletzt {time}).',
       offline: 'Der Pi antwortet nicht – es gilt vorerst nur auf diesem Gerät und wird nachgeholt.',
       unsupported:
-        'Der Companion auf dem Pi kennt diesen Speicher noch nicht – die neue Version auf den Pi kopieren und dort setup.sh ausführen (Anleitung: docs/companion.md).',
+        'Der Companion auf dem Pi kennt diesen Speicher noch nicht – die neue Version einspielen: update-pi.bat auf dem PC.',
       paused: 'Pausiert, solange der Simulator läuft – was dort eingestellt wird, gilt nur dort.',
       deferred:
         'Der Abgleich wartet, bis die Maschine steht – neuere Werte vom Pi liegen bereit, Änderungen dieses Geräts gehen danach hinaus.',
@@ -1045,10 +1181,11 @@ export const de = {
       'Pi ist aus. Bleibt die grüne LED am Pi dunkel, kannst du den Stecker jetzt ziehen.',
     shutdownAgain: 'Pi läuft wieder',
     shutdownNotSupported:
-      'Dieser Companion kann den Pi noch nicht herunterfahren. Neue Version mit setup.sh einspielen.',
+      'Dieser Companion kann den Pi noch nicht herunterfahren. Neue Version einspielen: update-pi.bat auf dem PC.',
     shutdownRequestFailed: 'Companion nicht erreichbar – der Pi wurde nicht heruntergefahren.',
     shutdownRefused:
-      'Der Pi hat das Herunterfahren abgelehnt ({detail}). setup.sh erneut ausführen, es richtet die Berechtigung ein.',
+      'Der Pi hat das Herunterfahren abgelehnt ({detail}). update-pi.bat noch einmal ausführen – es richtet die Berechtigung ein.',
+    shutdownNeedsLogin: 'Zum Herunterfahren erst anmelden (Karte „Anmeldung am Pi“).',
     shutdownStillRunning:
       'Der Pi antwortet nach einer Minute noch. Nicht ausstecken – per SSH „sudo poweroff“ eingeben.',
     offline: 'Companion nicht erreichbar.',
@@ -3345,6 +3482,10 @@ export const de = {
         'companion, raspberry, pi, begleitrechner, kamera server, raspi, zusatzrechner, sensoren, bibliothek sichern',
       shutdown:
         'herunterfahren, ausschalten, shutdown, pi aus, abschalten, raspberry ausschalten, strom aus, poweroff',
+      piLogin:
+        'anmeldung, anmelden, pi-code, code, login, passwort, pin, gerät anmelden, abmelden, geräte, zugang, pi code vergessen',
+      piUpdate:
+        'update, aktualisieren, neue version, pi aktualisieren, version einspielen, lowrider-pi.zip, zip, upgrade, prüfsumme, zurück zur alten version, rollback, update-pi.bat',
       connectionInfo:
         'verbindungsinfo, verbindungsdaten, firmware version, fluidnc version, adresse, ip, status der steuerung, welche firmware',
       axisTest:
