@@ -14,6 +14,7 @@ import { Recorder, RecorderError, validateStart } from './recorder';
 import { FluidNCRelay, type RelayClient } from './relay';
 import { SensorHub, validateSample } from './sensors';
 import type { BackupStatus } from './backup';
+import { isStateKey, readWrite, STATE_KEYS, type StateDocument } from './state';
 
 export const VERSION = '0.1.0';
 
@@ -31,6 +32,8 @@ export const COLLECTIONS: Record<string, (v: unknown) => unknown> = {
   profiles: hasId,
   heightmaps: hasId,
   fixtures: hasId,
+  // What was measured, one entry each (a log, like the history)
+  measurements: hasId,
 };
 
 const SAFE_NAME = /^[\w][\w .-]{0,99}$/;
@@ -122,6 +125,8 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     // Only true when it can really record (ffmpeg on the Pi).
     recordings: options.recorder ? (await options.recorder.capabilities()).ffmpeg : false,
     backup: options.backup?.() ?? null,
+    // The state documents (`/api/state`): an older companion has none, the app then keeps its state here only.
+    state: true,
   }));
 
   // Host power: the app shows feedback by polling /api/health until it stops answering.
@@ -191,6 +196,30 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
         : reply.code(404).send({ error: 'not-found' });
     },
   );
+
+  // State: what belongs to the machine, one document per key, written only from the revision read
+  app.get('/api/state', async () => {
+    const keys: Record<string, StateDocument> = {};
+    for (const key of STATE_KEYS) {
+      const doc = store.get('state', key);
+      if (doc) keys[key] = doc.data as StateDocument;
+    }
+    return { keys };
+  });
+  app.put<{ Params: { key: string }; Body: unknown }>('/api/state/:key', async (req, reply) => {
+    if (!isStateKey(req.params.key)) return reply.code(404).send({ error: 'unknown-key' });
+    const write = readWrite(req.body);
+    if (write === 'too-large') return reply.code(413).send({ error: 'too-large' });
+    if (write === 'invalid') return reply.code(400).send({ error: 'invalid-document' });
+    // No `await` between the read and the write: nobody else can write in between.
+    const current = store.get('state', req.params.key)?.data as StateDocument | undefined;
+    const rev = current?.rev ?? 0;
+    if (write.baseRev !== rev) {
+      return reply.code(409).send({ error: 'conflict', rev, data: current?.data ?? null });
+    }
+    store.put('state', req.params.key, { rev: rev + 1, data: write.data } satisfies StateDocument);
+    return { ok: true, rev: rev + 1 };
+  });
 
   // Job buffer
   app.get('/api/jobs', async () => store.listJobs());

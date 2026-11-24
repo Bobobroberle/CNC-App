@@ -122,6 +122,109 @@ describe('library API', () => {
   });
 });
 
+describe('state API', () => {
+  const put = (a: FastifyInstance, key: string, payload: unknown) =>
+    a.inject({ method: 'PUT', url: `/api/state/${key}`, payload: payload as object });
+
+  it('keeps one document per key and counts its revision itself', async () => {
+    const a = await setup();
+    expect((await a.inject('/api/state')).json()).toEqual({ keys: {} });
+    // the first write is made from nothing: revision 0
+    const first = await put(a, 'settings', { baseRev: 0, data: { camera: { offsetX: 12.5 } } });
+    expect(first.json()).toEqual({ ok: true, rev: 1 });
+    expect((await a.inject('/api/state')).json()).toEqual({
+      keys: { settings: { rev: 1, data: { camera: { offsetX: 12.5 } } } },
+    });
+    // the next one names the revision it read
+    expect(
+      (await put(a, 'settings', { baseRev: 1, data: { camera: { offsetX: 13 } } })).json(),
+    ).toEqual({
+      ok: true,
+      rev: 2,
+    });
+    // lists are documents as well (the macros)
+    expect((await put(a, 'macros', { baseRev: 0, data: [{ name: 'Z hoch' }] })).json().rev).toBe(1);
+    const all = (await a.inject('/api/state')).json().keys;
+    expect(Object.keys(all).sort()).toEqual(['macros', 'settings']);
+  });
+
+  it('refuses a write that was made from an old revision, and hands over the current one', async () => {
+    const a = await setup();
+    await put(a, 'settings', { baseRev: 0, data: { v: 'pc' } });
+    // another device wrote meanwhile
+    await put(a, 'settings', { baseRev: 1, data: { v: 'ipad' } });
+    const late = await put(a, 'settings', { baseRev: 1, data: { v: 'pc, late' } });
+    expect(late.statusCode).toBe(409);
+    expect(late.json()).toEqual({ error: 'conflict', rev: 2, data: { v: 'ipad' } });
+    // nothing was changed by the refused write
+    expect((await a.inject('/api/state')).json().keys.settings).toEqual({
+      rev: 2,
+      data: { v: 'ipad' },
+    });
+    // writing again from nothing over an existing document is refused too (a device that never read it)
+    const fresh = await put(a, 'settings', { baseRev: 0, data: { v: 'new device' } });
+    expect(fresh.statusCode).toBe(409);
+    expect(fresh.json().rev).toBe(2);
+    // and a revision from the future is no revision
+    expect((await put(a, 'settings', { baseRev: 7, data: {} })).statusCode).toBe(409);
+  });
+
+  it('knows its keys, and only well-formed, bounded documents', async () => {
+    const a = await setup();
+    expect((await put(a, 'whatever', { baseRev: 0, data: {} })).statusCode).toBe(404);
+    const text = await a.inject({
+      method: 'PUT',
+      url: '/api/state/settings',
+      headers: { 'content-type': 'application/json' },
+      payload: '"text"',
+    });
+    expect(text.statusCode).toBe(400);
+    expect((await put(a, 'settings', { baseRev: 0 })).statusCode).toBe(400);
+    expect((await put(a, 'settings', { baseRev: 0, data: null })).statusCode).toBe(400);
+    expect((await put(a, 'settings', { baseRev: 0, data: 'x' })).statusCode).toBe(400);
+    for (const baseRev of [-1, 1.5, '0', null, Number.MAX_SAFE_INTEGER + 2]) {
+      expect((await put(a, 'settings', { baseRev, data: {} })).statusCode, String(baseRev)).toBe(
+        400,
+      );
+    }
+    // large is no state of a machine: refused, and nothing stored
+    const big = await put(a, 'settings', { baseRev: 0, data: { text: 'x'.repeat(600 * 1024) } });
+    expect(big.statusCode).toBe(413);
+    expect((await a.inject('/api/state')).json()).toEqual({ keys: {} });
+    // the edge: just under the bound is fine
+    const ok = await put(a, 'settings', { baseRev: 0, data: { text: 'x'.repeat(500 * 1024) } });
+    expect(ok.statusCode).toBe(200);
+  });
+
+  it('is in the health report, so that an app can tell an older companion', async () => {
+    const a = await setup();
+    expect((await a.inject('/api/health')).json().state).toBe(true);
+  });
+
+  it('keeps the log of measurements as a library of its own', async () => {
+    const a = await setup();
+    const record = {
+      id: '2026-11-24T10:00:00.000Z-camera-scale',
+      at: '2026-11-24T10:00:00.000Z',
+      kind: 'camera-scale',
+    };
+    expect(
+      (
+        await a.inject({
+          method: 'PUT',
+          url: `/api/library/measurements/${record.id}`,
+          payload: record,
+        })
+      ).json(),
+    ).toEqual({ ok: true });
+    expect((await a.inject('/api/library/measurements')).json()).toEqual([record]);
+    expect(
+      (await a.inject({ method: 'PUT', url: '/api/library/measurements/other', payload: record }))
+        .statusCode,
+    ).toBe(400);
+  });
+});
+
 describe('job buffer', () => {
   it('keeps G-code files', async () => {
     const a = await setup();
