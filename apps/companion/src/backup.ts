@@ -149,3 +149,44 @@ export function snapshotInChild(dbPath: string, target: string): Promise<void> {
     );
   });
 }
+
+/** What an update makes before it changes anything: a copy of its own, not today's (which may be hours old). */
+const UPDATE_NAME = /^lowrider-update-\d{14}\.db$/;
+const UPDATE_LEFTOVER = /^lowrider-update-\d{14}\.db\.tmp$/;
+
+/**
+ * A copy of the database made now, before an update: the update goes ahead only if it worked. Taken beside the daily
+ * ones under a name `planBackup` does not know (so it is never one of those that are thinned out), the last two kept.
+ * Same rule for room as the daily one: a copy that would not fit is not begun.
+ */
+export async function runUpdateBackup(opts: {
+  dir: string;
+  now: number;
+  fs: BackupFs;
+  dbSize: () => Promise<number>;
+  snapshot: (path: string) => void | Promise<void>;
+}): Promise<{ ok: true; name: string } | { ok: false; reason: string }> {
+  const { dir, fs } = opts;
+  try {
+    await fs.mkdir(dir);
+    const d = new Date(opts.now);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const name = `lowrider-update-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.db`;
+    for (const old of await fs.list(dir))
+      if (UPDATE_LEFTOVER.test(old)) await fs.remove(`${dir}/${old}`);
+    const [need, free] = [await opts.dbSize(), await fs.freeBytes(dir)];
+    if (free < need * ROOM_FOR_COPY + KEEP_FREE_BYTES) {
+      throw new Error(
+        `not enough free space for a copy (${Math.round(free / 1e6)} MB free, ${Math.round(need / 1e6)} MB database, ${Math.round(KEEP_FREE_BYTES / 1e6)} MB stay free)`,
+      );
+    }
+    const tmp = `${dir}/${name}.tmp`;
+    await opts.snapshot(tmp);
+    await fs.rename(tmp, `${dir}/${name}`);
+    const mine = (await fs.list(dir)).filter((n) => UPDATE_NAME.test(n)).sort();
+    for (const old of mine.slice(0, Math.max(0, mine.length - 2))) await fs.remove(`${dir}/${old}`);
+    return { ok: true, name };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+  }
+}

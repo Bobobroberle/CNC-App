@@ -2,7 +2,8 @@ import { createReadStream, existsSync } from 'node:fs';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import { validateJig, validateMaterial, validateSavedZero, validateTool } from '@lowrider/workshop';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import { Auth, type Device } from './auth';
 import type { Store } from './db';
 import {
   DEFAULT_NOTIFY,
@@ -16,8 +17,33 @@ import { SensorHub, validateSample } from './sensors';
 import type { BackupStatus } from './backup';
 import { MAX_MEASUREMENTS, validateMeasurement } from './measurements';
 import { isStateKey, readWrite, STATE_BODY_LIMIT, STATE_KEYS, type StateDocument } from './state';
+import { UpdateError, type Updater } from './updater';
+import { BUILD } from './version';
 
-export const VERSION = '0.1.0';
+export const VERSION = BUILD.version;
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** The device a valid token belongs to (set by the login check of the routes that need one) */
+    device?: Device;
+  }
+}
+
+/** The most an uploaded update may be (the zip of `release/pi` is about 1.5 MB). */
+const UPDATE_BODY_LIMIT = 32 * 1024 * 1024;
+
+/** How an update error is answered: who asked wrongly, what is not allowed now, what failed here. */
+const UPDATE_STATUS: Record<string, number> = {
+  'not-enabled': 501,
+  'bad-zip': 400,
+  'bad-release': 400,
+  'checksum-mismatch': 400,
+  'no-staged': 409,
+  'not-newer': 409,
+  'needs-setup': 409,
+  busy: 409,
+  'no-previous': 409,
+};
 
 /** Library collections and how their documents are checked. */
 const hasId = (v: unknown) =>
@@ -67,6 +93,15 @@ export interface ServerOptions {
   recorder?: Recorder;
   /** What the daily backup of the database did last (null: switched off, or not yet run) */
   backup?: () => BackupStatus | null;
+  /**
+   * The login. Without it the routes that need one are open (tests); `main.ts` always has one. It protects
+   * the update, powering the Pi down and the login's own administration – see `auth.ts`.
+   */
+  auth?: Auth;
+  /** Update from the app; without it the update routes answer 501. */
+  updater?: Updater;
+  /** Delay between the reply of an update and the restart, in ms (default 800). */
+  restartDelayMs?: number;
 }
 
 /** Parses a single-range `Range: bytes=a-b` header against a file size. */
@@ -97,25 +132,45 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Access-Control-Allow-Origin', '*');
     reply.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
-    reply.header('Access-Control-Allow-Headers', 'Content-Type');
+    reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (request.method === 'OPTIONS') return reply.code(204).send();
   });
   app.addContentTypeParser(
-    ['text/plain', 'application/octet-stream'],
+    ['text/plain', 'application/octet-stream', 'application/zip'],
     { parseAs: 'buffer' },
     (_req, body, done) => done(null, body),
   );
 
   await app.register(fastifyWebsocket);
 
+  /**
+   * The login check of a route: a valid token (`Authorization: Bearer …`) or 401 – as an `onRequest` hook, so that a refusal goes out
+   * before any of the body is read (an upload of 30 MB without a login must not be taken in first). Open where there is no login.
+   */
+  const needAuth = async (req: FastifyRequest, reply: FastifyReply) => {
+    const { auth } = options;
+    if (!auth) return;
+    const token = /^Bearer (\S+)$/.exec(req.headers.authorization ?? '')?.[1];
+    const device = auth.verify(token);
+    if (!device) return reply.code(401).send({ error: 'unauthorized' });
+    req.device = device;
+  };
+
   app.get('/api/health', async () => ({
     ok: true,
     version: VERSION,
+    // What is running: the update compares builds (the time of the commit), the app shows both
+    build: BUILD.build,
+    commit: BUILD.commit,
+    // The login exists (an older companion has none: the app then says to update it first)
+    auth: Boolean(options.auth),
+    // The update from the app can be done here (the layout of `setup.sh` is there)
+    update: options.updater ? await options.updater.enabled() : false,
     fluidnc: relay
       ? {
           url: relay.url,
           connected: relay.connected,
-          clients: relay.clientCount,
+          clients: relay.browserCount,
           lastFailure: relay.lastFailure,
         }
       : null,
@@ -131,7 +186,7 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
   }));
 
   // Host power: the app shows feedback by polling /api/health until it stops answering.
-  app.post('/api/system/shutdown', async (_req, reply) => {
+  app.post('/api/system/shutdown', { onRequest: needAuth }, async (_req, reply) => {
     const { shutdown } = options;
     if (!shutdown) return reply.code(501).send({ error: 'not-supported' });
     shutdownError = null;
@@ -243,6 +298,115 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
       return { ok: true, rev: rev + 1 };
     },
   );
+
+  // Login: a device types the Pi code once and keeps a token
+  const { auth, updater } = options;
+  if (auth) {
+    app.post<{ Body: { code?: unknown; name?: unknown } | null }>(
+      '/api/auth/login',
+      async (req, reply) => {
+        const result = auth.login(req.body?.code, req.body?.name, req.ip);
+        if (result.ok)
+          return {
+            token: result.token,
+            device: { id: result.device.id, name: result.device.name },
+          };
+        if (result.reason === 'locked') {
+          const seconds = Math.ceil(result.retryAfterMs / 1000);
+          return reply
+            .code(429)
+            .header('Retry-After', String(seconds))
+            .send({ error: 'locked', retryAfter: seconds });
+        }
+        return reply.code(401).send({ error: 'wrong-code' });
+      },
+    );
+    app.get('/api/auth/me', { onRequest: needAuth }, async (req) => ({
+      device: { id: req.device!.id, name: req.device!.name },
+    }));
+    app.post('/api/auth/logout', { onRequest: needAuth }, async (req) => {
+      auth.revoke(req.device!.id);
+      return { ok: true };
+    });
+    app.get('/api/auth/devices', { onRequest: needAuth }, async (req) => ({
+      devices: auth.devices().map((d) => ({ ...d, current: d.id === req.device!.id })),
+    }));
+    app.delete<{ Params: { id: string } }>(
+      '/api/auth/devices/:id',
+      { onRequest: needAuth },
+      async (req, reply) =>
+        auth.revoke(req.params.id) ? { ok: true } : reply.code(404).send({ error: 'not-found' }),
+    );
+    app.get('/api/auth/code', { onRequest: needAuth }, async () => ({ code: auth.currentCode() }));
+    app.post<{ Body: { revokeOthers?: unknown } | null }>(
+      '/api/auth/code',
+      { onRequest: needAuth },
+      async (req) => {
+        const code = auth.renewCode();
+        const revoked = req.body?.revokeOthers === true ? auth.revokeOthers(req.device!.id) : 0;
+        return { code, revoked };
+      },
+    );
+  }
+
+  // Update from the app: upload and check, apply, back. Every answer of a refusal names a code the app translates.
+  const updateFailed = (reply: FastifyReply, error: unknown) => {
+    if (error instanceof UpdateError) {
+      return reply
+        .code(UPDATE_STATUS[error.code] ?? 500)
+        .send({ error: error.code, detail: error.detail });
+    }
+    throw error;
+  };
+  const restartSoon = () => {
+    setTimeout(() => updater?.restart(), options.restartDelayMs ?? 800).unref();
+  };
+  app.get('/api/update', { onRequest: needAuth }, async (_req, reply) =>
+    updater ? updater.status() : reply.code(501).send({ error: 'not-enabled' }),
+  );
+  app.post<{ Querystring: { sha256?: string }; Body: unknown }>(
+    '/api/update/upload',
+    { onRequest: needAuth, bodyLimit: UPDATE_BODY_LIMIT },
+    async (req, reply) => {
+      if (!updater) return reply.code(501).send({ error: 'not-enabled' });
+      if (!Buffer.isBuffer(req.body)) return reply.code(415).send({ error: 'expected-zip' });
+      try {
+        return await updater.stage(req.body, req.query.sha256 || undefined);
+      } catch (error) {
+        return updateFailed(reply, error);
+      }
+    },
+  );
+  app.post<{ Body: { id?: unknown; allowOlder?: unknown } | null }>(
+    '/api/update/apply',
+    { onRequest: needAuth },
+    async (req, reply) => {
+      if (!updater) return reply.code(501).send({ error: 'not-enabled' });
+      if (typeof req.body?.id !== 'string')
+        return reply.code(400).send({ error: 'invalid-request' });
+      try {
+        const done = await updater.apply(req.body.id, req.body.allowOlder === true);
+        restartSoon();
+        return { ok: true, restarting: true, ...done };
+      } catch (error) {
+        return updateFailed(reply, error);
+      }
+    },
+  );
+  app.post('/api/update/rollback', { onRequest: needAuth }, async (_req, reply) => {
+    if (!updater) return reply.code(501).send({ error: 'not-enabled' });
+    try {
+      const done = await updater.rollback();
+      restartSoon();
+      return { ok: true, restarting: true, ...done };
+    } catch (error) {
+      return updateFailed(reply, error);
+    }
+  });
+  app.delete('/api/update/staged', { onRequest: needAuth }, async () => {
+    updater?.discard();
+    return { ok: true };
+  });
 
   // Job buffer
   app.get('/api/jobs', async () => store.listJobs());

@@ -9,6 +9,7 @@ import {
   reasonOf,
   ROOM_FOR_COPY,
   runBackup,
+  runUpdateBackup,
   snapshotInChild,
   type BackupFs,
 } from '../src/backup';
@@ -264,5 +265,93 @@ describe('the copy made by a process of its own', () => {
     await expect(
       snapshotInChild(join(dir, 'nothing', 'x.db'), join(dir, 'z.db')),
     ).rejects.toThrow();
+  });
+});
+
+describe('the copy before an update', () => {
+  /** A folder in memory: the names in it, free bytes, and what was done. */
+  function memory(initial: string[] = [], free = 50e9) {
+    const names = new Set(initial);
+    const fs: BackupFs = {
+      mkdir: async () => {},
+      freeBytes: async () => free,
+      list: async () => [...names],
+      rename: async (from, to) => {
+        names.delete(from.split('/').pop()!);
+        names.add(to.split('/').pop()!);
+      },
+      remove: async (path) => void names.delete(path.split('/').pop()!),
+    };
+    return { names, fs };
+  }
+  const now = new Date(2026, 10, 24, 15, 8, 1).getTime();
+  const made = (m: ReturnType<typeof memory>) =>
+    vi.fn((path: string) => void m.names.add(path.split('/').pop()!));
+
+  it('is made now – even where today’s daily copy exists – under a name of its own, and the last two stay', async () => {
+    const m = memory([
+      name('2026-11-24'),
+      'lowrider-update-20261120100000.db',
+      'lowrider-update-20261121100000.db',
+      'lowrider-update-20261122100000.db',
+    ]);
+    const snapshot = made(m);
+    const done = await runUpdateBackup({
+      dir: '/b',
+      now,
+      fs: m.fs,
+      dbSize: async () => 1e6,
+      snapshot,
+    });
+    expect(done).toEqual({ ok: true, name: 'lowrider-update-20261124150801.db' });
+    expect(snapshot).toHaveBeenCalledWith('/b/lowrider-update-20261124150801.db.tmp');
+    // the daily copies are not its business, and only the newest two of its own remain
+    expect([...m.names].sort()).toEqual([
+      name('2026-11-24'),
+      'lowrider-update-20261122100000.db',
+      'lowrider-update-20261124150801.db',
+    ]);
+    // the daily plan never takes one of them for its own
+    expect(planBackup(['lowrider-update-20261124150801.db'], now, 7).remove).toEqual([]);
+  });
+
+  it('is not begun where it would not fit – and says so; a leftover of an interrupted copy goes', async () => {
+    const m = memory(['lowrider-update-20261124150000.db.tmp'], 1e9);
+    const snapshot = made(m);
+    const done = await runUpdateBackup({
+      dir: '/b',
+      now,
+      fs: m.fs,
+      dbSize: async () => 1e9,
+      snapshot,
+    });
+    expect(done.ok).toBe(false);
+    expect(done).toMatchObject({ reason: expect.stringContaining('not enough free space') });
+    expect(snapshot).not.toHaveBeenCalled();
+    expect([...m.names]).toEqual([]);
+  });
+
+  it('says why when the copy itself fails, whatever it throws', async () => {
+    const m = memory();
+    const failing = await runUpdateBackup({
+      dir: '/b',
+      now,
+      fs: m.fs,
+      dbSize: async () => 1,
+      snapshot: async () => {
+        throw new Error('the copy took too long');
+      },
+    });
+    expect(failing).toEqual({ ok: false, reason: 'the copy took too long' });
+    const odd = await runUpdateBackup({
+      dir: '/b',
+      now,
+      fs: m.fs,
+      dbSize: async () => 1,
+      snapshot: async () => {
+        throw 'a text';
+      },
+    });
+    expect(odd).toEqual({ ok: false, reason: 'a text' });
   });
 });

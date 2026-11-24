@@ -80,6 +80,11 @@ export class FluidNCRelay {
     return this.clients.size;
   }
 
+  /** Browsers only: what listens for the recorder is no one who would lose a job when the companion restarts. */
+  get browserCount(): number {
+    return this.clients.size - this.observers.size;
+  }
+
   get connected(): boolean {
     return this.upstream?.readyState === OPEN;
   }

@@ -260,6 +260,20 @@ describe('FluidNCRelay', () => {
     expect(up.sent).toEqual(['?', '!', '\x18', new Uint8Array([0x18]), '$I\n']);
   });
 
+  it('counts the browsers apart from what only listens: a recording is no one who loses a job at a restart', () => {
+    const relay = new FluidNCRelay('ws://x:81', () => new FakeUpstream());
+    const recorder = client();
+    const a = client();
+    relay.attach(recorder.c, { observer: true });
+    expect([relay.clientCount, relay.browserCount]).toEqual([1, 0]);
+    relay.attach(a.c);
+    expect([relay.clientCount, relay.browserCount]).toEqual([2, 1]);
+    relay.detach(recorder.c);
+    expect([relay.clientCount, relay.browserCount]).toEqual([1, 1]);
+    relay.detach(a.c);
+    expect([relay.clientCount, relay.browserCount]).toEqual([0, 0]);
+  });
+
   it('stops a held jog and passes control on when the controlling browser goes', () => {
     const up = new FakeUpstream();
     const relay = new FluidNCRelay('ws://x:81', () => up);
