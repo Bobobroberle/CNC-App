@@ -48,6 +48,8 @@ export interface CamItem {
   relief: Relief | null;
   /** Depth of this cut, mm; undefined takes the job's depth (engraving: the engraving depth) */
   depth?: number;
+  /** Climb (true) or conventional (false) milling of this part; undefined takes the job's setting */
+  climb?: boolean;
   /**
    * The side it is cut from when the part is machined from both; the
    * drawing shows either as seen from the front.

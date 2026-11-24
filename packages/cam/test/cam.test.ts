@@ -115,6 +115,49 @@ describe('toolpaths', () => {
     expect(turn({ ...s, climb: false }, 'inside')).toBe(1);
   });
 
+  it('takes the direction of the operation over the job’s: contours, pockets and bored holes', () => {
+    const part = rectangle(0, 0, 100, 50);
+    const turn = (op: Parameters<typeof toolpaths>[1][number], settings: CutSettings) => {
+      const pts = cutting(toolpaths([part], [op], settings).moves)
+        .slice(0, 40)
+        .map((m) => ({ x: m.x!, y: m.y! }));
+      return Math.sign(signedArea(pts));
+    };
+    // a job that runs climb, a part that runs conventional – and the other way round
+    expect(turn({ contour: 0, kind: 'outside', climb: false }, s)).toBe(-1);
+    expect(turn({ contour: 0, kind: 'outside', climb: true }, { ...s, climb: false })).toBe(1);
+    expect(turn({ contour: 0, kind: 'inside', climb: false }, s)).toBe(1);
+    expect(turn({ contour: 0, kind: 'inside', climb: true }, { ...s, climb: false })).toBe(-1);
+    // pockets: the same as the job's setting would have done
+    const pocket = (op: { climb?: boolean }, settings: CutSettings) =>
+      JSON.stringify(toolpaths([part], [{ contour: 0, kind: 'pocket', ...op }], settings).moves);
+    expect(pocket({ climb: false }, s)).toBe(pocket({}, { ...s, climb: false }));
+    expect(pocket({ climb: true }, { ...s, climb: false })).toBe(pocket({}, s));
+    expect(pocket({ climb: false }, s)).not.toBe(pocket({ climb: true }, s));
+    // bored holes: the helix runs clockwise for climb
+    const bore = (op: { climb?: boolean }, settings: CutSettings) =>
+      toolpaths([circle(0, 0, 20)], [{ contour: 0, kind: 'drill', ...op }], settings).moves.find(
+        (m) => m.arc,
+      )!.arc!.cw;
+    expect(bore({ climb: false }, s)).toBe(false);
+    expect(bore({ climb: true }, { ...s, climb: false })).toBe(true);
+  });
+
+  it('without a direction of its own an operation follows the job: nothing changes', () => {
+    const part = rectangle(0, 0, 100, 50);
+    for (const kind of ['outside', 'inside', 'pocket'] as const) {
+      for (const climb of [true, false]) {
+        expect(
+          JSON.stringify(toolpaths([part], [{ contour: 0, kind }], { ...s, climb }).moves),
+        ).toBe(
+          JSON.stringify(
+            toolpaths([part], [{ contour: 0, kind, climb: undefined }], { ...s, climb }).moves,
+          ),
+        );
+      }
+    }
+  });
+
   it('ramps into the material instead of plunging', () => {
     const part = rectangle(0, 0, 100, 50);
     const { moves } = toolpaths([part], [{ contour: 0, kind: 'outside' }], { ...s, rampAngle: 5 });

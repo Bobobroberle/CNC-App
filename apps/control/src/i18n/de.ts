@@ -752,7 +752,8 @@ export const de = {
     remaining: 'noch {distance}',
     atLimit: '{axis}: Grenze des Verfahrwegs erreicht – Jog nicht gesendet.',
     limited: '{axis}: Jog an der Grenze des Verfahrwegs gekürzt.',
-    notAtRest: '{axis}: Die Maschine kommt nicht zur Ruhe – Schritt nicht gesendet. Bitte noch einmal tippen.',
+    notAtRest:
+      '{axis}: Die Maschine kommt nicht zur Ruhe – Schritt nicht gesendet. Bitte noch einmal tippen.',
     homed: 'Referenzfahrt abgeschlossen ({axes}) – Software-Endschalter aktiv.',
     notHomed: 'Nicht referenziert – Position unbekannt, Endschalter inaktiv.',
     limitsOff: 'Software-Endschalter sind im Maschinenprofil ausgeschaltet.',
@@ -2254,6 +2255,8 @@ export const de = {
     tabHeight: 'Steghöhe (mm)',
     tabCount: 'Stege je Kontur',
     climb: 'Gleichlauf (sonst Gegenlauf)',
+    direction: 'Laufrichtung von Teil {n}',
+    directions: { job: 'Laufrichtung wie der Job', climb: 'Gleichlauf', conventional: 'Gegenlauf' },
     problems: {
       'tool-too-large': 'Kontur {n}: Werkzeug zu groß dafür.',
       'open-contour': 'Kontur {n} ist offen – nur „Linie gravieren“ möglich.',

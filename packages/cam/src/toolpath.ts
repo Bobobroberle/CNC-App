@@ -55,6 +55,11 @@ export interface Operation {
   tabs?: Tabs;
   /** Frees the inside corners of a contour or pocket so a square part fits */
   relief?: Relief;
+  /**
+   * Climb (true) or conventional (false) milling for this contour; absent takes the job's
+   * `climb`. Cuts that have no direction (a straight plunge, an engraved open line) ignore it.
+   */
+  climb?: boolean;
 }
 
 /** A move in work coordinates; `feed` null means rapid. */
@@ -409,6 +414,8 @@ export function toolpaths(
     const finish = [-depth];
     const tabs = op.tabs && op.tabs.count > 0 ? op.tabs : undefined;
     const tabAt = tabs && c.closed ? tabPoints(c.points, tabs.count) : [];
+    // This contour's own direction, else the job's
+    const climb = op.climb ?? s.climb;
     if (op.kind === 'on') {
       at = c.closed
         ? loopWalk(startNear([...c.points], at), depths, s, moves, { tabs, tabAt })
@@ -420,7 +427,7 @@ export function toolpaths(
         problems.push({ contour: op.contour, code: 'hole-too-small' });
         return;
       }
-      at = hole(c.circle, depth, s, moves);
+      at = hole(c.circle, depth, { ...s, climb }, moves);
     } else if (op.kind === 'outside' || op.kind === 'inside') {
       const sign = op.kind === 'outside' ? 1 : -1;
       const outline = ccw(c.points);
@@ -431,7 +438,7 @@ export function toolpaths(
       }
       const corners = op.relief ? reliefCorners(outline, op.kind, r, op.relief) : [];
       // Material left of the cutter for climb: outside counter-clockwise, inside clockwise.
-      const turned = (g: Point[]) => ((op.kind === 'outside') === s.climb ? ccw(g) : cw(g));
+      const turned = (g: Point[]) => ((op.kind === 'outside') === climb ? ccw(g) : cw(g));
       const rough = allowance > 0 ? offsetPolygons([outline], sign * (r + allowance)) : [];
       for (const g of rough) {
         at = loopWalk(startNear(turned(g), at), depths, s, moves, { tabs, tabAt });
@@ -457,7 +464,7 @@ export function toolpaths(
       const levels = pocketRings(c.points, islands, s, allowance);
       const corners = op.relief ? reliefCorners(c.points, 'inside', r, op.relief) : [];
       // Climb runs against Clipper's orientation.
-      const turned = (ring: Point[]) => (s.climb ? [...ring].reverse() : ring);
+      const turned = (ring: Point[]) => (climb ? [...ring].reverse() : ring);
       // Innermost rings first, out to the wall.
       const rings = [...levels].reverse().flat();
       // Without an allowance the outermost ring is the wall itself.

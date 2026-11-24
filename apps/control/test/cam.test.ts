@@ -2,8 +2,9 @@ import { circle, holeGrid, rectangle, type Sketch } from '@lowrider/cam';
 import { frameAngle, selectionFrame } from '../src/lib/camEdit';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { holeCentre, isSelected, itemAt, itemsBounds, partsOf } from '../src/lib/camItems';
-import { blocksFlip, useCam } from '../src/store/cam';
+import { blocksFlip, itemOperation, useCam } from '../src/store/cam';
 import { useFlip } from '../src/store/flip';
+import { seriesMotif } from '../src/store/series';
 import { useJob } from '../src/store/job';
 import { useWorkshop } from '../src/store/workshop';
 
@@ -614,6 +615,72 @@ describe('a part for both sides in the drawing', () => {
     expect(useJob.getState().fileName).toBe('zeichnung_vorderseite.nc');
     useFlip.getState().cancel();
     expect(useFlip.getState().plan).toBeNull();
+  });
+});
+
+describe('the direction of a part (climb or conventional)', () => {
+  beforeEach(() => {
+    useCam.getState().close();
+    useJob.getState().unload();
+    useFlip.getState().cancel();
+    useCam
+      .getState()
+      .setSettings({ toolId: 't2', depth: 6, allowance: 0, engraveDepth: 1, climb: true });
+    useWorkshop.getState().setSetup({ stock: null, fixtures: [], fixtureFrame: 'machine' });
+  });
+  const RECT: Sketch = { type: 'rect', w: 100, h: 60, r: 0 };
+
+  it('is what the job says until the part says otherwise – and then runs the way the job would', () => {
+    const cam = useCam.getState();
+    cam.addSketch(RECT);
+    const climbed = program();
+    // The part's own conventional milling gives the program the job's conventional setting gives
+    cam.setItem(items()[0]!.id, { climb: false });
+    const conventional = program();
+    expect(conventional).not.toBe(climbed);
+    cam.setItem(items()[0]!.id, { climb: undefined });
+    cam.setSettings({ climb: false });
+    cam.remake();
+    expect(program()).toBe(conventional);
+    // … and the other way round: a part that climbs in a job that runs conventional
+    cam.setItem(items()[0]!.id, { climb: true });
+    expect(program()).toBe(climbed);
+  });
+
+  it('is carried by the item into its operation, and stays across a copy', () => {
+    const cam = useCam.getState();
+    cam.addSketch(RECT);
+    const id = items()[0]!.id;
+    expect(itemOperation(items()[0]!, useCam.getState().settings).climb).toBeUndefined();
+    cam.setItem(id, { climb: false });
+    expect(itemOperation(items()[0]!, useCam.getState().settings).climb).toBe(false);
+    cam.duplicate();
+    expect(items().map((i) => i.climb)).toEqual([false, false]);
+  });
+
+  it('goes with the part into a series: the motif cuts every blank the way the drawing does', () => {
+    const cam = useCam.getState();
+    cam.addSketch(RECT);
+    cam.setItem(items()[0]!.id, { climb: false });
+    expect(seriesMotif().map((part) => part.climb)).toEqual([false]);
+  });
+
+  it('is kept by the part cut on the back, as it is cut from the front', () => {
+    const cam = useCam.getState();
+    cam.add([rectangle(0, 0, 200, 80), circle(60, 40, 30)]);
+    cam.setTwoSided({ thickness: 12 });
+    const pocket = items()[1]!;
+    cam.setItem(pocket.id, { kind: 'pocket', depth: 3, side: 'back' });
+    const back = () => useFlip.getState().plan!.back.text;
+    const climbed = back();
+    cam.setItem(pocket.id, { climb: false });
+    const conventional = back();
+    expect(conventional).not.toBe(climbed);
+    // the same as the job's conventional setting does to it
+    cam.setItem(pocket.id, { climb: undefined });
+    cam.setSettings({ climb: false });
+    cam.remake();
+    expect(back()).toBe(conventional);
   });
 });
 

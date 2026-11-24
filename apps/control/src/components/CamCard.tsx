@@ -79,6 +79,12 @@ const hasCorners = (item: CamItem) =>
         0,
   );
 
+/** Whether the item has a way round to choose: a closed contour that is cut around or cleared. */
+const hasDirection = (item: CamItem) =>
+  (through(item.kind) || item.kind === 'pocket') && item.contours.some((c) => c.closed);
+
+const DIRECTIONS = ['job', 'climb', 'conventional'] as const;
+
 /** One thing of the drawing in the list: what it is, how it is cut and how deep. */
 function ItemRow({ item, n }: { item: CamItem; n: number }) {
   const selected = useCam((s) => isSelected(item, s.selected));
@@ -133,7 +139,7 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
       >
         ×
       </Button>
-      {through(item.kind) || hasCorners(item) || sided ? (
+      {through(item.kind) || hasCorners(item) || hasDirection(item) || sided ? (
         <div className="cam-options">
           {sided ? (
             <NativeSelect
@@ -156,6 +162,23 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
               />
               <span>{t('cam.tabs')}</span>
             </Label>
+          ) : null}
+          {hasDirection(item) ? (
+            <NativeSelect
+              aria-label={t('cam.direction', { n })}
+              value={item.climb === undefined ? 'job' : item.climb ? 'climb' : 'conventional'}
+              onChange={(e) =>
+                cam.setItem(item.id, {
+                  climb: e.target.value === 'job' ? undefined : e.target.value === 'climb',
+                })
+              }
+            >
+              {DIRECTIONS.map((d) => (
+                <option key={d} value={d}>
+                  {t(`cam.directions.${d}`)}
+                </option>
+              ))}
+            </NativeSelect>
           ) : null}
           {hasCorners(item) ? (
             <NativeSelect

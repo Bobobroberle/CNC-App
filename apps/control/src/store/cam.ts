@@ -147,7 +147,9 @@ export interface CamProblem {
 }
 
 /** What can be set per item of the list. */
-export type ItemPatch = Partial<Pick<CamItem, 'kind' | 'tabs' | 'relief' | 'depth' | 'side'>>;
+export type ItemPatch = Partial<
+  Pick<CamItem, 'kind' | 'tabs' | 'relief' | 'depth' | 'side' | 'climb'>
+>;
 
 interface AddOptions {
   /** All contours are one item with one operation (a text, a hole grid) */
@@ -366,6 +368,8 @@ export function itemOperation(item: CamItem, settings: CamSettings): Omit<Operat
     depth: item.depth ?? (item.kind === 'on' ? settings.engraveDepth : undefined),
     tabs: through(item.kind) && item.tabs ? settings.tabs : undefined,
     relief: (through(item.kind) || item.kind === 'pocket') && item.relief ? item.relief : undefined,
+    // its own direction, where it has one; else the job's (the library falls back)
+    climb: item.climb,
   };
 }
 

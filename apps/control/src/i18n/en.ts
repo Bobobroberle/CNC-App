@@ -2224,6 +2224,8 @@ export const en: DictionaryShape = {
     tabHeight: 'Tab height (mm)',
     tabCount: 'Tabs per contour',
     climb: 'Climb milling (otherwise conventional)',
+    direction: 'Direction of part {n}',
+    directions: { job: 'Direction as the job', climb: 'Climb', conventional: 'Conventional' },
     problems: {
       'tool-too-large': 'Contour {n}: tool too large for it.',
       'open-contour': 'Contour {n} is open – only "Engrave the line" works.',
