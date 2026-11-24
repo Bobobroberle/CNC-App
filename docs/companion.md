@@ -135,13 +135,26 @@ eine Kopie (sie gilt, wenn der Pi weg ist, und wird nachgeholt).
 
 - **Wie:** `GET /api/state` liefert alle Dokumente, `PUT /api/state/<Schlüssel>` schreibt eines (`{baseRev, data}`). Der Companion zählt
   die Version; schreibt ein Gerät aus einer alten Version, antwortet er mit 409 und dem aktuellen Stand, die App führt beides zusammen
-  und schreibt noch einmal – so überschreibt kein Gerät das andere. Die Uhr des Pi spielt keine Rolle. Das Messprotokoll ist die
-  Sammlung `measurements` (ein Eintrag je Messung).
-- **Was am Gerät bleibt:** die Adresse des Pi, die Benachrichtigungen dieses Browsers, „Bildschirm anlassen“, die Bildquelle der Kamera
-  und ihre Stream-Adresse, das Aussehen der App, die Fotokarte, die zuletzt benutzten Jobs.
+  und schreibt noch einmal. Ändern zwei Geräte **verschiedene** Dinge (auch in derselben Kamera-Einstellung), bleibt beides; haben
+  beide **dasselbe** geändert, gilt das Gerät, das zuletzt abgleicht, und es sagt, was es ersetzt hat. Die Uhr des Pi spielt keine
+  Rolle. Das Messprotokoll ist die Sammlung `measurements` (ein Eintrag je Messung, höchstens 5000 – die ältesten gehen zuerst).
+  Eine Anfrage an `/api/state` darf höchstens 1 MB groß sein, ein Dokument 512 KB.
+- **Was am Gerät bleibt:** die Adresse des Pi, die Benachrichtigungen dieses Browsers, „Bildschirm anlassen“, die Sprache und die
+  Expertenfunktionen (wer am PC Englisch liest, dreht das Tablet an der Maschine nicht um), die Bildquelle der Kamera und ihre
+  Stream-Adresse, das Aussehen der App, die Fotokarte, die zuletzt benutzten Jobs.
 - **Wann:** kurz nach jeder Änderung, alle 30 s, wenn die Seite wieder sichtbar wird und wenn der Pi antwortet. Neue Werte vom Pi
-  übernimmt die App nur, solange nichts fährt und kein Job läuft. Läuft der **Simulator**, wird nichts abgeglichen; was darin
-  eingestellt wurde, ist danach wieder weg.
+  übernimmt die App nur, solange nichts fährt, kein Job läuft und kein Messlauf der Kalibrierung unterwegs ist. Läuft der
+  **Simulator**, wird nichts abgeglichen; was darin eingestellt wurde, ist danach wieder weg – auch wenn die Seite im Simulator
+  geschlossen wurde (dann beim nächsten Start). Das Messprotokoll wird beim ersten Abgleich, nach einem Eintrag, der den Pi nicht
+  erreicht hat, und sonst alle zehn Minuten abgeglichen.
+- **Der Pi bekommt etwas Älteres** (Datensicherung zurückgespielt, neue Karte): die App vergleicht, was auf dem Pi steht – nicht die
+  Versionsnummer –, übernimmt den älteren Stand und sagt es.
+- **Ein Dokument auf dem Pi ist unbrauchbar** (zum Beispiel von Hand falsch geschrieben): die App übernimmt es nicht, überschreibt es
+  nicht und sagt es einmal. Unter _Einstellungen → Verbindung_ ersetzt ein langes Drücken auf „Stand dieses Geräts auf den Pi
+  schreiben“ es durch den Stand dieses Geräts.
+- **Vertrauen:** der Companion hat keine Anmeldung und antwortet jeder Webseite im Netz (CORS `*`) – das war schon immer so, das
+  Werkstattnetz gilt als vertrauenswürdig. Was von ihm kommt, prüft die App trotzdem: Zahlen im Rahmen dessen, was die Karten
+  zulassen, ein echtes Maschinenprofil, Makros nur mit Hinweis (sie laufen als Text an der Maschine).
 - **Erste Verbindung eines Geräts:** hat der Pi schon einen Stand, gilt er dort, wo beide verschieden sind; die App sagt, was sie
   ersetzt hat. Ein Pi **ohne** diese Schnittstelle (alte Version) wird erkannt; der Kasten Companion sagt es, alles andere geht weiter.
 - **Sicherung:** die Dokumente liegen in derselben Datenbank wie die Bibliotheken; die tägliche Sicherung deckt sie mit.

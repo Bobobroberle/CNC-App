@@ -424,25 +424,55 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   what belongs to the machine in the browser as before **and**, while a companion answers, in one document per key on the Pi, so
   every device finds the same. Companion: `src/state.ts` + `/api/state` (GET all, `PUT /api/state/:key` with `{baseRev, data}`; the
   companion counts the revision – never the Pi's clock – and refuses a write from an old one with 409 and the current document;
-  bounded to 512 KB; `state: true` in `/api/health`; the daily backup covers it, it lives in the `documents` table). App: pure
+  the document is bounded to 512 KB and the request to 1 MB _before_ it is parsed (`bodyLimit` of the route; the rest of the API
+  takes uploads); `state: true` in `/api/health`; the daily backup covers it, it lives in the `documents` table). App: pure
   merge in `lib/stateSync.ts` (`merge3` by top-level key: what only one side changed goes to the other; both changed → the
-  winner's), the engine `store/stateSync.ts` (`syncOnce`, `startStateSync`: a change goes out after 0.8 s, the Pi is asked every
-  30 s, when the page comes back and when the companion answers; offline everything goes on and is caught up) and the documents
-  `store/stateSlices.ts` – a `Slice` each: `settings`, `clamps` (fixtures and their frame, not the job's setup), `toolReference`,
-  `macros`, `learning`, `profile`. **The companion's `STATE_KEYS` and the slices are one list** (a test compares them). Rules that
-  hold: **what belongs to a device alone is not synced** (`LOCAL_SETTINGS`: address of the Pi, browser notifications, screen
-  keeping; `LOCAL_CAMERA`: picture source and stream address); **first contact** (no common base) merges against the defaults – the
-  Pi's value wins where both differ and is said (`sync.replacedLocal`), a state that is still the defaults is not written;
-  **the Pi's values are taken only where nothing moves** (`safeToApply`: no job under way, no hold, machine Idle or not
-  connected – otherwise they wait; this device's own changes may always go out); **nothing from the Pi is trusted** (`accepts`
-  before a document goes in or out; `insane()` refuses a place or a scale that is no number – a place becomes a G53 target); **while a
-  simulator is the machine nothing is exchanged and its changes are undone when it ends** (`simulatorActive`). The **log of
-  measurements** (`lib/measurements.ts`, `store/measurements.ts`, card `MeasurementLog` under Service → Kalibrieren, companion
-  library `measurements`): `record(kind, values)` at every calibration, camera scale and offset, grid, backlash, tilt, ruler check,
-  tool reference and **every correction written to config.yaml** (old and new value – the only trace of a change to the machine);
-  not while a simulator is the machine; union by id with the Pi (`syncMeasurements`, in every round the Pi answers). Per device stay:
-  the photo map, the recent jobs, running flip and sections flows, the look of the app. A new setting of the machine needs nothing
-  (it is in the settings document); one of the device goes into the local lists; a new document is a `Slice` plus its key at the companion.
+  winner's, **but inside a document of fixed keys one level deeper** – the camera's calibration of one device is not lost to the
+  other's switch; **a key the Pi's copy lacks is unchanged, not removed** – an older app wrote it; only a document of free keys,
+  the learning, loses one), the engine `store/stateSync.ts` (`syncOnce`, `startStateSync`: a change goes out after 0.8 s, the Pi
+  is asked every 30 s, when the page comes back and when the companion answers; offline everything goes on and is caught up) and
+  the documents `store/stateSlices.ts` – a `Slice` each: `settings`, `clamps` (fixtures and their frame, not the job's setup),
+  `toolReference`, `macros`, `learning`, `profile`. **The companion's `STATE_KEYS` and the slices are one list** (a test compares
+  them). Rules that hold: **a slice has `keys`** – of a Pi document only these are looked at, **any other key (a newer app wrote
+  it) is carried along untouched** (`split`; the base and the comparison use the same projection, or every round would write);
+  **what the Pi has is compared by content, never by its revision number** (a Pi restored from a backup counts again – an older
+  state is taken and said, `sync.rewound`); **what belongs to a device alone is not synced** (`LOCAL_SETTINGS`: address of the Pi,
+  browser notifications, screen keeping, **language and expert functions** – a change of the language restarts the whole screen,
+  not something to happen under another's finger; `LOCAL_CAMERA`: picture source and stream address); **first contact** (no common
+  base) merges against the defaults – the Pi's value wins where both differ and is said (`sync.replacedLocal`), a state that is
+  still the defaults is not written; **the Pi's values are taken only where nothing moves** (`safeToApply`: no job under way, no
+  hold, no measuring run of the calibration, machine Idle or not connected – otherwise they wait, as long as the Pi's values are
+  needed; this device's own changes go out when they need nothing of the Pi's), **and never over an edit made while the Pi was
+  written** (the slice is read again before `apply`; the next round merges); a failed `apply` puts this device back and records
+  nothing; **nothing from the Pi is trusted**: `accepts` runs before a document goes in or out – the settings must be of the
+  right kind per part (`shaped`: no camera that is null), have a camera with its numbers (or the defaults would fill a gap and
+  throw a calibration away), and `insane()` holds places, the safe height (upper half of the Z travel), spindle, camera, the
+  measuring runs (points 2–5 …), the corner plate and the recording to the ranges the cards allow; the profile needs real
+  kinematics and controller (`parseKinematics`/`parseController` – a `kinematics: {}` crashed every screen that reads
+  `axes.x.maxRate`); the learning factor 0.5–1.5; **macros from the Pi run as text on the machine, so they are said**
+  (`Slice.announce` → `sync.macrosFromPi`, a hint that stays in the centre). **A document that stays refused** is said once per
+  revision (`sync.refused`), blocks no other document and not the log, and has a way out: in the connection card a hold writes this
+  device's state over it (`overwritePi`) – only where the Pi's document is refused and this device's own is fine. **Per window**
+  the note of what is known (`createMetaStore`: revision and what both had) is read from the browser once and then kept in memory
+  and written through – two windows of one browser each follow the Pi instead of passing one note back and forth, and a browser
+  that stores nothing still remembers until the page closes. **A simulator is no machine**: nothing is exchanged while it runs;
+  the state from before is kept in the browser (`createKeep`) and put back when it ends **and at the next start if the page was
+  closed in it** (`Slice.restore`: the profile goes back to the placeholder), taken only where a Pi is configured. **How a round
+  ends** is the worst of its documents (refused › failed › deferred › ok); a Pi that answers with an error is `failed`, not
+  `offline`; a log of measurements that did not come through is no `ok`. The **log of measurements**
+  (`lib/measurements.ts`, `store/measurements.ts`, card `MeasurementLog` under Service → Kalibrieren, companion library
+  `measurements`): `record(kind, values)` at every calibration, camera scale and offset (also the one set by a tap on the picture),
+  grid, backlash, tilt, ruler check, tool reference and **every correction written to config.yaml** (the calibration, the config
+  editor, the limits card: old and new value – the only trace of a change to the machine, except a write that failed half-way);
+  the same numbers of the same kind within a minute are one entry; not while a simulator is the machine; a time is only what
+  `toISOString` writes; union by id with the Pi (`syncMeasurementsDue`: at the first round, when an entry did not reach the Pi,
+  and every ten minutes – the Pi is asked every 30 s, the log not; what the Pi lacks is **sent before** its entries are taken in;
+  every request has a time limit); the companion checks an entry (`validateMeasurement`: a few names with numbers, texts or
+  flags) and keeps the latest 5000. Per device stay: the photo map, the recent jobs, running flip and sections flows, the look of
+  the app. A new setting of the machine needs nothing (it is in the settings document – but give a number a range in `insane`); one
+  of the device goes into the local lists; a new document is a `Slice` (with `keys`) plus its key at the companion. **Known and
+  accepted:** the companion has no login and answers CORS `*` (as before this feature – the workshop network is trusted), so any
+  page the operator opens could write the state; probe, hole, tag and tool-length results are not in the log yet.
 - Rotary axis A: prepared only – the DRO shows A and the jog panel gets A−/A+ (steps in degrees)
   when the machine profile has a rotary axis; nothing else.
 - Connecting (`store/machine.ts` `connect`/`link`, pure `lib/link.ts`): a connection is up only once

@@ -50,6 +50,9 @@ React Testing Library und jsdom sind als Dev-Abhängigkeit installiert (`apps/co
 ## 5c. README
 Die README ist komplett auf die sechs Bereiche umgeschrieben (Entscheidung 39): Bereich für Bereich aus dem Code und den deutschen Oberflächentexten, danach von drei Prüfern (Beschriftungen, Orte, Vollständigkeit) gegengelesen, ihre Korrekturen sind eingearbeitet. Sie ist länger geworden (110 statt 40 KB), weil sie jetzt je Bereich beschreibt, was dort wirklich steht – kürzen kannst du jederzeit.
 
+## 5e. Einstellungen und Messwerte auf dem Pi (Entscheidung 40) – gebaut, geprüft
+Auf deinen Wunsch („unbedingt alle Messwerte und Einstellungen auf dem Pi speichern“): Kamera-Maßstab und -Versatz, Orte, Kalibrierwerte, Spindelgrenzen, Klemmen, Makros, Lernwerte und Maschinenwerte liegen auf dem Pi und sind auf jedem Gerät da; dazu das **Messprotokoll** (Service → Kalibrieren). Alles Weitere – was am Gerät bleibt, die Regel bei der ersten Verbindung, der Simulator, was dem Pi nicht geglaubt wird, was **noch nicht** im Protokoll steht, und die 45 Funde des Prüf-Durchgangs 7 (44 bestätigt, alle behoben außer den dort genannten Festlegungen) – steht im Entscheidungsprotokoll unter „Einstellungen und Messwerte auf dem Pi (Entscheidung 40)“. **Zum Einspielen:** den Pi mit der neuen Version aktualisieren (neue `lowrider-pi.zip`, dann `setup.sh`) – vorher sagt die Karte „kennt diesen Speicher noch nicht“. **Bitte prüfen:** (1) wer den Pi in ein fremdes Netz stellt, braucht eine Anmeldung (der Companion hat keine); (2) Sprache und Expertenfunktionen bleiben am Gerät; (3) Makros vom Pi werden nur gemeldet, nicht gesperrt.
+
 ## 5d. Änderungsliste (Entscheidung 38) – alle vier Gruppen bearbeitet
 Einzelheiten und alle **Festlegungen, bitte prüfen** stehen im Entscheidungsprotokoll unter „Änderungsliste – Stand der Nacht“.
 
