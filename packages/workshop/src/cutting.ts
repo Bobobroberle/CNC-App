@@ -43,11 +43,15 @@ export function suggestCutting(
   material: Material,
   spindle: SpindleLimits,
   learnedFactor = 1,
+  /** The speed the operator chose: the feed follows it (the chip load stays the material's) */
+  rpmOverride?: number,
 ): CuttingSuggestion {
   const limits: CuttingSuggestion['limits'] = [];
   const ideal = (material.vc * 1000) / (Math.PI * tool.diameter);
   let rpm = ideal;
-  if (rpm < spindle.rpmMin) {
+  if (rpmOverride !== undefined) {
+    rpm = rpmOverride;
+  } else if (rpm < spindle.rpmMin) {
     rpm = spindle.rpmMin;
     limits.push('rpm-high');
   } else if (rpm > spindle.rpmMax) {
@@ -89,7 +93,8 @@ export function toolOwnValues(tool: Tool, spindle: SpindleLimits): OwnValues {
     out.rpm = Math.round(Math.min(spindle.rpmMax, Math.max(spindle.rpmMin, c.rpm)));
   if (c.feed !== undefined) out.feed = Math.round(Math.min(spindle.maxFeed, c.feed));
   if (c.plungeFeed !== undefined) out.plunge = Math.round(Math.min(spindle.maxFeed, c.plungeFeed));
-  if (c.stepdown !== undefined) out.depthPerPass = Number(c.stepdown.toFixed(2));
+  // never below the 0.01 mm the CAM takes: a tiny value would round to nothing and stop the toolpath
+  if (c.stepdown !== undefined) out.depthPerPass = Math.max(0.01, Number(c.stepdown.toFixed(2)));
   if (c.stepover !== undefined) out.stepover = Number((c.stepover * tool.diameter).toFixed(2));
   return out;
 }
@@ -97,7 +102,8 @@ export function toolOwnValues(tool: Tool, spindle: SpindleLimits): OwnValues {
 /**
  * The suggestion of the material, with the tool's own values over it: what the CAM applies and what
  * the check compares the program with. A typed feed without a typed plunge feed keeps the material's
- * plunge ratio; a typed feed is not scaled by what was learned.
+ * plunge ratio; a typed feed is not scaled by what was learned. A typed speed without a typed feed
+ * moves the feed with it (f = fz·z·n at that speed): the chip load stays the material's.
  */
 export function suggestFor(
   tool: Tool,
@@ -105,8 +111,8 @@ export function suggestFor(
   spindle: SpindleLimits,
   learned = 1,
 ): CuttingSuggestion {
-  const base = suggestCutting(tool, material, spindle, learned);
   const own = toolOwnValues(tool, spindle);
+  const base = suggestCutting(tool, material, spindle, learned, own.rpm);
   const rpm = own.rpm ?? base.rpm;
   const feed = own.feed ?? base.feed;
   return {

@@ -166,6 +166,12 @@ interface Snapshot {
   items: CamItem[];
   twoSided: TwoSided | null;
   selected: Selection;
+  /**
+   * Only the step that opening a project makes carries these (and the step back from it): the
+   * name and the cutting settings come with the drawing – going back brings them back too.
+   */
+  name?: string;
+  settings?: CamSettings;
 }
 
 /** A text as `addText` takes it: its height and how its lines are set. */
@@ -194,7 +200,11 @@ interface CamStore {
    * puts a program on the table by itself: it goes through the drawing's own update, so a job under
    * way and a program that is not the drawing's own are left as they are. Refused files change nothing.
    */
-  openProject(text: string): { toolMissing: boolean } | { error: ProjectError };
+  openProject(
+    text: string,
+  ):
+    | { toolMissing: boolean; toolDiffers?: { file: number; now: number } }
+    | { error: ProjectError };
   /** Adds contours as new items, selected for arranging */
   add(contours: Contour[], options?: AddOptions): void;
   /**
@@ -377,8 +387,9 @@ export function itemOperation(item: CamItem, settings: CamSettings): Omit<Operat
     depth: item.depth ?? (item.kind === 'on' ? settings.engraveDepth : undefined),
     tabs: through(item.kind) && item.tabs ? settings.tabs : undefined,
     relief: (through(item.kind) || item.kind === 'pocket') && item.relief ? item.relief : undefined,
-    // its own direction, where it has one; else the job's (the library falls back)
-    climb: item.climb,
+    // its own direction, where it has one to choose (a stale one from another kind does not count);
+    // else the job's (the library falls back)
+    climb: through(item.kind) || item.kind === 'pocket' ? item.climb : undefined,
   };
 }
 
@@ -763,9 +774,17 @@ export const useCam = create<CamStore>((set, get) => {
   const restore = (to: Snapshot) => {
     const p = get().project!;
     lastField = null;
-    set({ project: { ...p, twoSided: to.twoSided } });
+    set({
+      project: { ...p, twoSided: to.twoSided, ...(to.name !== undefined ? { name: to.name } : {}) },
+      ...(to.settings ? { settings: to.settings } : {}),
+    });
     update(to.items, to.selected);
   };
+  /** The state to come back to from a step that carries the name and the settings carries them too */
+  const alongWith = (now: Snapshot | null, step: Snapshot): Snapshot | null =>
+    now && (step.name !== undefined || step.settings !== undefined)
+      ? { ...now, name: get().project!.name, settings: get().settings }
+      : now;
 
   return {
     project: null,
@@ -793,7 +812,7 @@ export const useCam = create<CamStore>((set, get) => {
       }),
     saveProject() {
       const { project, settings } = get();
-      return project ? projectToText(project, settings) : null;
+      return project ? projectToText(project, settings, new Date(), toolDiameter(settings)) : null;
     },
     openProject(text) {
       const parsed = parseProject(text);
@@ -803,22 +822,46 @@ export const useCam = create<CamStore>((set, get) => {
       const toolMissing =
         toolId !== undefined && !useWorkshop.getState().tools.some((t) => t.id === toolId);
       get().open();
-      remember(snap());
-      // What is made from now on starts above every id and group of the file
-      nextId = Math.max(nextId, parsed.highestId + 1);
-      const items = parsed.project.items.map((i) => ({
-        ...i,
-        contours: place(i.source, i.placement),
-      }));
-      set((s) => ({
-        project: { ...parsed.project, items },
-        settings: { ...s.settings, ...(toolMissing ? rest : parsed.settings) },
-        selected: null,
-        problems: [],
-        flipNotes: [],
-      }));
-      update(items, null, false);
-      return { toolMissing };
+      // Whatever the file does not go well with leaves the drawing as it was: nothing is half taken
+      const kept = { ...get(), nextId, lastField };
+      try {
+        remember({ ...snap()!, name: get().project!.name, settings: get().settings });
+        // What is made from now on starts above every id and group of the file
+        nextId = Math.max(nextId, parsed.highestId + 1);
+        const items = parsed.project.items.map((i) => ({
+          ...i,
+          contours: place(i.source, i.placement),
+        }));
+        set((s) => ({
+          project: { ...parsed.project, items },
+          settings: { ...s.settings, ...(toolMissing ? rest : parsed.settings) },
+          selected: null,
+          problems: [],
+          flipNotes: [],
+        }));
+        update(items, null, false);
+      } catch {
+        nextId = kept.nextId;
+        lastField = kept.lastField;
+        set({
+          project: kept.project,
+          settings: kept.settings,
+          selected: kept.selected,
+          past: kept.past,
+          future: kept.future,
+          problems: kept.problems,
+          flipNotes: kept.flipNotes,
+        });
+        return { error: 'invalid-project' as const };
+      }
+      // The cutter has the id of the file's, but another diameter here: the toolpaths follow this one
+      const library = useWorkshop.getState().tools.find((x) => x.id === toolId);
+      const file = parsed.toolDiameter;
+      const toolDiffers =
+        library && file !== undefined && Math.abs(library.diameter - file) > 1e-6
+          ? { file, now: library.diameter }
+          : undefined;
+      return toolDiffers ? { toolMissing, toolDiffers } : { toolMissing };
     },
     importFile(name, text) {
       const svg = /\.svg$/i.test(name) || /<svg[\s>]/i.test(text.slice(0, 2000));
@@ -1054,16 +1097,16 @@ export const useCam = create<CamStore>((set, get) => {
     },
     undo() {
       const { past, future } = get();
-      const now = snap();
       const to = past[past.length - 1];
+      const now = to && alongWith(snap(), to);
       if (!now || !to) return;
       set({ past: past.slice(0, -1), future: [...future, now] });
       restore(to);
     },
     redo() {
       const { past, future } = get();
-      const now = snap();
       const to = future[future.length - 1];
+      const now = to && alongWith(snap(), to);
       if (!now || !to) return;
       set({ past: [...past, now], future: future.slice(0, -1) });
       restore(to);
@@ -1168,9 +1211,21 @@ export const useCam = create<CamStore>((set, get) => {
       if (s.rpm !== undefined) patch.rpm = Math.round(s.rpm);
       if (s.feed !== undefined) patch.feed = Math.round(s.feed);
       if (s.plunge !== undefined) patch.plungeFeed = Math.round(s.plunge);
-      if (s.depthPerPass !== undefined) patch.stepdown = Number(s.depthPerPass.toFixed(1));
-      if (s.stepover !== undefined)
-        patch.stepover = Number((s.stepover / tool.diameter).toFixed(2));
+      // What the tool says itself is taken as it is (the CAM takes 0.01 mm); the material's is rounded
+      const own = toolOwnValues(tool, ws.spindle);
+      if (s.depthPerPass !== undefined) {
+        patch.stepdown =
+          own.depthPerPass !== undefined
+            ? own.depthPerPass
+            : Math.max(0.01, Number(s.depthPerPass.toFixed(1)));
+      }
+      if (s.stepover !== undefined) {
+        const share = s.stepover / tool.diameter;
+        patch.stepover = Math.min(
+          1,
+          Math.max(0.01, Number(share.toFixed(own.stepover !== undefined ? 3 : 2))),
+        );
+      }
       if (Object.keys(patch).length > 0) get().setSettings(patch);
     },
     remake(opts) {

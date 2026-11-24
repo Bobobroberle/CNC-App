@@ -2183,6 +2183,8 @@ export const de = {
       saved: 'Projekt gespeichert: {name}',
       toolMissing:
         'Das Werkzeug des Projekts gibt es in dieser Werkzeugliste nicht – es bleibt das gewählte.',
+      toolDiffers:
+        'Das Werkzeug des Projekts hatte {file} mm Durchmesser, hier hat es {now} mm – die Bahnen werden mit dem jetzigen gerechnet.',
       errors: {
         'too-large': 'Die Datei ist zu groß für eine Zeichnung (über 20 MB).',
         'invalid-json': 'Das ist keine Projektdatei: sie lässt sich nicht lesen.',

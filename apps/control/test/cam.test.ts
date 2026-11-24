@@ -655,6 +655,51 @@ describe("a tool's own cutting values in the drawing", () => {
     expect(settings.plungeFeed).toBe(Math.round(900 * materials[0]!.plungeFactor));
   });
 
+  it('are taken as they are typed: no second rounding, and never a stepdown of nothing', () => {
+    useWorkshop
+      .getState()
+      .saveTool({ ...t2(), cutting: { stepdown: 0.75, stepover: 0.125, feed: 900 } });
+    useCam.getState().suggest();
+    expect(useCam.getState().settings.stepdown).toBe(0.75);
+    expect(useCam.getState().settings.stepover).toBe(0.125);
+    // a stepdown that would round to nothing would stop the toolpath: the CAM's own smallest
+    useWorkshop.getState().saveTool({ ...t2(), cutting: { stepdown: 0.004, stepover: 0.001 } });
+    useCam.getState().suggest();
+    expect(useCam.getState().settings.stepdown).toBe(0.01);
+    expect(useCam.getState().settings.stepover).toBe(0.01);
+    useCam.getState().addSketch({ type: 'rect', w: 100, h: 60, r: 0 });
+    expect(useJob.getState().lines.length).toBeGreaterThan(0);
+  });
+
+  it('leave the material’s rounding as it was (a tenth of a millimetre, hundredths of the diameter)', () => {
+    const material = useWorkshop.getState().materials[0]!;
+    useWorkshop.getState().setSetup({ materialId: material.id });
+    useCam.getState().suggest();
+    const { settings } = useCam.getState();
+    const d = t2().diameter;
+    expect(settings.stepdown).toBe(Number((d * material.depthFactor).toFixed(1)));
+    expect(settings.stepover).toBe(Number(((d * material.stepoverFactor) / d).toFixed(2)));
+  });
+
+  it('give a very fine cutter a stepdown of at least what the CAM takes, with a material too', () => {
+    const tools = useWorkshop.getState().tools;
+    const settings = useCam.getState().settings;
+    useWorkshop.getState().setSetup({ materialId: useWorkshop.getState().materials[0]!.id });
+    try {
+      // a 0.02 mm engraver: the material's share of it is far under a twentieth, which rounds to
+      // nothing at a tenth of a millimetre – and a stepdown of nothing stops the toolpath
+      useWorkshop.setState({
+        tools: tools.map((x) => (x.id === 't2' ? { ...x, diameter: 0.02 } : x)),
+      });
+      useCam.getState().suggest();
+      expect(useCam.getState().settings.stepdown).toBe(0.01);
+      expect(useCam.getState().settings.stepover).toBeGreaterThanOrEqual(0.01);
+    } finally {
+      useWorkshop.setState({ tools });
+      useCam.getState().setSettings(settings);
+    }
+  });
+
   it('suggest nothing when there is neither a material nor an own value', () => {
     useCam.getState().setSettings({ feed: 1234 });
     useCam.getState().suggest();
@@ -700,6 +745,23 @@ describe('the direction of a part (climb or conventional)', () => {
     expect(itemOperation(items()[0]!, useCam.getState().settings).climb).toBe(false);
     cam.duplicate();
     expect(items().map((i) => i.climb)).toEqual([false, false]);
+  });
+
+  it('does not outlast the kind that had it: a bore or an engraving cuts the way the job does', () => {
+    const cam = useCam.getState();
+    cam.addSketch({ type: 'circle', d: 20 });
+    const id = items()[0]!.id;
+    cam.setItem(id, { kind: 'inside', climb: false });
+    expect(itemOperation(items()[0]!, useCam.getState().settings).climb).toBe(false);
+    // the direction cannot be seen or changed on a bore: what was left of the other kind is not used
+    cam.setItem(id, { kind: 'drill' });
+    expect(items()[0]!.climb).toBe(false);
+    expect(itemOperation(items()[0]!, useCam.getState().settings).climb).toBeUndefined();
+    cam.setItem(id, { kind: 'on' });
+    expect(itemOperation(items()[0]!, useCam.getState().settings).climb).toBeUndefined();
+    // back to a kind that has it: it is there again
+    cam.setItem(id, { kind: 'pocket' });
+    expect(itemOperation(items()[0]!, useCam.getState().settings).climb).toBe(false);
   });
 
   it('goes with the part into a series: the motif cuts every blank the way the drawing does', () => {

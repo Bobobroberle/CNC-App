@@ -57,6 +57,76 @@ describe('a drawing as a project file', () => {
     expect(items()[0]!.climb).toBe(false);
   });
 
+  it('keeps all of what a drawing is: both sides, its own depth and relief, the holes, every setting', () => {
+    cam().setSettings({
+      toolId: 't2',
+      depth: 9,
+      stepdown: 1.5,
+      stepover: 0.3,
+      feed: 1200,
+      plungeFeed: 250,
+      rpm: 16000,
+      rampAngle: 3,
+      safeZ: 7,
+      engraveDepth: 0.5,
+      allowance: 0.4,
+      climb: false,
+      tabs: { count: 3, width: 5, height: 1.5 },
+    });
+    cam().add([rectangle(0, 0, 200, 80), circle(60, 40, 30)]);
+    cam().setTwoSided({ thickness: 12, pins: true, axis: 'y' });
+    const pocket = items()[1]!;
+    cam().setItem(pocket.id, { kind: 'pocket', depth: 3.5, side: 'back', relief: 'dogbone' });
+    const settings = cam().settings;
+    const twoSided = cam().project!.twoSided;
+    const saved = items().map(({ contours: _made, ...kept }) => kept);
+    const text = cam().saveProject()!;
+    expect(saved.some((i) => i.registration !== undefined)).toBe(true);
+    cam().close();
+    useJob.getState().unload();
+    useFlip.getState().cancel();
+    cam().setSettings({ depth: 1, stepdown: 3, feed: 99, rpm: 5000, climb: true });
+    expect(cam().openProject(text)).toEqual({ toolMissing: false });
+    expect(cam().settings).toEqual(settings);
+    expect(cam().project!.twoSided).toEqual(twoSided);
+    expect(items().map(({ contours: _made, ...kept }) => kept)).toEqual(saved);
+  });
+
+  it('says when the cutter of the file has another diameter here – the toolpaths follow this one', () => {
+    drawing();
+    const text = cam().saveProject()!;
+    const file = JSON.parse(text);
+    const t2 = useWorkshop.getState().tools.find((x) => x.id === 't2')!;
+    // the diameter of the cutter it was made with is in the file
+    expect(file.toolDiameter).toBe(t2.diameter);
+    cam().close();
+    expect(cam().openProject(text)).toEqual({ toolMissing: false });
+    // the same id, another cutter now
+    const tools = useWorkshop.getState().tools;
+    useWorkshop.setState({ tools: tools.map((x) => (x.id === 't2' ? { ...x, diameter: 3 } : x)) });
+    try {
+      cam().close();
+      expect(cam().openProject(text)).toEqual({
+        toolMissing: false,
+        toolDiffers: { file: t2.diameter, now: 3 },
+      });
+      // a file from before the diameter was written, or with a diameter that makes no sense, says nothing
+      for (const toolDiameter of [undefined, -1, 'six', 0, 1000]) {
+        cam().close();
+        const old = { ...file, toolDiameter };
+        expect(cam().openProject(JSON.stringify(old)), String(toolDiameter)).toEqual({
+          toolMissing: false,
+        });
+      }
+      // no cutter of that id here: that is said already, not a difference
+      cam().close();
+      const other = { ...file, settings: { ...file.settings, toolId: 'elsewhere' } };
+      expect(cam().openProject(JSON.stringify(other))).toEqual({ toolMissing: true });
+    } finally {
+      useWorkshop.setState({ tools });
+    }
+  });
+
   it('keeps the sketches and the texts changeable, and what was made from them', () => {
     drawing();
     const sketches = items().map((i) => i.sketch);
@@ -93,6 +163,73 @@ describe('a drawing as a project file', () => {
     expect(items()[0]!.sketch).toEqual({ type: 'circle', d: 5 });
   });
 
+  it('brings back with one step of undo the name, the settings and so the program – and forward again', () => {
+    cam().setSettings({ depth: 6, rpm: 18000, feed: 1500, climb: true });
+    cam().addSketch(RECT);
+    cam().addSketch({ type: 'circle', d: 20 });
+    const oldName = cam().project!.name;
+    const before = program();
+    const text = JSON.stringify({
+      ...JSON.parse(cam().saveProject()!),
+      name: 'andere',
+      settings: { ...cam().settings, depth: 18, rpm: 9000, feed: 800, climb: false },
+    });
+    cam().openProject(text);
+    expect(cam().project!.name).toBe('andere');
+    expect(cam().settings).toMatchObject({ depth: 18, rpm: 9000, feed: 800, climb: false });
+    const opened = program();
+    expect(opened).not.toBe(before);
+    cam().undo();
+    expect(cam().project!.name).toBe(oldName);
+    expect(cam().settings).toMatchObject({ depth: 6, rpm: 18000, feed: 1500, climb: true });
+    expect(program()).toBe(before);
+    cam().redo();
+    expect(cam().project!.name).toBe('andere');
+    expect(cam().settings).toMatchObject({ depth: 18, rpm: 9000, feed: 800, climb: false });
+    expect(program()).toBe(opened);
+    // an ordinary step back changes neither the name nor the settings
+    cam().addSketch({ type: 'circle', d: 5 });
+    cam().setSettings({ depth: 4 });
+    cam().undo();
+    expect(cam().project!.name).toBe('andere');
+    expect(cam().settings.depth).toBe(4);
+  });
+
+  it('opens or does not at all: a drawing that cannot be made leaves everything as it was', () => {
+    drawing();
+    const text = cam().saveProject()!;
+    cam().clear();
+    cam().addSketch({ type: 'circle', d: 5 });
+    const pastBefore = cam().past.length;
+    const settingsBefore = cam().settings;
+    const itemsBefore = items();
+    const nameBefore = cam().project!.name;
+    const load = useJob.getState().load;
+    useJob.setState({
+      load: () => {
+        throw new Error('the drawing cannot be made');
+      },
+    });
+    try {
+      const other = {
+        ...JSON.parse(text),
+        name: 'andere',
+        settings: { ...cam().settings, depth: 20 },
+      };
+      expect(cam().openProject(JSON.stringify(other))).toEqual({ error: 'invalid-project' });
+    } finally {
+      useJob.setState({ load });
+    }
+    expect(items()).toBe(itemsBefore);
+    expect(cam().project!.name).toBe(nameBefore);
+    expect(cam().settings).toBe(settingsBefore);
+    expect(cam().past).toHaveLength(pastBefore);
+    expect(cam().future).toEqual([]);
+    // and the drawing still works afterwards
+    cam().addSketch({ type: 'circle', d: 8 });
+    expect(new Set(items().map((i) => i.id)).size).toBe(items().length);
+  });
+
   it('keeps the cutter that is chosen when the workshop has not the one of the file – and says so', () => {
     drawing();
     const parsed = JSON.parse(cam().saveProject()!);
@@ -113,6 +250,8 @@ describe('a drawing as a project file', () => {
     // the job runs from the SD card; the drawing is emptied (the program stays) and the project opened
     useMachine.setState({ fileJob: { name: 'x.nc', startedAt: 0 } });
     cam().clear();
+    // (emptying the drawing under a running job already says it is ahead: start from nothing)
+    useCam.setState({ ahead: false });
     // a deeper cut than the one that runs: the program of this drawing would differ
     const deeper = JSON.parse(text);
     deeper.settings.depth = 3;
@@ -231,6 +370,115 @@ describe('what a project file must be to be opened', () => {
       { points: Array.from({ length: 400_001 }, () => ({ x: 0, y: 0 })), closed: true },
     ];
     expect(error(heavy)).toBe('invalid-project');
+  });
+
+  it('refuses a name that could put lines into the program or the file name', () => {
+    for (const name of [
+      'x\nG0 X5000 Y5000',
+      'x\r(',
+      'a\u0000b',
+      'a\tb',
+      'a\u007fb',
+      'n'.repeat(121),
+    ]) {
+      expect(error({ ...good(), name }), JSON.stringify(name)).toBe('invalid-project');
+    }
+    for (const name of ['Schild', 'Türschild Ø 8', 'n'.repeat(120)]) {
+      expect(error({ ...good(), name }), name).toBeNull();
+    }
+  });
+
+  it('leaves out a setting no machine would have – a damaged file cannot stall the drawing', () => {
+    const settings = (patch: Record<string, unknown>) => {
+      const parsed = parseProject(
+        JSON.stringify({ ...good(), settings: { ...good().settings, ...patch } }),
+      );
+      return 'error' in parsed ? null : parsed.settings;
+    };
+    // out of range, not a number, not finite: not taken (what is there stays as it is)
+    const out = settings({
+      stepdown: 1e-9,
+      depth: 1e6,
+      feed: 0,
+      plungeFeed: 1e9,
+      rpm: -5,
+      rampAngle: 120,
+      safeZ: 0,
+      engraveDepth: 'deep',
+      stepover: 5,
+      allowance: 99,
+      tabs: { count: 1e9, width: 6, height: 2 },
+    })!;
+    for (const key of [
+      'stepdown',
+      'depth',
+      'feed',
+      'plungeFeed',
+      'rpm',
+      'rampAngle',
+      'safeZ',
+      'engraveDepth',
+      'stepover',
+      'allowance',
+      'tabs',
+    ]) {
+      expect(out, key).not.toHaveProperty(key);
+    }
+    // the edges are fine
+    expect(
+      settings({
+        stepdown: 0.05,
+        depth: 100,
+        feed: 20000,
+        rpm: 1,
+        rampAngle: 90,
+        stepover: 1,
+        allowance: 0,
+        tabs: { count: 0, width: 0.1, height: 100 },
+      }),
+    ).toMatchObject({
+      stepdown: 0.05,
+      depth: 100,
+      feed: 20000,
+      rpm: 1,
+      rampAngle: 90,
+      stepover: 1,
+      allowance: 0,
+      tabs: { count: 0, width: 0.1, height: 100 },
+    });
+    // a depth of one part that no cutter reaches
+    const deep = good();
+    deep.items[0].depth = 101;
+    expect(error(deep)).toBe('invalid-project');
+  });
+
+  it('refuses numbers that are whole but no ids, a circle that is not where its polygon is, a back without turning', () => {
+    const file = good();
+    for (const id of [Number.MAX_SAFE_INTEGER + 2, 1e300]) {
+      const big = structuredClone(file);
+      big.items[0].id = id;
+      big.items[0].group = id;
+      expect(error(big), String(id)).toBe('invalid-project');
+    }
+    // the hole drills where the circle is: the polygon that is drawn must lie on it
+    const hole = structuredClone(file);
+    const circleItem = hole.items.find(
+      (i: { source: { circle?: object }[] }) => i.source[0]!.circle,
+    )!;
+    circleItem.source[0].points = circleItem.source[0].points.map(
+      (p: { x: number; y: number }) => ({
+        x: p.x + 500,
+        y: p.y + 500,
+      }),
+    );
+    expect(error(hole)).toBe('invalid-project');
+    // a back side that no two-sided state turns over
+    const back = structuredClone(file);
+    back.items[0].side = 'back';
+    expect(back.twoSided).toBeNull();
+    expect(error(back)).toBe('invalid-project');
+    back.twoSided = { axis: 'x', pins: false, autoHoles: true };
+    expect(error(back)).toBeNull();
   });
 
   it('drops a sketch or a text style that cannot be trusted – the item keeps its contours', () => {

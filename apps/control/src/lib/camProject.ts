@@ -19,6 +19,8 @@ export const PROJECT_VERSION = 1;
 export const PROJECT_MAX_BYTES = 20 * 1024 * 1024;
 const MAX_ITEMS = 2000;
 const MAX_POINTS = 400_000;
+/** A name longer than this is no name of a drawing */
+const MAX_NAME = 120;
 
 export type SavedItem = Omit<CamItem, 'contours'>;
 
@@ -30,6 +32,8 @@ export interface ProjectFile {
   twoSided: TwoSided | null;
   items: SavedItem[];
   settings: CamSettings;
+  /** Diameter of the cutter the drawing was made with, mm: a cutter of the same id that is another now is said */
+  toolDiameter?: number;
 }
 
 /** Why a file is not opened – stable codes, the app has a German text for each. */
@@ -46,6 +50,8 @@ export interface OpenedProject {
   settings: Partial<CamSettings>;
   /** The highest id or group number in the file: new things must start above it */
   highestId: number;
+  /** The diameter of the cutter it was saved with, if the file says */
+  toolDiameter?: number;
 }
 
 /** The drawing as it is saved: without what is made from it (`contours`), with how it is cut. */
@@ -53,6 +59,7 @@ export function projectToFile(
   project: CamProject,
   settings: CamSettings,
   now: Date = new Date(),
+  toolDiameter?: number,
 ): ProjectFile {
   return {
     format: PROJECT_FORMAT,
@@ -62,17 +69,32 @@ export function projectToFile(
     twoSided: project.twoSided,
     items: project.items.map(({ contours: _made, ...kept }) => kept),
     settings,
+    ...(toolDiameter !== undefined ? { toolDiameter } : {}),
   };
 }
 
-export const projectToText = (project: CamProject, settings: CamSettings, now?: Date) =>
-  `${JSON.stringify(projectToFile(project, settings, now), null, 1)}\n`;
+export const projectToText = (
+  project: CamProject,
+  settings: CamSettings,
+  now?: Date,
+  toolDiameter?: number,
+) => `${JSON.stringify(projectToFile(project, settings, now, toolDiameter), null, 1)}\n`;
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positive = (v: unknown): v is number => num(v) && v > 0;
-const whole = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
+const whole = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
+/** A number inside a range – a value a drawing program never produces is no setting */
+const within = (v: unknown, min: number, max: number): v is number =>
+  num(v) && v >= min && v <= max;
+/** The name goes into the program's header and its file name: no line breaks, no control characters */
+const plainName = (v: unknown): v is string =>
+  typeof v === 'string' &&
+  v.trim() !== '' &&
+  v.length <= MAX_NAME &&
+  // eslint-disable-next-line no-control-regex
+  !/[\u0000-\u001f\u007f]/.test(v);
 
 const isMatrix = (v: unknown): v is Matrix =>
   isObject(v) && ['a', 'b', 'c', 'd', 'e', 'f'].every((k) => num(v[k]));
@@ -84,6 +106,12 @@ function isContour(v: unknown): v is Contour {
   if (v.circle !== undefined) {
     const c = v.circle;
     if (!isObject(c) || !num(c.cx) || !num(c.cy) || !positive(c.r)) return false;
+    // A hole is drilled where the circle says: the polygon that is drawn must lie on it
+    const { cx, cy, r } = c as { cx: number; cy: number; r: number };
+    const slack = Math.max(0.01, 0.02 * r);
+    if (!v.points.every((p) => Math.abs(Math.hypot(p.x - cx, p.y - cy) - r) <= slack)) {
+      return false;
+    }
   }
   return v.layer === undefined || typeof v.layer === 'string';
 }
@@ -148,7 +176,7 @@ function itemOf(v: unknown): SavedItem | null {
   }
   if (v.relief !== null && v.relief !== 'dogbone' && v.relief !== 'tbone') return null;
   if (v.side !== 'front' && v.side !== 'back') return null;
-  if (v.depth !== undefined && !positive(v.depth)) return null;
+  if (v.depth !== undefined && !within(v.depth, 0.01, MAX_DEPTH)) return null;
   if (v.climb !== undefined && typeof v.climb !== 'boolean') return null;
   if (v.registration !== undefined && v.registration !== 1 && v.registration !== 2) return null;
   if (v.text !== undefined && typeof v.text !== 'string') return null;
@@ -186,28 +214,40 @@ function twoSidedOf(v: unknown): TwoSided | null | undefined {
   };
 }
 
-const SETTING_NUMBERS = [
-  'rpm',
-  'depth',
-  'stepdown',
-  'stepover',
-  'feed',
-  'plungeFeed',
-  'rampAngle',
-  'safeZ',
-  'engraveDepth',
-] as const;
+/** What the settings of a LowRider can be – the bounds keep a damaged file from stalling the drawing */
+const MAX_DEPTH = 100;
+const SETTING_RANGES = {
+  rpm: [1, 100_000],
+  depth: [0.01, MAX_DEPTH],
+  // at least 0.05 mm a pass: 100 mm deep is 2000 passes at most
+  stepdown: [0.05, MAX_DEPTH],
+  stepover: [0.01, 1],
+  feed: [1, 20_000],
+  plungeFeed: [1, 20_000],
+  rampAngle: [0.1, 90],
+  safeZ: [0.1, 200],
+  engraveDepth: [0.01, MAX_DEPTH],
+} as const;
 
 /** The cutting settings of the file that make sense; what does not is left out, not guessed. */
 function settingsOf(v: unknown): Partial<CamSettings> {
   if (!isObject(v)) return {};
   const out: Partial<CamSettings> = {};
-  for (const key of SETTING_NUMBERS) if (positive(v[key])) out[key] = v[key];
-  if (num(v.allowance) && v.allowance >= 0) out.allowance = v.allowance;
+  for (const key of Object.keys(SETTING_RANGES) as (keyof typeof SETTING_RANGES)[]) {
+    const [min, max] = SETTING_RANGES[key];
+    if (within(v[key], min, max)) out[key] = v[key];
+  }
+  if (within(v.allowance, 0, 20)) out.allowance = v.allowance;
   if (typeof v.climb === 'boolean') out.climb = v.climb;
   if (typeof v.toolId === 'string' && v.toolId !== '') out.toolId = v.toolId;
   const t = v.tabs;
-  if (isObject(t) && whole(t.count) && positive(t.width) && positive(t.height)) {
+  if (
+    isObject(t) &&
+    whole(t.count) &&
+    t.count <= 50 &&
+    within(t.width, 0.1, 100) &&
+    within(t.height, 0.1, MAX_DEPTH)
+  ) {
     out.tabs = { count: t.count, width: t.width, height: t.height };
   }
   return out;
@@ -226,8 +266,7 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
   if (!whole(raw.version) || raw.version > PROJECT_VERSION) return { error: 'newer-version' };
   const twoSided = twoSidedOf(raw.twoSided);
   if (
-    typeof raw.name !== 'string' ||
-    raw.name.trim() === '' ||
+    !plainName(raw.name) ||
     twoSided === undefined ||
     !Array.isArray(raw.items) ||
     raw.items.length > MAX_ITEMS
@@ -245,6 +284,9 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
   }
   const ids = items.flatMap((i) => [i.id, i.group]);
   if (new Set(items.map((i) => i.id)).size !== items.length) return { error: 'invalid-project' };
+  // A side that is cut from the back needs the two-sided state that turns it over
+  if (twoSided === null && items.some((i) => i.side === 'back'))
+    return { error: 'invalid-project' };
   return {
     project: {
       name: raw.name.trim(),
@@ -256,5 +298,6 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
     },
     settings: settingsOf(raw.settings),
     highestId: Math.max(0, ...ids),
+    ...(within(raw.toolDiameter, 0.001, 100) ? { toolDiameter: raw.toolDiameter } : {}),
   };
 }

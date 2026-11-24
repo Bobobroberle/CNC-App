@@ -171,6 +171,10 @@ describe("a tool's own cutting values", () => {
       feed: 5000,
     });
     expect(toolOwnValues({ ...t1, cutting: { rpm: 5000 } }, spindle)).toEqual({ rpm: 10000 });
+    // a stepdown so small it would round to nothing stays at what the CAM can take
+    expect(toolOwnValues({ ...t1, cutting: { stepdown: 0.004 } }, spindle)).toEqual({
+      depthPerPass: 0.01,
+    });
     // a plunge feed faster than the machine cuts is cut to it as well
     expect(toolOwnValues({ ...t1, cutting: { plungeFeed: 9000 } }, spindle)).toEqual({
       plunge: 5000,
@@ -201,10 +205,23 @@ describe("a tool's own cutting values", () => {
       learnedFactor: 1,
     });
     expect(all.chipLoad).toBeCloseTo(1800 / (t1.flutes * 18000), 4);
-    // a typed rpm without a typed feed: the feed stays the material's (and learning keeps scaling it)
+    // a typed rpm without a typed feed: the feed follows the speed (the chip load stays the
+    // material's) and learning keeps scaling it – a feed for 18 000 rpm at 12 000 would break the bit
     const rpm = suggestFor({ ...t1, cutting: { rpm: 12000 } }, mdf, spindle, 0.8);
-    expect(rpm.feed).toBe(base.feed);
+    expect(rpm.rpm).toBe(12000);
+    expect(rpm.feed).toBe(Math.round((base.feed * 12000) / base.rpm));
+    expect(rpm.feed).toBeLessThan(base.feed);
+    expect(rpm.plunge).toBe(Math.round(rpm.feed * mdf.plungeFactor));
+    expect(rpm.chipLoad).toBeCloseTo(base.chipLoad, 3);
     expect(rpm.learnedFactor).toBe(0.8);
+    expect(rpm.limits).toEqual([]);
+    // a faster spindle than the material asks for lifts the feed – up to what the machine does
+    const fast = suggestFor({ ...t1, cutting: { rpm: 30000 } }, mdf, { ...spindle, maxFeed: 1000 });
+    expect(fast.feed).toBe(1000);
+    expect(fast.limits).toEqual(['feed-machine']);
+    // the speed the operator chose is not "too low" or "too high" for the material
+    expect(suggestCutting(t1, mdf, spindle, 1, 12345).rpm).toBe(12345);
+    expect(suggestCutting(t1, mdf, spindle, 1, 12345).limits).toEqual([]);
     // a V-bit counts two flutes for the chip load of what was typed
     const v: Tool = {
       ...t1,

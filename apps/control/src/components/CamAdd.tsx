@@ -2,6 +2,7 @@ import type { Sketch, SketchType } from '@lowrider/cam';
 import { useRef, useState } from 'react';
 import { t, tDynamic } from '../i18n';
 import { PROJECT_MAX_BYTES } from '../lib/camProject';
+import { formatNumber } from '../lib/format';
 import { tableBox } from '../lib/tableBox';
 import { useCam } from '../store/cam';
 import { useMachine } from '../store/machine';
@@ -143,6 +144,16 @@ export function CamAdd() {
             );
             if (result.toolMissing) {
               addLog('error', t('cam.project.toolMissing'), 'cam.project.toolMissing');
+            }
+            if (result.toolDiffers) {
+              addLog(
+                'error',
+                t('cam.project.toolDiffers', {
+                  file: formatNumber(result.toolDiffers.file, 2),
+                  now: formatNumber(result.toolDiffers.now, 2),
+                }),
+                'cam.project.toolDiffers',
+              );
             }
           });
         }}

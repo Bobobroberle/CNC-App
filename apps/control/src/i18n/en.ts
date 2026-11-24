@@ -2151,6 +2151,8 @@ export const en: DictionaryShape = {
       opened: 'Project “{name}” opened – “Undo” brings the previous drawing back.',
       saved: 'Project saved: {name}',
       toolMissing: 'This tool library has not the project’s cutter – the chosen one stays.',
+      toolDiffers:
+        'The project’s cutter was {file} mm in diameter, here it is {now} mm – the toolpaths are made with this one.',
       errors: {
         'too-large': 'The file is too large for a drawing (over 20 MB).',
         'invalid-json': 'This is no project file: it cannot be read.',
