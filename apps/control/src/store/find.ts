@@ -8,6 +8,7 @@ import {
   type Command,
   type ViewAction,
 } from '../lib/commands';
+import { shownFeatures, type FeatureId } from '../lib/features';
 import { releaseAllHolds } from '../lib/holds';
 import { browserStorage, loadJson, saveJson } from '../lib/persist';
 import { reveal } from '../lib/reveal';
@@ -91,11 +92,15 @@ export function keyActs(id: string, place: Place): boolean {
 }
 
 /** Goes to where a command lives and returns what to show there. */
-function goTo(command: Command): readonly string[] {
+function goTo(
+  command: Command,
+  features?: Readonly<Record<FeatureId, boolean>>,
+): readonly string[] {
   const ui = useUi.getState();
   const met = needMet(command.needs, {
     program: useJob.getState().analysis !== null,
     expert: useWorkshop.getState().settings.expertMode,
+    features: features ?? shownFeatures(useWorkshop.getState().settings.hiddenFeatures, []),
   });
   if (!met) {
     // The place is not there yet: land where it comes from.
@@ -133,9 +138,11 @@ function goTo(command: Command): readonly string[] {
 
 /**
  * Runs a command of the quick search: goes to its place and shows it, or –
- * for the few `view` commands – changes the view. Never more than that.
+ * for the few `view` commands – changes the view. Never more than that. `features` says which of
+ * the rare functions show (the palette knows – a hidden one stays while its flow is under way);
+ * without it a hidden function counts as hidden.
  */
-export function runCommand(id: string): void {
+export function runCommand(id: string, features?: Readonly<Record<FeatureId, boolean>>): void {
   const command = commandById(id);
   if (!command) return;
   const recent = withRecent(useFind.getState().recent, command.id);
@@ -152,7 +159,7 @@ export function runCommand(id: string): void {
     VIEW[command.action!]();
     reveal(command.anchor);
   } else {
-    reveal(goTo(command));
+    reveal(goTo(command, features));
   }
 }
 

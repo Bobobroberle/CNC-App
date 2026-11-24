@@ -13,6 +13,7 @@ import { Depth } from './Depth';
 import { HomingCard } from './HomingCard';
 import { JogCard } from './JogCard';
 import { MacroButtons } from './MacroButtons';
+import { Feature } from './Feature';
 import { WaypointsCard } from './WaypointsCard';
 
 /** What a stored place says on its card, translated: the park place and the tool change place look alike. */
@@ -162,7 +163,9 @@ export function JogPanel() {
             <ChangeSpotCard />
             <WaypointsCard />
             <HomingCard />
-            <MacroButtons />
+            <Feature id="macros">
+              <MacroButtons />
+            </Feature>
           </>
         }
       />

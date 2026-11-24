@@ -27,6 +27,7 @@ import {
   type CompanionHealth,
   type RecordingMode,
 } from '../lib/companion';
+import { validHiddenFeatures, type FeatureId } from '../lib/features';
 import { pinFixtures, type FixtureFrame } from '../lib/clamps';
 import { browserStorage, listOf, loadJson, saveJson } from '../lib/persist';
 import { validWaypoints, type Waypoint } from '../lib/spots';
@@ -82,6 +83,8 @@ export interface WorkshopSettings {
   parkPosition: { x: number; y: number } | null;
   /** Places the operator remembered by name ("Merkpunkte" of the jog panel), machine X/Y */
   waypoints: Waypoint[];
+  /** Rare functions whose entry points are hidden (Einstellungen → Maschine → Funktionen) */
+  hiddenFeatures: FeatureId[];
   /** Machine Z for safe travel; null = 2 mm below the top of the Z travel */
   safeMachineZ: number | null;
   companionUrl: string;
@@ -129,6 +132,7 @@ export const DEFAULT_SETTINGS: WorkshopSettings = {
   toolChangePosition: null,
   parkPosition: null,
   waypoints: [],
+  hiddenFeatures: [],
   safeMachineZ: null,
   companionUrl: '',
   notifyBrowser: false,
@@ -203,7 +207,7 @@ const isRecord = (v: unknown): v is JobRecord =>
   typeof (v as JobRecord).id === 'string' &&
   typeof (v as JobRecord).startedAt === 'number';
 
-function validateSettings(value: unknown): WorkshopSettings | null {
+export function validateSettings(value: unknown): WorkshopSettings | null {
   if (typeof value !== 'object' || value === null) return null;
   const v = value as Partial<WorkshopSettings>;
   // Unknown or missing parts fall back to the defaults, so new settings never break old storage.
@@ -217,6 +221,7 @@ function validateSettings(value: unknown): WorkshopSettings | null {
     calibration: { ...DEFAULT_SETTINGS.calibration, ...v.calibration },
     recording: { ...DEFAULT_SETTINGS.recording, ...v.recording },
     waypoints: validWaypoints(v.waypoints),
+    hiddenFeatures: validHiddenFeatures(v.hiddenFeatures),
   };
 }
 

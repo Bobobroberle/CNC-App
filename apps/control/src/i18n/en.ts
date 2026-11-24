@@ -277,6 +277,16 @@ export const en: DictionaryShape = {
     clear: 'Clear the field',
     done: 'Apply',
   },
+  features: {
+    title: 'Functions',
+    hint: 'Hide rarely used functions: their cards and buttons go, the quick search leads back here. A flow that is under way for the loaded job stays in sight. What runs in the background – such as finding markers – keeps running.',
+    items: {
+      series: 'Series on blanks',
+      jigs: 'Jigs with markers',
+      macros: 'Macros',
+    },
+    underWay: 'Hidden, but the flow is under way for the loaded job: it stays in sight.',
+  },
   appearance: {
     title: 'Appearance',
     theme: 'Colour scheme',
@@ -2947,6 +2957,9 @@ export const en: DictionaryShape = {
     needs: {
       program: 'shows with a program loaded',
       expert: 'only with expert functions',
+      series: 'hidden – switch it on under Settings · Machine · Functions',
+      jigs: 'hidden – switch it on under Settings · Machine · Functions',
+      macros: 'hidden – switch it on under Settings · Machine · Functions',
     },
     places: {
       stage: 'Stage',
@@ -3039,6 +3052,8 @@ export const en: DictionaryShape = {
         'tools of the job, tool check, t number, compare tool list, job tools, which tool, choose cutter, bit, endmill, diameter, measure length, tool length, probe, alternative',
       jogPanel: 'jog, jogging, manual, hand mode, move axes, drive, move, jog panel',
       inputs: 'inputs, limit switches, switches, sensors, probe, pins, end stops, test switch',
+      features:
+        'functions, hide, show, unhide, switch, hide series, hide jigs, hide macros, fewer cards, tidy, rarely used, features',
       appearance:
         'appearance, colour scheme, color scheme, light, dark, theme, dark mode, light mode, look, contrast',
       toolZero:

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { t, type MessageKey } from '../i18n';
 import { findCommands, placeOf, titleOf } from '../lib/commandSearch';
+import { shownFeatures } from '../lib/features';
 import { commandById, needMet, quickAccess, type Command, type Situation } from '../lib/commands';
 import { SHORTCUT_GROUPS, SHORTCUTS, shortcutFor, type Cap, type Shortcut } from '../lib/shortcuts';
 import { returnFocus, runCommand, useFind } from '../store/find';
@@ -97,6 +98,7 @@ function useSituation(): Situation {
   const program = useJob((s) => s.analysis !== null);
   const drawing = useUi((s) => s.place === 'cam');
   const expert = useWorkshop((s) => s.settings.expertMode);
+  const hidden = useWorkshop((s) => s.settings.hiddenFeatures);
   const readiness = useReadiness();
   return useMemo(
     () => ({
@@ -106,9 +108,10 @@ function useSituation(): Situation {
       program,
       drawing,
       expert,
+      features: shownFeatures(hidden, readiness?.items ?? []),
       readiness: readiness?.items ?? [],
     }),
-    [connected, homed, running, program, drawing, expert, readiness?.items],
+    [connected, homed, running, program, drawing, expert, hidden, readiness?.items],
   );
 }
 
@@ -200,7 +203,7 @@ function Palette() {
 
   const { close } = useFind.getState();
   const choose = (row: Row | undefined) => {
-    if (row) runCommand(row.command.id);
+    if (row) runCommand(row.command.id, situation.features);
   };
 
   return (

@@ -281,6 +281,16 @@ export const de = {
     clear: 'Feld leeren',
     done: 'Übernehmen',
   },
+  features: {
+    title: 'Funktionen',
+    hint: 'Selten gebrauchte Funktionen ausblenden: ihre Karten und Knöpfe verschwinden, die Schnellsuche führt hierher zurück. Ein Ablauf, der für den geladenen Job gerade läuft, bleibt sichtbar. Was im Hintergrund läuft – etwa das Erkennen von Markern –, läuft weiter.',
+    items: {
+      series: 'Serie auf Rohlingen',
+      jigs: 'Vorrichtungen mit Markern',
+      macros: 'Makros',
+    },
+    underWay: 'Ausgeblendet, aber der Ablauf läuft für den geladenen Job: er bleibt sichtbar.',
+  },
   appearance: {
     title: 'Darstellung',
     theme: 'Farbschema',
@@ -2990,6 +3000,9 @@ export const de = {
     needs: {
       program: 'zeigt sich mit einem geladenen Programm',
       expert: 'nur mit Expertenfunktionen',
+      series: 'ausgeblendet – einschalten unter Einstellungen · Maschine · Funktionen',
+      jigs: 'ausgeblendet – einschalten unter Einstellungen · Maschine · Funktionen',
+      macros: 'ausgeblendet – einschalten unter Einstellungen · Maschine · Funktionen',
     },
     places: {
       stage: 'Bühne',
@@ -3088,6 +3101,8 @@ export const de = {
         'jog, joggen, manuell, handbetrieb, fahren, achsen fahren, bewegen, verfahren, jog panel',
       inputs:
         'eingänge, endschalter, schalter, sensoren, taster, pins, limit switch, inputs, endlagen testen',
+      features:
+        'funktionen, ausblenden, einblenden, verstecken, anzeigen, schalter, serie ausblenden, vorrichtungen ausblenden, makros ausblenden, weniger karten, aufgeräumt, selten gebraucht, features, hide',
       appearance:
         'darstellung, farbschema, hell, dunkel, theme, dark mode, light mode, aussehen, design, kontrast',
       toolZero:

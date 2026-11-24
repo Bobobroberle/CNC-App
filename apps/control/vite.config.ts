@@ -12,7 +12,7 @@ export default defineConfig({
   server: { host: true, port: 5173 },
   preview: { host: true, port: 4173 },
   test: {
-    include: ['test/**/*.test.ts'],
+    include: ['test/**/*.test.{ts,tsx}'],
     coverage: { provider: 'v8', include: ['src/lib/**/*.ts', 'src/i18n/**/*.ts'] },
   },
 });

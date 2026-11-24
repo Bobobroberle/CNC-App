@@ -335,7 +335,10 @@ das CAM zu sehen.
     _Erweitert_ Gravurtiefe, Schlichtzugabe (0 = aus; schruppen, dann ein Schlichtgang in voller
     Tiefe), Zustellung, Eintauchen, Drehzahl, Rampe (90° = senkrecht), Bahnabstand Tasche, Sichere
     Höhe, Stegbreite, Steghöhe, Stege je Kontur und _Gleichlauf (sonst Gegenlauf)_. Jeder Wert
-    ändert die Bahn auf dem Tisch sofort.
+    ändert die Bahn auf dem Tisch sofort. Ein einzelnes Teil kann seine eigene _Laufrichtung_
+    haben (_wie der Job_ · _Gleichlauf_ · _Gegenlauf_, auf der Zeile des Teils bei außen, innen und
+    Tasche; für gebohrte Löcher gibt es die Wahl nicht). Hat das gewählte Werkzeug eigene
+    Schnittwerte (_Werkzeugliste_), nimmt _Werte aus Werkzeug und Material vorschlagen_ sie auch ohne Material.
   - _3 · Ansehen und übergeben_ – die Bahnen stehen schon auf dem Tisch-Bild und werden bei jeder
     Änderung neu gemacht. Reihenfolge: Bohrungen, Taschen und Gravuren, Ausschnitte, die Außenkontur
     jedes Teils zuletzt – was in einer Kontur liegt, vor ihr; dazwischen kurze Wege. Was nicht geht
@@ -346,7 +349,11 @@ das CAM zu sehen.
     solange nichts zu fräsen ist, ein Job läuft oder ein Hinweis zu den zwei Seiten ihn sperrt
     (siehe _Von beiden Seiten fräsen_). _Als .nc speichern_ lädt das eigene Programm herunter (bei
     zwei Seiten beide Dateien). Ein Programm, ein Werkzeug: Gravur mit V-Fräser und Ausschnitt mit
-    Schaftfräser sind zwei Programme.
+    Schaftfräser sind zwei Programme. _Projekt speichern_ schreibt die Zeichnung (Formen, wie jedes
+    Teil geschnitten wird, die zwei Seiten, die Schnitteinstellungen – kein Programm) als Datei
+    `*.lowrider.json`; _Projekt öffnen …_ (unter den Formen) liest sie wieder ein, ersetzt die
+    Zeichnung in einem Schritt, den _Rückgängig_ zurücknimmt, und lädt nie selbst ein Programm. Eine
+    Datei, die sich nicht lesen lässt, wird mit dem Grund abgelehnt, ohne etwas zu öffnen.
 
 - **Zeichnung und Programm auf dem Tisch:** Liegt auf dem Tisch nichts oder das Programm dieser
   Zeichnung, folgt es jeder Änderung. Liegt ein anderes Programm dort (eine später geöffnete Datei,
@@ -462,7 +469,8 @@ Bedienfeld. Eine Hauptaktion in der Aktionsleiste gibt es hier nicht.
   (X/Y zum Werkstück-Nullpunkt; Z fährt nie hinunter und hebt vorher nur an, wenn _Vorher auf
   sichere Höhe anheben_ an und die Maschine referenziert ist), _Parkposition_ (eine gemerkte Stelle
   in Maschinenkoordinaten; braucht die Referenzfahrt, geht erst auf Sicherheitshöhe, dann hin) und
-  _Referenzfahrt_ (geht auch aus dem Alarm).
+  _Referenzfahrt_ (geht auch aus dem Alarm). Ist eine Werkzeugwechsel-Position gemerkt, kommt als vierte
+  _Werkzeugwechsel_ dazu (hebt erst auf die Sicherheitshöhe, dann hin).
 - _Tastatur, Maus, Gamepad_ (bei offenem Jog-Feld; die Tasten ruhen, solange ein Feld den Fokus hat
   oder ein Dialog offen ist): Pfeile X/Y, `Bild↑/↓` Z, `1`–`5` Schrittweite (`5` = _Dauer_, dann
   fährt die gehaltene Taste), `Esc` stoppt. _Mausrad-Feinjog_ (nur mit Maus): fährt die zuletzt
@@ -473,6 +481,9 @@ Bedienfeld. Eine Hauptaktion in der Aktionsleiste gibt es hier nicht.
   Drehung ein Schritt auf X, Y oder Z) und **Joystick** (nur X/Y; je weiter gezogen, desto schneller
   – die Geschwindigkeit wächst mit dem Quadrat des Ausschlags, in der Mitte liegt ein kleiner
   Totbereich; Loslassen stoppt sofort); _Parkposition_ (aktuelle Stelle merken oder vergessen);
+  _Werkzeugwechsel-Position_ (ebenso; bei laufendem Job nicht zu ändern, denn der Job fährt dorthin);
+  _Merkpunkte_ (bis zu 12 benannte Stellen in Maschinenkoordinaten: _Position merken_, _Anfahren:
+  Name_ als Halten, das erst anhebt; derselbe Name verschiebt; nur bei referenzierter Maschine);
   _Einzelne Achsen und Entsperren_ (Eingänge live: Endschalter X/Y/Z und Tastplatte; _Ref. X_ ·
   _Ref. Y_ · _Ref. Z_ und _Entsperren ($X)_ als Halten; _Pause_ und _Fortsetzen_); _Makros_ (Halten;
   angelegt unter _Einstellungen → Maschine → Makros_).
@@ -1021,10 +1032,15 @@ Breite, nur _Kamera_ behält das Bild.
   - Karte _Companion-Rechner_ (optional): Adresse, _Verbindung testen_, _Bibliotheken abgleichen_
     (Werkzeuge, Materialien, gespeicherte Nullpunkte, Historie und Vorrichtungen werden mit dem
     Companion zusammengeführt), Version, Weiterleitung und Kamera-Stream des Companion; _Pi
-    herunterfahren_ (Halten, nur bei stehender Maschine; die Fräse bleibt an) vor dem Ausstecken.
+    herunterfahren_ (Halten, nur bei stehender Maschine; die Fräse bleibt an) vor dem Ausstecken. Der
+    Companion sichert seine Datenbank einmal am Tag (die letzten 7 Kopien, neben der Datenbank oder
+    in `LOWRIDER_BACKUP_DIR`); die Karte zeigt die letzte Sicherung oder den Fehler.
   - Karte _Simulator_ nur, solange der Simulator verbunden ist – siehe **Simulator**.
 - _Maschine:_ _Darstellung_ (_Dunkel_ oder _Hell_, wird gemerkt), danach eingeklappt
-  _Maschinenprofil_, _Werkstatt und Benachrichtigungen_ und _Makros_, zuletzt der Schalter
+  _Maschinenprofil_, _Werkstatt und Benachrichtigungen_ und _Makros_, die Karte _Funktionen_ (je ein
+  Schalter für _Serie auf Rohlingen_, _Vorrichtungen mit Markern_ und _Makros_: ausgeblendet
+  verschwinden nur ihre Karten und Knöpfe, ein Ablauf, der für den geladenen Job läuft, bleibt
+  sichtbar, und die Schnellsuche führt zum Schalter zurück), zuletzt der Schalter
   _Expertenfunktionen anzeigen_ (schaltet die Ansicht _Experte_ und die _Konsole_ im Menü frei).
   - _Maschinenprofil_ enthält:
     - Den **Verfahrweg** je Achse (min/max in Maschinenkoordinaten, _Aktuelle Position als min/max_)
@@ -1089,7 +1105,9 @@ beiden offen ist, trägt der Knopf ihren Namen. Beide liegen über die ganze Bre
 
 - _Werkzeugliste_ („Werkzeuge und Materialien anlegen und pflegen“): die _Werkzeugbibliothek_ (Art –
   Schaftfräser, Kugelfräser, V-Nut, Bohrer, Fase –, T-Nummer, Ø, Schneiden, Winkel, Schneidenlänge,
-  Auskraglänge, Halter und Halter-Ø, Notiz, Foto; ein Werkzeug lässt sich als _Messtaster_ markieren
+  Auskraglänge, Halter und Halter-Ø, Notiz, Foto und – wahlweise – eigene _Schnittwerte_ (Drehzahl,
+  Vorschub, Eintauchvorschub, Zustellung, Bahnabstand), die den Vorschlag aus Material und Lernen
+  ersetzen, auch ganz ohne Material; ein Werkzeug lässt sich als _Messtaster_ markieren
   – der Start fragt dann jedes Mal nach, bevor die Spindel dreht), die _Materialbibliothek_ (Holz ·
   Platte · Kunststoff · Metall; Schnittgeschwindigkeit vc, Zahnvorschub fz bei Ø 6, Zustellung,
   Bahnabstand, Eintauchen) und die _Schnittwerte_ zu einem Werkzeug und Material (Drehzahl,

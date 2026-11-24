@@ -18,6 +18,7 @@ import { useFlip } from '../store/flip';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
 import { useSeries } from '../store/series';
+import { Feature } from './Feature';
 import { useUi } from '../store/ui';
 import { useJobUnderWay } from '../store/underway';
 import { useWorkshop } from '../store/workshop';
@@ -586,26 +587,28 @@ export function CamCard() {
         </Button>
       </Card>
 
-      <Card className="gap-3 p-4" data-testid="series-entry" data-find="series">
-        <CardTitle render={<h2 />}>{t('series.entry')}</CardTitle>
-        <p className="text-muted-foreground text-sm">{t('series.openHint')}</p>
-        <Button
-          reason="missing"
-          variant="outline"
-          disabled={!parts.some((i) => i.kind !== 'none') || project.twoSided !== null}
-          onClick={() => {
-            cam.select(null);
-            useSeries.getState().begin();
-          }}
-        >
-          {t('series.open')}
-        </Button>
-        {project.twoSided !== null ? (
-          <p className="text-muted-foreground text-sm">{t('series.notTwoSided')}</p>
-        ) : !parts.some((i) => i.kind !== 'none') ? (
-          <p className="text-muted-foreground text-sm">{t('series.needsMotif')}</p>
-        ) : null}
-      </Card>
+      <Feature id="series">
+        <Card className="gap-3 p-4" data-testid="series-entry" data-find="series">
+          <CardTitle render={<h2 />}>{t('series.entry')}</CardTitle>
+          <p className="text-muted-foreground text-sm">{t('series.openHint')}</p>
+          <Button
+            reason="missing"
+            variant="outline"
+            disabled={!parts.some((i) => i.kind !== 'none') || project.twoSided !== null}
+            onClick={() => {
+              cam.select(null);
+              useSeries.getState().begin();
+            }}
+          >
+            {t('series.open')}
+          </Button>
+          {project.twoSided !== null ? (
+            <p className="text-muted-foreground text-sm">{t('series.notTwoSided')}</p>
+          ) : !parts.some((i) => i.kind !== 'none') ? (
+            <p className="text-muted-foreground text-sm">{t('series.needsMotif')}</p>
+          ) : null}
+        </Card>
+      </Feature>
     </div>
   );
 }

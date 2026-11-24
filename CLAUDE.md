@@ -400,6 +400,17 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   else a disabled `Button` carries `reason` (a text, or the two general ones `machine` / `missing`)
   and a disabled `HoldButton` says what the machine's state has against it by itself
   (`lib/reason.ts`). `ReasonLayer` shows the reason on a tap, without wrapping anything.
+- Hiding rare functions ("Funktionen", `components/FeaturesCard.tsx` under Einstellungen → Maschine; pure `lib/features.ts`,
+  gate `components/Feature.tsx`, setting `settings.hiddenFeatures`): the series on blanks, jigs with printed tags and the macros
+  can be hidden – **their entry points only** (the series card in the CAM, the jig offer and list in the Job, the macro buttons
+  of the jog panel and the macro editor); the code, the stores and **the background services keep running** (the tag poll of
+  `startJigs` included). Not on the list on purpose: flipping and sections (their readiness points can block the start) and the
+  material (the source of the cutting values). **A hidden function is shown anyway while its flow is under way** – read from the
+  one readiness list (`series`/`jig` points, `featureShown`) – so a locked start always has its card. In the quick search every
+  entry that leads to such a function has `needs: '<id>'`: while it is hidden `goTo` lands on the switch (`NEED_FALLBACK`,
+  anchor `features`) and the row says so (`find.needs.*`); `runCommand(id, features)` takes the shown set from the palette
+  (`store/find.ts` stays free of the machine store). A new rare function: add it to `FEATURES` and `UNDER_WAY`, wrap its entry
+  points in `<Feature id>`, give its search entries the need – `test/features.test.ts` holds the entries against their anchors.
 - Rotary axis A: prepared only – the DRO shows A and the jog panel gets A−/A+ (steps in degrees)
   when the machine profile has a rotary axis; nothing else.
 - Connecting (`store/machine.ts` `connect`/`link`, pure `lib/link.ts`): a connection is up only once

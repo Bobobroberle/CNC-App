@@ -1,4 +1,5 @@
 import type { MessageKey } from '../i18n';
+import type { FeatureId } from './features';
 import type { ReadinessId, ReadinessItem } from './readiness';
 
 /**
@@ -41,8 +42,11 @@ export const VIEW_ACTIONS = [
 ] as const;
 export type ViewAction = (typeof VIEW_ACTIONS)[number];
 
-/** What has to be there before a place shows: a loaded program, the expert switch */
-export type CommandNeed = 'program' | 'expert';
+/**
+ * What has to be there before a place shows: a loaded program, the expert switch, or a function
+ * that is not hidden (Einstellungen → Maschine → Funktionen).
+ */
+export type CommandNeed = 'program' | 'expert' | FeatureId;
 
 export type CommandIcon =
   | 'drive'
@@ -236,8 +240,8 @@ export const COMMANDS: readonly Command[] = [
   job('stock', 'assistant.stock', 'prepare', 'stock', 'program'),
   job('recent', 'jobCard.recent', undefined, ['recent', 'program']),
   job('upload', 'files.title', 'extras', 'upload', 'program'),
-  job('jigs', 'jigs.title', 'extras', 'jigs'),
-  job('tagSheet', 'jigs.print.title', 'extras', ['tag-print', 'jigs']),
+  job('jigs', 'jigs.title', 'extras', 'jigs', 'jigs'),
+  job('tagSheet', 'jigs.print.title', 'extras', ['tag-print', 'jigs'], 'jigs'),
 
   // ① Job: the drawing workspace
   draw('shapeRect', 'cam.shapes.rect', 'shape-rect', 'rect'),
@@ -255,7 +259,7 @@ export const COMMANDS: readonly Command[] = [
   draw('bothSides', 'flip.both', 'cam-sides'),
   draw('camDone', 'cam.steps.done', 'cam-done'),
   draw('camUndo', 'cam.undo', 'cam-undo', 'undo'),
-  draw('series', 'series.open', 'series'),
+  entry({ id: 'series', title: 'series.open', place: 'cam', anchor: 'series', needs: 'series' }),
 
   // ② Werkzeuge
   tools('jobTools', 'toolsStep.title', undefined, 'job-tools', 'program', 'tool'),
@@ -307,7 +311,7 @@ export const COMMANDS: readonly Command[] = [
   jog('homeAxes', 'jog.more.homing', 'homing'),
   jog('unlock', 'drive.unlock', 'homing'),
   jog('feedHold', 'drive.feedHold', 'homing'),
-  jog('macros', 'macros.title', 'macros'),
+  entry({ id: 'macros', title: 'macros.title', jog: true, anchor: 'macros', needs: 'macros' }),
 
   // Werkzeugliste
   toollist('toolLibrary', 'tools.title', undefined, 'tool-library', undefined, 'tool'),
@@ -333,6 +337,7 @@ export const COMMANDS: readonly Command[] = [
   settings('companion', 'companion.title', 'connection', 'companion'),
   settings('shutdown', 'companion.shutdownTitle', 'connection', ['pi-shutdown', 'companion']),
   settings('appearance', 'appearance.title', 'machine', 'appearance'),
+  settings('features', 'features.title', 'machine', 'features'),
   settings('profile', 'machine.profile', 'machine', 'profile'),
   settings('travel', 'machine.travel', 'machine', 'travel'),
   settings('machineLimits', 'limits.title', 'machine', 'machine-limits'),
@@ -358,7 +363,7 @@ export const COMMANDS: readonly Command[] = [
   settings('toolChangePos', 'workshop.toolChange', 'machine', 'tool-change', undefined, 'tool'),
   settings('notify', 'notify.title', 'machine', 'notify'),
   settings('adaptive', 'sensors.adaptiveTitle', 'machine', 'adaptive'),
-  settings('macroEditor', 'macros.edit', 'machine', 'macro-editor'),
+  settings('macroEditor', 'macros.edit', 'machine', 'macro-editor', 'macros'),
   settings('expertMode', 'machine.expertMode', 'machine', 'expert-mode'),
   settings('configEditor', 'config.title', 'expert', 'config-editor', 'expert'),
   settings('configFile', 'configFile.title', 'expert', 'config-file', 'expert'),
@@ -386,6 +391,10 @@ export const NEED_FALLBACK: Record<
 > = {
   program: { place: 'job', anchor: 'program' },
   expert: { place: 'settings', view: 'machine', anchor: 'expert-mode' },
+  // A hidden function is led to where it is switched on again.
+  series: { place: 'settings', view: 'machine', anchor: 'features' },
+  jigs: { place: 'settings', view: 'machine', anchor: 'features' },
+  macros: { place: 'settings', view: 'machine', anchor: 'features' },
 };
 
 /** The name of a place as the dictionary has it. */
@@ -424,6 +433,8 @@ export interface Situation {
   drawing: boolean;
   /** Expert functions are switched on */
   expert: boolean;
+  /** Which of the rare functions show (hidden ones stay while their flow is under way) */
+  features: Readonly<Record<FeatureId, boolean>>;
   /** The readiness list of the loaded job, if there is one */
   readiness: readonly Pick<ReadinessItem, 'id' | 'level' | 'key'>[];
 }
@@ -449,8 +460,14 @@ const FOR_READINESS: Partial<Record<ReadinessId, string>> = {
 };
 
 /** Whether what a command needs is there. */
-export function needMet(need: CommandNeed | undefined, s: Pick<Situation, 'program' | 'expert'>) {
-  return need === undefined || (need === 'program' ? s.program : s.expert);
+export function needMet(
+  need: CommandNeed | undefined,
+  s: Pick<Situation, 'program' | 'expert' | 'features'>,
+) {
+  if (need === undefined) return true;
+  if (need === 'program') return s.program;
+  if (need === 'expert') return s.expert;
+  return s.features[need];
 }
 
 /** How many entries the quick access shows */

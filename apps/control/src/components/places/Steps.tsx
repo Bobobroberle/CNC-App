@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Feature } from '../Feature';
 import { t } from '../../i18n';
 import { formatNumber } from '../../lib/format';
 import { useCam } from '../../store/cam';
@@ -52,7 +53,9 @@ function FlowCards() {
       {/* A part longer than the table: from section to section – slide it along, find it again. */}
       <SectionsCard />
       {/* A jig with printed tags on the table: recognised, it brings its job and its zero. */}
-      <JigCard />
+      <Feature id="jigs">
+        <JigCard />
+      </Feature>
     </>
   );
 }
@@ -130,14 +133,18 @@ export function JobStep() {
       {!analysis ? (
         <>
           <SdCard />
-          <JigsCard />
+          <Feature id="jigs">
+            <JigsCard />
+          </Feature>
         </>
       ) : null}
       {analysis && view === 'prepare' ? <WorkpieceCard /> : null}
       {analysis && view === 'extras' ? (
         <>
           <PrepareCard />
-          <JigsCard />
+          <Feature id="jigs">
+            <JigsCard />
+          </Feature>
         </>
       ) : null}
     </div>

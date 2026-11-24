@@ -63,6 +63,7 @@ const SITUATION: Situation = {
   running: false,
   drawing: false,
   expert: false,
+  features: { series: true, jigs: true, macros: true },
   readiness: [],
 };
 
@@ -202,6 +203,8 @@ describe('the table of commands', () => {
       'JigCard',
       'RunBar',
       'Depth',
+      // A gate around cards the operator can hide: the cards inside carry the anchors.
+      'Feature',
       // The controller's answer to the last command: a line under the jog pad, no card.
       'Ack',
     ]);
@@ -441,8 +444,9 @@ describe('what the search may do', () => {
     runCommand('console');
     expect(useUi.getState().place).toBe('console');
     expect(needMet(undefined, SITUATION)).toBe(true);
-    expect(needMet('program', { program: false, expert: true })).toBe(false);
-    expect(needMet('expert', { program: false, expert: true })).toBe(true);
+    const features = SITUATION.features;
+    expect(needMet('program', { program: false, expert: true, features })).toBe(false);
+    expect(needMet('expert', { program: false, expert: true, features })).toBe(true);
   });
 
   it('remembers what was used last, newest first, and closes itself', () => {
