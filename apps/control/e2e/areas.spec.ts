@@ -162,9 +162,21 @@ test.describe('the jog panel', () => {
     await status(page, '<Idle|MPos:10.000,20.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
     await connect(page);
     await page.getByTestId('jog-toggle').click();
+    await moreOptions(page, 'jog');
+    // Not homed, the machine's coordinates are not the table's: nothing is stored, and it says why
+    const notHomed = page
+      .getByTestId('waypoints-card')
+      .getByRole('button', { name: 'Position merken' });
+    await expect(notHomed).toBeDisabled();
+    await page
+      .getByTestId('change-card')
+      .getByRole('button', { name: 'Aktuelle Position merken' })
+      .click({ force: true });
+    await expect(
+      page.getByRole('tooltip').filter({ hasText: 'Erst die Referenzfahrt' }),
+    ).toBeVisible();
     await hold(page, /^Referenzfahrt/);
     await expect.poll(() => sent(page)).toContain('$H');
-    await moreOptions(page, 'jog');
 
     // Without a tool change place there is no button for it; with one there is.
     await expect(page.getByTestId('quick-change')).toHaveCount(0);
@@ -182,6 +194,18 @@ test.describe('the jog panel', () => {
     const [lift, drive] = await jogs(page);
     expect(lift).toMatch(/^\$J=G53 G90 G21 Z1 F/);
     expect(drive).toMatch(/^\$J=G53 G90 G21 X10 Y20 F/);
+
+    // While a job is under way it drives to that place by itself: it can neither be changed nor forgotten
+    await status(
+      page,
+      '<Run|MPos:300.000,400.000,-10.000|FS:900,18000|SD:20,/sd/x.nc|WCO:600.000,1200.000,-60.000>',
+    );
+    await expect(change.getByRole('button', { name: 'Aktuelle Position merken' })).toBeDisabled();
+    await expect(
+      change.getByRole('button', { name: 'Werkzeugwechsel-Position vergessen' }),
+    ).toBeDisabled();
+    await status(page, '<Idle|MPos:300.000,400.000,-10.000|FS:0,0|WCO:600.000,1200.000,-60.000>');
+    await expect(change.getByRole('button', { name: 'Aktuelle Position merken' })).toBeEnabled();
 
     // Saved places: a name is needed, the same name moves the place, a hold drives there.
     const places = page.getByTestId('waypoints-card');

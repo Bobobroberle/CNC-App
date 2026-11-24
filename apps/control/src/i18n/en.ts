@@ -720,6 +720,8 @@ export const en: DictionaryShape = {
       clear: 'Forget the tool change position',
       hint: '“Tool change” (hold) lifts to the safe height first and then drives there; a job goes there by itself for a change. The same values are under Settings → Machine → Workshop.',
       saved: 'Tool change position stored: X {x} · Y {y}.',
+      locked:
+        'A job is under way – it drives there for a change; the position can change after it.',
     },
     waypoints: {
       title: 'Saved places',

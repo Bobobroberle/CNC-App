@@ -3,6 +3,7 @@ import { t } from '../i18n';
 import { formatNumber } from '../lib/format';
 import { useMachine } from '../store/machine';
 import { useUi } from '../store/ui';
+import { useJobUnderWay } from '../store/underway';
 import { useWorkshop } from '../store/workshop';
 import { Button } from '../ui/button';
 import { Card, CardTitle } from '../ui/card';
@@ -31,16 +32,22 @@ function SpotCard({
   testId,
   find,
   texts,
+  lockedUnderJob,
 }: {
   field: 'parkPosition' | 'toolChangePosition';
   testId: string;
   find: string;
   texts: SpotTexts;
+  /** Why the place cannot be changed while a job is under way (the job drives to it); absent: it can */
+  lockedUnderJob?: string;
 }) {
   const spot = useWorkshop((s) => s.settings[field]);
   const homed = useMachine((s) => s.homed);
   const mpos = useMachine((s) => s.status?.mpos);
-  const reason = !mpos ? t('jog.reason.offline') : !homed ? t('jog.reason.notHomed') : null;
+  const underway = useJobUnderWay();
+  const locked = lockedUnderJob !== undefined && underway ? lockedUnderJob : null;
+  const reason =
+    locked ?? (!mpos ? t('jog.reason.offline') : !homed ? t('jog.reason.notHomed') : null);
   const store = () => {
     if (!mpos) return;
     const position = { x: Number((mpos[0] ?? 0).toFixed(3)), y: Number((mpos[1] ?? 0).toFixed(3)) };
@@ -69,13 +76,17 @@ function SpotCard({
           </Button>
         </Reason>
         {spot ? (
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => useWorkshop.getState().setSettings({ [field]: null })}
-          >
-            {texts.clear}
-          </Button>
+          <Reason reason={locked} className="flex-1">
+            <Button
+              variant="outline"
+              className="w-full"
+              reason="missing"
+              disabled={locked !== null}
+              onClick={() => useWorkshop.getState().setSettings({ [field]: null })}
+            >
+              {texts.clear}
+            </Button>
+          </Reason>
         ) : null}
       </div>
     </Card>
@@ -109,6 +120,7 @@ function ChangeSpotCard() {
       field="toolChangePosition"
       testId="change-card"
       find="change-spot"
+      lockedUnderJob={t('jog.change.locked')}
       texts={{
         title: t('jog.change.title'),
         none: t('jog.change.none'),

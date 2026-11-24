@@ -171,6 +171,10 @@ describe("a tool's own cutting values", () => {
       feed: 5000,
     });
     expect(toolOwnValues({ ...t1, cutting: { rpm: 5000 } }, spindle)).toEqual({ rpm: 10000 });
+    // a plunge feed faster than the machine cuts is cut to it as well
+    expect(toolOwnValues({ ...t1, cutting: { plungeFeed: 9000 } }, spindle)).toEqual({
+      plunge: 5000,
+    });
   });
 
   it('go over the suggestion of the material, field by field', () => {

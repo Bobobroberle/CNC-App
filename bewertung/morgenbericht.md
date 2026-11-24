@@ -39,6 +39,9 @@ React Testing Library und jsdom sind als Dev-Abhängigkeit installiert (`apps/co
 ## 5c. README
 Die README ist komplett auf die sechs Bereiche umgeschrieben (Entscheidung 39): Bereich für Bereich aus dem Code und den deutschen Oberflächentexten, danach von drei Prüfern (Beschriftungen, Orte, Vollständigkeit) gegengelesen, ihre Korrekturen sind eingearbeitet. Sie ist länger geworden (110 statt 40 KB), weil sie jetzt je Bereich beschreibt, was dort wirklich steht – kürzen kannst du jederzeit.
 
+## 5d. Änderungsliste (Entscheidung 38) – bis jetzt
+Gruppe 1 (Lauf-Richtung je Teil, eigene Schnittwerte je Werkzeug), Gruppe 2 (Werkzeugwechsel-Knopf, Merkpunkte) und die automatische Datensicherung der Pi-Datenbank sind gebaut und getestet; Einzelheiten und alle **Festlegungen, bitte prüfen** stehen im Entscheidungsprotokoll unter „Änderungsliste – Stand der Nacht“. Die wichtigsten zum Prüfen: (a) der Sicherungsordner liegt standardmäßig **auf derselben Karte** wie die Datenbank – für echte Sicherheit `LOWRIDER_BACKUP_DIR` auf einen USB-Stick; (b) **die SD-Liste, „Programm starten“ und „Ab Zeile fortsetzen“ zeigen die Startbestätigungen nicht** (Vorschlag und Begründung im Protokoll) – das habe ich bewusst nicht allein geändert; (c) ein eingetippter Vorschub am Werkzeug wird vom Lernen nicht verändert.
+
 ## 6. Reihenfolge der Nacht und was noch kommt
 Stufe 3 ist gebaut · jetzt die vier Gruppen der Änderungsliste (Schnittwerte & Lauf-Richtung · Merkpunkte & Werkzeugwechsel-Knopf · Projekte sichern · Kleinkram) · README (Entscheidung 39).
 

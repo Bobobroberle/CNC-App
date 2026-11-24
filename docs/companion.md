@@ -114,6 +114,17 @@ FLUIDNC_URL=ws://192.168.178.40:81 LOWRIDER_APP=./app SENSOR_SIMULATOR=1 node co
 | `LOWRIDER_SHUTDOWN`                | `0` = _Pi herunterfahren_ aus der App abschalten                       | an                                          |
 | `LOWRIDER_RECORDINGS`              | `0` = Mitschnitt abschalten                                            | an (braucht ffmpeg)                         |
 | `RECORD_STREAM`, `RECORD_SNAPSHOT` | ustreamer auf diesem Rechner für den Mitschnitt                        | `http://127.0.0.1:8081/stream`, `/snapshot` |
+| `LOWRIDER_BACKUP`                  | `0` = die tägliche Datensicherung der Datenbank abschalten             | an                                          |
+| `LOWRIDER_BACKUP_DIR`              | Ordner der Sicherungen – **besser ein zweites Medium (USB-Stick)**     | `backups/` neben der Datenbank              |
+| `LOWRIDER_BACKUP_KEEP`             | Wie viele Tagessicherungen bleiben                                     | `7`                                         |
+
+**Datensicherung:** einmal am Tag (und beim Start, wenn die von heute fehlt) macht der Companion eine vollständige Kopie der
+Datenbank (`lowrider-JJJJ-MM-TT.db`: Werkzeuge, Materialien, Nullpunkte, Historie, abgelegte Jobs …) in einem eigenen Prozess,
+damit Weiterleitung, PAUSE und NOT-HALT nicht darauf warten. Er beginnt keine Kopie, die nicht auf die Platte passt (Platz für
+das 1,25-Fache der Datenbank muss frei sein) und meldet das; die App zeigt im Kasten _Companion_ die letzte Datei oder den
+Grund des Fehlschlags. **Liegt der Ordner auf derselben Karte wie die Datenbank, schützt das vor einer beschädigten oder
+versehentlich geleerten Datenbank – nicht vor dem Tod der Karte.** Zurückspielen: Companion anhalten, die Datei als
+`lowrider.db` an die Stelle von `LOWRIDER_DB` kopieren (die Dateien `…-wal` und `…-shm` daneben löschen), Companion starten.
 
 ## Schnittstelle
 

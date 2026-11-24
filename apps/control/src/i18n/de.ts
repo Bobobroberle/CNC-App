@@ -731,6 +731,8 @@ export const de = {
       clear: 'Werkzeugwechsel-Position vergessen',
       hint: '„Werkzeugwechsel“ (Halten) hebt erst auf die Sicherheitshöhe und fährt dann dorthin; ein Job fährt beim Wechsel von selbst hin. Dieselben Werte stehen unter Einstellungen → Maschine → Werkstatt.',
       saved: 'Werkzeugwechsel-Position gemerkt: X {x} · Y {y}.',
+      locked:
+        'Ein Job ist unterwegs – er fährt zum Wechseln dorthin; die Position ändert sich erst danach.',
     },
     waypoints: {
       title: 'Merkpunkte',

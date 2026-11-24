@@ -88,7 +88,7 @@ export function toolOwnValues(tool: Tool, spindle: SpindleLimits): OwnValues {
   if (c.rpm !== undefined)
     out.rpm = Math.round(Math.min(spindle.rpmMax, Math.max(spindle.rpmMin, c.rpm)));
   if (c.feed !== undefined) out.feed = Math.round(Math.min(spindle.maxFeed, c.feed));
-  if (c.plungeFeed !== undefined) out.plunge = Math.round(c.plungeFeed);
+  if (c.plungeFeed !== undefined) out.plunge = Math.round(Math.min(spindle.maxFeed, c.plungeFeed));
   if (c.stepdown !== undefined) out.depthPerPass = Number(c.stepdown.toFixed(2));
   if (c.stepover !== undefined) out.stepover = Number((c.stepover * tool.diameter).toFixed(2));
   return out;

@@ -35,7 +35,8 @@ export function WaypointsCard() {
     park: true,
     change: true,
   });
-  const saveReason = !mpos ? t('jog.reason.offline') : null;
+  // Before homing the machine's coordinates are not the table's: a place stored then is a wrong place after
+  const saveReason = !mpos ? t('jog.reason.offline') : !homed ? t('jog.reason.notHomed') : null;
   const store = () => {
     if (!mpos) return;
     const at = { x: mpos[0] ?? 0, y: mpos[1] ?? 0 };

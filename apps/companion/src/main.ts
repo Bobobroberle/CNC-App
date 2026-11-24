@@ -2,7 +2,7 @@ import { execFile, spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { mkdir, readdir, readFile, rename, rm, stat, statfs, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { runBackup, type BackupStatus } from './backup';
+import { runBackup, snapshotInChild, type BackupStatus } from './backup';
 import { Store } from './db';
 import { Recorder } from './recorder';
 import { SensorHub, simulatedSample } from './sensors';
@@ -94,13 +94,19 @@ const backupNow = async () => {
     dir: backupDir,
     keep: Math.max(1, Number(env.LOWRIDER_BACKUP_KEEP ?? 7) || 7),
     now: Date.now(),
+    dbSize: async () =>
+      (await stat(dbPath)).size + ((await stat(`${dbPath}-wal`).catch(() => null))?.size ?? 0),
     fs: {
       mkdir: async (path) => void (await mkdir(path, { recursive: true })),
+      freeBytes: async (path) => {
+        const s = await statfs(path);
+        return s.bavail * s.bsize;
+      },
       list: (path) => readdir(path).catch(() => []),
       rename,
       remove: (path) => rm(path, { force: true }),
     },
-    snapshot: (path) => store.snapshot(path),
+    snapshot: (path) => snapshotInChild(dbPath, path),
   });
   if (backup.error) console.error(`backup failed: ${backup.error}`);
 };
