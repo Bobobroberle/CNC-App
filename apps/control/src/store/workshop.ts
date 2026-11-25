@@ -32,6 +32,15 @@ import { pinFixtures, type FixtureFrame } from '../lib/clamps';
 import { browserStorage, listOf, loadJson, saveJson } from '../lib/persist';
 import { tokenFor, usePiLogin } from './piLogin';
 import { validWaypoints, type Waypoint } from '../lib/spots';
+import {
+  DOT_DIAMETER_MAX,
+  DOTS_MAX,
+  PITCH_MAX,
+  PLATE_DEFAULT,
+  plateSpan,
+  POINTS_MAX,
+} from '../lib/calibrationPlate';
+import { PLACE } from '../lib/stateSync';
 
 export interface CameraSettings {
   /** Machine offset of the image centre from the spindle axis, mm */
@@ -109,13 +118,20 @@ export interface WorkshopSettings {
 
 /** Camera calibration of the machine with a reference plate of dots. */
 export interface CalibrationSettings {
-  /** Distance between the outer measured dots along X and Y, mm */
+  /** Distance between the outer measured dots along X and Y, mm (the plate's own: (dots − 1) × pitch) */
   spanX: number;
   spanY: number;
-  /** Dots per axis (2–5) */
+  /** Measuring points per axis (2–8): only counts that put every point on a dot of the plate are offered */
   points: number;
-  /** Precision plate (scale is trusted) or a print (angle only, after turning it) */
+  /**
+   * Precision plate (scale is trusted) or a print (angle only, after turning it). A printed plate – the
+   * default – is no standard: only a plate whose outer dots were measured and entered as the field is one.
+   */
   precise: boolean;
+  /** The plate: dots per side, distance between neighbouring dots and diameter of one dot, mm */
+  dots: number;
+  pitch: number;
+  dotDiameter: number;
   /** Wait after each move before the picture counts, ms (vibration, stream delay) */
   settleMs: number;
   /** Distance between the two Y rails, mm; null = not entered */
@@ -155,10 +171,11 @@ export const DEFAULT_SETTINGS: WorkshopSettings = {
   keepAwake: true,
   cornerPlate: { use: false, top: 0, wall: 0 },
   calibration: {
-    spanX: 180,
-    spanY: 180,
+    spanX: plateSpan(PLATE_DEFAULT.dots, PLATE_DEFAULT.pitch),
+    spanY: plateSpan(PLATE_DEFAULT.dots, PLATE_DEFAULT.pitch),
     points: 3,
-    precise: true,
+    precise: false,
+    ...PLATE_DEFAULT,
     settleMs: 600,
     gantryWidth: null,
     motor1Side: null,
@@ -208,7 +225,45 @@ const isRecord = (v: unknown): v is JobRecord =>
   typeof (v as JobRecord).id === 'string' &&
   typeof (v as JobRecord).startedAt === 'number';
 
-export function validateSettings(value: unknown): WorkshopSettings | null {
+const inRange = (v: unknown, max: number, fallback: number): number =>
+  typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= max ? v : fallback;
+
+/**
+ * The calibration settings as they are used: what is missing or unusable is the default (the plate of
+ * `docs/kalibriertafel.svg`), so a state from before the plate was known – in the browser or on the Pi – runs
+ * as it is. **That state is also taken off "precise" once**: the scale of a plate was trusted by default,
+ * which a printed plate does not deserve (the correction would write its error into steps_per_mm); it is
+ * recognised by lacking the plate's `pitch`. The operator can switch it on again; a state that has the plate
+ * keeps what it says.
+ *
+ * `heal` (this device's own storage) also puts back whatever is out of range or no number. A document from the
+ * Pi is **not healed** (`heal: false`): only what it lacks is filled in, so a value no card could have written
+ * stays what it is and is refused by `insane` – never silently replaced, never written back as if it were fine.
+ */
+export function normalizeCalibration(stored: unknown, heal = true): CalibrationSettings {
+  const d = DEFAULT_SETTINGS.calibration;
+  if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return { ...d };
+  const c = stored as Partial<CalibrationSettings>;
+  const older = !Object.hasOwn(c, 'pitch');
+  const precise = older ? false : typeof c.precise === 'boolean' ? c.precise : d.precise;
+  if (!heal) return { ...d, ...c, precise };
+  const whole = (v: unknown, min: number, max: number, fallback: number): number =>
+    typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max ? v : fallback;
+  return {
+    ...d,
+    ...c,
+    precise,
+    pitch: inRange(c.pitch, PITCH_MAX, d.pitch),
+    dots: whole(c.dots, 2, DOTS_MAX, d.dots),
+    dotDiameter: inRange(c.dotDiameter, DOT_DIAMETER_MAX, d.dotDiameter),
+    // What the runs divide by and count with: never nothing, never a number that is none
+    spanX: inRange(c.spanX, PLACE, d.spanX),
+    spanY: inRange(c.spanY, PLACE, d.spanY),
+    points: whole(c.points, 2, POINTS_MAX, d.points),
+  };
+}
+
+export function validateSettings(value: unknown, heal = true): WorkshopSettings | null {
   if (typeof value !== 'object' || value === null) return null;
   const v = value as Partial<WorkshopSettings>;
   // Unknown or missing parts fall back to the defaults, so new settings never break old storage.
@@ -219,7 +274,7 @@ export function validateSettings(value: unknown): WorkshopSettings | null {
     adaptive: { ...DEFAULT_SETTINGS.adaptive, ...v.adaptive },
     camera: { ...DEFAULT_SETTINGS.camera, ...v.camera },
     cornerPlate: { ...DEFAULT_SETTINGS.cornerPlate, ...v.cornerPlate },
-    calibration: { ...DEFAULT_SETTINGS.calibration, ...v.calibration },
+    calibration: normalizeCalibration(v.calibration, heal),
     recording: { ...DEFAULT_SETTINGS.recording, ...v.recording },
     waypoints: validWaypoints(v.waypoints),
     hiddenFeatures: validHiddenFeatures(v.hiddenFeatures),

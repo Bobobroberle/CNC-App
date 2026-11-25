@@ -37,6 +37,14 @@ export interface Slice {
    * unchanged. Without: every key is data.
    */
   keys?: readonly string[];
+  /**
+   * A document of an older app as this app reads it (pure, and the same again for what it already made): the
+   * base and the Pi's copy go through it *before* they are merged with this device's state – which has been
+   * read through the same rule when it was loaded. Without it a change that only this app's reading made (a
+   * switch that is off for a state from before a setting existed) would count as this device's edit and
+   * override what another device set on the Pi meanwhile.
+   */
+  upgrade?(doc: Doc): Doc;
   /** How the state from before a simulator session is put back (default: `apply`) */
   restore?(doc: Doc): void;
   /** What the operator is told when a document of the Pi changed this device (null: nothing to tell) */
@@ -153,21 +161,23 @@ async function syncSlice(
   const acceptable = (r: { data: unknown }) => isDoc(r.data) && slice.accepts(r.data);
   if (remote !== undefined && !acceptable(remote)) return refuse(remote.rev);
   const known = deps.meta.get(slice.key);
+  const up = (doc: Doc): Doc => slice.upgrade?.(doc) ?? doc;
   // Never synced here: the base is a fresh app's, and where both sides differ the Pi wins (it is the machine's)
-  const base = known?.base ?? slice.defaults();
+  const stored = known?.base ?? slice.defaults();
+  const base = up(stored);
   const local = slice.read();
   // What the Pi has is compared by what it says, not by its revision: a Pi restored from a backup counts
   // revisions again, and the same number may stand for another state
   if (
     known &&
     remote &&
-    same(split(remote.data as Doc, slice.keys).own, base) &&
-    same(local, base)
+    same(split(remote.data as Doc, slice.keys).own, stored) &&
+    same(local, stored)
   ) {
     return 'ok';
   }
   // Nothing set here, nothing on the Pi: there is nothing to say yet (the defaults are not a state)
-  if (!known && remote === undefined && same(local, base)) return 'ok';
+  if (!known && remote === undefined && same(local, stored)) return 'ok';
   try {
     for (let attempt = 0; attempt < TRIES; attempt++) {
       let merged: Doc;
@@ -180,7 +190,7 @@ async function syncSlice(
         ({ merged, replaced } = merge3(
           base,
           local,
-          theirs.own,
+          up(theirs.own),
           known ? 'local' : 'remote',
           slice.keys,
         ));

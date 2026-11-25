@@ -14,6 +14,8 @@ import {
 import { create } from 'zustand';
 import { t } from '../i18n';
 import { pixelToMm } from '../lib/camera';
+import { formatPlain } from '../lib/format';
+import { travelShortfall, type Shortfall } from '../lib/calibrationPlate';
 import { findMarker, toGray, type Marker } from '../lib/markers';
 import { cameraElement, pictureSize } from './camera';
 import { useJob } from './job';
@@ -256,6 +258,27 @@ interface CalibrationStore {
 }
 
 let cancelled = false;
+/** Why the running task was refused before it moved (the log says this instead of "no marker") */
+let refusal: { text: string; key: string } | null = null;
+
+/**
+ * Whether the measuring grid fits the travel from the corner dot the camera stands over: null if it does
+ * (or cannot be told – a machine that is not homed has no known zero, so nothing is claimed), else what
+ * falls short. Pure, so the card and the run say the same.
+ */
+export function gridShortfall(
+  start: Vec,
+  homed: boolean,
+  profile: {
+    softLimits: boolean;
+    travel: { x: { min: number; max: number }; y: { min: number; max: number } };
+  },
+  spanX: number,
+  spanY: number,
+): Shortfall | null {
+  if (!homed || !profile.softLimits) return null;
+  return travelShortfall(start, profile.travel, spanX, spanY, BACKOFF);
+}
 
 function settings(): CalibrationSettings {
   return useWorkshop.getState().settings.calibration;
@@ -296,10 +319,13 @@ export const useCalibration = create<CalibrationStore>((set, get) => {
       const result = await body();
       if (result === null) {
         const { addLog } = useMachine.getState();
-        addLog('error', cancelled ? t('calibration.cancelled') : t('calibration.noMarker'));
+        if (cancelled) addLog('error', t('calibration.cancelled'));
+        else if (refusal) addLog('error', refusal.text, refusal.key);
+        else addLog('error', t('calibration.noMarker'));
       }
       return result;
     } finally {
+      refusal = null;
       set({ task: null, progress: null });
     }
   }
@@ -326,11 +352,28 @@ export const useCalibration = create<CalibrationStore>((set, get) => {
         const grid = planGrid(s.spanX, s.spanY, s.points, s.points);
         const io = machineIO();
         const pairs: MarkerPair[] = [];
+        // The run drives the field towards +X and +Y from the corner the camera stands over: ask the travel
+        // before the first move, not after it ended somewhere against a limit.
+        const start = await here();
+        if (!start) return null;
+        const { homed } = useMachine.getState();
+        const short = gridShortfall(start, homed, useJob.getState().profile, s.spanX, s.spanY);
+        if (short) {
+          refusal = {
+            key: 'calibration.noRoom',
+            text: t('calibration.noRoom', {
+              axis: short.axis.toUpperCase(),
+              side: t(short.side === 'max' ? 'calibration.sideMax' : 'calibration.sideMin'),
+              short: formatPlain(short.short, 1),
+            }),
+          };
+          return null;
+        }
         set({ progress: { done: 0, total: grid.length } });
         for (const nominal of grid) {
           let found: Vec | null;
           if (pairs.length === 0) {
-            found = await centreHere();
+            found = await centreLoop(io, start);
           } else {
             const guess = predictMarker(pairs, nominal)!;
             const pre = { x: guess.x - BACKOFF, y: guess.y - BACKOFF };

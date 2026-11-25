@@ -1984,7 +1984,8 @@ export const de = {
       offset: 'Versatz',
     },
     hints: {
-      scale: 'Ein Merkmal antippen, X um 10 mm joggen, dasselbe Merkmal erneut antippen.',
+      scale:
+        'Ein Merkmal antippen, X um 10 mm joggen, dasselbe Merkmal erneut antippen. Auf einem Punktraster mit 10 mm Abstand sieht das Bild danach gleich aus und man tippt leicht den Nachbarpunkt: ein Merkmal nehmen, das es nur einmal gibt (Ecke der Platte, Aufkleber, Kratzer).',
       offset:
         'Mit dem Fräser eine kleine Markierung setzen, „Position merken“, dann Kamera darüber fahren und die Markierung antippen.',
     },
@@ -2146,13 +2147,37 @@ export const de = {
     seen: 'Marke erkannt: Ø {d} mm, {off} mm neben dem Fadenkreuz',
     notSeen: 'Keine Marke im Bild – Kamera über einen Punkt der Tafel fahren.',
     notHomed:
-      'Nicht referenziert: Messen geht, für die Korrektur der Rechtwinkligkeit danach referenzieren.',
+      'Nicht referenziert: Messen geht, für die Korrektur der Rechtwinkligkeit danach referenzieren. Der Verfahrweg kann nicht geprüft werden – das Messfeld muss vom Eckpunkt aus nach +X und +Y passen.',
+    sizeOff:
+      'Der Punkt erscheint Ø {d} mm, die Platte hat Ø {nominal} mm: Kamera-Maßstab prüfen (Einstellungen → Kamera).',
     plate: 'Referenztafel',
     plateHint:
-      'Kreisraster mit dunklen Punkten auf hellem Grund, z. B. 10 mm Abstand, Punkte 3 mm. Messfeld = Abstand der äußeren Punkte.',
+      'Kreisraster mit dunklen Punkten auf hellem Grund. Voreinstellung ist docs/kalibriertafel.svg: 19 × 19 Punkte, 10 mm Abstand, Ø 3 mm. Messfeld = Abstand der äußeren Punkte.',
     plateKind: 'Art der Tafel',
     precise: 'Präzisionsplatte',
     print: 'Ausdruck (nur Winkel)',
+    preciseHint:
+      'Präzisionsplatte nur, wenn die äußeren Punkte nachgemessen und als Messfeld eingetragen sind. Sonst schreibt die Korrektur den Fehler der Platte in steps_per_mm.',
+    printHint:
+      'Ausdruck oder 3D-Druck: Der Maßstab der Platte wird nicht übernommen, nur der Winkel – nach dem Drehen der Platte um 90°.',
+    pitch: 'Rastermaß (mm)',
+    dots: 'Punkte je Seite',
+    dotDiameter: 'Punktdurchmesser (mm)',
+    warn: {
+      spanOffPitch:
+        'Das Messfeld ist kein Vielfaches des Rastermaßes ({pitch} mm): Die äußeren Messpunkte liegen zwischen zwei Punkten, die Messung kann auf einen Nachbarpunkt springen.',
+      pointsOffPitch:
+        'Bei {n} × {n} Messpunkten liegen die Messpunkte nicht auf Punkten der Platte (Abstand {sx} × {sy} mm, Rastermaß {pitch} mm): Die Messung kann auf einen Nachbarpunkt springen. Eine Punktzahl aus der Auswahl wählen.',
+      pointsFarApart:
+        'Bei {n} × {n} Messpunkten liegen {k} Rastermaße ({sx} mm) zwischen den Messpunkten: Steht die Platte um 1° schief, kann die Messung auf die Nachbarreihe springen. Mehr Messpunkte wählen.',
+      spanBeyondPlate: 'Das Messfeld ist größer als die Platte ({plate} mm).',
+    },
+    roomShort:
+      'Von hier reicht der Verfahrweg nicht: Es fehlen {short} mm an {axis}{side}. Kamera weiter weg vom Rand stellen oder das Messfeld verkleinern.',
+    sideMax: '+',
+    sideMin: '−',
+    noRoom:
+      'Messung nicht gestartet: Der Verfahrweg reicht von hier nicht ({axis}{side}: {short} mm zu kurz). Kamera weiter weg vom Rand fahren oder das Messfeld verkleinern.',
     spanX: 'Messfeld X (mm)',
     spanY: 'Messfeld Y (mm)',
     settle: 'Beruhigungszeit (ms)',
@@ -2160,7 +2185,7 @@ export const de = {
     pointsN: '{n} × {n}',
     measure: 'Messen',
     measureHint:
-      'Tafel möglichst gerade auflegen (±1°), Fräser über der Tafeloberfläche. Kamera mit dem Joystick über den Punkt unten links fahren, dann messen.',
+      'Tafel möglichst gerade auflegen (±1°), Fräser über der Tafeloberfläche. Kamera mit dem Joystick über den Eckpunkt unten links fahren (kleinster X- und Y-Wert), dann messen: Die Messung fährt von dort {x} mm nach +X und {y} mm nach +Y.',
     centre: 'Marke zentrieren',
     measureGrid: 'Raster messen',
     measureAgain: 'Raster neu messen',
@@ -3524,7 +3549,7 @@ export const de = {
       accuracy:
         'genauigkeit, lineal, maßhaltigkeit, stimmt das maß, schritte pro mm, steps per mm, nachmessen, accuracy, zu kurz gefahren, zu weit gefahren',
       calibration:
-        'maschine vermessen, kalibrieren, kalibrierung, punktplatte, rechtwinkligkeit, winkel, squareness, schritte pro mm, mit kamera messen, kalibriertafel',
+        'maschine vermessen, kalibrieren, kalibrierung, punktplatte, rechtwinkligkeit, winkel, squareness, schritte pro mm, mit kamera messen, kalibriertafel, rastermaß, punktabstand, punktdurchmesser, punkte je seite, gedruckte platte, 3d-druck, ausdruck, präzisionsplatte',
       cameraSetup:
         'kamera einrichten, kamera einstellen, kamera kalibrieren, kameraeinstellungen, camera setup, kamera installieren',
       cameraSource:

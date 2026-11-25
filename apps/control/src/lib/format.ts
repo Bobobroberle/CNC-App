@@ -35,6 +35,11 @@ export function formatNumber(value: number, decimals = 0): string {
   });
 }
 
+/** A number as it was typed: no decimals that are zero ("180", "12,5", "3,2"), at most `max` ("3,33"). */
+export function formatPlain(value: number, max = 2): string {
+  return value.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: max });
+}
+
 /**
  * A length or shift in the UI language with a real minus sign – and, if
  * asked, a plus – for results that are read, not tabulated ("−0,7", "+11,8").

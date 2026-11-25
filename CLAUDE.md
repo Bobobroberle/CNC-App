@@ -48,7 +48,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `check` are no places any more (a stored one falls back to `run`). There is **no "Weiter: …" chain and no
   Ctrl+→**; the start screen stays and keeps its "Als Nächstes" recommendation (`lib/next.ts`). The primary action sits
   only where an area has one: Job without a program ("G-Code öffnen"), Fräsen (the start, pause, going on; "Prüfen"
-  while the start is blocked; **nothing in the Prüfen view** while no job runs or waits; a job that *waits* – a tool change, a single
+  while the start is blocked; **nothing in the Prüfen view** while no job runs or waits; a job that _waits_ – a tool change, a single
   step, between two parts – forces the cutting view for everything that depends on the view (panel, action bar, the
   picture's timeline: one selector, `useRunView` in `store/runView.ts`; while a job waits the stored view of Fräsen is held at `cut` by one subscription – a tap, the search or a link
   inside a card cannot store the check then; a waiting job's tool-change card, the streamed one and the one between
@@ -67,7 +67,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `ProbeCard`/`ProbeWizard` (the probing start) and `ToolChangePanel` (going on and giving up – so they stay in reach in
   the strip under the picture with "Großbild", where `SingleStepPanel` also lies). Sticky stops silently if any ancestor
   between the button and `.panel-body` clips (`overflow`); `e2e/dock.spec.ts` and the geometry checks in
-  `control.spec.ts` measure (`inReach` in `e2e/helpers.ts`: the control's box lies inside the scroll box *and* a touch at
+  `control.spec.ts` measure (`inReach` in `e2e/helpers.ts`: the control's box lies inside the scroll box _and_ a touch at
   its middle reaches it – `toBeVisible` cannot see clipping). A `.panel-body` that holds a dock has `scroll-padding-bottom` (`:has(.dock)` – a padding elsewhere would scroll things that are in view, which `e2e/areas.spec.ts` caught in the jog panel) so a control
   brought into view stops above the dock (`.stage-prompt:has(.dock)` too). **What a docked action leaves behind** (a result, a
   warning) lies in the card's flow below the stuck dock: put it in `<Result>` (`ui/dock.tsx`), which brings it into view once when it
@@ -280,7 +280,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   and **return `false`** – a caller never reports "loaded" after that; a dropped file or a job of the recent list is
   turned away with one message before anything else happens. **A flow that does more than load** (the two-hole
   alignment, turning the board, the long example, the jigs, the sections) asks `programRefused()`
-  (`store/underway.ts`) *before its first step* – a zero moved or a plan changed must not outlive a refused load;
+  (`store/underway.ts`) _before its first step_ – a zero moved or a plan changed must not outlive a refused load;
   `jigs.ts` and `sections.ts` use `jobUnderWay()` as their `running()`. Changing the machine profile re-analyses the
   loaded program directly (it is no other program) and so is not refused. **Between two parts** the next part starts
   only in the tool change card or the action bar (decision 32): the SD list, "Programm starten" and "Ab Zeile
@@ -447,7 +447,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   nothing; **nothing from the Pi is trusted**: `accepts` runs before a document goes in or out – the settings must be of the
   right kind per part (`shaped`: no camera that is null), have a camera with its numbers (or the defaults would fill a gap and
   throw a calibration away), and `insane()` holds places, the safe height (upper half of the Z travel), spindle, camera, the
-  measuring runs (points 2–5 …), the corner plate and the recording to the ranges the cards allow; the profile needs real
+  measuring runs (points 2–8 = `POINTS_MAX`, the plate's pitch, dots and dot diameter …), the corner plate and the recording to the ranges the cards allow; the profile needs real
   kinematics and controller (`parseKinematics`/`parseController` – a `kinematics: {}` crashed every screen that reads
   `axes.x.maxRate`); the learning factor 0.5–1.5; **macros from the Pi run as text on the machine, so they are said**
   (`Slice.announce` → `sync.macrosFromPi`, a hint that stays in the centre). **A document that stays refused** is said once per
@@ -539,6 +539,26 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `onConfirm` returns a promise shows it by itself (`false` = not possible). Commands sent with
   `useMachine.command` set `lastCommand`; `CommandAck` (jog panel, console) shows FluidNC's ok or
   `error:n` with its meaning.
+- The reference plate of the camera calibration (`docs/kalibrierung.md`; pure `lib/calibrationPlate.ts`, card `CalibrationWizard`,
+  settings `calibration.pitch/dots/dotDiameter`, defaults = `docs/kalibriertafel.svg`: 19 × 19, 10 mm, Ø 3): the plate is counted **in
+  dots, not in mm** (`pitchSteps`: a field is a whole number of pitches within a quarter of one – a print that shrank, measured at 178.6 mm, is still the 18-pitch plate; a quarter is the budget _along_ the move, _across_ it the budget is the tilt: `stepsClear` offers a count only where the first step, predicted as a pure translation, stays nearer the right dot than a neighbour at the card's ±1° – below about 25 pitches between points, which matters for fine-pitch plates; `offeredPoints` offers 2…8 points
+  where `n − 1` divides both fields in pitches – a stored count that is not offered stays shown and warned, never changed silently;
+  hand-made fields are **warned, never blocked**). The field follows `(dots − 1) × pitch` only while it still is the plate's – and
+  only while that is a place of a table (`PLACE`). **`precise` defaults to false** (a print is trusted for its angle only); a stored
+  calibration **without `pitch`** (older browser state or Pi document) is flipped to false **once** (`normalizeCalibration`) – the safe
+  direction, the operator can switch it on again. `normalizeCalibration(…, heal)`: the device's own storage is healed, **a Pi document
+  is not** (`settingsFrom` passes `false`: only what it lacks is filled in, an out-of-range value stays for `insane` to refuse – the
+  card's ranges are exactly `insane`'s, a test holds them together). The dot-size hint ("Kamera-Maßstab prüfen", > 10 % off) and the
+  room hint **never gate a button**; the run itself refuses _before the first move_ where the machine is homed with soft limits and the
+  field does not fit the travel (`gridShortfall`, from the corner dot towards +X/+Y, 0.3 mm approach, **room at both ends of both axes** = max(5 mm, 5 % of the larger field): a plate askew by 1° puts points below the first dot too, and the first dot is not under the crosshair – the log says
+  `calibration.noRoom`, not "no marker"); not homed means not checked, and the card says so. The room hint hides while a task runs (the machine then stands wherever the run is).
+  **A settings document from before the plate is read the way this app reads its own storage – on both sides of the merge:**
+  `Slice.upgrade` (`store/stateSync.ts`; the settings slice maps `calibration` through `normalizeCalibration(…, false)`) is applied to the
+  base and the Pi's copy _before_ `merge3`, so the one-time flip of `precise` is no edit of this device's that could override what another
+  device set on the Pi meanwhile (the early-exit comparisons stay on the raw documents, which is what writes the flip back once). And
+  `merge3` takes a sub-key the other copy lacks, inside a part both sides changed, as unchanged (as it does one level up) – a device with
+  its own plate numbers does not lose them to a copy that predates them. The e2e rig believes 18 px/mm while it
+  really is 20, which is why the size hint is exercised with explicit diameters there.
 - After a measuring move, read the position and take pictures only after `settled()`
   (`store/settle.ts`): the status report in the store may be older than the move.
 - No safety function lives in the browser; the app triggers and displays, FluidNC enforces.

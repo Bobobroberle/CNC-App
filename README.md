@@ -988,11 +988,16 @@ Maschine zu vermessen und zu korrigieren; Anleitung: [`docs/kalibrierung.md`](do
   Vorher: Kamera eingerichtet (_Einstellungen → Kamera_, ein grober Maßstab genügt) und das Bild auf
   der Bühne (_Kamerabild zeigen_), Maschine referenziert, Tafel flach und möglichst parallel zu X
   (±1°), Fräser über der Tafeloberfläche (gemessen wird in der aktuellen Höhe), Kamera mit dem
-  Joystick über den Punkt unten links – die Anzeige meldet „Marke erkannt“. Tafel:
-  _Präzisionsplatte_ (Maßstab und Winkel) oder _Ausdruck_
-  ([`docs/kalibriertafel.svg`](docs/kalibriertafel.svg); nur der Winkel, dafür wird sie einmal
-  normal und einmal um 90° gedreht gemessen: _Gedrehte Tafel messen_); Messfeld und 2 × 2 bis 5 × 5
-  Punkte wählbar. _Raster messen_, _Umkehrspiel messen_ und _Z-Schiefe messen_ sind Halten-Tasten;
+  Joystick über den Eckpunkt unten links (kleinster X- und Y-Wert) – die Anzeige meldet „Marke
+  erkannt“. Tafel: _Ausdruck_ (voreingestellt:
+  [`docs/kalibriertafel.svg`](docs/kalibriertafel.svg); nur der Winkel, dafür wird sie einmal
+  normal und einmal um 90° gedreht gemessen: _Gedrehte Tafel messen_) oder _Präzisionsplatte_
+  (Maßstab und Winkel – nur für eine Platte, deren äußere Punkte nachgemessen und als Messfeld
+  eingetragen sind). Rastermaß, Punkte je Seite und Punktdurchmesser der Platte sind Felder der Karte
+  (voreingestellt: die Tafel dieses Repositorys, 19 × 19 Punkte, 10 mm, Ø 3 mm); das Messfeld folgt
+  ihnen und die Karte bietet nur Punktzahlen an, bei denen jeder Messpunkt auf einem Punkt der Platte
+  liegt (bei 180 mm: 2 × 2, 3 × 3, 4 × 4, 7 × 7). Passt das Messfeld nicht in den Verfahrweg, sagt die
+  Karte es und _Raster messen_ lehnt vor der ersten Fahrt ab. _Raster messen_, _Umkehrspiel messen_ und _Z-Schiefe messen_ sind Halten-Tasten;
   _Abbrechen_ beendet die Messung zwischen zwei Fahrten.
 - **Korrektur** (beide Wege): Der Maßstab geht in `steps_per_mm` (X, Y), die Rechtwinkligkeit in
   `pulloff_mm` je Y-Motor – das Portal richtet sich bei der Referenzfahrt an zwei Y-Endschaltern

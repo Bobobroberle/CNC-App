@@ -3,6 +3,7 @@ import {
   formatCoordinate,
   formatDuration,
   formatNumber,
+  formatPlain,
   formatSigned,
   parseNumber,
 } from '../src/lib/format';
@@ -15,6 +16,17 @@ describe('format', () => {
     expect(formatCoordinate(12, 3)).toBe('12.000');
     expect(formatCoordinate(undefined)).toBe('—');
     expect(formatCoordinate(Number.NaN)).toBe('—');
+  });
+
+  it('formats a number as it was typed: no zero decimals, at most as many as asked', () => {
+    expect(formatPlain(180)).toBe('180');
+    expect(formatPlain(180.0)).toBe('180');
+    expect(formatPlain(12.5)).toBe('12,5');
+    expect(formatPlain(3.2)).toBe('3,2');
+    expect(formatPlain(3.333)).toBe('3,33');
+    expect(formatPlain(3.333, 1)).toBe('3,3');
+    expect(formatPlain(0)).toBe('0');
+    expect(formatPlain(1000)).toBe('1.000');
   });
 
   it('formats durations', () => {

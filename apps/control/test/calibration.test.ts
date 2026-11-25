@@ -106,8 +106,10 @@ describe('corrections', () => {
     max: 0.02,
     points: 9,
   });
+  // A measured plate: the defaults are the printed one (angle only), which is tested below
   const settings = {
     ...DEFAULT_SETTINGS.calibration,
+    precise: true,
     gantryWidth: 1000,
     motor1Side: 'xMax' as const,
   };

@@ -35,16 +35,64 @@ einmal um 90° gedreht; dabei hebt sich der Winkelfehler der Tafel selbst heraus
 
 Dunkle Punkte auf hellem Grund, gleichmäßiges Licht (LED-Ring), Kamera scharf auf die Tafel.
 
+### Die App kennt die Platte
+
+Die Karte hat die Zahlen der Platte als eigene Felder – **Rastermaß** (mm zwischen zwei Punkten),
+**Punkte je Seite** und **Punktdurchmesser** (mm). Voreingestellt ist die Tafel dieses Repositorys
+([`kalibriertafel.svg`](kalibriertafel.svg)): 19 × 19 Punkte, 10 mm, Ø 3 mm. Eine andere Platte
+(zum Beispiel ein 3D-Druck mit Ø 3,2 mm) trägt man dort einmal ein; die Werte bleiben auf der Karte
+stehen und liegen – wie die übrigen Einstellungen der Maschine – auch auf dem Pi.
+
+- **Messfeld** ist der Abstand der äußeren Punkte, voreingestellt `(Punkte − 1) × Rastermaß`
+  (180 mm). Solange man es nicht von Hand ändert, folgt es der Platte; ein von Hand eingetragener
+  Wert (eine nachgemessene Platte) bleibt, wie er ist.
+- **Messpunkte** (ein Messfeld gilt als ganzes Vielfaches des Rastermaßes, wenn es höchstens ein Viertel
+  Rastermaß daneben liegt – eine geschrumpfte Platte, nachgemessen zu 178,6 mm, ist noch die
+  180-mm-Platte): Die Kamera rastet auf den Punkt ein, der der Bildmitte am nächsten liegt. Liegt
+  ein Messpunkt zwischen zwei Punkten, kann sie den Nachbarn nehmen – bis zu ein halbes Rastermaß
+  Fehler in der Anpassung. Deshalb bietet die Karte nur Anzahlen an, bei denen
+  `Messfeld ÷ (n − 1)` ein ganzes Vielfaches des Rastermaßes ist (bei 180 mm: 2, 3, 4 und 7; **5 × 5
+  nicht**: 45 mm lägen zwischen den Punkten) **und zwischen zwei Messpunkten höchstens etwa 25
+  Rastermaße liegen**: Der zweite Punkt wird aus dem ersten nur verschoben vorhergesagt; steht die
+  Tafel um 1° schief, liegt er bei mehr Rastermaßen schon neben dem richtigen Punkt – bei einer feinen
+  Platte (2,5 mm Rastermaß auf 200 mm) fallen deshalb 2 × 2 und 3 × 3 weg. Ein gespeicherter Wert
+  außerhalb der Liste bleibt
+  stehen und wird gemeldet. Ein von Hand geändertes Messfeld wird nur **gewarnt** (kein Vielfaches
+  des Rastermaßes, Messpunkte neben den Punkten, Feld größer als die Platte), nie gesperrt.
+- **Punktgröße**: „Marke erkannt: Ø d mm“ ist der gesehene Durchmesser (Pixel ÷ Kamera-Maßstab).
+  Weicht er um mehr als etwa 10 % vom eingetragenen Punktdurchmesser ab, weist die Karte auf den
+  Kamera-Maßstab hin. Das ist ein Hinweis, keine Sperre – gemessen wird trotzdem. (Bei Ø 3,2 mm
+  liegt die Toleranz bei ±0,3 mm; ein Ø 3,4-mm-Bild gilt dort noch als passend.)
+- **Verfahrweg**: Die Messung startet am **Eckpunkt unten links** (kleinster X- und Y-Wert) und
+  fährt das Messfeld nach **+X und +Y**, jeden Punkt von 0,3 mm darunter angefahren. Ist die
+  Maschine referenziert und stehen die Soft-Limits an, prüft die Karte das gegen den Verfahrweg
+  (an beiden Enden jeder Achse mit Spiel für die schiefe Tafel – bei 1° liegt die ferne Ecke um 1,7 %
+  des Feldes daneben, auch quer zur anderen Achse –, für den Abstand des ersten Punkts vom Fadenkreuz
+  und für den Maßstabsfehler, den die Messung ja erst bestimmt: mindestens 5 mm, bei großen Feldern
+  5 % des größeren Messfeldes, also 9 mm bei 180 mm): reicht er nicht, nennt sie Achse, Seite und
+  fehlende Millimeter, und „Raster messen“ lehnt **vor der ersten Fahrt** ab. Ohne Referenz kennt
+  die App den Nullpunkt nicht – dann wird nichts geprüft und die Karte sagt das.
+- **Präzisionsplatte** ist standardmäßig **aus**: Der Maßstab einer gedruckten Platte wird nicht
+  übernommen, nur der Winkel (nach dem Drehen um 90°). Einschalten nur bei einer Platte, deren
+  äußere Punkte nachgemessen und als Messfeld eingetragen sind – sonst schriebe die Korrektur den
+  Fehler der Platte in `steps_per_mm`. Ein Stand aus der Zeit vor den Plattenfeldern (im Browser
+  oder auf dem Pi) steht **einmal** auf „aus“, auch wenn er „an“ hatte; wer eine vermessene Platte
+  hat, schaltet sie wieder ein.
+- Die Fingertipp-Prüfung des Kamera-Maßstabs („X +10 mm“) sieht auf einem 10-mm-Raster nach der
+  Fahrt genau gleich aus – man tippt leicht den Nachbarpunkt. Ein Merkmal nehmen, das es nur einmal
+  gibt (Ecke der Platte, Aufkleber, Kratzer). Der Sprungweg bleibt 10 mm.
+
 ## Ablauf
 
-1. Kamera einschalten, kalibrieren (_Einrichten → Kamera_: Maßstab, grob genügt), Kamerabild auf der
+1. Kamera einschalten, kalibrieren (_Einstellungen → Kamera_: Maßstab, grob genügt), Kamerabild auf der
    Bühne.
 2. Maschine referenzieren. Tafel flach auflegen, möglichst parallel zu X (±1°). Fräser über der
    Tafeloberfläche – gemessen wird in der aktuellen Höhe, Z bewegt sich dabei nicht.
-3. _Reiter Service → Kalibrieren_: Art der Tafel, Messfeld (Abstand der äußeren Punkte; die
-   mitgelieferte Tafel: 180 × 180 mm) und Anzahl der Punkte wählen.
-4. Kamera mit dem Joystick über den **Punkt unten links** fahren – die Anzeige meldet „Marke
-   erkannt“. _Raster messen_ (halten). Die App fährt alle Punkte ab und kehrt zum ersten zurück.
+3. _Reiter Service → Kalibrieren_: Art der Tafel, Rastermaß, Punkte je Seite und Punktdurchmesser
+   (die mitgelieferte Tafel ist voreingestellt), Messfeld (Abstand der äußeren Punkte; 180 × 180 mm)
+   und Anzahl der Punkte (nur die angebotenen) wählen.
+4. Kamera mit dem Joystick über den **Eckpunkt unten links** (kleinster X- und Y-Wert) fahren – die
+   Anzeige meldet „Marke erkannt“. _Raster messen_ (halten). Die App fährt alle Punkte ab und kehrt zum ersten zurück.
 5. Nur mit Ausdruck: Tafel um 90° drehen, Kamera über den neuen Punkt unten links, _Gedrehte Tafel
    messen_.
 6. Optional: _Umkehrspiel messen_ (fährt ±0,5 mm um die Marke) und _Z-Schiefe messen_ (fährt Z um

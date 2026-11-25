@@ -2154,7 +2154,8 @@ async function installCalibrationRig(page: Page, rig: Rig = ERRORS_RIG) {
           scaleCalibrated: true,
           focusHeight: -10,
         },
-        calibration: { spanX: 100, spanY: 100, points: 3, settleMs: 120 },
+        // The rig's plate is exact (10 mm pitch, dots of Ø 3.3 as the camera sees them): a precision plate
+        calibration: { spanX: 100, spanY: 100, points: 3, settleMs: 120, precise: true, pitch: 10 },
       }),
     );
     w.__config = [
@@ -2193,6 +2194,21 @@ test('measures scale, squareness, play and Z tilt with the camera and corrects t
   await machineSetup(page, 'Kalibrieren');
   const wizard = page.getByTestId('calibration');
   await expect(page.getByTestId('calibration-live')).toContainText('Marke erkannt');
+
+  // The card knows the plate: the repository's one by default (and 100 mm of 10 mm lets 3 × 3 and 6 × 6 lie on dots, at most eight per axis are offered)
+  await expect(wizard.getByLabel('Rastermaß (mm)')).toHaveValue('10');
+  await expect(wizard.getByLabel('Punkte je Seite')).toHaveValue('19');
+  await expect(wizard.getByRole('group', { name: 'Messpunkte' }).getByRole('button')).toHaveText([
+    '2 × 2',
+    '3 × 3',
+    '6 × 6',
+  ]);
+  await expect(page.getByTestId('calibration-plate-warning')).toHaveCount(0);
+  // A dot of another size than the plate says: the camera scale is off – said, and nothing is blocked
+  await wizard.getByLabel('Punktdurchmesser (mm)').fill('2,5');
+  await expect(page.getByTestId('calibration-size')).toContainText('Kamera-Maßstab prüfen');
+  await wizard.getByLabel('Punktdurchmesser (mm)').fill('3,3');
+  await expect(page.getByTestId('calibration-size')).toHaveCount(0);
 
   // The move to the plate may still be running on a slow machine: measuring needs Idle.
   await expect(page.getByTestId('machine-state')).toContainText('Bereit', { timeout: 60_000 });
@@ -2358,6 +2374,12 @@ test('the built-in simulator: home, camera and calibration find its built-in err
   await expect(page.getByTestId('calibration-live')).toContainText('Marke erkannt', {
     timeout: 30_000,
   });
+  // A plate that was printed is trusted for its angle only – by default; the simulator's is exact
+  const plateCard = page.getByTestId('calibration');
+  await expect(page.getByTestId('calibration-print-hint')).toBeVisible();
+  await expect(plateCard.getByLabel('Messfeld X (mm)')).toHaveValue('180');
+  await plateCard.getByRole('button', { name: 'Präzisionsplatte' }).click();
+  await expect(page.getByTestId('calibration-precise-hint')).toBeVisible();
   // The move to the plate may still be running on a slow machine: measuring needs Idle.
   await expect(page.getByTestId('machine-state')).toContainText('Bereit', { timeout: 60_000 });
   await hold(page, /Raster messen/);
@@ -2369,6 +2391,48 @@ test('the built-in simulator: home, camera and calibration find its built-in err
   near(reading(text, /Maßstab X\s+([+−±][\d,]+) %/), 0.15, 0.01);
   near(reading(text, /Maßstab Y\s+([+−±][\d,]+) %/), -0.15, 0.01);
   near(reading(text, /Winkel X zu Y\s+([\d,]+)°/), 89.92, 0.01);
+});
+
+test('the calibration knows the travel: a field that does not fit is said, and refused before anything moves', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await openApp(page);
+  await goTo(page, 'Einstellungen', 'Verbindung');
+  await page.getByRole('button', { name: 'Simulator starten' }).click();
+  await expect(page.getByTestId('simulator-badge')).toBeVisible();
+  await openJog(page);
+  await hold(page, /Referenzfahrt/);
+  await expect(page.getByTestId('machine-state')).toContainText('Bereit', { timeout: 60_000 });
+
+  // The camera over a place near the upper end of X: 180 mm of field and 5 mm of slack do not fit from here
+  await expert(page);
+  await goTo(page, 'Konsole');
+  const consoleInput = page.locator('.console input');
+  await consoleInput.fill('G90 G53 G0 X1150 Y140.5 Z-60');
+  await consoleInput.press('Enter');
+  await goTo(page, 'Einrichten');
+  await page
+    .getByRole('group', { name: 'Bereich' })
+    .getByRole('button', { name: 'Kamera' })
+    .click();
+  await page.getByTestId('camera-card').getByRole('button', { name: 'Kamera einschalten' }).click();
+  await goTo(page, 'Einstellungen');
+  await machineSetup(page, 'Kalibrieren');
+  await expect(page.getByTestId('machine-state')).toContainText('Bereit', { timeout: 60_000 });
+  const card = page.getByTestId('calibration');
+  await expect(page.getByTestId('calibration-room')).toContainText('an X+');
+  await expect(card).toContainText('Eckpunkt unten links');
+
+  // The run says so before it moves – nothing starts, and it is not "no marker found"
+  await hold(page, /Raster messen/);
+  await expect(page.getByTestId('toasts')).toContainText('Messung nicht gestartet');
+  await expect(page.getByTestId('calibration-progress')).toHaveCount(0);
+  await expect(page.getByTestId('machine-state')).toContainText('Bereit');
+
+  // A field that fits again takes the hint away
+  await card.getByLabel('Messfeld X (mm)').fill('50');
+  await expect(page.getByTestId('calibration-room')).toHaveCount(0);
 });
 
 test('draws a part, chooses the cuts and gets a checked job, like Estlcam', async ({ page }) => {

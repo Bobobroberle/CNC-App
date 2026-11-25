@@ -1958,7 +1958,8 @@ export const en: DictionaryShape = {
       offset: 'Offset',
     },
     hints: {
-      scale: 'Tap a feature, jog X by 10 mm, tap the same feature again.',
+      scale:
+        'Tap a feature, jog X by 10 mm, tap the same feature again. On a dot grid with 10 mm pitch the picture looks the same afterwards and the neighbouring dot is easily tapped: use a feature that exists only once (corner of the plate, a sticker, a scratch).',
       offset:
         'Make a small mark with the bit, “Remember mark position”, then move the camera over it and tap the mark.',
     },
@@ -2117,13 +2118,38 @@ export const en: DictionaryShape = {
     showCamera: 'Show camera picture',
     seen: 'Dot found: Ø {d} mm, {off} mm off the crosshair',
     notSeen: 'No dot in the picture – drive the camera over a dot of the plate.',
-    notHomed: 'Not homed: measuring works, home afterwards to correct the squareness.',
+    notHomed:
+      'Not homed: measuring works, home afterwards to correct the squareness. The travel cannot be checked – the field has to fit from the corner dot towards +X and +Y.',
+    sizeOff:
+      'The dot looks Ø {d} mm, the plate has Ø {nominal} mm: check the camera scale (Settings → Camera).',
     plate: 'Reference plate',
     plateHint:
-      'Grid of dark dots on a light ground, e.g. 10 mm pitch, 3 mm dots. Field = distance of the outer dots.',
+      'Grid of dark dots on a light ground. The default is docs/kalibriertafel.svg: 19 × 19 dots, 10 mm pitch, Ø 3 mm. Field = distance of the outer dots.',
     plateKind: 'Kind of plate',
     precise: 'Precision plate',
     print: 'Print (angle only)',
+    preciseHint:
+      'Precision plate only if the outer dots were measured and entered as the field. Otherwise the correction writes the error of the plate into steps_per_mm.',
+    printHint:
+      'Print or 3D print: the plate’s scale is not taken, only the angle – after turning the plate by 90°.',
+    pitch: 'Pitch (mm)',
+    dots: 'Dots per side',
+    dotDiameter: 'Dot diameter (mm)',
+    warn: {
+      spanOffPitch:
+        'The field is no multiple of the pitch ({pitch} mm): the outer points lie between two dots, the measurement may jump to a neighbour.',
+      pointsOffPitch:
+        'With {n} × {n} points the measuring points are not on dots of the plate (spacing {sx} × {sy} mm, pitch {pitch} mm): the measurement may jump to a neighbour. Choose a count from the list.',
+      pointsFarApart:
+        'With {n} × {n} points there are {k} pitches ({sx} mm) between the points: with the plate askew by 1° the measurement may jump to the next row. Choose more points.',
+      spanBeyondPlate: 'The field is larger than the plate ({plate} mm).',
+    },
+    roomShort:
+      'The travel does not reach from here: {short} mm missing at {axis}{side}. Move the camera away from the edge or make the field smaller.',
+    sideMax: '+',
+    sideMin: '−',
+    noRoom:
+      'Measurement not started: the travel does not reach from here ({axis}{side}: {short} mm short). Drive the camera away from the edge or make the field smaller.',
     spanX: 'Field X (mm)',
     spanY: 'Field Y (mm)',
     settle: 'Settling time (ms)',
@@ -2131,7 +2157,7 @@ export const en: DictionaryShape = {
     pointsN: '{n} × {n}',
     measure: 'Measure',
     measureHint:
-      'Lay the plate square (±1°), bit above the plate surface. Drive the camera over the bottom-left dot with the joystick, then measure.',
+      'Lay the plate square (±1°), bit above the plate surface. Drive the camera over the corner dot at the bottom left (smallest X and Y) with the joystick, then measure: from there the run drives {x} mm towards +X and {y} mm towards +Y.',
     centre: 'Centre on dot',
     measureGrid: 'Measure grid',
     measureAgain: 'Measure grid again',
@@ -3450,7 +3476,7 @@ export const en: DictionaryShape = {
       accuracy:
         'accuracy, ruler, dimension check, is the size right, steps per mm, measure again, travelled too short, travelled too far',
       calibration:
-        'measure the machine, calibrate, calibration, dot plate, squareness, angle, steps per mm, measure with the camera, calibration target',
+        'measure the machine, calibrate, calibration, dot plate, squareness, angle, steps per mm, measure with the camera, calibration target, pitch, dot spacing, dot diameter, dots per side, printed plate, 3d print, precision plate',
       cameraSetup:
         'set up the camera, camera settings, calibrate the camera, camera setup, install the camera',
       cameraSource:

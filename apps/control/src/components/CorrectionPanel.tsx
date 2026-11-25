@@ -18,33 +18,47 @@ export /** Signed number with a real minus sign. */
 const signed = (value: number, decimals: number) =>
   `${value > 0 ? '+' : value < 0 ? '−' : '±'}${formatNumber(Math.abs(value), decimals)}`;
 
-/** A number field that saves valid input at once. */
+/** A number field that saves valid input at once – and follows the value when something else changes it. */
 export function NumberField({
   label,
   value,
   onChange,
   min = 0,
   max = Infinity,
+  integer = false,
 }: {
   label: string;
   value: number | null;
   onChange: (v: number) => void;
+  /** Entries must be above this */
   min?: number;
   /** Beyond this the entry is not taken (what the Pi would refuse of it as well) */
   max?: number;
+  /** Whole numbers only (a count) */
+  integer?: boolean;
 }) {
   const [text, setText] = useState(value === null ? '' : String(value));
+  // A value that was set from elsewhere (the measuring field follows the plate) shows; what is being typed stays
+  useEffect(() => {
+    setText((now) => (num(now) === value ? now : value === null ? '' : String(value)));
+  }, [value]);
   return (
     <Field>
       <FieldLabel>{label}</FieldLabel>
       <Input
         type="text"
-        inputMode="decimal"
+        inputMode={integer ? 'numeric' : 'decimal'}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
           const v = num(e.target.value);
-          if (e.target.value.trim() !== '' && Number.isFinite(v) && v > min && v <= max)
+          if (
+            e.target.value.trim() !== '' &&
+            Number.isFinite(v) &&
+            v > min &&
+            v <= max &&
+            (!integer || Number.isInteger(v))
+          )
             onChange(v);
         }}
       />

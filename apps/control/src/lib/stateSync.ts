@@ -1,4 +1,5 @@
 import type { WorkshopSettings } from '../store/workshop';
+import { DOT_DIAMETER_MAX, DOTS_MAX, PITCH_MAX, POINTS_MAX } from './calibrationPlate';
 
 /**
  * What belongs to the machine and is kept on the Pi – and how two copies of it are brought together.
@@ -42,6 +43,8 @@ export function merge3(
    * Without: every key is data (what was learned per tool), and a missing one was removed.
    */
   fixed?: readonly string[],
+  /** Inside a part that both sides changed: its sub-keys are the part's own, a missing one is then unchanged too */
+  inner = false,
 ): Merged {
   const merged: Doc = {};
   const replaced: string[] = [];
@@ -50,7 +53,8 @@ export function merge3(
     ...Object.keys(local),
     ...Object.keys(remote),
   ])) {
-    const theirs = fixed?.includes(key) && !Object.hasOwn(remote, key) ? base[key] : remote[key];
+    const theirs =
+      (inner || fixed?.includes(key)) && !Object.hasOwn(remote, key) ? base[key] : remote[key];
     const localChanged = !same(local[key], base[key]);
     const remoteChanged = !same(theirs, base[key]);
     let value: unknown;
@@ -61,9 +65,18 @@ export function merge3(
       // Both changed the same part (the camera, say): what each changed in it is kept, and only a value both
       // changed to different things is decided by the winner – one device's calibration is not lost to the
       // other's switch
-      const inner = merge3((base[key] ?? {}) as Doc, local[key] as Doc, theirs, winner);
-      value = inner.merged;
-      if (inner.replaced.length > 0) replaced.push(key);
+      // (A sub-key the other copy lacks is a copy older than the key, as one level up: unchanged, not removed –
+      // a calibration without the plate's numbers does not take them away from a device that has them.)
+      const deeper = merge3(
+        (base[key] ?? {}) as Doc,
+        local[key] as Doc,
+        theirs,
+        winner,
+        undefined,
+        true,
+      );
+      value = deeper.merged;
+      if (deeper.replaced.length > 0) replaced.push(key);
     } else {
       value = winner === 'local' ? local[key] : theirs;
       replaced.push(key);
@@ -204,12 +217,16 @@ export function insane(s: WorkshopSettings, travelZ?: { min: number; max: number
   ) {
     return 'camera';
   }
-  // The runs that move the machine by themselves: a grid of dots (2–5 per axis) over a plate
+  // The runs that move the machine by themselves: a grid of dots (2–8 per axis) over a plate – the plate's own
+  // numbers in the ranges of the card (an older document has none of them: they come as the defaults, before this)
   const k = s.calibration;
   if (
     !(finite(k?.spanX) && k.spanX > 0 && k.spanX <= PLACE) ||
     !(finite(k.spanY) && k.spanY > 0 && k.spanY <= PLACE) ||
-    !(Number.isInteger(k.points) && k.points >= 2 && k.points <= 5) ||
+    !(Number.isInteger(k.points) && k.points >= 2 && k.points <= POINTS_MAX) ||
+    !(finite(k.pitch) && k.pitch > 0 && k.pitch <= PITCH_MAX) ||
+    !(Number.isInteger(k.dots) && k.dots >= 2 && k.dots <= DOTS_MAX) ||
+    !(finite(k.dotDiameter) && k.dotDiameter > 0 && k.dotDiameter <= DOT_DIAMETER_MAX) ||
     !within(k.settleMs, 0, SETTLE_MAX_MS) ||
     !(finite(k.zRise) && k.zRise > 0 && k.zRise <= 1000) ||
     (k.gantryWidth !== null &&

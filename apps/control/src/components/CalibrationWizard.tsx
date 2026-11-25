@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { t } from '../i18n';
-import { formatNumber } from '../lib/format';
+import {
+  DOT_DIAMETER_MAX,
+  DOTS_MAX,
+  PITCH_MAX,
+  dotSizeOff,
+  offeredPoints,
+  plateSpan,
+  plateWarnings,
+} from '../lib/calibrationPlate';
+import { formatNumber, formatPlain } from '../lib/format';
 import { PLACE, SETTLE_MAX_MS } from '../lib/stateSync';
-import { proposeCorrections, useCalibration } from '../store/calibration';
+import { gridShortfall, proposeCorrections, useCalibration } from '../store/calibration';
 import { useCamera } from '../store/camera';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
@@ -15,8 +24,6 @@ import { Button } from '../ui/button';
 import { Card, CardTitle } from '../ui/card';
 import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
 
-const POINTS = [2, 3, 4, 5] as const;
-
 /**
  * Measures the machine with the camera and a plate of dots: scale of X and
  * Y, the angle between them, belt play and the tilt of Z, and writes the
@@ -27,10 +34,32 @@ export function CalibrationWizard() {
   const { setSettings } = useWorkshop.getState();
   const save = (patch: Partial<CalibrationSettings>) =>
     setSettings({ calibration: { ...useWorkshop.getState().settings.calibration, ...patch } });
+  /**
+   * The plate's own numbers: the measuring field follows them as long as it is the plate's (a field that was
+   * set by hand – a measured plate – stays what it was).
+   */
+  const savePlate = (
+    patch: Partial<Pick<CalibrationSettings, 'dots' | 'pitch' | 'dotDiameter'>>,
+  ) => {
+    const now = useWorkshop.getState().settings.calibration;
+    const next = { ...now, ...patch };
+    const was = plateSpan(now.dots, now.pitch);
+    const span = plateSpan(next.dots, next.pitch);
+    // Only while that is a field the card takes (and the Pi would): 100 dots of 1000 mm are no place of a table
+    const follows = span > 0 && span <= PLACE;
+    save({
+      ...patch,
+      spanX: follows && now.spanX === was ? span : now.spanX,
+      spanY: follows && now.spanY === was ? span : now.spanY,
+    });
+  };
   const cal = useCalibration();
   const idle = useMachine((m) => m.connection === 'connected' && m.status?.state === 'Idle');
   const connected = useMachine((m) => m.connection === 'connected');
   const homed = useMachine((m) => m.homed);
+  const position = useMachine((m) => m.status?.mpos);
+  const travel = useJob((j) => j.profile.travel);
+  const softLimits = useJob((j) => j.profile.softLimits);
   const cameraOn = useCamera((c) => c.source !== null && c.size !== null);
   const live = useLiveMarker();
   const [applied, setApplied] = useState(false);
@@ -41,6 +70,26 @@ export function CalibrationWizard() {
   // Turned, the plate measures both axes again: the mean is the better value.
   const mean = (k: 'scaleX' | 'scaleY') =>
     cal.first ? (cal.turned ? (cal.first[k] + cal.turned[k]) / 2 : cal.first[k]) : 1;
+  // The plate: which counts of points put every measuring point on a dot, and what is off about the field
+  const offered = offeredPoints(s.spanX, s.spanY, s.pitch);
+  const counts = offered.includes(s.points)
+    ? offered
+    : [...offered, s.points].sort((a, b) => a - b);
+  const warnings = plateWarnings(s);
+  const sizeOff = live !== null && dotSizeOff(live.diameter, s.dotDiameter);
+  // The run starts at the corner with the smallest X and Y and drives the field towards +X and +Y
+  const shortfall =
+    // (not while a run is under way: then the machine stands wherever the run is, not at its start)
+    connected && position && !busy
+      ? gridShortfall(
+          { x: position[0] ?? 0, y: position[1] ?? 0 },
+          homed,
+          { softLimits, travel },
+          s.spanX,
+          s.spanY,
+        )
+      : null;
+  const spacing = (span: number) => formatPlain(span / (s.points - 1), 1);
 
   return (
     <Card className="gap-3 p-4" data-testid="calibration" data-find="calibration">
@@ -64,6 +113,14 @@ export function CalibrationWizard() {
             : t('calibration.notSeen')}
         </p>
       )}
+      {sizeOff && live ? (
+        <Alert variant="warning" data-testid="calibration-size">
+          {t('calibration.sizeOff', {
+            d: formatPlain(live.diameter, 1),
+            nominal: formatPlain(s.dotDiameter, 2),
+          })}
+        </Alert>
+      ) : null}
       {connected && !homed ? <Alert variant="warning">{t('calibration.notHomed')}</Alert> : null}
 
       <h3 className="font-medium text-muted-foreground text-sm">{t('calibration.plate')}</h3>
@@ -83,7 +140,36 @@ export function CalibrationWizard() {
           </SegmentedControlItem>
         ))}
       </SegmentedControl>
+      {s.precise ? (
+        <Alert variant="warning" data-testid="calibration-precise-hint">
+          {t('calibration.preciseHint')}
+        </Alert>
+      ) : (
+        <p className="text-muted-foreground text-sm" data-testid="calibration-print-hint">
+          {t('calibration.printHint')}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2">
+        <NumberField
+          label={t('calibration.pitch')}
+          max={PITCH_MAX}
+          value={s.pitch}
+          onChange={(pitch) => savePlate({ pitch })}
+        />
+        <NumberField
+          label={t('calibration.dots')}
+          max={DOTS_MAX}
+          min={1}
+          integer
+          value={s.dots}
+          onChange={(dots) => savePlate({ dots })}
+        />
+        <NumberField
+          label={t('calibration.dotDiameter')}
+          max={DOT_DIAMETER_MAX}
+          value={s.dotDiameter}
+          onChange={(dotDiameter) => savePlate({ dotDiameter })}
+        />
         <NumberField
           label={t('calibration.spanX')}
           max={PLACE}
@@ -104,7 +190,7 @@ export function CalibrationWizard() {
         />
       </div>
       <SegmentedControl role="group" aria-label={t('calibration.points')}>
-        {POINTS.map((n) => (
+        {counts.map((n) => (
           <SegmentedControlItem
             key={n}
             pressed={s.points === n}
@@ -114,9 +200,39 @@ export function CalibrationWizard() {
           </SegmentedControlItem>
         ))}
       </SegmentedControl>
+      {warnings.length > 0 ? (
+        <Alert variant="warning" className="gap-y-1" data-testid="calibration-plate-warning">
+          {warnings.map((w) => (
+            <p key={w}>
+              {t(`calibration.warn.${w}`, {
+                pitch: formatPlain(s.pitch, 2),
+                n: s.points,
+                sx: spacing(s.spanX),
+                sy: spacing(s.spanY),
+                k: formatPlain(s.spanX / (s.points - 1) / s.pitch, 0),
+                plate: formatPlain(plateSpan(s.dots, s.pitch), 1),
+              })}
+            </p>
+          ))}
+        </Alert>
+      ) : null}
 
       <h3 className="font-medium text-muted-foreground text-sm">{t('calibration.measure')}</h3>
-      <p className="text-muted-foreground text-sm">{t('calibration.measureHint')}</p>
+      <p className="text-muted-foreground text-sm">
+        {t('calibration.measureHint', {
+          x: formatPlain(s.spanX, 1),
+          y: formatPlain(s.spanY, 1),
+        })}
+      </p>
+      {shortfall ? (
+        <Alert variant="warning" data-testid="calibration-room">
+          {t('calibration.roomShort', {
+            axis: shortfall.axis.toUpperCase(),
+            side: t(shortfall.side === 'max' ? 'calibration.sideMax' : 'calibration.sideMin'),
+            short: formatPlain(shortfall.short, 1),
+          })}
+        </Alert>
+      ) : null}
       {busy ? (
         <Alert
           variant="warning"

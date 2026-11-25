@@ -481,7 +481,10 @@ describe('the settings document against what a Pi may send', () => {
         ...doc(),
         calibration: {
           ...DEFAULT_SETTINGS.calibration,
-          points: 5,
+          points: 8,
+          pitch: 12.5,
+          dots: 25,
+          dotDiameter: 3.2,
           gantryWidth: 1200,
           motor1Side: 'xMin',
         },

@@ -48,6 +48,23 @@ describe('the three-way merge by key', () => {
     expect(merge3(base, both, both, 'remote')).toEqual({ merged: both, replaced: [] });
   });
 
+  it('takes a missing sub-key of a part both changed as unchanged, not as removed – an older copy lacks it', () => {
+    const part = { plate: { a: 1, pitch: 10 } };
+    const local = { plate: { a: 1, pitch: 12.5 } };
+    const remote = { plate: { a: 5 } }; // an older app: no pitch yet, a changed
+    expect(merge3(part, local, remote, 'remote', ['plate'])).toEqual({
+      merged: { plate: { a: 5, pitch: 12.5 } },
+      replaced: [],
+    });
+    // without the list of fixed keys every key is data and a missing one was removed
+    expect(merge3(part, local, remote, 'remote').merged).toEqual({ plate: { a: 5 } });
+    // a key that both really changed is still decided by the winner
+    expect(merge3(part, { plate: { a: 2, pitch: 12.5 } }, remote, 'remote', ['plate'])).toEqual({
+      merged: { plate: { a: 5, pitch: 12.5 } },
+      replaced: ['plate'],
+    });
+  });
+
   it('names a key both changed differently, and gives it to the winner', () => {
     const local = { ...base, camera: 'mine' };
     const remote = { ...base, camera: 'theirs', places: 'P2' };
@@ -129,7 +146,7 @@ describe('what stays on the device', () => {
 
 describe('what the Pi sends is not trusted', () => {
   const sane = (patch: Partial<WorkshopSettings> = {}) =>
-    insane(validateSettings({ ...DEFAULT_SETTINGS, ...patch })!);
+    insane(validateSettings({ ...DEFAULT_SETTINGS, ...patch }, false)!);
 
   it('lets what a machine can have pass', () => {
     expect(sane()).toBeNull();
@@ -286,7 +303,7 @@ describe('whether a value is the kind of thing that stands in its place', () => 
 
 describe('what the settings cards allow, and the Z travel', () => {
   const sane = (patch: Partial<WorkshopSettings>, travelZ?: { min: number; max: number }) =>
-    insane(validateSettings({ ...DEFAULT_SETTINGS, ...patch })!, travelZ);
+    insane(validateSettings({ ...DEFAULT_SETTINGS, ...patch }, false)!, travelZ);
 
   it('keeps the safe height in the upper half of the travel, where it is known', () => {
     const z = { min: -120, max: 0 };
@@ -303,8 +320,10 @@ describe('what the settings cards allow, and the Z travel', () => {
     const c = DEFAULT_SETTINGS.calibration;
     expect(sane({ calibration: { ...c, points: 2 } })).toBeNull();
     expect(sane({ calibration: { ...c, points: 5 } })).toBeNull();
+    expect(sane({ calibration: { ...c, points: 8 } })).toBeNull();
     for (const bad of [
-      { points: 6 },
+      { points: 9 },
+      { points: 1 },
       { points: 2.5 },
       { spanX: 0 },
       { spanY: -1 },

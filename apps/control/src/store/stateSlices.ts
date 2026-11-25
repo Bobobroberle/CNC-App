@@ -4,7 +4,13 @@ import { insane, shaped, syncedSettings, withSynced, type Doc } from '../lib/sta
 import type { Slice } from './stateSync';
 import { useJob } from './job';
 import { useMacros } from './macros';
-import { DEFAULT_SETTINGS, useWorkshop, validateSettings, validateSetup } from './workshop';
+import {
+  DEFAULT_SETTINGS,
+  normalizeCalibration,
+  useWorkshop,
+  validateSettings,
+  validateSetup,
+} from './workshop';
 
 /**
  * The documents the app keeps on the Pi, each as a `Slice`: what is read from the app, whether a
@@ -34,7 +40,8 @@ function settingsFrom(doc: Doc) {
   // A camera without its numbers would be filled with the defaults – and a calibration thrown away
   const camera = known.camera as Doc | undefined;
   if (camera !== undefined && !CAMERA_CORE.every((k) => finite(camera[k]))) return null;
-  const next = validateSettings(withSynced(useWorkshop.getState().settings, known));
+  // Not healed: a calibration value the Pi has out of range is refused below, not replaced by a default
+  const next = validateSettings(withSynced(useWorkshop.getState().settings, known), false);
   return next && insane(next, useJob.getState().profile.travel.z) === null ? next : null;
 }
 
@@ -44,6 +51,12 @@ const settingsSlice: Slice = {
   read: () => syncedSettings(useWorkshop.getState().settings),
   defaults: () => syncedSettings(DEFAULT_SETTINGS),
   accepts: (doc) => settingsFrom(doc) !== null,
+  // A calibration from before the plate was known reads as this app reads its own storage (precise off, the
+  // plate's defaults) – the base and the Pi's copy first, so that this is no edit of this device's
+  upgrade: (doc) =>
+    isDoc(doc.calibration)
+      ? { ...doc, calibration: normalizeCalibration(doc.calibration, false) }
+      : doc,
   apply(doc) {
     const next = settingsFrom(doc);
     if (next) useWorkshop.getState().adoptSettings(next);

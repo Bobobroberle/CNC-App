@@ -36,6 +36,29 @@ describe('a number field with a limit', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('follows a value that is changed from outside – the field of a plate that follows its pitch', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<NumberField label="Feld" value={180} onChange={onChange} />);
+    const input = screen.getByLabelText('Feld') as HTMLInputElement;
+    expect(input.value).toBe('180');
+    rerender(<NumberField label="Feld" value={225} onChange={onChange} />);
+    expect(input.value).toBe('225');
+    // what is being typed is not overwritten by the value it just made
+    fireEvent.change(input, { target: { value: '22,' } });
+    expect(onChange).toHaveBeenLastCalledWith(22);
+    rerender(<NumberField label="Feld" value={22} onChange={onChange} />);
+    expect(input.value).toBe('22,');
+  });
+
+  it('takes whole numbers only where it is told to – and only above its minimum (a count of at least two)', () => {
+    const onChange = vi.fn();
+    render(<NumberField label="Punkte" value={19} integer min={1} max={100} onChange={onChange} />);
+    const input = screen.getByLabelText('Punkte');
+    for (const text of ['5', '100', '2,5', '1', '1,0', '101', '0', '2'])
+      fireEvent.change(input, { target: { value: text } });
+    expect(onChange.mock.calls.map((c) => c[0])).toEqual([5, 100, 2]);
+  });
+
   it('has no upper limit unless it is given one', () => {
     const onChange = vi.fn();
     render(<NumberField label="Weit" value={null} onChange={onChange} />);
