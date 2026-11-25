@@ -1,5 +1,5 @@
 import type { JogAxis } from '@lowrider/fluidnc-client';
-import { CircleCheckIcon, TriangleAlertIcon } from 'lucide-react';
+import { CircleCheckIcon, DownloadIcon, TriangleAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 import { t } from '../i18n';
 import { formatNumber, formatSigned, getLocale } from '../lib/format';
@@ -11,6 +11,7 @@ import {
   runTime,
   type AxisTestResult,
 } from '../lib/service';
+import { exportReport } from '../store/diagnostics';
 import { jogStep } from '../store/jog';
 import { useMachine } from '../store/machine';
 import { useMessages } from '../store/messages';
@@ -216,9 +217,27 @@ export function MessageHistoryCard() {
   const settledCount = useMessages(
     (s) => s.messages.filter((m) => m.level !== 'fault' || m.resolved).length,
   );
+  // The file the report was last saved as: the browser saves it quietly, the card says it did
+  const [saved, setSaved] = useState<string | null>(null);
   return (
     <Card className="gap-3 p-4" data-testid="message-history" data-find="message-history">
       <CardTitle render={<h2 />}>{t('service.messages')}</CardTitle>
+      <div className="flex flex-col items-start gap-2" data-testid="diagnostic-report">
+        <p className="text-muted-foreground text-sm">{t('messages.report.hint')}</p>
+        <Button variant="outline" onClick={() => setSaved(exportReport())}>
+          <DownloadIcon aria-hidden="true" />
+          {t('messages.report.button')}
+        </Button>
+        {saved ? (
+          <p role="status" className="text-sm" data-testid="diagnostic-report-done">
+            <CircleCheckIcon
+              aria-hidden="true"
+              className="mr-1 inline size-4 text-success-foreground"
+            />
+            {t('messages.report.done', { name: saved })}
+          </p>
+        ) : null}
+      </div>
       <MessageList />
       {settledCount > 0 ? (
         <Button

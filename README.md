@@ -962,6 +962,17 @@ _Kalibrieren_ behält das Bild.
   Statusleiste) – mit Filter nach Stufe (_Alle_ · _Kritisch_ · _Störung_ · _Warnung_ · _Hinweis_ ·
   _Information_, je mit Zähler), _Alle Warnungen bestätigen_ und _Erledigte Meldungen löschen_; an
   der Ansicht steht, wie viele Meldungen noch auf dich warten. Die Liste übersteht einen Neustart.
+  **Diagnosebericht speichern:** eine Textdatei (`lowrider-diagnose-<Datum>-<Zeit>.txt`) mit den
+  Meldungen dieser Sitzung samt Umfeld (Zustand der Maschine, Weg zu ihr, die Zeilen des Protokolls
+  davor), den früheren Meldungen aus dem Verlauf, der Verbindung, dem Pi, einer Auswahl der
+  Einstellungen und den letzten 200 Zeilen des Protokolls der Steuerung – zum Weitergeben bei der
+  Fehlersuche. Der Bericht liest nur, was die App schon weiß: er schickt nichts an die Maschine und
+  nichts an den Pi, funktioniert auch während eines Jobs und ohne Pi und enthält keine Zugangsdaten
+  (Passwörter – bei WLAN-Einstellungen die ganze Zeile hinter dem `=` –, Tokens und Adressen mit
+  Benutzer werden geschwärzt). Lässt sich die SD-Karte nicht einbinden (`error:60`),
+  steht das als Kartenfehler da – mit dem, was es für Jobs von der SD-Karte bedeutet; die übrigen
+  Dateifehler der Steuerung (`error:61` bis `70`, `82`, `83`) als Dateizugriff, ohne die Karte zu
+  beschuldigen.
 - _Historie:_ die _Laufzeit_ der aufgezeichneten Jobs (die Steuerung zählt keine Spindelstunden – es
   steht nichts Erfundenes da, und wer die Historie löscht, löscht auch diese Zahl) und die
   **Job-Historie**: je Job Dauer gegen Schätzung, Werkzeuge, Material, mittlerer Override, Alarme

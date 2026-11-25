@@ -3,7 +3,9 @@ import {
   ALARM_CODES,
   alarmName,
   Emitter,
+  ERROR_CODES,
   errorName,
+  isFileSystemError,
   overrideBytes,
   parseMessage,
   rapidOverrideByte,
@@ -86,6 +88,31 @@ describe('codes', () => {
     expect(errorName(22)).toBe('GcodeUndefinedFeedRate');
     expect(errorName(999)).toBe('Unknown');
     expect(Object.keys(ALARM_CODES).length).toBeGreaterThan(10);
+  });
+
+  it('knows the file system errors of FluidNC (Error.h): the SD card failing is not a bad line', () => {
+    expect(errorName(60)).toBe('FsFailedMount');
+    expect(errorName(61)).toBe('FsFailedRead');
+    expect(errorName(65)).toBe('FsFileNotFound');
+    expect(errorName(67)).toBe('FsFailedBusy');
+    expect(errorName(70)).toBe('FsFailedRenameFile');
+    expect(errorName(82)).toBe('FsFailedCreateFile');
+    expect(errorName(83)).toBe('FsFailedFormat');
+    // there is no 71, and 81 is a setting string, not a file
+    expect(errorName(71)).toBe('Unknown');
+    expect(errorName(81)).toBe('InvalidValue');
+    for (const code of [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 82, 83]) {
+      expect(isFileSystemError(code), String(code)).toBe(true);
+    }
+    for (const code of [0, 20, 59, 71, 80, 81, 84, 100, 130]) {
+      expect(isFileSystemError(code), String(code)).toBe(false);
+    }
+  });
+
+  it('names every error once, with a name that is an identifier', () => {
+    const names = Object.values(ERROR_CODES);
+    expect(new Set(names).size).toBe(names.length);
+    for (const name of names) expect(name).toMatch(/^[A-Z][A-Za-z0-9]+$/);
   });
 });
 

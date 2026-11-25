@@ -7,18 +7,36 @@ import {
   relayTarget,
   retryDelay,
   secondsUntil,
+  viaFor,
 } from '../src/lib/link';
 import { useMachine } from '../src/store/machine';
+import { startMessages, useMessages } from '../src/store/messages';
 
 describe('the way to the machine (pure)', () => {
   it('knows the relay path and the address the operator recognises', () => {
     expect(isRelayUrl('ws://192.168.0.198:8080/fluidnc')).toBe(true);
     expect(isRelayUrl('ws://192.168.0.200:81/')).toBe(false);
     expect(hostOf('ws://192.168.0.200:81/')).toBe('192.168.0.200:81');
+    // what is typed with a login in front is not said with it
+    expect(hostOf('ws://bob:pw123@192.168.0.198:8080/fluidnc')).toBe('192.168.0.198:8080');
+    expect(hostOf('bob:pw123@192.168.0.200:81')).toBe('192.168.0.200:81');
+    // a password may hold an @: the login ends at the last one
+    expect(hostOf('ws://bob:p@ss@192.168.0.198:8080/fluidnc')).toBe('192.168.0.198:8080');
+    expect(hostOf('bob:@secret@192.168.0.200')).toBe('192.168.0.200');
     expect(relayTarget('FluidNC unreachable: ws://192.168.0.200:81')).toBe('192.168.0.200:81');
     expect(relayTarget('FluidNC disconnected: ws://jackpot.local:81/')).toBe('jackpot.local:81');
     expect(relayTarget('No FluidNC address configured')).toBeNull();
     expect(relayTarget(undefined)).toBeNull();
+  });
+
+  it('tells a failure with the address of the Pi – the series knows it, else the one that was typed', () => {
+    expect(viaFor('192.168.0.198:8080', true, 'ws://other:1/fluidnc')).toBe('192.168.0.198:8080');
+    expect(viaFor(null, true, 'ws://192.168.0.198:8080/fluidnc')).toBe('192.168.0.198:8080');
+    // direct to FluidNC there is no Pi to name
+    expect(viaFor(null, false, 'ws://192.168.0.200:81/')).toBeNull();
+    expect(viaFor('', true, 'ws://192.168.0.198:8080/fluidnc')).toBe('192.168.0.198:8080');
+    // nothing typed, nothing to say
+    expect(viaFor(null, true, '')).toBeNull();
   });
 
   it('tells which device was missing', () => {
@@ -183,6 +201,65 @@ describe('coming back by itself', () => {
     // A reconnect only asks: the status, the banner, the modal state, the offsets.
     const lines = ScriptedSocket.last!.sent.map((d) => d.trim()).filter(Boolean);
     expect(new Set(lines)).toEqual(new Set(['?', '$I', '$G', '$#']));
+  });
+
+  it('names the Pi when it is lost after the connection was up – not "Pi nicht erreichbar ()"', async () => {
+    useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
+    ScriptedSocket.scripts = ['answer', 'refuse'];
+    await useMachine.getState().connect();
+    expect(useMachine.getState().connection).toBe('connected');
+    // a successful connection ends the series: the address of the Pi is not kept in it
+    expect(useMachine.getState().link.via).toBeNull();
+    // the Pi goes away (switched off, out of the Wi-Fi): the socket closes without the relay's reason
+    ScriptedSocket.last!.drop(1006, '');
+    const { link, log } = useMachine.getState();
+    expect(link).toMatchObject({ phase: 'waiting', failure: 'pi', via: '192.168.0.198:8080' });
+    expect(log.filter((l) => l.key === 'link.pi').map((l) => l.text)).toEqual([
+      'Pi nicht erreichbar (192.168.0.198:8080)',
+    ]);
+  });
+
+  describe('what is kept with the message about it', () => {
+    let stop: () => void;
+    beforeEach(() => {
+      useMessages.setState({ messages: [], toasts: [] });
+      stop = startMessages();
+    });
+    afterEach(() => stop());
+
+    it('is the failure and the way – not the try before it', async () => {
+      useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
+      ScriptedSocket.scripts = ['refuse'];
+      await useMachine.getState().connect();
+      const m = useMessages.getState().messages.find((x) => x.context?.key === 'link.pi')!;
+      expect(m).toBeDefined();
+      expect(m.context!.facts).toContain('Verbindungsversuch: waiting, fehlt: pi, Versuch 1');
+      expect(m.context!.facts).toContain('Weg: Pi 192.168.0.198:8080 → Jackpot ?');
+      expect(m.context!.facts.join('\n')).not.toContain('connecting');
+    });
+
+    it('says the connection gone for the Pi that is lost after it was up, too – and names the Pi', async () => {
+      useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
+      ScriptedSocket.scripts = ['answer', 'refuse'];
+      await useMachine.getState().connect();
+      ScriptedSocket.last!.drop(1006, '');
+      const m = useMessages.getState().messages.find((x) => x.context?.key === 'link.pi')!;
+      expect(m.title).toBe('Pi nicht erreichbar (192.168.0.198:8080)');
+      expect(m.context!.facts).toContain('Verbindung: disconnected');
+      expect(m.context!.facts).toContain('Weg: Pi 192.168.0.198:8080 → Jackpot ?');
+    });
+
+    it('says the connection gone for the critical message of a connection lost in a job', async () => {
+      useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
+      ScriptedSocket.scripts = ['answer'];
+      await useMachine.getState().connect();
+      useMachine.setState({ fileJob: { name: 'rahmen.nc', startedAt: Date.now() } });
+      ScriptedSocket.last!.drop(1006, '');
+      const critical = useMessages.getState().messages.find((x) => x.level === 'critical')!;
+      expect(critical.context!.facts).toContain('Verbindung: disconnected');
+      expect(critical.context!.facts).not.toContain('Verbindung: connected');
+      expect(critical.context!.facts).toContain('Job: SD-Karte: rahmen.nc');
+    });
   });
 
   it('comes back after a drop outside a job – direct to FluidNC', async () => {

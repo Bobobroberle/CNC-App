@@ -6,6 +6,8 @@
  * machine is `store/messages.ts`.
  */
 
+import { isFileSystemError } from '@lowrider/fluidnc-client';
+
 /** The levels, most urgent first */
 export const LEVELS = ['critical', 'fault', 'warning', 'hint', 'info'] as const;
 export type Level = (typeof LEVELS)[number];
@@ -29,7 +31,27 @@ export interface Message {
   acknowledged: boolean;
   /** Faults: what caused it is gone (the alarm is cleared) */
   resolved: boolean;
+  /**
+   * What surrounded it when it came – kept with it, because the log it came from is gone after a reload: the
+   * state of the machine and the way to it, and the lines before it. Only on what asks for a cause (warnings,
+   * faults, the critical message); the diagnostic report reads it.
+   */
+  context?: MessageContext;
 }
+
+/** What surrounded a message (see `Message.context`): short lines of text, kept small on purpose. */
+export interface MessageContext {
+  /** The key of the log line it came from */
+  key?: string;
+  /** Facts about the machine and the way to it, one per line */
+  facts: string[];
+  /** The last lines of the machine's log before it (what was sent, what came back) */
+  recent: string[];
+}
+
+export const CONTEXT_FACTS_MAX = 8;
+export const CONTEXT_RECENT_MAX = 6;
+export const CONTEXT_LINE_MAX = 120;
 
 /**
  * What kind of thing a message of the app is about. Each group has its
@@ -92,6 +114,10 @@ const GROUP_OF_KEY: Record<string, MessageGroup> = {
   'link.direct': 'linkDirect',
   'machine.configInvalid': 'config',
   'photomap.notConnected': 'connection',
+  // A move that was not carried out is about moving, not about the picture: the reason is the message before
+  // (`calibration.noRoom` and `.outside` are the reasons themselves – they stay with the measuring)
+  'photomap.scanFailed': 'motion',
+  'calibration.moveFailed': 'motion',
   'drive.atLimit': 'limit',
   'drive.limited': 'limit',
   'goto.limited': 'limit',
@@ -109,6 +135,17 @@ export function groupOf(key: string | undefined): MessageGroup {
 export const ALARM_LOG_KEY = 'alarm.title';
 /** The key of the log line a rejected command writes (`error:n`) */
 export const ERROR_LOG_KEY = 'error.title';
+
+/**
+ * What a rejected command (`error:n`) is about: the line that was sent, the SD card (it cannot be mounted or
+ * opened), or one file of the controller's file system. Each has its own effect and next step.
+ */
+export function errorClass(code: number): 'line' | 'card' | 'file' {
+  if (!isFileSystemError(code)) return 'line';
+  // Listing the card fails at mounting it (60) – whatever went wrong with the card. The rest happens to one file,
+  // on the card or in the controller's flash (`$LocalFS/…`, which the app uses too): that is not told as the card.
+  return code === 60 ? 'card' : 'file';
+}
 
 /** Log lines of kind `info` that are worth a toast: something the operator waited for is done. */
 const INFO_KEYS = new Set([
@@ -232,6 +269,24 @@ export const TOAST_MS: Record<Level, number> = {
 };
 
 /** What comes back from storage: a list of messages, or nothing usable. */
+/** A context as it came from storage – or nothing: what is not short lines of text is dropped, never trusted. */
+export function validContext(value: unknown): MessageContext | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const c = value as { key?: unknown; facts?: unknown; recent?: unknown };
+  const lines = (v: unknown, max: number): string[] | null =>
+    Array.isArray(v) && v.every((l) => typeof l === 'string')
+      ? (v as string[]).slice(0, max).map((l) => l.slice(0, CONTEXT_LINE_MAX))
+      : null;
+  const facts = lines(c.facts, CONTEXT_FACTS_MAX);
+  const recent = lines(c.recent, CONTEXT_RECENT_MAX);
+  if (!facts || !recent) return undefined;
+  return {
+    ...(typeof c.key === 'string' ? { key: c.key.slice(0, CONTEXT_LINE_MAX) } : {}),
+    facts,
+    recent,
+  };
+}
+
 export function validMessages(value: unknown): Message[] | null {
   if (!Array.isArray(value)) return null;
   const text = (v: unknown): v is string => typeof v === 'string';
@@ -248,11 +303,16 @@ export function validMessages(value: unknown): Message[] | null {
         text(m.effect) &&
         text(m.action),
     )
-    .map((m) => ({
-      ...m,
-      acknowledged: m.acknowledged === true,
-      // A fault of an earlier session is history: whether the machine still is in alarm shows anew.
-      resolved: true,
-    }))
+    .map((m) => {
+      const { context, ...rest } = m;
+      const kept = validContext(context);
+      return {
+        ...rest,
+        acknowledged: m.acknowledged === true,
+        // A fault of an earlier session is history: whether the machine still is in alarm shows anew.
+        resolved: true,
+        ...(kept ? { context: kept } : {}),
+      };
+    })
     .slice(-MESSAGE_LIMIT);
 }

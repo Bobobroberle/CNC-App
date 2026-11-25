@@ -424,10 +424,30 @@ export const en: DictionaryShape = {
     close: 'Close messages',
     clear: 'Delete settled messages',
     toHistory: 'To the history',
+    report: {
+      button: 'Save diagnostic report',
+      hint: 'A text file with all messages of this session, what surrounded them (state, the commands before), the connection and the log – to pass on when looking for a cause. It holds no credentials.',
+      done: 'Saved: {name}',
+    },
     blocks: 'Blocks moving and starting until the fault is resolved.',
     unlock: 'Unlock ($X)',
     toHoming: 'Open jog: homing',
     last: { open: '{count} messages are waiting for you.' },
+    // The controller's file system failed (error:60 …): the line was fine, the card or the file was not
+    rejectedSd: {
+      title: 'Controller SD card: access failed',
+      effect:
+        "Files on the controller's SD card cannot be read or written; jobs from the SD card do not start. Streaming from the tablet still works.",
+      action:
+        "Check the controller's SD card: is it seated, FAT32 (not exFAT) and not write-protected? Reinsert it, then reload the file list. If it stays like this, the SD part of the config.yaml does not match the board.",
+    },
+    // Another file of the controller failed (the SD card or its flash): the line was fine, the file was not
+    rejectedFile: {
+      title: 'File access of the controller failed',
+      effect: 'The operation with this file was not carried out.',
+      action:
+        "Check the name and place of the file (is it on the SD card or in the controller's flash?), reload the file list and repeat it. If that does not help, reinsert the SD card.",
+    },
     rejected: {
       title: 'The controller rejected a command',
       effect: 'The command was not carried out. A streamed job stops at this line.',
@@ -464,7 +484,8 @@ export const en: DictionaryShape = {
         action: 'Resume from the last line under Cut → All parameters – or start anew.',
       },
       motion: {
-        cause: 'A move was not carried out or was cancelled.',
+        cause:
+          'A move was not carried out or was cancelled. The reason is usually in the message before: travel, connection or controller.',
         effect: 'The machine may stand somewhere else than planned.',
         action: 'Check the position in the status bar, then repeat.',
       },
@@ -1548,6 +1569,51 @@ export const en: DictionaryShape = {
     IdleError: 'Command only possible in “Ready” state.',
     InvalidJogCommand: 'Invalid jog command.',
     JogCancelled: 'Jog cancelled.',
+    SingleAxisHoming: 'The controller rejected the homing of a single axis.',
+    CheckStartupPins:
+      'A control input (e-stop, reset, feed hold, cycle start, door) is active right now: $X and $H are rejected. Which inputs are on shows as "Pn:" in the status report.',
+    FsFailedMount:
+      'The controller could not mount the file system. Listing the SD card, that means: it is missing, not seated, unreadable or in a format FluidNC does not know (FAT32 only – exFAT, which cards over 32 GB usually come with, is not supported).',
+    FsFailedRead: 'The controller could not read a file.',
+    FsFailedOpenDir:
+      "The controller could not open a directory (SD card or the controller's flash).",
+    FsDirNotFound: "The directory does not exist (SD card or the controller's flash).",
+    FsFileEmpty: 'The file is empty.',
+    FsFileNotFound: "The file does not exist (SD card or the controller's flash).",
+    FsFailedOpenFile: 'The controller could not open the file.',
+    FsFailedBusy: 'The file system is busy: a job is running or another access.',
+    FsFailedDelDir: 'The directory could not be deleted.',
+    FsFailedDelFile: 'The file could not be deleted.',
+    FsFailedRenameFile: 'The file could not be renamed.',
+    FsFailedCreateFile: 'The file could not be created (storage full or write-protected?).',
+    FsFailedFormat: 'Formatting the file system failed.',
+    NumberRange: 'The number is outside of what the setting accepts.',
+    InvalidValue: 'The value does not fit the setting.',
+    MessageFailed: 'A message of the controller could not be sent.',
+    NvsSetFailed: 'The controller could not store a setting in its flash.',
+    NvsGetStatsFailed: 'The controller could not read the state of its flash memory.',
+    AuthenticationFailed: 'Logging in at the controller failed.',
+    AnotherInterfaceBusy:
+      'The controller is busy (a job, a move or another interface) and does not take the command now.',
+    BadPinSpecification: 'A pin in the config.yaml is invalid.',
+    BadRuntimeConfigSetting: 'This setting of the config.yaml cannot be changed this way.',
+    ConfigurationInvalid: 'The config.yaml of the controller is invalid.',
+    UploadFailed: 'Uploading the file failed.',
+    DownloadFailed: 'Downloading the file failed.',
+    ReadOnlySetting: 'This setting is read-only.',
+    ExpressionDivideByZero: 'Division by zero in an expression.',
+    ExpressionInvalidArgument: 'Invalid argument in an expression.',
+    ExpressionInvalidResult: 'An expression has an invalid result.',
+    ExpressionUnknownOp: 'Unknown operator in an expression.',
+    ExpressionArgumentOutOfRange: 'An argument is outside of the allowed range.',
+    ExpressionSyntaxError: 'Syntax error in an expression.',
+    FlowControlSyntaxError: 'Syntax error in a flow control (IF, WHILE …).',
+    FlowControlNotExecutingMacro: 'Flow control outside of a macro.',
+    FlowControlOutOfMemory: 'Flow control: out of memory.',
+    FlowControlStackOverflow: 'Flow control: nested too deep.',
+    ParameterAssignmentFailed: 'A parameter could not be set.',
+    GcodeValueWordInvalid: 'Invalid value behind a letter of the line.',
+    GcodeNoSavedModalState: 'No state is saved that could be restored.',
     Unknown: 'The controller rejected the line.',
   },
   diagnostic: {
@@ -3447,7 +3513,7 @@ export const en: DictionaryShape = {
       axisTest:
         'axis test, test an axis, check axes, check direction, test motor, does the axis move, test move, check steps',
       messageHistory:
-        'message history, old messages, error list, faults, warnings, what happened, alarm history, filter by level',
+        'message history, old messages, error list, faults, warnings, what happened, alarm history, filter by level, diagnostic report, report, export, save messages, save log, log file, support, troubleshooting, diagnosis',
       runTime:
         'running time, operating hours, spindle hours, hour counter, how long has it run, maintenance, maintenance counter',
       log: 'log, messages, history of messages, output, what happened, error message, terminal',

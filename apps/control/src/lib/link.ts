@@ -33,7 +33,22 @@ export function isRelayUrl(url: string): boolean {
 
 /** `ws://192.168.0.200:81/` → `192.168.0.200:81` (what the operator recognises). */
 export function hostOf(url: string): string {
-  return url.replace(/^\w+:\/\//, '').replace(/\/.*$/, '');
+  // `ws://user:password@host:81/` → `host:81`: the address is said in messages and reports, the login is not
+  return url
+    .replace(/^\w+:\/\//, '')
+    .replace(/\/.*$/, '')
+    .replace(/^.*@/, '');
+}
+
+/**
+ * The companion's address a failure is told with: the one the series already knows, else – a connection that
+ * went up (which clears the series) and was lost later – the address that was typed. Without it a lost Pi was
+ * reported as "Pi nicht erreichbar ()".
+ */
+export function viaFor(known: string | null, relay: boolean, url: string): string | null {
+  if (known) return known;
+  const typed = relay ? hostOf(url) : '';
+  return typed === '' ? null : typed;
 }
 
 /** The address the relay tried, from its close reason (`FluidNC unreachable: ws://…`). */

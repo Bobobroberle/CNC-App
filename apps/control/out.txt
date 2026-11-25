@@ -1,0 +1,3 @@
+lines ["<Idle|MPos:0,0,0|FS:0,0>","Grbl 3.7 [FluidNC v3.7.12 (wifi) '$' for help]","error:60","ok"]
+slow before List: still pending
+slow: rejected list: ok

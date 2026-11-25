@@ -98,8 +98,14 @@ export async function installFakeFluidNC(page: Page) {
         }
         if (line === '$Config/Filename') this.emit('$Config/Filename=config.yaml');
         if (line === '$SD/List') {
-          for (const f of w.__sd as { name: string; size: number }[]) {
-            this.emit(`[FILE: ${f.name}|SIZE:${f.size}]`);
+          // `__sdError`: the card cannot be mounted (FluidNC says error:60)
+          if (w.__sdError) {
+            this.emit(`error:${w.__sdError}`);
+            return;
+          } else {
+            for (const f of w.__sd as { name: string; size: number }[]) {
+              this.emit(`[FILE: ${f.name}|SIZE:${f.size}]`);
+            }
           }
         }
         if (line.includes('G38.2')) {

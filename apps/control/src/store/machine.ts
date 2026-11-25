@@ -47,6 +47,7 @@ import {
   mayRetry,
   relayTarget,
   retryDelay,
+  viaFor,
   type FailedAttempt,
   type LinkFailure,
 } from '../lib/link';
@@ -467,16 +468,13 @@ export const useMachine = create<MachineStore>((set, get) => ({
       const { link } = get();
       const next: LinkState = {
         ...link,
+        via: viaFor(link.via, relay, url),
         failure,
         target: relayTarget(attempt.reason) ?? link.target ?? target,
         attempt: link.attempt + 1,
         retryAt: null,
         phase: 'failed',
       };
-      if (link.failure !== failure) {
-        const key = `link.${failure}` as const;
-        addLog('error', t(key, { target: next.target ?? '?', via: next.via ?? '' }), key);
-      }
       const { fileJob, stream, autoRetry } = get();
       const retry = mayRetry({
         autoRetry,
@@ -494,6 +492,11 @@ export const useMachine = create<MachineStore>((set, get) => ({
         }, wait);
       }
       set({ link: next });
+      // Said after the state is set: the message keeps what surrounded it, and that is the failure, not the try before
+      if (link.failure !== failure) {
+        const key = `link.${failure}` as const;
+        addLog('error', t(key, { target: next.target ?? '?', via: next.via ?? '' }), key);
+      }
     };
 
     const c = new FluidNCConnection(
@@ -509,6 +512,8 @@ export const useMachine = create<MachineStore>((set, get) => ({
         set((s) => ({ link: { ...s.link, phase: 'idle', lostDuringJob: true } }));
         return;
       }
+      // The way is gone before it is said (the message keeps the state as it is when it is made)
+      set({ connection: 'disconnected' });
       failed({ kind: 'closed', code: info.code, reason: info.reason });
     });
     c.on('role', (role) => {
@@ -522,9 +527,12 @@ export const useMachine = create<MachineStore>((set, get) => ({
         // itself – the app never reconnects on its own, and a stream that broke stays broken.
         const { fileJob, stream } = get();
         const name = fileJob?.name ?? (stream?.result === 'running' ? stream.name : null);
-        if (name !== null) set({ lostInJob: { name, sd: fileJob !== null, at: Date.now() } });
-      }
-      set({ connection: state });
+        // One change: the critical message is made at the moment it is set, and keeps "disconnected" with it
+        set({
+          connection: state,
+          ...(name !== null ? { lostInJob: { name, sd: fileJob !== null, at: Date.now() } } : {}),
+        });
+      } else set({ connection: state });
       if (state === 'disconnected') {
         // A step that waits for the machine to rest has nothing to wait for any more
         forgetJogTargets();

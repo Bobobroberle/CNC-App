@@ -17,6 +17,8 @@ import {
   validMessages,
   withMessage,
   type Level,
+  errorClass,
+  validContext,
   type Message,
   type MessageGroup,
 } from '../src/lib/messages';
@@ -99,7 +101,12 @@ describe('what a line of the log becomes', () => {
       ['machine.connectFailed', 'connection'],
       ['machine.configInvalid', 'config'],
       ['photomap.notConnected', 'connection'],
-      ['photomap.scanFailed', 'camera'],
+      // a move that was not carried out is about moving, not about the picture
+      ['photomap.scanFailed', 'motion'],
+      ['calibration.moveFailed', 'motion'],
+      // the reasons themselves stay with the measuring
+      ['calibration.noRoom', 'camera'],
+      ['calibration.outside', 'camera'],
       ['companion.offline', 'companion'],
       ['files.ended', 'sd'],
       ['stream.aborted', 'stream'],
@@ -152,6 +159,105 @@ describe('what a line of the log becomes', () => {
     expect(levelOfLog('info', 'drive.notAtRest')).toBe('hint');
     expect(groupOf('drive.notAtRest')).toBe('general');
     expect(groupOf('job.loadError')).toBe('file');
+  });
+});
+
+describe('what a rejected command is about', () => {
+  it('is the card where it cannot be mounted or opened, one file for the rest of the file system, the line for the rest', () => {
+    // listing the card fails at mounting it (60); 62 is raised when a directory is made, not when the card is listed
+    expect(errorClass(60)).toBe('card');
+    // the rest happens to one file – on the card or in the controller's flash, which the app uses too
+    for (const code of [61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 82, 83]) {
+      expect(errorClass(code), String(code)).toBe('file');
+    }
+    for (const code of [1, 20, 22, 59, 71, 80, 81, 100, 130, 999]) {
+      expect(errorClass(code), String(code)).toBe('line');
+    }
+  });
+
+  it('has a text for every error the controller can say about its file system', () => {
+    for (const name of [
+      'FsFailedMount',
+      'FsFailedRead',
+      'FsFailedOpenDir',
+      'FsDirNotFound',
+      'FsFileEmpty',
+      'FsFileNotFound',
+      'FsFailedOpenFile',
+      'FsFailedBusy',
+      'FsFailedDelDir',
+      'FsFailedDelFile',
+      'FsFailedRenameFile',
+      'FsFailedCreateFile',
+      'FsFailedFormat',
+    ]) {
+      expect(hasKey(`error.${name}`), name).toBe(true);
+    }
+    for (const part of ['title', 'effect', 'action']) {
+      expect(hasKey(`messages.rejectedSd.${part}`), part).toBe(true);
+      expect(hasKey(`messages.rejectedFile.${part}`), part).toBe(true);
+    }
+  });
+});
+
+describe('the surroundings kept with a message', () => {
+  const good = {
+    key: 'files.listFailed',
+    facts: ['Zustand: Idle'],
+    recent: ['15:21:03 > $SD/List'],
+  };
+
+  it('come back from storage when they are short lines of text – and are dropped when they are not', () => {
+    expect(validContext(good)).toEqual(good);
+    for (const bad of [
+      null,
+      undefined,
+      'x',
+      5,
+      [],
+      {},
+      { facts: 'x', recent: [] },
+      { facts: [], recent: [1] },
+    ]) {
+      expect(validContext(bad), JSON.stringify(bad)).toBeUndefined();
+    }
+    // the key is optional, and only text
+    expect(validContext({ facts: [], recent: [] })).toEqual({ facts: [], recent: [] });
+    expect(validContext({ key: 5, facts: [], recent: [] })).toEqual({ facts: [], recent: [] });
+  });
+
+  it('are kept small whatever storage holds: a few lines, each short', () => {
+    const long = 'x'.repeat(5000);
+    const kept = validContext({
+      key: long,
+      facts: Array.from({ length: 50 }, () => long),
+      recent: Array.from({ length: 50 }, () => long),
+    })!;
+    expect(kept.facts).toHaveLength(8);
+    expect(kept.recent).toHaveLength(6);
+    expect(kept.key).toHaveLength(120);
+    for (const l of [...kept.facts, ...kept.recent]) expect(l.length).toBeLessThanOrEqual(120);
+  });
+
+  it('do not keep an older message from loading – one without them, or with broken ones', () => {
+    const base = {
+      id: 1,
+      at: 1,
+      level: 'warning',
+      title: 't',
+      cause: 'c',
+      effect: 'e',
+      action: 'a',
+    };
+    const loaded = validMessages([
+      base,
+      { ...base, id: 2, context: good },
+      { ...base, id: 3, context: { facts: 'broken', recent: [] } },
+    ])!;
+    expect(loaded.map((m) => m.id)).toEqual([1, 2, 3]);
+    expect(loaded[0]).not.toHaveProperty('context');
+    expect(loaded[1]!.context).toEqual(good);
+    expect(loaded[2]).not.toHaveProperty('context');
   });
 });
 

@@ -430,10 +430,30 @@ export const de = {
     close: 'Meldungen schließen',
     clear: 'Erledigte Meldungen löschen',
     toHistory: 'Zur Historie',
+    report: {
+      button: 'Diagnosebericht speichern',
+      hint: 'Eine Textdatei mit allen Meldungen dieser Sitzung, ihrem Umfeld (Zustand, Befehle davor), der Verbindung und dem Protokoll – zum Weitergeben bei der Fehlersuche. Zugangsdaten sind nicht enthalten.',
+      done: 'Gespeichert: {name}',
+    },
     blocks: 'Sperrt Fahren und Starten, bis die Störung behoben ist.',
     unlock: 'Entsperren ($X)',
     toHoming: 'Jog öffnen: Referenzfahrt',
     last: { open: '{count} Meldungen warten auf dich.' },
+    // The controller's file system failed (error:60 …): the line was fine, the card or the file was not
+    rejectedSd: {
+      title: 'SD-Karte der Steuerung: Zugriff fehlgeschlagen',
+      effect:
+        'Dateien auf der SD-Karte der Steuerung lassen sich nicht lesen oder schreiben; Jobs von der SD-Karte starten nicht. Streamen vom Tablet geht weiter.',
+      action:
+        'SD-Karte der Steuerung prüfen: steckt sie richtig, ist sie FAT32 (nicht exFAT) und nicht schreibgeschützt? Karte neu einstecken, dann die Dateiliste neu laden. Bleibt es dabei, passt der SD-Teil der config.yaml nicht zur Platine.',
+    },
+    // Another file of the controller failed (the SD card or its flash): the line was fine, the file was not
+    rejectedFile: {
+      title: 'Dateizugriff der Steuerung fehlgeschlagen',
+      effect: 'Der Vorgang mit dieser Datei wurde nicht ausgeführt.',
+      action:
+        'Name und Ort der Datei prüfen (liegt sie auf der SD-Karte oder im Flash der Steuerung?), die Dateiliste neu laden und es wiederholen. Hilft das nicht, die SD-Karte neu einstecken.',
+    },
     rejected: {
       title: 'Die Steuerung hat einen Befehl abgelehnt',
       effect:
@@ -472,7 +492,8 @@ export const de = {
         action: 'Unter Fräsen → Alle Parameter ab der letzten Zeile fortsetzen – oder neu starten.',
       },
       motion: {
-        cause: 'Eine Bewegung wurde nicht ausgeführt oder abgebrochen.',
+        cause:
+          'Eine Fahrt wurde nicht ausgeführt oder abgebrochen. Der Grund steht meist in der Meldung davor: Verfahrweg, Verbindung oder Steuerung.',
         effect: 'Die Maschine steht womöglich woanders als geplant.',
         action: 'Position in der Statusleiste prüfen, dann wiederholen.',
       },
@@ -1570,6 +1591,52 @@ export const de = {
     IdleError: 'Befehl nur im Zustand „Bereit“ möglich.',
     InvalidJogCommand: 'Ungültiger Jog-Befehl.',
     JogCancelled: 'Jog abgebrochen.',
+    SingleAxisHoming: 'Referenzfahrt einzelner Achsen von der Steuerung abgelehnt.',
+    CheckStartupPins:
+      'Ein Steuereingang (Not-Halt, Reset, Vorschub halten, Zyklusstart, Tür) ist gerade aktiv: $X und $H werden abgelehnt. Welche Eingänge anliegen, steht als „Pn:“ im Statusbericht.',
+    FsFailedMount:
+      'Die Steuerung konnte das Dateisystem nicht einbinden. Beim Auflisten der SD-Karte heißt das: Karte fehlt, sitzt nicht richtig, ist nicht lesbar oder hat ein Format, das FluidNC nicht kennt (nur FAT32 – exFAT, wie es Karten über 32 GB meist ab Werk haben, kann es nicht).',
+    FsFailedRead: 'Die Steuerung konnte eine Datei nicht lesen.',
+    FsFailedOpenDir:
+      'Die Steuerung konnte ein Verzeichnis nicht öffnen (SD-Karte oder Flash der Steuerung).',
+    FsDirNotFound: 'Das Verzeichnis gibt es nicht (SD-Karte oder Flash der Steuerung).',
+    FsFileEmpty: 'Die Datei ist leer.',
+    FsFileNotFound: 'Die Datei gibt es nicht (SD-Karte oder Flash der Steuerung).',
+    FsFailedOpenFile: 'Die Steuerung konnte die Datei nicht öffnen.',
+    FsFailedBusy: 'Das Dateisystem ist gerade belegt: ein Job läuft oder ein anderer Zugriff.',
+    FsFailedDelDir: 'Das Verzeichnis konnte nicht gelöscht werden.',
+    FsFailedDelFile: 'Die Datei konnte nicht gelöscht werden.',
+    FsFailedRenameFile: 'Die Datei konnte nicht umbenannt werden.',
+    FsFailedCreateFile:
+      'Die Datei konnte nicht angelegt werden (Speicher voll oder schreibgeschützt?).',
+    FsFailedFormat: 'Das Formatieren des Dateisystems ist fehlgeschlagen.',
+    NumberRange: 'Der Zahlenwert liegt außerhalb dessen, was die Einstellung annimmt.',
+    InvalidValue: 'Der Wert passt nicht zur Einstellung.',
+    MessageFailed: 'Eine Meldung der Steuerung konnte nicht gesendet werden.',
+    NvsSetFailed: 'Die Steuerung konnte eine Einstellung nicht im Flash speichern.',
+    NvsGetStatsFailed: 'Die Steuerung konnte den Zustand ihres Flash-Speichers nicht lesen.',
+    AuthenticationFailed: 'Anmeldung an der Steuerung fehlgeschlagen.',
+    AnotherInterfaceBusy:
+      'Die Steuerung ist gerade belegt (Job, Fahrt oder eine andere Schnittstelle) und nimmt den Befehl jetzt nicht an.',
+    BadPinSpecification: 'Eine Pin-Angabe in der config.yaml ist ungültig.',
+    BadRuntimeConfigSetting: 'Diese Einstellung der config.yaml lässt sich so nicht ändern.',
+    ConfigurationInvalid: 'Die config.yaml der Steuerung ist ungültig.',
+    UploadFailed: 'Das Hochladen der Datei ist fehlgeschlagen.',
+    DownloadFailed: 'Das Herunterladen der Datei ist fehlgeschlagen.',
+    ReadOnlySetting: 'Diese Einstellung ist schreibgeschützt.',
+    ExpressionDivideByZero: 'Division durch null in einem Ausdruck.',
+    ExpressionInvalidArgument: 'Ungültiges Argument in einem Ausdruck.',
+    ExpressionInvalidResult: 'Ein Ausdruck hat ein ungültiges Ergebnis.',
+    ExpressionUnknownOp: 'Unbekannter Operator in einem Ausdruck.',
+    ExpressionArgumentOutOfRange: 'Ein Argument liegt außerhalb des erlaubten Bereichs.',
+    ExpressionSyntaxError: 'Syntaxfehler in einem Ausdruck.',
+    FlowControlSyntaxError: 'Syntaxfehler in einer Ablaufsteuerung (IF, WHILE …).',
+    FlowControlNotExecutingMacro: 'Ablaufsteuerung außerhalb eines Makros.',
+    FlowControlOutOfMemory: 'Ablaufsteuerung: der Speicher reicht nicht.',
+    FlowControlStackOverflow: 'Ablaufsteuerung: zu tief verschachtelt.',
+    ParameterAssignmentFailed: 'Ein Parameter konnte nicht gesetzt werden.',
+    GcodeValueWordInvalid: 'Ungültiger Wert hinter einem Buchstaben der Zeile.',
+    GcodeNoSavedModalState: 'Es ist kein Zustand gespeichert, der wiederhergestellt werden könnte.',
     Unknown: 'Die Steuerung hat die Zeile abgelehnt.',
   },
   diagnostic: {
@@ -3516,7 +3583,7 @@ export const de = {
       axisTest:
         'achstest, achse testen, achsen prüfen, richtung prüfen, motor testen, fährt die achse, testfahrt, motortest, schritte prüfen',
       messageHistory:
-        'meldungshistorie, alte meldungen, fehlerliste, störungen, warnungen, verlauf der meldungen, was war los, alarm historie, filter nach stufe',
+        'meldungshistorie, alte meldungen, fehlerliste, störungen, warnungen, verlauf der meldungen, was war los, alarm historie, filter nach stufe, diagnosebericht, bericht, export, exportieren, meldungen speichern, protokoll speichern, log, logdatei, support, fehlersuche, diagnose',
       runTime:
         'laufzeit, betriebsstunden, spindelstunden, stundenzähler, wie lange gelaufen, wartung, wartungszähler, stunden',
       log: 'protokoll, log, meldungen, verlauf, ausgabe, nachrichten, was ist passiert, fehlermeldung, terminal',

@@ -43,6 +43,7 @@ export const ERROR_CODES: Record<number, string> = {
   16: 'InvalidJogCommand',
   17: 'SettingDisabledLaser',
   18: 'HomingNoCycles',
+  19: 'SingleAxisHoming',
   20: 'GcodeUnsupportedCommand',
   21: 'GcodeModalGroupViolation',
   22: 'GcodeUndefinedFeedRate',
@@ -63,8 +64,57 @@ export const ERROR_CODES: Record<number, string> = {
   37: 'GcodeG43DynamicAxisError',
   38: 'GcodeMaxValueExceeded',
   39: 'PParamMaxExceeded',
+  40: 'CheckStartupPins',
+  // The file system (the SD card and the flash): `Error.h`, read from the main branch of FluidNC on 2026-11-25
+  60: 'FsFailedMount',
+  61: 'FsFailedRead',
+  62: 'FsFailedOpenDir',
+  63: 'FsDirNotFound',
+  64: 'FsFileEmpty',
+  65: 'FsFileNotFound',
+  66: 'FsFailedOpenFile',
+  67: 'FsFailedBusy',
+  68: 'FsFailedDelDir',
+  69: 'FsFailedDelFile',
+  70: 'FsFailedRenameFile',
+  80: 'NumberRange',
+  81: 'InvalidValue',
+  82: 'FsFailedCreateFile',
+  83: 'FsFailedFormat',
+  90: 'MessageFailed',
+  100: 'NvsSetFailed',
+  101: 'NvsGetStatsFailed',
+  110: 'AuthenticationFailed',
+  120: 'AnotherInterfaceBusy',
   130: 'JogCancelled',
+  150: 'BadPinSpecification',
+  151: 'BadRuntimeConfigSetting',
+  152: 'ConfigurationInvalid',
+  160: 'UploadFailed',
+  161: 'DownloadFailed',
+  162: 'ReadOnlySetting',
+  170: 'ExpressionDivideByZero',
+  171: 'ExpressionInvalidArgument',
+  172: 'ExpressionInvalidResult',
+  173: 'ExpressionUnknownOp',
+  174: 'ExpressionArgumentOutOfRange',
+  175: 'ExpressionSyntaxError',
+  176: 'FlowControlSyntaxError',
+  177: 'FlowControlNotExecutingMacro',
+  178: 'FlowControlOutOfMemory',
+  179: 'FlowControlStackOverflow',
+  180: 'ParameterAssignmentFailed',
+  181: 'GcodeValueWordInvalid',
+  182: 'GcodeNoSavedModalState',
 };
+
+/**
+ * Whether an error code is about the controller's file system – the SD card or the flash – and not about the
+ * line that was sent: the line was fine, the card (or the file) was not.
+ */
+export function isFileSystemError(code: number): boolean {
+  return (code >= 60 && code <= 70) || code === 82 || code === 83;
+}
 
 export function alarmName(code: number): string {
   return ALARM_CODES[code] ?? 'Unknown';

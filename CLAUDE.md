@@ -405,6 +405,37 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   opens from the status bar's flag as a dialog in the dialog layer (never over an open dialog:
   `openCentre`); the same list is the history under Service & Diagnose → Meldungen. A toast never
   takes a tap (`pointer-events: none`).
+- **Diagnostic report and what is kept with a message** (Service → Meldungen, "Diagnosebericht speichern"; pure `lib/diagnostics.ts`,
+  collectors `store/context.ts` and `store/diagnostics.ts`): one text file (`lowrider-diagnose-<date>-<time>.txt`, `REPORT_FORMAT`) with the
+  device, the Pi's last health answer, the machine and the way to it, a **picked** list of settings (never the document), the messages
+  of this session and – apart – the ones the history kept from before a reload, and the last 200 lines of the machine's log
+  (`>` sent, `<` received). **It only reads the stores** – no command, no request to the Pi (it works during a job and without the Pi, and says
+  what it does not know, e.g. the free space of the SD card). **It is always German** (a log file, not UI) and holds no credentials: `redact`
+  takes the value out of `name=value`/`name: value` for password, psk, secret, token, credential, authorization, api key, user:password in
+  front of a host (with or without a scheme) and every string the app holds itself (`heldSecrets()`: the login token of the Pi); the value of
+  a **setting that holds a credential** (`$Sta/Password`, `$AP/Password`, `$Notification/T1|T2` …) is the rest of the line, because FluidNC
+  takes a passphrase of several words as one value (also the other spellings: `[ESP101]…`, `$ESP106=…`, `$Notification/Setup=…`, `[ESP401]P=…
+V=…`); the login of an address ends at its **last** `@`; a name counts as a word of its own (`Passmarken` and `compass` stay); **no look-behind**
+  in these patterns (an iPad with a Safari before 16.4 could not parse the single script of the app; a test reads the source for it) and a log
+  line is cut to 2000 characters before it is redacted (the patterns grow with a line that has no spaces) – an allow-list
+  for what is collected, a deny-list as the last pass over the whole text, applied to a log line _before_ it is cut;
+  `test/diagnostics*.test.ts` and `e2e/diagnose.spec.ts` put a token and a passphrase into the log and look for them.
+  **What it still cannot know:** a credential that is typed in a form that names it nothing (`$Hostname=…` is no secret, a password sent as
+  plain G-code text would be) – the report is read by a person before it is passed on. Each warning, fault and critical message keeps its **`context`** (`Message.context`: facts about the machine and
+  the way to it, the last lines of the log before it, ≤ 8 + 6 lines of ≤ 120 characters; `validMessages` drops a broken one and loads old
+  messages without it) – the log is gone after a reload, the message is not. "Letzter Bedienbefehl" is only what `command()` sent (screens,
+  console): the app's own `$SD/List` and the status stand in the log lines, because routing them through `command()` would show them as the
+  jog panel's result; the message made from an `error:n` line says nothing of how the command ended (the line that answers it is only now
+  arriving – the lines before it show it). **A rejected command that is the controller's file system** (`error:60`–`70`, `82`, `83` =
+  `isFileSystemError`; `errorClass` in `lib/messages.ts` says `card` for 60 – listing the card fails at mounting it – and `file` for the rest (62 is
+  raised when a directory is made; the others happen to one file, also in the controller's flash through `$LocalFS/…`)) is not told as a bad line:
+  the card has its own effect and next step (`messages.rejectedSd.*`: jobs from the SD card do not start, streaming goes on; FAT32, not exFAT /
+  reseat / config.yaml `sdcard`), a file the neutral `messages.rejectedFile.*`. The error table `ERROR_CODES` follows FluidNC's `Error.h`
+  (read from its main branch on 2026-11-25: no 71, 81 is a setting string, 82/83 are file system). A move that was not carried out
+  (`photomap.scanFailed`, `calibration.moveFailed`) is group `motion`, not `camera` (`calibration.noRoom` and `.outside` are the reasons themselves and
+  stay with the measuring). The message about a failed link is made _after_ the link state is set, and the connection is set to `disconnected` in
+  the same step as `lostInJob` – a message keeps the state as it is when it is made. A link lost after it was up names the
+  Pi (`viaFor`: the series is cleared by a successful connection, the address typed is the fallback).
 - Why a control is disabled (§6.2): the new parts wrap it in `Reason` (`ui/tooltip.tsx`); everywhere
   else a disabled `Button` carries `reason` (a text, or the two general ones `machine` / `missing`)
   and a disabled `HoldButton` says what the machine's state has against it by itself

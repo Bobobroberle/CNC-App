@@ -4,7 +4,9 @@ import { t, tDynamic, type MessageKey } from '../i18n';
 import {
   acknowledge,
   acknowledgeWarnings,
+  ALARM_LOG_KEY,
   ERROR_LOG_KEY,
+  errorClass,
   groupOf,
   levelOfLog,
   needsAttention,
@@ -14,9 +16,11 @@ import {
   withMessage,
   type Level,
   type Message,
+  type MessageContext,
 } from '../lib/messages';
 import { DIALOGS } from '../lib/shortcuts';
 import { browserStorage, loadJson, saveJson } from '../lib/persist';
+import { captureContext } from './context';
 import { useMachine, type LogEntry } from './machine';
 
 /**
@@ -76,7 +80,10 @@ export const useMessages = create<MessagesStore>((set) => ({
   clearHistory: () => set((s) => keep(s.messages.filter(needsAttention))),
 }));
 
-type Parts = Pick<Message, 'title' | 'cause' | 'effect' | 'action'> & { code?: string };
+type Parts = Pick<Message, 'title' | 'cause' | 'effect' | 'action'> & {
+  code?: string;
+  context?: MessageContext;
+};
 
 /** Adds a message, shows its toast (where its level has one) and returns its id. */
 export function addMessage(level: Level, parts: Parts): number {
@@ -104,11 +111,15 @@ const group = (key: string | undefined, part: 'cause' | 'effect' | 'action') =>
 function fromLog(entry: LogEntry): Parts {
   if (entry.key === ERROR_LOG_KEY && entry.code) {
     const code = Number(entry.code.split(':')[1]);
+    // The SD card or a file failing is not a bad line: each has its own effect and next step
+    const kind = { line: 'rejected', card: 'rejectedSd', file: 'rejectedFile' }[
+      errorClass(code)
+    ] as 'rejected' | 'rejectedSd' | 'rejectedFile';
     return {
-      title: t('messages.rejected.title'),
+      title: t(`messages.${kind}.title`),
       cause: tDynamic(`error.${errorName(code)}`, 'error.Unknown'),
-      effect: t('messages.rejected.effect'),
-      action: t('messages.rejected.action'),
+      effect: t(`messages.${kind}.effect`),
+      action: t(`messages.${kind}.action`),
       code: entry.code,
     };
   }
@@ -151,13 +162,27 @@ export function startMessages(): () => void {
     known = state.log.at(-1)?.id ?? known;
     for (const entry of fresh) {
       const level = levelOfLog(entry.kind, entry.key);
-      if (level) addMessage(level, fromLog(entry));
+      if (!level) continue;
+      // What surrounded it, kept with it: the log it came from is gone after a reload
+      const before = state.log.filter((e) => e.id < entry.id);
+      // The line that says `error:n` is the answer to the command that is still marked as waiting for one
+      const answering = entry.key === ERROR_LOG_KEY && state.lastCommand?.state === 'sent';
+      const context = captureContext(
+        level,
+        answering ? { ...state, lastCommand: null } : state,
+        entry.key,
+        before,
+      );
+      addMessage(level, { ...fromLog(entry), ...(context ? { context } : {}) });
     }
     // The alarm: one fault while it stands; a code that comes later names it.
     const inAlarm = state.alarm !== null || state.status?.state === 'Alarm';
     if (inAlarm && alarmId === null) {
       alarmCode = state.alarm;
-      alarmId = addMessage('fault', fromAlarm(alarmCode));
+      alarmId = addMessage('fault', {
+        ...fromAlarm(alarmCode),
+        context: captureContext('fault', state, ALARM_LOG_KEY, state.log),
+      });
     } else if (inAlarm && state.alarm !== null && state.alarm !== alarmCode) {
       alarmCode = state.alarm;
       const parts = fromAlarm(alarmCode);
@@ -178,6 +203,7 @@ export function startMessages(): () => void {
         cause: t('critical.lost.cause'),
         effect: t(state.lostInJob.sd ? 'critical.lost.effectSd' : 'critical.lost.effectStream'),
         action: t('critical.lost.action'),
+        context: captureContext('critical', state, 'critical.lost', state.log),
       });
     } else if (!state.lostInJob && lostId !== null) {
       useMessages.getState().acknowledge(lostId);
