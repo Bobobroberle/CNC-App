@@ -102,9 +102,9 @@ test('shows the tabs on the table, in their width, and takes values of their own
     'aria-pressed',
     'true',
   );
-  const count = panel.getByLabel('Anzahl der Stege von Teil 1', { exact: true });
-  const width = panel.getByLabel('Stegbreite von Teil 1 (mm)', { exact: true });
-  const height = panel.getByLabel('Steghöhe von Teil 1 (mm)', { exact: true });
+  const count = panel.getByRole('textbox', { name: /^Anzahl/ });
+  const width = panel.getByRole('textbox', { name: /^Breite/ });
+  const height = panel.getByRole('textbox', { name: /^Höhe/ });
   await expect(count).toHaveAttribute('placeholder', '4');
   await expect(width).toHaveAttribute('placeholder', '6');
   await expect(height).toHaveAttribute('placeholder', '2');
@@ -167,8 +167,8 @@ test('puts tabs by hand: a tap on the line sets one, a drag moves it along, a ta
   const table = page.getByTestId('table-view');
   await drawShape(page, 'Rechteck');
   const panel = cam.getByTestId('cam-tabs');
-  await panel.getByLabel('Anzahl der Stege von Teil 1', { exact: true }).fill('2');
-  await panel.getByLabel('Stegbreite von Teil 1 (mm)', { exact: true }).fill('10');
+  await panel.getByRole('textbox', { name: /^Anzahl/ }).fill('2');
+  await panel.getByRole('textbox', { name: /^Breite/ }).fill('10');
   await cam.getByText('Erweitert', { exact: true }).click();
   await cam.getByLabel('Zustellung (mm)', { exact: true }).fill('6');
   await cam.getByLabel('Rampe (°, 90 = senkrecht)', { exact: true }).fill('90');
@@ -186,7 +186,7 @@ test('puts tabs by hand: a tap on the line sets one, a drag moves it along, a ta
     'aria-pressed',
     'true',
   );
-  await expect(panel.getByLabel('Anzahl der Stege von Teil 1', { exact: true })).toHaveCount(0);
+  await expect(panel.getByRole('textbox', { name: /^Anzahl/ })).toHaveCount(0);
   expect(xy(await sites(page))).toEqual([
     [80, 0],
     [20, 60],
