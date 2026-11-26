@@ -24,7 +24,11 @@ export type { Drawable, FrameSource, FrameStamp, SourceFrame } from '../lib/fram
  * pixels of one picture on request, which the scan does after the run, a picture at a time.
  */
 
-/** Most pictures kept: a run of 400 mm at 50 mm/s, at 20 pictures a second, is 160 */
+/**
+ * Most pictures kept: a run of 400 mm at 50 mm/s at the default spacing (20 pictures a second) is 160 – but the slowest
+ * ("Sanft", 40 % of that speed) is 400, more than the ring holds. The scan therefore sets the spacing from what it
+ * needs (`setMinSpacing`) and reads `evicted` after the run: a run that lost its start is not placed by stamps.
+ */
 export const MAX_FRAMES = 300;
 /** Most bytes kept (a 720p JPEG of a camera is 50–150 kB, a 1080p one a few hundred) */
 export const MAX_BYTES = 64 * 1024 * 1024;
@@ -228,7 +232,10 @@ export class StampedStream implements FrameSource<StampedFrame> {
     return this.failed?.reason;
   }
 
-  /** What more is known of the reason (a status, a Content-Type, a parser's code) */
+  /**
+   * What more is known of the reason (a status, a Content-Type, a parser's code) – or the text of an exception, which
+   * can name the address of the camera: for the screen at most, never into the log or a recording
+   */
   get detail(): string | undefined {
     return this.failed?.detail;
   }
@@ -256,6 +263,11 @@ export class StampedStream implements FrameSource<StampedFrame> {
     this.kept = [];
     this.heldBytes = 0;
     this.lastKeptT = -Infinity;
+  }
+
+  /** Kept pictures pushed out of the ring by newer ones – a run that has some lost its start */
+  get evicted(): number {
+    return this.counts.evicted;
   }
 
   /** The least distance between two pictures kept, s – the scan knows how many it wants per strip */

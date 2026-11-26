@@ -81,19 +81,23 @@ das ist bei der Deutung zu berücksichtigen.
 
 ## Wie ein Kamerabild seinen Zeitstempel bekommt
 
-Ein Bild aus der Fahrt kommt dorthin auf die Karte, wo die Kamera war, als es aufgenommen wurde. Die Uhr des Browsers weiß das nicht
-(das Bild wird spät gesehen, um eine unbekannte und schwankende Zeit). Deshalb liest die App den Kamera-Stream des Pi (ustreamer,
-Port 8081) **selbst**, als zweite Verbindung neben dem Bild auf dem Schirm, mit `…/stream?extra_headers=1`, und nimmt den Zeitstempel
-aus dem Kopf jedes Bildes. Die Positionsmeldungen der Steuerung stempelt das Relais des Companions mit der Uhr des Pi
-(`docs/companion.md`); beide zusammen liegen dann auf **einer** Zeitachse – sofern es dieselbe Uhr ist, und das wird geprüft.
+**Stand dieser Stufe:** die Bausteine sind gebaut und getestet (gegen erfundene Ströme, nicht gegen ein echtes ustreamer), der Scan benutzt sie
+noch nicht. Was unten im Präsens von der App steht, ist das, was die Bausteine können; das Einhängen in den Scan folgt in der nächsten Stufe.
+
+Ein Bild aus der Fahrt soll dorthin auf die Karte kommen, wo die Kamera war, als es aufgenommen wurde. Die Uhr des Browsers weiß das nicht
+(das Bild wird spät gesehen, um eine unbekannte und schwankende Zeit). Deshalb kann die App den Kamera-Stream des Pi (ustreamer,
+Port 8081) **selbst** lesen, als zweite Verbindung neben dem Bild auf dem Schirm, mit `…/stream?extra_headers=1`, und den Zeitstempel
+aus dem Kopf jedes Bildes nehmen. Die Positionsmeldungen der Steuerung stempelt das Relais des Companions mit der Uhr des Pi
+(`docs/companion.md`); beide zusammen liegen dann auf **einer** Zeitachse – sofern es dieselbe Uhr ist. Die Prüfung dafür (`domainFits`) ist
+gebaut; der Scan ruft sie erst in der nächsten Stufe auf.
 
 Gebaut ist das so: `lib/mjpeg.ts` zerlegt den endlosen Strom (`multipart/x-mixed-replace`) in Bilder mit ihren Köpfen, `lib/frameStamp.ts`
 wählt aus den Köpfen den Zeitstempel und prüft ihn gegen den der Positionsmeldung, `store/stampedFrames.ts` sammelt die Bilder. **Während der
 Fahrt werden nur Bytes und Stempel kopiert** – in einen Ring mit festen Grenzen (höchstens 300 Bilder und 64 MB; Bilder, die näher als
-50 ms am zuletzt behaltenen liegen, bleiben weg; dasselbe Bild zweimal wird nur einmal behalten). Entschlüsselt wird erst nach der Fahrt, ein
-Bild nach dem anderen. Der Scan benutzt das in dieser Stufe noch nicht; die Bausteine und ihre Tests sind da.
+50 ms am zuletzt behaltenen liegen, bleiben weg; dasselbe Bild zweimal wird nur einmal behalten; ein langsamer Streifen von 400 mm hätte bei 50 ms Abstand 400 Bilder – darum soll der Scan den Abstand selbst setzen und danach nachsehen, ob vom Anfang etwas herausgefallen ist). Dekodiert wird erst nach der Fahrt, ein
+Bild nach dem anderen.
 
-**Was ustreamer pro Bild schickt** – gelesen im Quelltext von v4.13, v5.0, v5.41, v6.0, v6.20 und des Master-Zweigs (Stand 2026-11), nicht
+**Was ustreamer pro Bild schickt** – gelesen in `server.c` von v4.13, v5.0, v5.41, v6.0, v6.20 und des Master-Zweigs (Stand 2026-11), nicht
 ausprobiert. Jedes Bild beginnt mit `--boundarydonotcross`, hat Kopfzeilen, dann die JPEG-Bytes, dann `CRLF --boundarydonotcross CRLF`:
 
 | Kopfzeile                     | ab                                     | Einheit und Uhr                                           | Bedeutung                                                                                   |
@@ -111,15 +115,18 @@ Was daran sicher ist, und was nicht:
 
 - Alle Zahlen sind Sekunden mit sechs Nachkommastellen, aber von ustreamer **auf Millisekunden gerundet** (gelesen im Master-Zweig; für die
   älteren Versionen lag die Zeitfunktion nicht vor). Die Auflösung jedes Stempels ist 1 ms.
-- Die Grab-Zeit ist in v6.20 und im Master der **Zeitstempel des V4L2-Puffers**, also die Uhr des Kameratreibers (bei den meisten
-  Treibern CLOCK_MONOTONIC, bei manchen die Echtzeituhr). Für v4.13 bis v6.0 lag die Quelle des Aufnahmeteils nicht vor: **dort ist nicht bekannt**, was
-  `grab_ts` ist. Darum wird zur Laufzeit geprüft, ob der Stempel eines Bildes höchstens 3 s neben dem der letzten Positionsmeldung in derselben
-  Uhr liegt (`domainFits`); wenn nicht, ist es nicht dieselbe Uhr, und der Scan nimmt die Uhr des Browsers.
+- Die Grab-Zeit ist in v6.20 und im Master der **Zeitstempel des V4L2-Puffers** (`buf.timestamp`, gelesen im Quelltext), also die Uhr des
+  Kameratreibers. Welche Uhr das ist, steht nicht in ustreamer: nach allgemeinem V4L2-Wissen (nicht aus dem Quelltext) meist CLOCK_MONOTONIC,
+  bei manchen Treibern die Echtzeituhr. Für v4.13 bis v6.0 lag die Quelle des Aufnahmeteils nicht vor: **dort ist nicht bekannt**, was
+  `grab_ts` ist. Darum soll zur Laufzeit geprüft werden, ob der Stempel eines Bildes höchstens 3 s neben dem der letzten Positionsmeldung in
+  derselben Uhr liegt (`domainFits`, gebaut); wenn nicht, ist es nicht dieselbe Uhr, und der Scan soll die Uhr des Browsers nehmen
+  (kommt mit der nächsten Stufe).
 - ustreamer schickt dasselbe Bild **noch einmal**, wenn länger als eine Sekunde kein neues kam – mit derselben Grab-Zeit, aber neuem `X-Timestamp`.
   Darum erkennt die App eine Wiederholung an der Grab-Zeit, und bei der Sendezeit an den Bytes.
 - `advance_headers=1` (schickt keine `Content-Length` und keine `X-UStreamer-*`-Zeilen, und der `X-Timestamp` ist der des _nächsten_ Bildes) fordert die App nie an.
 - Welche ustreamer-Version auf deinem Pi läuft, weiß die App nicht; sie nimmt, was da ist. Und ob ein Safari auf dem iPad den Stream
-  stückweise lesen lässt (`fetch` mit Datenstrom), ist hier nicht geprüft – wenn nicht, sagt die App „nicht verfügbar“ und die Fahrt geht wie bisher.
+  stückweise lesen lässt (`fetch` mit Datenstrom), ist hier nicht geprüft – wenn nicht, meldet der Baustein „nicht verfügbar“ mit einem Grund (`no-body-stream`, `unreachable` …); die Fahrt soll
+  dann wie bisher gehen und das im Panel sagen (kommt mit der nächsten Stufe).
 
 **Zwei Befehle auf dem Pi** (per SSH), die sagen, was deine Kamera wirklich schickt:
 
@@ -133,7 +140,8 @@ Worauf du achtest:
 - Beim ersten Befehl: Zeilen `X-Timestamp: 17…` (eine Zahl um 1,7 Milliarden: Echtzeit) und `X-UStreamer-Grab-Time:` oder `X-UStreamer-Grab-Begin-Time:`
   (eine **kleine** Zahl, etwa `123456.789000`: Sekunden seit dem Start des Pi, also CLOCK_MONOTONIC). Fehlen alle `X-UStreamer-…`-Zeilen,
   kennt dein ustreamer `extra_headers` nicht, und es bleibt die Sendezeit. Steht bei der Grab-Zeit eine Zahl um 1,7 Milliarden, stempelt
-  der Treiber mit der Echtzeituhr (die App erkennt das und fällt zurück); steht dort `0.000000`, gibt der Treiber keine Zeit an.
+  der Treiber mit der Echtzeituhr (das erkennt `domainFits`; der Rückfall im Scan kommt mit der nächsten Stufe); steht dort `0.000000`, gibt der
+  Treiber keine Zeit an.
 - Zum Vergleich der Uhren: `python3 -c "import time; print(time.monotonic())"` auf dem Pi. Die Grab-Zeit muss in derselben Größenordnung liegen und
   um höchstens wenige Sekunden von dieser Zahl abweichen; steht dort etwas ganz anderes, ist es nicht dieselbe Uhr.
 - Beim zweiten Befehl (die Köpfe eines Einzelbilds): Heißen die Zeilen `X-UStreamer-Grab-Begin-Timestamp` und `…Grab-End-Timestamp`, ist es der

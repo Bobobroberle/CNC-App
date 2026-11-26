@@ -9,8 +9,8 @@
  *
  * ## What ustreamer sends per part on /stream – only what was read in its source
  *
- * Read in `src/http/server.c` of v4.13, v5.0, v5.41, v6.0, v6.20 and of the master branch (of 2026-11; the files
- * `libs_*`/`http_tools.*` of master for the time helpers). Part framing in all of them: `--boundarydonotcross CRLF`,
+ * Read in `server.c` of v4.13, v5.0, v5.41, v6.0, v6.20 and of the master branch (of 2026-11; master's `libs/tools.h`
+ * for the time helpers). Part framing in all of them: `--boundarydonotcross CRLF`,
  * the part's headers, the JPEG, `CRLF --boundarydonotcross CRLF`; the response is HTTP/1.0 (no chunking) with
  * `Content-Type: multipart/x-mixed-replace;boundary=boundarydonotcross`.
  *
@@ -31,8 +31,8 @@
  *   (`us_get_now` in master's `libs/tools.h`: `round(tv_nsec / 1e6)`; the time helper of the older versions was not
  *   available here – the app does not depend on the rounding). The resolution of every stamp is 1 ms.
  * - **Where the grab time comes from** (seen only for v6.20 and master): the V4L2 buffer's own timestamp
- *   (`buf.timestamp`, cut to ms) – the *driver's* clock, which is CLOCK_MONOTONIC for most drivers and the real-time
- *   clock for some. In master `Grab-End-Time` is ustreamer's own `us_get_now_monotonic()` taken after the buffer was
+ *   (`buf.timestamp`, cut to ms) – the *driver's* clock. Which clock that is, ustreamer does not say; general V4L2
+ *   knowledge (not from the source) is CLOCK_MONOTONIC for most drivers and the real-time clock for some. In master `Grab-End-Time` is ustreamer's own `us_get_now_monotonic()` taken after the buffer was
  *   dequeued, so it is certainly monotonic but later than the exposure by the transfer and the dequeue (the part of
  *   the delay that jitters). For v4.13 – v6.0 the capture source was not seen (`cap_v5.41_capture.c` was a 404 stub), so
  *   what `grab_ts` is there is **not known** from the source.
@@ -147,11 +147,19 @@ export type Drawable = ImageBitmap | HTMLCanvasElement | OffscreenCanvas;
  *   opened); `reason` then says why, as a stable code. What was kept stays readable.
  * - `domain` is the clock all frames are in, once known (null before the first stamp).
  * - During a run only stamps and bytes are copied; pixels exist only after `decode`.
+ * - The source holds a bounded number of pictures and lets the oldest go first, which would cut off the start of a long
+ *   slow strip. The scan therefore says how closely it wants the pictures (`setMinSpacing`, from the distance between the
+ *   pictures it takes and the speed of the run) and looks at `evicted` after the run: more than zero means the start is
+ *   gone and the run cannot be placed by stamps.
  */
 export interface FrameSource<F extends SourceFrame = SourceFrame> {
   readonly ok: boolean;
   readonly reason?: string;
   readonly domain: StampDomain | null;
+  /** How many kept pictures were pushed out of the ring by newer ones since the source began */
+  readonly evicted: number;
+  /** The least distance between two pictures kept, s – what the scan wants per strip (a bad number changes nothing) */
+  setMinSpacing(seconds: number): void;
   /** The frames kept now, oldest first (a copy of the list) */
   frames(): readonly F[];
   /** Pixels of one frame – null where it cannot be decoded. The caller releases it (`releaseDrawable`). */

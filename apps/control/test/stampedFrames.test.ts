@@ -548,6 +548,7 @@ describe('collecting pictures while the stream runs', () => {
       heldFrames: 5,
       heldBytes: 5 * 1500,
     });
+    expect(handle.evicted).toBe(16);
     handle.close();
 
     const q = pipe();
@@ -557,6 +558,7 @@ describe('collecting pictures while the stream runs', () => {
     expect(byBytes.stats().heldBytes).toBeLessThanOrEqual(10_000);
     expect(byBytes.stats().heldFrames).toBe(3);
     expect(byBytes.stats().evicted).toBe(11 - 3);
+    expect(byBytes.evicted).toBe(8);
     // a picture bigger than the whole ring is left out, not kept
     q.push(mjpeg([{ headers: grabbed(6000), body: jpegLike(5, 12_000) }], { length: true }));
     await tick(20);
