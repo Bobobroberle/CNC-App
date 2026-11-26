@@ -260,7 +260,7 @@ WLAN, den Pi und wieder das WLAN gelaufen ist. Darum stempelt das Relais auf dem
   direkt, ein älterer Companion, der den unbekannten Parameter ignoriert).
 - **`GET /api/health`** meldet `stamps: true` (diese Version stempelt auf Wunsch) und `clock: { mono, wall }`, eine
   Momentaufnahme der Uhr im Augenblick der Anfrage. Ein älterer Companion hat beide Felder nicht; die App bleibt dann bei
-  der Uhr des Browsers. Mit `clock` kann die App prüfen, ob Kamerabild-Stempel und Berichte in einer Uhr liegen.
+  der Uhr des Browsers. Der Scan prüft die Uhren nicht gegen `clock`, sondern gegen den Stempel des neuesten Berichts (`domainFits`, `docs/scan.md`); `clock` ist die Momentaufnahme, mit der man von Hand nachsehen kann, ob Kamerabild-Stempel und Pi in einer Uhr liegen.
 - **Was das nicht kann:** der Stempel sagt, wann der **Pi** die Nachricht bekam. Der Weg Jackpot → Pi (WLAN, jitternd), die
   Zeit, die FluidNC für Messen und Senden braucht, und die Verzögerung der Kamera bleiben unbekannt (die letzte lernt der
   Scan selbst).

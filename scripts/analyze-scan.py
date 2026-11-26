@@ -488,8 +488,12 @@ def summary(report):
             nb = float(np.median([b.get('timing_noise_ms', 0) for b, _ in both]))
             npi = float(np.median([p.get('timing_noise_ms', 0) for _, p in both]))
             winner = 'the Pi clock' if npi < nb else ('the browser clock' if nb < npi else 'neither')
+            # the registration places a picture to about 0.1 mm: over the speed of the run that is the least a noise can show
+            speed = float(np.median([r['speed_mm_s'] for r in report['runs'] if r.get('lag_from_placed_pictures_pi')]))
+            floor = 100.0 / speed if speed > 0 else 0.0
             lines.append(f"Timing noise, browser clock {nb:.0f} ms against Pi clock {npi:.0f} ms: {winner} has the lower noise "
-                         f"(the same placed pictures, {len(both)} run(s); a noise this small is within what the registration itself measures)")
+                         f"(the same placed pictures, {len(both)} run(s); the registration itself resolves about 0.1 mm, "
+                         f"which at {speed:.0f} mm/s is {floor:.1f} ms – a figure near that says 'no more than this', not 'exactly this')")
     elif c.get('meta_clock') == 'pi':
         lines.append('A run on the Pi clock, but no run placed enough pictures to work the Pi clock\'s lag out')
     if c.get('reports'):

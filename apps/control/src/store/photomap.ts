@@ -652,6 +652,8 @@ const FIRST_LAG = { browser: 0.3, pi: 0 } as const;
 let lagClock = 'browser';
 /** mm/s of the strip that measures the lag: at this speed 0.3 s is 4 mm – less than half a dot of the plate */
 const PROBE_SPEED = 12;
+/** The share of the usual spacing between pictures the Pi's clock keeps while the lag is not known (the probe run) */
+const PROBE_SPACING = 0.5;
 /** While a run is on the Pi's clock the status is asked for this often, ms – on top of the regular poll (200 ms): more reports to fit the line through */
 const STRIP_POLL_MS = 100;
 /** Longest the first stamped picture of the camera may be waited for in the simulator, ms (a real stream has its own limits) */
@@ -859,9 +861,6 @@ async function solveAndLay(
   }
 }
 
-/** The clock the scan that began runs on, for what the recording is told – the browser's until the choice is made */
-let clockKind: 'pi' | 'browser' = 'browser';
-
 /** What a recording of a scan is told about the camera and the machine (never an address or a login). */
 function traceMeta(visible: { width: number; height: number }): Record<string, unknown> {
   const { settings } = useWorkshop.getState();
@@ -890,8 +889,6 @@ function traceMeta(visible: { width: number; height: number }): Record<string, u
     stripSpeedMmS: stripSpeed(tempo),
     stripLagS: stripLag,
     lagKnown,
-    // which clock the pictures of the runs are put on the time line with – the first scan's; each scan names its own
-    clock: clockKind,
     viaCompanion: useMachine.getState().link.via !== null,
     probeSpeedMmS: PROBE_SPEED,
     densePx: [320, 240],
@@ -1105,7 +1102,9 @@ function stampedCollector(timing: PiTiming, el: CameraPicture, plan: RunPlan): C
   const track = new PositionTrack();
   // the pictures this run asks for, and a clean ring: what an earlier strip left there is not this run's
   source.clear();
-  source.setMinSpacing(Math.max(MIN_FRAME_SPACING_S, plan.every));
+  // The first run of a scan measures the lag from its pictures, and it is short and slow (a picture every 30 % of the view is
+  // three of them in 110 mm at 12 mm/s, and the lag wants four): the stream keeps twice as many while the lag is not known.
+  source.setMinSpacing(Math.max(MIN_FRAME_SPACING_S, plan.every * (lagKnown ? 1 : PROBE_SPACING)));
   const evictedBefore = source.evicted;
   let jogFrom = Infinity;
   let jogTo = -Infinity;
@@ -1366,7 +1365,6 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       strips = null;
     }
     cancelled = false;
-    clockKind = 'browser';
     const startedAt = Date.now();
     const tiles0 = get().tiles;
     traceBegin(() => traceMeta(visible), area, strips ? 'strips' : 'stops', {
@@ -1428,7 +1426,6 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
         // Pi's, or both on the browser's – and what was learned of the lag belongs to the clock it was learned on.
         const chosen = await chooseScanClock();
         useClockLag(chosen.clock);
-        clockKind = chosen.clock.kind;
         stats.clock = chosen.clock.kind;
         if (chosen.clock.kind === 'pi') {
           timing = { clock: chosen.clock, source: chosen.source! };

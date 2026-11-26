@@ -133,6 +133,9 @@ export class SimulatorSocket implements WebSocketLike {
   private last = 0;
   /** When the last message is due at the page: the link keeps the order */
   private lastDue = 0;
+  /** What is on its way over the link, in the order it was sent – delivered by one timer, so a stall of the page cannot swap two */
+  private onTheWay: { due: number; frames: unknown[] }[] = [];
+  private arrival: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     setTimeout(() => {
@@ -182,6 +185,9 @@ export class SimulatorSocket implements WebSocketLike {
   close() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    if (this.arrival) clearTimeout(this.arrival);
+    this.arrival = null;
+    this.onTheWay = [];
     if (liveSocket === this) liveSocket = null;
     this.readyState = 3;
     this.onclose?.({});
@@ -203,11 +209,23 @@ export class SimulatorSocket implements WebSocketLike {
     frames.push(encoder.encode(text).buffer);
     const due = Math.max(this.lastDue, now + pi.linkMs + linkNoise() * pi.linkJitterMs);
     this.lastDue = due;
-    setTimeout(
+    this.onTheWay.push({ due, frames });
+    this.arm();
+  }
+
+  /** One timer for the head of the link: what is due goes to the page in the order it was sent, then the next is waited for */
+  private arm() {
+    if (this.arrival !== null || this.onTheWay.length === 0) return;
+    this.arrival = setTimeout(
       () => {
-        for (const data of frames) this.onmessage?.({ data });
+        this.arrival = null;
+        // a timer may fire a hair early: what is due within half a millisecond goes now
+        while (this.onTheWay.length > 0 && this.onTheWay[0]!.due <= performance.now() + 0.5) {
+          for (const data of this.onTheWay.shift()!.frames) this.onmessage?.({ data });
+        }
+        this.arm();
       },
-      Math.max(0, due - now),
+      Math.max(0, this.onTheWay[0]!.due - performance.now()),
     );
   }
 }

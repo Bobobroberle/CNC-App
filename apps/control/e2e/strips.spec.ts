@@ -346,7 +346,7 @@ test("with a jittery link and a jittery camera the run on the Pi's clock puts it
   expect(browser.timingNoiseMs).not.toBeNull();
   expect(pi.timingNoiseMs).not.toBeNull();
   // the clock itself is measurably tighter: the pictures land nearer the line the reports say
-  expect(pi.timingNoiseMs!).toBeLessThan(browser.timingNoiseMs! * 0.5);
+  expect(pi.timingNoiseMs!).toBeLessThan(browser.timingNoiseMs! * 0.4);
   // and the map made on it is as good as a scan with stops
   expect(piQuality.share).toBeGreaterThanOrEqual(0.9);
   expect(piQuality.max).toBeLessThan(0.5);
@@ -805,6 +805,10 @@ test("a recording of a scan on the Pi's clock: both clocks of every report and p
   // both clocks of every report: when the page got it, and the Pi's stamp – hours apart, as the simulated Pi's clock is
   const stamped = trace.reports.filter((r) => r.stamp);
   expect(stamped.length).toBeGreaterThan(40);
+  // the link keeps the order, and so do the stamps: never a report older than the one before it
+  stamped
+    .slice(1)
+    .forEach((r, i) => expect(r.stamp!.mono).toBeGreaterThan(stamped[i]!.stamp!.mono));
   for (const r of stamped.slice(0, 20)) {
     expect(r.stamp!.mono - r.t).toBeGreaterThan(HUGE_OFFSET_MS - 1000);
     expect(r.stamp!.wall).toBeGreaterThan(1.7e12);

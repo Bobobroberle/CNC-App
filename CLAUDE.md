@@ -691,7 +691,7 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   uneven on its way to the page (`linkMs`, `linkJitterMs`, in order), a `STAMP:` frame before each (`stampLagMs`, `stampNoiseMs` are what
   stays in the stamp), `stamps: false` for a companion that stamps nothing, and `simulatorFrameSource()` – the camera's pictures at the true
   moment (the machine is caught up to it), stamped to the millisecond with `frameStampNoiseMs`, `frameClockOffsetMs` for a driver with its
-  own clock; the camera's browser-side lag (`lowriderCameraLag`) touches neither stamp nor picture. `e2e/strips.spec.ts` holds the Pi's
+  own clock; the camera's browser-side lag (`lowriderCameraLag`) touches neither stamp nor picture (`window.lowriderMap.stamp()` is the newest report's stamp, for the tests to wait for). `e2e/strips.spec.ts` holds the Pi's
   clock to the plate like a scan by stops, compares it with the browser's on a bad link and camera (numbers in `docs/scan.md`), and
   checks the fallback. **What stays and cannot be tested here:** the jitter of the Jackpot→Pi WLAN hop and FluidNC's own sampling and
   send time (both in the report's stamp), the V4L2 driver's buffer timestamp semantics, ustreamer's 1 ms resolution, a Safari on the iPad

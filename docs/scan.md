@@ -76,7 +76,12 @@ python3 scripts/analyze-scan.py lowrider-scan-….zip
 
 Die Auswertung (Python mit numpy und Pillow) nennt die Verzögerung der Bilder hinter den Meldungen der Steuerung und ihr Zeitrauschen, den
 Takt der Bilder und der Meldungen, Aussetzer der Seite, wie viele Bilder der Fahrt sich einpassen ließen und wie weit die eingepassten Bilder
-von den Bildern im Stillstand abweichen. Die Seite selbst kostet beim Aufzeichnen etwas Zeit (Aussetzer von 30–50 ms stehen in der Auswertung);
+von den Bildern im Stillstand abweichen. Lief ein Scan auf der **Uhr des Pi**, enthält die Datei **beide** Zeiten jeder Meldung (wann die
+Seite sie sah, und der Stempel des Relais) und jedes Bildes (wann die Seite es bekam, und der Stempel des Kamera-Servers); die Auswertung
+rechnet dann Verzögerung und Zeitrauschen für **beide Uhren** aus denselben eingepassten Bildern, sagt, welche weniger streut, und nennt, wie
+ungleichmäßig die Seite Meldungen und Bilder gegenüber ihren Stempeln sah (die Streuung der Differenz – das ist das Schwanken auf dem Weg zur
+Seite, das im Stempel nicht steckt). Dateien ohne Stempel (ältere, oder ein Scan auf der Uhr des Browsers) wertet sie wie bisher aus.
+`meta.clock` in der Datei sagt, auf welcher Uhr die Scans liefen (`pi`, `browser`, `mixed`). Die Seite selbst kostet beim Aufzeichnen etwas Zeit (Aussetzer von 30–50 ms stehen in der Auswertung);
 das ist bei der Deutung zu berücksichtigen.
 
 ## Eine Uhr für den Scan: die des Pi, oder die des Browsers
@@ -172,3 +177,57 @@ Worauf du achtest:
 - Beim zweiten Befehl (die Köpfe eines Einzelbilds): Heißen die Zeilen `X-UStreamer-Grab-Begin-Timestamp` und `…Grab-End-Timestamp`, ist es der
   Master-Zweig; heißt eine `X-UStreamer-Grab-Timestamp`, ist es v4.13 bis v6.20. `X-UStreamer-Send-Timestamp` ist die Zeit von ustreamer
   selbst (CLOCK_MONOTONIC) beim Senden – auch sie mit `time.monotonic()` vergleichen. `ustreamer --version` nennt die Version.
+
+## Was der Simulator über die Uhr des Pi gemessen hat – und was nicht
+
+Die Zahlen unten stammen aus `e2e/strips.spec.ts` auf dem Simulator (Demo, Referenztafel), nicht von einer echten Maschine. Der Simulator hat einen
+nachgemachten Pi: seine Uhr geht **zwei Stunden** vor der der Seite (damit jede Vermischung der beiden Uhren laut scheitert), jede Meldung der
+Steuerung kommt auf einem Weg an, der spät und ungleichmäßig ist, der Pi stempelt jede Meldung 12 ms nach dem Messen (± 4 ms) und jedes Kamerabild auf
+die Millisekunde (± 2 ms), und die Kamera zeigt der Seite ihr Bild 0,3 s ± 40 ms zu spät – was **nicht** im Stempel steckt. Die Zahlen sind also nur so
+gut wie diese Annahmen: das Schwanken, das der Stempel wegnimmt, ist genau das, das der Simulator auf dem Weg zur Seite hineingelegt hat; was er
+im Stempel lässt, haben wir selbst festgelegt.
+
+**Der Vergleich**, Tempo „Normal“ (40 mm/s), Weg vom Pi zur Seite 60–180 ms ungleichmäßig, Kamera 0,3 s ± 40 ms, dieselbe Fläche, einmal auf der Uhr des
+Browsers (der Pi stempelt nichts) und einmal auf der des Pi. „Zeitrauschen“ ist die Streuung dessen, was die einzelnen Bilder der Fahrt für die
+Verzögerung ergeben (`ScanStats.timingNoiseMs`: nach dem Einpassen gegen die Uhr gemessen), also das, was keine gelernte Konstante wegnimmt. Sechs Läufe
+(drei Wiederholungen von `--repeat-each=3` und drei Läufe der ganzen Datei, auf einem Rechner, auf dem zeitweise noch ein anderer Testlauf rechnete):
+
+| Lauf | Zeitrauschen Browser-Uhr | Zeitrauschen Pi-Uhr | Verzögerung Pi-Uhr |
+| --- | --- | --- | --- |
+| 1 | 24,1 ms | 1,5 ms | −12 ms |
+| 2 | 28,2 ms | 2,3 ms | −12 ms |
+| 3 | 15,4 ms | 1,8 ms | −12 ms |
+| 4 | 18,1 ms | 1,7 ms | −12 ms |
+| 5 | 18,3 ms | 1,5 ms | −12 ms |
+| 6 | 19,9 ms | 1,9 ms | −12 ms |
+
+- Die **Uhr ist messbar enger**: 15–28 ms gegen 1,5–2,3 ms, also ein Achtel bis ein Fünfzehntel (der Test verlangt weniger als 0,4).
+- **Die fertige Karte ist nicht enger.** In allen sechs Läufen lagen beide Karten gleich nah an der Karte eines Scans mit Halt (Punkte der Tafel: im Mittel
+  0,02–0,03 mm daneben, schlimmstenfalls 0,08 mm; alle Bilder der Fahrt eingepasst). Die Bilder werden an ihrer Überlappung eingepasst; die Uhr gibt nur den
+  Startwert und das Suchfenster. Solange der Fehler der Uhr (hier ± 2 mm bei 40 mm/s) darin bleibt, ist das Ergebnis dasselbe.
+- Wo die Uhr zählt, ist **ein Weg, der so ungleichmäßig ist, dass das Suchfenster nicht mehr reicht**: Tempo „Schnell“ (56 mm/s), Weg 100–500 ms. Browser-Uhr: Zeitrauschen
+  86 bzw. 96 ms, 14 von 17 Bildern eingepasst, Punkte bis 0,16 mm daneben; Pi-Uhr: 2 ms, alle Bilder eingepasst, Punkte bis 0,08 mm daneben. (Zwei Läufe.)
+- Die **Verzögerung** auf der Uhr des Pi ist klein und **negativ** (−12 ms – genau die 12 ms, die der Simulator dem Stempel der Meldung zugibt), auf der Uhr des
+  Browsers etwa 0,2–0,35 s. Deshalb darf sie auf der Uhr des Pi unter null gelernt werden (`PI_LAG_LIMITS`).
+- Die Auswertung (`scripts/analyze-scan.py`) einer aufgezeichneten Fahrt auf der Uhr des Pi sagt dasselbe aus der Datei: Verzögerung Browser-Uhr 200 ms (Zeitrauschen 25 ms),
+  Pi-Uhr −12 ms (2 ms); die Seite sah die Meldungen 34 ms (Streuung) ungleichmäßig gegenüber ihrem Stempel, die Kamerabilder 14 ms.
+
+**Was damit nicht gezeigt ist.** Das Versprechen, die Uhr des Pi bringe die Bilder auf „wenige Millisekunden“ genau, ist nicht gemessen und wird hier nicht
+gemacht: gemessen ist nur, dass der Weg zur Seite, die Verzögerung der Kamera in der Seite und das Raster des Bildschirms (16 ms = 0,8 mm bei 50 mm/s) aus der
+Zeit herausfallen – im Simulator, mit angenommenen Zahlen. Auf einer echten Maschine bleibt stehen, **was im Stempel selbst steckt**:
+
+- das Schwanken des Wegs **von der Steuerung (Jackpot) zum Pi** (WLAN) – die Meldung wird gestempelt, wenn der Pi sie bekommt;
+- FluidNCs eigenes Abtasten und die Zeit, bis die Meldung losgeschickt wird (nicht bekannt);
+- was der Zeitstempel des V4L2-Puffers bei deinem Kameratreiber bedeutet (Anfang oder Ende der Belichtung, Auslesen, welche Uhr);
+- die Auflösung der Stempel von ustreamer, 1 ms;
+- ob ein Safari auf dem iPad den Stream stückweise lesen lässt (`fetch` mit Datenstrom) – hier nicht prüfbar; wenn nicht, geht der Scan auf der Uhr des Browsers und sagt es;
+- die gleichbleibende Verzögerung der Kamera selbst (wird gelernt, im Probelauf);
+- welche Version von ustreamer auf deinem Pi läuft (die zwei Befehle oben sagen es);
+- eine Kamera, die nur einen Zuschauer bedient (ESP32-CAM): die zweite Verbindung kommt nicht zustande, der Scan nimmt die Uhr des Browsers.
+
+**So misst du es an der Maschine:** den Scan aufzeichnen („Scan für die Auswertung aufzeichnen“), erst **mit Halt** und dann **in Fahrt** über dieselbe Fläche, die Datei speichern und
+`python3 scripts/analyze-scan.py datei.zip` aufrufen. Steht im Panel „Pi“ als Uhr des letzten Scans, nennt die Auswertung Verzögerung und Zeitrauschen **beider** Uhren aus
+denselben eingepassten Bildern und sagt, welche weniger streut – das ist die Zahl, die für deine Kamera gilt. Steht dort „Browser“, steht im Panel auch der Grund.
+
+**Nicht gebaut:** ein Abgleich des Pi mit sich selbst (`clockCheck` in `/api/health`: der Companion vergleicht den Stempel eines Einzelbilds von ustreamer mit seiner eigenen Uhr) – er hätte nur die
+Uhr von ustreamer, nicht die des Kameratreibers geprüft; die Prüfung zur Laufzeit gegen die Meldungen (`window`) tut das, worauf es ankommt.
