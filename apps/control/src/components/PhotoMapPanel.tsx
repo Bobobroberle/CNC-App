@@ -272,7 +272,7 @@ export function PhotoMapPanel() {
                   domain: t(`photomap.clock.domains.${lastClock.stamp.domain}`),
                   source: stampSourceText(lastClock.stamp.source),
                 })}{' '}
-                <span className="text-xs" data-testid="scan-clock-header">
+                <span className="font-mono" data-testid="scan-clock-header">
                   {lastClock.stamp.source}
                 </span>
               </>
@@ -288,7 +288,7 @@ export function PhotoMapPanel() {
               {lastClock.clockDetail ? (
                 <>
                   {' '}
-                  <span className="text-xs" data-testid="scan-clock-code">
+                  <span className="font-mono" data-testid="scan-clock-code">
                     {t('photomap.clock.code', { code: lastClock.clockDetail })}
                   </span>
                 </>

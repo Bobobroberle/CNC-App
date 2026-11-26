@@ -236,8 +236,8 @@ im Stempel lässt, haben wir selbst festgelegt.
 **Der Vergleich**, Tempo „Normal“ (40 mm/s), Weg vom Pi zur Seite 60–180 ms ungleichmäßig (im Mittel 120 ms), Kamera 0,30–0,34 s zu spät, dieselbe Fläche, einmal auf
 der Uhr des Browsers (der Pi stempelt nichts) und einmal auf der des Pi. „Zeitrauschen“ ist die Streuung dessen, was die einzelnen Bilder der Fahrt für die
 Verzögerung ergeben (`ScanStats.timingNoiseMs`: nach dem Einpassen gegen die Uhr gemessen), also das, was keine gelernte Konstante wegnimmt. Die Läufe 1 bis 7 sind
-die der ersten Fassung dieser Arbeit (wo das Projekt notiert wurde, steht es dabei), auf einem Rechner, auf dem zeitweise noch ein anderer Testlauf rechnete; Lauf 8
-ist der nach der Überarbeitung (Projekt „desktop“, ebenfalls neben einem anderen Testlauf). Die Spalte „Pi ÷ Browser“ ist die zweite durch die erste, gerundet:
+die der ersten Fassung dieser Arbeit (wo das Projekt notiert wurde, steht es dabei), auf einem Rechner, auf dem zeitweise noch ein anderer Testlauf rechnete; die Läufe 8 und 9
+sind die nach der Überarbeitung (Projekt „desktop“, ebenfalls neben einem anderen Testlauf; 9 ist der der Endkontrolle). Die Spalte „Pi ÷ Browser“ ist die zweite durch die erste, gerundet:
 
 | Lauf | Zeitrauschen Browser-Uhr | Zeitrauschen Pi-Uhr | Pi ÷ Browser | Verzögerung Pi-Uhr |
 | --- | --- | --- | --- | --- |
@@ -249,28 +249,30 @@ ist der nach der Überarbeitung (Projekt „desktop“, ebenfalls neben einem an
 | 6 (desktop) | 17,6 ms | 1,8 ms | 0,10 | −13 ms |
 | 7 (tablet) | 20,4 ms | 2,4 ms | 0,12 | −13 ms |
 | 8 (desktop) | 21,6 ms | 1,7 ms | 0,08 | −12 ms |
+| 9 (desktop) | 26,1 ms | 1,0 ms | 0,04 | −12 ms |
 
-- Die **Uhr ist messbar enger**: in den acht Läufen 11–33 ms gegen 1,4–2,4 ms. Das Verhältnis liegt zwischen 0,05 (Lauf 5) und 0,13 (Lauf 4): in sieben von acht Läufen
+- Die **Uhr ist messbar enger**: in den neun Läufen 11–33 ms gegen 1,0–2,4 ms. Das Verhältnis liegt zwischen 0,04 (Lauf 9) und 0,13 (Lauf 4): in acht von neun Läufen
   unter einem Achtel (0,125), in Lauf 4 knapp darüber, in allen unter einem Siebtel (0,14). Der Test verlangt nur weniger als 0,4. Bei 40 mm/s sind das für die
-  Browser-Uhr 0,4–1,3 mm Streuung, für die Pi-Uhr 0,06–0,10 mm.
+  Browser-Uhr 0,4–1,3 mm Streuung, für die Pi-Uhr 0,04–0,10 mm.
 - **Die fertige Karte ist bei diesem Weg nicht messbar enger.** Die Bilder werden an ihrer Überlappung eingepasst; die Uhr gibt nur den Startwert und das
   Suchfenster (±(2 + 0,06 · Tempo) mm entlang des Streifens, bei 40 mm/s ±4,4 mm). Solange der Fehler der Uhr darin bleibt – hier die Streuung der Browser-Uhr von 0,4–1,3 mm –,
-  ist das Ergebnis dasselbe. Belegt ist das mit Lauf 8, den einzigen Zahlen dazu, die hier stehen: beide Karten fanden alle Punkte der Tafel wieder, eingepasst wurden
-  17 von 17 (Browser-Uhr) und 18 von 18 Bildern (Pi-Uhr), nichts musste nachgeholt werden. Gegen die Karte eines Scans mit Halt lagen die Punkte der Browser-Karte im
-  Mittel 0,033 mm daneben, schlimmstenfalls 0,093 mm, die der Pi-Karte 0,020 und 0,051 mm. Der Unterschied (0,013 mm im Mittel, 0,042 mm im schlechtesten Punkt)
-  liegt unter dem, was die Einpassung auflöst (etwa 0,1 mm), und ist aus einem Lauf kein Beleg für eine genauere Pi-Karte. Für die Läufe 1 bis 7 steht in den
+  ist das Ergebnis dasselbe. Belegt ist das mit den Läufen 8 und 9, den einzigen Zahlen dazu, die hier stehen: beide Karten fanden alle Punkte der Tafel wieder, eingepasst wurden
+  jedes Mal 17 von 17 (Browser-Uhr) und 18 von 18 Bildern (Pi-Uhr), nichts musste nachgeholt werden. Gegen die Karte eines Scans mit Halt lagen die Punkte der Browser-Karte im
+  Mittel 0,033 mm (Lauf 9: 0,025 mm) daneben, schlimmstenfalls 0,093 mm (0,079 mm), die der Pi-Karte 0,020 (0,020) und 0,051 mm (0,048 mm). Der Unterschied (Lauf 8: 0,013 mm im Mittel, 0,042 mm im
+  schlechtesten Punkt; Lauf 9: 0,005 und 0,031 mm) liegt unter dem, was die Einpassung auflöst (etwa 0,1 mm), und ist aus zwei Läufen kein Beleg für eine genauere Pi-Karte. Für die Läufe 1 bis 7 steht in den
   Protokollen von damals, beide Karten lagen gleich nah (im Mittel 0,02–0,04 mm, schlimmstenfalls 0,11 mm); diese Zahlen sind nicht in der Tabelle und nicht
   noch einmal nachgeprüft. Der Test verlangt für beide Uhren: mindestens 90 % der Punkte wiedergefunden, schlimmstenfalls unter 0,5 mm, im Mittel unter 0,2 mm, mindestens
   75 % der Bilder eingepasst – er prüft nicht, dass die Pi-Karte besser wäre.
 - Wo die Uhr zählt, ist **ein Weg, der so ungleichmäßig ist, dass das Suchfenster nicht mehr reicht**: Tempo „Schnell“ (56 mm/s), Weg 100–500 ms – 400 ms
-  Unterschied sind bei dem Tempo bis zu 22 mm, das Fenster ist ±5,4 mm. Der Lauf dieser Überarbeitung (einer): Browser-Uhr 73 ms Zeitrauschen, 16 von 17 Bildern eingepasst, nicht aufgegeben,
-  schlechtester Punkt 0,108 mm; Pi-Uhr 2,2 ms, 18 von 18 eingepasst, schlechtester Punkt 0,069 mm. In den früheren Läufen (nach den Protokollen von damals, nicht
+  Unterschied sind bei dem Tempo bis zu 22 mm, das Fenster ist ±5,4 mm. Die zwei Läufe dieser Überarbeitung (8, 9): Browser-Uhr 73 und 80 ms Zeitrauschen, 16 von 17 und 15 von 18 Bildern eingepasst, nicht aufgegeben,
+  schlechtester Punkt 0,108 und 0,128 mm (im zweiten Lauf wurde einer der Punkte der Tafel nicht wiedergefunden: 99 %); Pi-Uhr 2,2 ms in beiden, jedes Mal 18 von 18 eingepasst, schlechtester Punkt
+  0,069 und 0,073 mm. In den früheren Läufen (nach den Protokollen von damals, nicht
   noch einmal nachgeprüft) hatte die Browser-Uhr in drei Läufen 78, 123 und 79 ms Zeitrauschen und gab einmal die Fahrt auf (5 von 12 Bildern eingepasst, der Rest
   mit Halt nachgeholt), die Pi-Uhr 2 ms mit 18 von 18 Bildern; ein vierter früher Lauf („tablet“, vor einer Änderung am Test): die Browser-Uhr gab auf, 136 ms. Das sind
   wenige Läufe; sie zeigen die Richtung – die Browser-Uhr streut hier 73–136 ms, die Pi-Uhr etwa 2 ms –, keine Zahl, auf die man sich stützt.
 - Die **Verzögerung** auf der Uhr des Pi ist klein und **negativ**: −12 bis −13 ms in der Tabelle. Das sind die 12 ms, die der Simulator der Meldung zwischen Messen und
   Stempel zugibt (± 4 ms Rauschen), plus höchstens 1 ms. Auf der Uhr des Browsers ist sie keine feste Zahl, sie hängt vom Weg ab: 213 ms bei dem Weg von 60–180 ms
-  (Lauf 8, „Normal“) und 30 ms bei dem Weg von 100–500 ms (der Lauf dieser Überarbeitung im Test darüber, „Schnell“) – die Kamera ist 0,30–0,34 s zu spät, und der Weg der Meldungen (im Mittel
+  (Lauf 8, „Normal“; Lauf 9: 211 ms) und 30 ms bei dem Weg von 100–500 ms (der Lauf 8 im Test darüber, „Schnell“; Lauf 9: 0 ms) – die Kamera ist 0,30–0,34 s zu spät, und der Weg der Meldungen (im Mittel
   120 bzw. 300 ms) zieht das ab. Auf der Uhr des Pi steckt weder das eine noch das andere darin. Deshalb darf die Verzögerung auf der Uhr des Pi unter null gelernt
   werden (`PI_LAG_LIMITS`).
 - Die Auswertung (`scripts/analyze-scan.py`) einer bei dieser Überarbeitung aufgezeichneten Fahrt auf der Uhr des Pi (Weg 60–180 ms, „Normal“; drei Läufe in der Datei: der Probelauf mit 12 mm/s und zwei Streifen) sagt aus der Datei: Verzögerung aus den
@@ -282,12 +284,12 @@ ist der nach der Überarbeitung (Projekt „desktop“, ebenfalls neben einem an
   wird auf der Uhr des Pi nicht für eine weggefallene Uhr gehalten (`e2e`: ein Lauf, beide Streifen gefahren). Das Fenster wird mit dem neuesten Bild geprüft; die App
   hält den Abstand der Bilder zwischen den Fahrten kurz, damit das neueste frisch ist.
 - **Der Strom wird nach den Fahrten geschlossen** (`e2e`, ein Scan mit zwei Streifen auf der Uhr des Pi): die Seite sah im Test alle 10 ms nach, ob der Strom des simulierten Pi offen ist.
-  Er war offen, solange Streifen zu fahren waren (2606 von 2606 Blicken), und in den 31 Blicken danach – letzte Auswertung und Nachholen – geschlossen; wo die Uhr
-  im ersten Lauf wegfiel und der ganze Bereich mit Halt ging, war er in allen 733 Blicken während der Bilder mit Halt geschlossen.
+  Er war offen, solange Streifen zu fahren waren (2606 von 2606 Blicken; im zweiten Durchlauf 2594 von 2594), und in den 31 (32) Blicken danach – die Auswertung des letzten Streifens, und ein Nachholen mit Halt, falls es eines gab (ob in diesen Läufen, ist nicht festgehalten) – geschlossen; wo die Uhr
+  im ersten Lauf wegfiel und der ganze Bereich mit Halt ging, war er in allen 733 (746) Blicken während der Bilder mit Halt geschlossen.
 
 **Was damit nicht gezeigt ist.** Das Versprechen, die Uhr des Pi bringe die Bilder auf „wenige Millisekunden“ genau, ist nicht gemessen und wird hier nicht
-gemacht: gemessen ist nur, dass das Zeitrauschen auf der Uhr des Pi (1,4–2,4 ms) bei einem Weg zur Seite von 60–180 ms und einer Kamera, die 0,30–0,34 s zu spät
-zeigt, um das 8- bis 21-Fache unter dem der Browser-Uhr liegt (11–33 ms) – im Simulator, mit angenommenen Zahlen, und weil der Simulator genau diese Anteile in die Zeit
+gemacht: gemessen ist nur, dass das Zeitrauschen auf der Uhr des Pi (1,0–2,4 ms) bei einem Weg zur Seite von 60–180 ms und einer Kamera, die 0,30–0,34 s zu spät
+zeigt, um das 8- bis 26-Fache unter dem der Browser-Uhr liegt (11–33 ms) – im Simulator, mit angenommenen Zahlen, und weil der Simulator genau diese Anteile in die Zeit
 der Seite gelegt und aus dem Stempel herausgehalten hat; das Raster des Bildschirms (16 ms = 0,8 mm bei 50 mm/s) liegt auf der Uhr des Pi nicht mehr in der Zeit
 (so ist es gebaut), ist aber nicht einzeln gemessen. Auf einer echten Maschine bleibt stehen, **was im Stempel selbst steckt**:
 

@@ -702,7 +702,7 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   panel** names the clock of the last scan in strips and why not the Pi's (`lastClock`) **in words** (`lib/clockText.ts`: a German sentence for
   each reason at the choice, other sentences for a clock that went away mid-scan – "not connected through the Pi" is not true then –, the
   stream's failure code as a cause, `no-decode` as "the pictures cannot be made into pixels", the stamp's header as "capture time of the camera
-  driver" …; the raw code or header is shown only beside it, small; `test/clockText.test.ts` reads `StampedFailure` from the source so a new code
+  driver" …; the raw code or header is shown only beside it, in the mono face at the panel's own 14 px – DESIGN.md §7 knows no smaller text; `test/clockText.test.ts` reads `StampedFailure` from the source so a new code
   needs a sentence), and has the exposure of the camera (this device's, kept with mode and tempo under `lowrider-control.scan`, 0 = unknown):
   `maxSpeedForBlur` caps `stripSpeed` at 0.3 mm of blur, and where that is below 5 mm/s (the lag cannot be learned slower) the scan goes by
   stops and says so – **and the panel's estimate is then the by-stops one** (the same test, `stripSpeed(tempo) < MIN_LAG_SPEED`, in `scanArea`
