@@ -130,6 +130,8 @@ export interface StampedOptions {
   probeFrames?: number;
   /** Limits of the parser */
   parser?: MjpegOptions;
+  /** Called with the stream before it is opened: whoever opened it can close it while the server has not answered yet */
+  onCreate?: (stream: StampedStream) => void;
 }
 
 /**
@@ -457,6 +459,7 @@ export async function openStampedStream(
   options: StampedOptions = {},
 ): Promise<StampedStream> {
   const stream = new StampedStream(options);
+  options.onCreate?.(stream);
   await stream.open(streamUrl);
   return stream;
 }

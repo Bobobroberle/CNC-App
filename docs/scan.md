@@ -106,12 +106,16 @@ letzten Scans in Fahrt“, im Protokoll und in der Aufzeichnung):
 | --- | --- |
 | *die Meldungen kommen ohne Zeitstempel des Pi* | die Steuerung ist nicht über den Pi verbunden, oder der Companion ist älter und stempelt nicht (`relay`) |
 | *die Kamera ist kein Stream des Pi* | Gerätekamera, oder keine Stream-Adresse eingestellt (`device`) |
-| *der Stream lässt sich nicht mit Zeitstempeln lesen* | der Server antwortet nicht, lässt die Seite nicht lesen (CORS), liefert nichts oder nichts mit Stempel, oder dieser Browser liest keinen Datenstrom (`stream`, dahinter der Fehlercode) |
+| *der Stream lässt sich nicht mit Zeitstempeln lesen* | der Server antwortet nicht, lässt die Seite nicht lesen (CORS), liefert nichts oder nichts mit Stempel, dieser Browser liest keinen Datenstrom, oder er kann aus den Bildern keine Pixel machen (`stream`, dahinter der Fehlercode, bei Letzterem `no-decode`) |
 | *die Stempel der Bilder liegen in einer anderen Uhr* | der Stempel des Bildes liegt mehr als 3 s neben dem der letzten Meldung in derselben Uhr, z. B. weil der Kameratreiber mit einer anderen Uhr stempelt (`window`) |
 
 Wo gar kein Pi zur Verbindung gehört (Steuerung direkt, kein Companion eingestellt), steht kein Grund da: es gibt nichts zu erklären. Fällt die Uhr
 des Pi **während** des Scans weg (der Strom reißt ab, die Stempel laufen aus dem Fenster), hört die Fahrt vor dem nächsten Streifen auf, ohne
-zu fahren; der Rest wird mit Halt gescannt, und die Fahrt gilt deswegen nicht als „auf diesem Tisch ungeeignet“.
+zu fahren; der Rest wird mit Halt gescannt, und die Fahrt gilt deswegen nicht als „auf diesem Tisch ungeeignet“. Das gilt auch für den ersten,
+langsamen Probelauf: reißt der Strom in ihm ab oder verlieren die Meldungen ihren Stempel, bleibt „Fahrt ungeeignet“ (`stripsBad`) aus, und der ganze
+Bereich wird mit Halt gescannt. Ein Bild wird schon bei der Wahl der Uhr einmal in Pixel verwandelt – klappt das nicht, bleibt es bei der Uhr
+des Browsers, bevor sich etwas bewegt (sonst bekäme der Probelauf keine Bilder und der Tisch bekäme die Schuld). „Scan abbrechen“ beendet auch das Öffnen
+des Streams sofort (eine Kamera, die nur einen Client bedient, lässt es sonst Sekunden warten); danach fährt der Scan nichts mehr.
 
 Was gelernt wird (die Verzögerung der Bilder), gehört zur Uhr, auf der es gelernt wurde: ein Scan auf einer anderen Uhr als der davor misst neu (ein
 kurzer, langsamer Probelauf, wie bei einem Kamerawechsel). Auf der Uhr des Pi ist die Verzögerung klein und kann **negativ** sein: die Meldung
@@ -157,6 +161,10 @@ Was daran sicher ist, und was nicht:
 - Welche ustreamer-Version auf deinem Pi läuft, weiß die App nicht; sie nimmt, was da ist. Und ob ein Safari auf dem iPad den Stream
   stückweise lesen lässt (`fetch` mit Datenstrom), ist hier nicht geprüft – wenn nicht, meldet der Baustein „nicht verfügbar“ mit einem Grund (`no-body-stream`, `unreachable` …); die Fahrt geht
   dann wie bisher mit der Uhr des Browsers, und das Panel sagt es („der Stream lässt sich nicht mit Zeitstempeln lesen“, mit dem Fehlercode).
+- Geprüft wird bei der Wahl der Uhr **ein** Bild: lässt es sich in Pixel verwandeln? Ein Strom, dessen erstes Bild sich dekodieren lässt und die späteren nicht,
+  fällt dabei nicht auf – der Probelauf bekommt dann wenige Bilder und gilt als „Tisch ungeeignet“ (`stripsBad`), wie bei einem Tisch ohne Struktur.
+  Ob echte JPEGs von ustreamer in diesem Browser über `createImageBitmap` laufen, ist hier nur am Simulator (`undecodable`) geprüft, nicht mit einem
+  echten Browser und Strom.
 
 **Zwei Befehle auf dem Pi** (per SSH), die sagen, was deine Kamera wirklich schickt:
 

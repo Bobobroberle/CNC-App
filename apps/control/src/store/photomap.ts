@@ -87,7 +87,7 @@ import {
   tracing,
   useScanTrace,
 } from './scanTrace';
-import { MIN_FRAME_SPACING_S, openStampedStream } from './stampedFrames';
+import { MIN_FRAME_SPACING_S, openStampedStream, type StampedStream } from './stampedFrames';
 import { useWorkshop, type CameraSettings } from './workshop';
 
 /** Why no picture can go onto the map right now (null = it can) */
@@ -932,10 +932,27 @@ function clockFacts(): ClockFacts {
   };
 }
 
-/** Waits for the first picture of a source, or until it fails or `ms` have passed */
+/** Waits for the first picture of a source, or until it fails, the scan is cancelled or `ms` have passed */
 async function firstPicture(source: FrameSource, ms: number) {
   const until = performance.now() + ms;
-  while (source.ok && source.frames().length === 0 && performance.now() < until) await wait(20);
+  while (source.ok && source.frames().length === 0 && !cancelled && performance.now() < until)
+    await wait(20);
+}
+
+/**
+ * The stamped stream of the scan that is being opened – only while the camera server has not answered. A camera that
+ * serves one client leaves the opening waiting for seconds, so `cancelScan` closes this one: the opening ends at once
+ * instead of the scan waiting to look at its Cancel.
+ */
+let opening: StampedStream | null = null;
+
+/** Whether pixels can be made of the newest picture the stream kept – asked once, before the scan commits to the Pi's clock */
+async function picturesDecode(source: FrameSource): Promise<boolean> {
+  const newest = source.frames().at(-1);
+  const drawable = newest ? await source.decode(newest) : null;
+  const read = drawable ? readFrame(drawable) : null;
+  releaseDrawable(drawable);
+  return read !== null;
 }
 
 /**
@@ -948,17 +965,31 @@ async function chooseScanClock(): Promise<{ clock: ScanClock; source: FrameSourc
   const blocked = clockBlocker(clockFacts());
   if (blocked) return { clock: blocked, source: null };
   const simulated = isSimulatorAddress(useMachine.getState().url);
-  const source = simulated
-    ? simulatorFrameSource()
-    : await openStampedStream(useWorkshop.getState().settings.camera.streamUrl);
+  let source: FrameSource | null;
+  if (simulated) {
+    source = simulatorFrameSource();
+    if (source) await firstPicture(source, SIM_FIRST_PICTURE_MS);
+  } else {
+    try {
+      source = await openStampedStream(useWorkshop.getState().settings.camera.streamUrl, {
+        onCreate: (stream) => (opening = stream),
+      });
+    } finally {
+      opening = null;
+    }
+  }
   if (!source) return { clock: { kind: 'browser', reason: 'stream' }, source: null };
-  if (simulated) await firstPicture(source, SIM_FIRST_PICTURE_MS);
-  const clock = clockFromStream({
+  const facts = {
     ok: source.ok,
     reason: source.reason,
     frame: source.frames().at(-1)?.stamp ?? null,
     reportStamp: useMachine.getState().statusStamp,
-  });
+  };
+  let clock = clockFromStream(facts);
+  // The stamps fit – but a run needs pixels of these pictures, or it would offer the solver none and the table would be
+  // blamed (`stripsBad`) for what the browser cannot do: one picture is made into pixels now, before anything moves.
+  if (clock.kind === 'pi')
+    clock = clockFromStream({ ...facts, decodable: await picturesDecode(source) });
   if (clock.kind !== 'pi') {
     source.close();
     return { clock, source: null };
@@ -1187,6 +1218,8 @@ async function runStrip(
 }> {
   const { moveMachine, jogMachine } = useMachine.getState();
   const cal = useWorkshop.getState().settings.camera;
+  // the hop is the first thing a strip sends: a scan cancelled before it sends nothing
+  if (cancelled) return { end: 'cancelled', work: null, prior: null };
   if (timing) {
     // the clock is checked before anything moves: a strip that cannot be told apart is not run
     const lost = clockGone(timing);
@@ -1404,6 +1437,13 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
     // the scatter of each run that said, put together at the end; the Pi's stamped pictures stay open for the scan
     const noises: { ms: number; count: number }[] = [];
     let timing: PiTiming | null = null;
+    // whether a clock was chosen for this scan (a scan cancelled while that was going on used none)
+    let clockChosen = false;
+    // The Pi's clock went away: said once, and the scan goes on by stops – never blamed on the table (`stripsBad`)
+    const clockWentAway = (why: ClockReason) => {
+      stats.clockLost = why;
+      addLog('info', t('photomap.clockLost', { why: t(`photomap.clockWhy.${why}`) }));
+    };
     // One picture at a stop – the way an area is scanned picture by picture, and what fills the gaps of strips.
     const stopAt = async (p: Point) => {
       // The picture is laid down where the status report says the machine stands:
@@ -1427,30 +1467,37 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
         // The clock is chosen once for the scan, all or nothing (`chooseScanClock`): reports and pictures both on the
         // Pi's, or both on the browser's – and what was learned of the lag belongs to the clock it was learned on.
         const chosen = await chooseScanClock();
-        useClockLag(chosen.clock);
-        stats.clock = chosen.clock.kind;
-        if (chosen.clock.kind === 'pi') {
-          timing = { clock: chosen.clock, source: chosen.source! };
-          stats.stamp = { domain: chosen.clock.domain, source: chosen.clock.source };
-        } else if (chosen.clock.reason) {
-          stats.clockReason = chosen.clock.reason;
-          stats.clockDetail = chosen.clock.detail ?? null;
-          // said once: a Pi is there and its clock was not used – and why
-          addLog(
-            'info',
-            t('photomap.clockFallback', { why: t(`photomap.clockWhy.${chosen.clock.reason}`) }),
-          );
+        if (cancelled) {
+          // Cancelled while the stream was opening: nothing was sent, no clock was used – and a stream that was closed
+          // for that is no reason to tell the operator about
+          chosen.source?.close();
+        } else {
+          clockChosen = true;
+          useClockLag(chosen.clock);
+          stats.clock = chosen.clock.kind;
+          if (chosen.clock.kind === 'pi') {
+            timing = { clock: chosen.clock, source: chosen.source! };
+            stats.stamp = { domain: chosen.clock.domain, source: chosen.clock.source };
+          } else if (chosen.clock.reason) {
+            stats.clockReason = chosen.clock.reason;
+            stats.clockDetail = chosen.clock.detail ?? null;
+            // said once: a Pi is there and its clock was not used – and why
+            addLog(
+              'info',
+              t('photomap.clockFallback', { why: t(`photomap.clockWhy.${chosen.clock.reason}`) }),
+            );
+          }
+          traceClock(chosen.clock.kind);
+          traceNote('clock', {
+            clock: chosen.clock.kind,
+            domain: chosen.clock.kind === 'pi' ? chosen.clock.domain : null,
+            source: chosen.clock.kind === 'pi' ? chosen.clock.source : null,
+            reason: chosen.clock.kind === 'browser' ? chosen.clock.reason : null,
+            detail: chosen.clock.kind === 'browser' ? (chosen.clock.detail ?? null) : null,
+          });
         }
-        traceClock(chosen.clock.kind);
-        traceNote('clock', {
-          clock: chosen.clock.kind,
-          domain: chosen.clock.kind === 'pi' ? chosen.clock.domain : null,
-          source: chosen.clock.kind === 'pi' ? chosen.clock.source : null,
-          reason: chosen.clock.kind === 'browser' ? chosen.clock.reason : null,
-          detail: chosen.clock.kind === 'browser' ? (chosen.clock.detail ?? null) : null,
-        });
       }
-      if (strips && ok && !lagKnown) {
+      if (strips && ok && !cancelled && !lagKnown) {
         // A short slow run first: it measures the lag of the pictures and shows whether this table has anything to
         // fit them by – if not, the whole scan goes by stops and has cost seconds, not minutes.
         const first = strips[0]!;
@@ -1469,11 +1516,7 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
         );
         if (r.end === 'clockLost') {
           // the Pi's clock went away before the first run: the whole area goes by stops, and strips are not given up on
-          stats.clockLost = r.lost ?? 'stream';
-          addLog(
-            'info',
-            t('photomap.clockLost', { why: t(`photomap.clockWhy.${stats.clockLost}`) }),
-          );
+          clockWentAway(r.lost ?? 'stream');
           strips = null;
         } else if (r.end !== 'done') {
           ok = false;
@@ -1485,10 +1528,17 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
           stats.detail.push(res);
           if (res.noise) noises.push(res.noise);
           if (!cancelled && (!lagKnown || poor(res) || res.placed < 4)) {
-            set({ stripsBad: true });
-            stats.gaveUp = true;
+            // Too few pictures to fit: the table may give too little – or the Pi's clock left during the run (the stream
+            // dropped, the reports lost their stamp) and the pictures that were kept say nothing of the table.
+            const gone = timing ? clockGone(timing) : null;
+            if (gone) {
+              clockWentAway(gone);
+            } else {
+              set({ stripsBad: true });
+              stats.gaveUp = true;
+              addLog('info', t('photomap.stripsGiveUp'));
+            }
             strips = null;
-            addLog('info', t('photomap.stripsGiveUp'));
           }
         }
       }
@@ -1504,11 +1554,7 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
           if (r.end === 'clockLost') {
             // Never a mixture: the runs stop, what is left of the area goes by stops (the gaps are filled below) –
             // and strips are not blamed: the next scan may well have its clock
-            stats.clockLost = r.lost ?? 'stream';
-            addLog(
-              'info',
-              t('photomap.clockLost', { why: t(`photomap.clockWhy.${stats.clockLost}`) }),
-            );
+            clockWentAway(r.lost ?? 'stream');
             break;
           }
           if (r.end === 'gaveUp') {
@@ -1586,7 +1632,7 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       set({
         scan: null,
         // the panel says which clock a scan that used one ran on – a scan with stops used none
-        ...(stats.mode === 'strips'
+        ...(stats.mode === 'strips' && clockChosen
           ? {
               lastClock: {
                 clock: stats.clock,
@@ -1610,6 +1656,8 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
 
   cancelScan() {
     cancelled = true;
+    // a scan that is still waiting for the camera server's answer stops waiting
+    opening?.close();
   },
 }));
 

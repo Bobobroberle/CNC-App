@@ -105,6 +105,27 @@ describe('what an opened stream decides', () => {
       reason: 'relay',
     });
   });
+
+  it('is the browser\'s clock with "stream" and "no-decode" where the stamps fit but the pictures cannot be made into pixels', () => {
+    const fits = { ok: true, frame: frame(123_456.7), reportStamp: REPORT };
+    expect(clockFromStream({ ...fits, decodable: false })).toEqual({
+      kind: 'browser',
+      reason: 'stream',
+      detail: 'no-decode',
+    });
+    // asked and fine, or not asked at all (the caller asks only where the rest says Pi): the Pi's clock
+    expect(clockFromStream({ ...fits, decodable: true }).kind).toBe('pi');
+    expect(clockFromStream(fits).kind).toBe('pi');
+    // the other reasons come first: pictures that cannot be read are not what is wrong with a clock that does not fit
+    expect(clockFromStream({ ...fits, frame: frame(1_779_800_000.1), decodable: false })).toEqual({
+      kind: 'browser',
+      reason: 'window',
+    });
+    expect(clockFromStream({ ...fits, reportStamp: null, decodable: false })).toEqual({
+      kind: 'browser',
+      reason: 'relay',
+    });
+  });
 });
 
 describe('the name of a clock and the seconds of a stamp', () => {

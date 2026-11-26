@@ -407,6 +407,34 @@ describe('opening the stream', () => {
     expect(second).toMatchObject({ ok: false, reason: 'closed' });
     expect(p.cancelled).toBe(true);
   });
+
+  it('hands the stream to whoever opens it before it is open, so that Cancel can end an opening the server does not answer', async () => {
+    let aborted = false;
+    const waiting: FetchLike = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init!.signal!.addEventListener('abort', () => {
+          aborted = true;
+          reject(new DOMException('aborted', 'AbortError'));
+        });
+      });
+    let handed: StampedStream | null = null;
+    const opened = openStampedStream('x', {
+      fetch: waiting,
+      // a long deadline: only the close below can end the opening in time
+      responseTimeoutMs: 60_000,
+      onCreate: (stream) => (handed = stream),
+    });
+    // the handle exists at once, while the opening still waits
+    expect(handed).not.toBeNull();
+    expect(handed!.ok).toBe(true);
+    await tick();
+    handed!.close();
+    const stream = await opened;
+    expect(aborted).toBe(true);
+    expect(stream).toBe(handed);
+    // closed on purpose: it says so, not "no response"
+    expect(stream).toMatchObject({ ok: false, reason: 'closed' });
+  });
 });
 
 describe('collecting pictures while the stream runs', () => {

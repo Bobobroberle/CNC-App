@@ -91,6 +91,11 @@ export interface StreamFacts {
   reportStamp: RelayStamp | null;
   /** How far apart the two may lie (`STAMP_WINDOW_S`) */
   windowS?: number;
+  /**
+   * Whether a picture of the stream could be made into pixels by this browser (false: it could not – a run would offer the
+   * solver no pictures and the table would be blamed). Undefined: not asked, which the caller does only where the rest says Pi.
+   */
+  decodable?: boolean;
 }
 
 /** What an opened stream decides: the Pi's clock where its stamps fit the reports', else the browser's with the reason. */
@@ -103,6 +108,8 @@ export function clockFromStream(facts: StreamFacts): ScanClock {
   if (!facts.reportStamp) return { kind: 'browser', reason: 'relay' };
   if (!domainFits(facts.frame, facts.reportStamp, facts.windowS))
     return { kind: 'browser', reason: 'window' };
+  // stamps that fit, and pictures that cannot be read: the browser's own picture of the camera can
+  if (facts.decodable === false) return { kind: 'browser', reason: 'stream', detail: 'no-decode' };
   return { kind: 'pi', domain: facts.frame.domain, source: facts.frame.source };
 }
 

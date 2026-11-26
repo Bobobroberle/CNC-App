@@ -79,6 +79,8 @@ export interface PiClockSetup {
   frameClockOffsetMs?: number;
   /** `mono` (a grab time: `X-UStreamer-Grab-Time`, the default) or `wall` (the time of sending: `X-Timestamp`) */
   frameDomain?: StampDomain;
+  /** true: this browser cannot make pixels of the pictures (a JPEG it cannot decode, no `createImageBitmap`) – the stamps are fine (default false) */
+  undecodable?: boolean;
 }
 
 export function piClock(): PiClockSetup | undefined {
@@ -868,6 +870,7 @@ class SimulatedFrames implements FrameSource<SimFrame> {
   }
 
   async decode(frame: SimFrame): Promise<Drawable | null> {
+    if (piClock()?.undecodable) return null;
     const picture = document.createElement('canvas');
     picture.width = SIM_CAMERA.width;
     picture.height = SIM_CAMERA.height;
