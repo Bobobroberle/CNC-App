@@ -677,8 +677,11 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   and gave a picture (`stream`, with the failure code in `clockDetail` – never an address) **and** the newest picture's stamp lies within
   `STAMP_WINDOW_S` (3 s) of the newest report's in the same clock (`window`: a driver that stamps with another clock); otherwise the scan
   runs on the browser's clock and says why (`ScanStats.clockReason`, the log, the panel) – and no reason where no Pi is part of the
-  connection. A stream that dies or leaves the window **during** the scan stops the runs before the next strip moves (`clockLost`; the
-  refill by stops covers the rest, `stripsBad` is not set). **The lag is per clock** (`lagClock`): a scan on another clock than the last
+  connection. A stream that dies or leaves the window **during** the scan stops the runs before the next strip moves (`clockLost` in
+  `lib/scanClock.ts`, asked at the start of every strip; the refill by stops covers the rest, `stripsBad` is not set). **It compares the newest
+  kept picture, so that one must be fresh**: a run keeps pictures `every` seconds apart (3.6 s at 5 mm/s – more than the 3 s window), so when
+  the run is over the stream's spacing goes back to `MIN_FRAME_SPACING_S`; a newest picture older than `STALE_PICTURE_MS` is a stopped
+  stream (`stream`), not a clock that left (`window`). **The lag is per clock** (`lagClock`): a scan on another clock than the last
   one forgets it and measures again (also on a change of camera source or stream, as before); the Pi's first guess is 0 and its limits
   are `PI_LAG_LIMITS` (−0.5 … 1.5 s) because a report is stamped when the Pi *received* it, a little after FluidNC measured, so the lag
   between the two stamps can be below zero. `ScanStats` says `clock`, `clockReason`, `clockLost`, `stamp`, and `timingNoiseMs` – the spread

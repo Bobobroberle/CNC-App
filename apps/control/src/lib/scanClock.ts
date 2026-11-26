@@ -157,3 +157,37 @@ export function pooledNoise(strips: readonly { ms: number; count: number }[]): n
   if (count === 0) return null;
   return Math.sqrt(strips.reduce((sum, s) => sum + s.count * s.ms ** 2, 0) / count);
 }
+
+/**
+ * How old the newest picture of the stream may be when the clock is checked between two strips, ms (page time): a stream
+ * that has delivered nothing for this long is a stream that stopped, whatever its last stamp said.
+ */
+export const STALE_PICTURE_MS = 5000;
+
+export interface HoldFacts {
+  /** The stream of stamped pictures is still alive */
+  streamOk: boolean;
+  /** The stamp of the newest report (null: it came without one) */
+  reportStamp: RelayStamp | null;
+  /** The newest picture the stream kept, with its stamp and when the page got it (null: none kept yet) */
+  newest: { stamp: FrameStamp; arrival: number } | null;
+  /** The page's clock now, ms (`performance.now()`) */
+  nowMs: number;
+  windowS?: number;
+  staleMs?: number;
+}
+
+/**
+ * Whether the Pi's clock still holds between two strips, or why it does not: the stream ended (`stream`), the reports lost
+ * their stamp (`relay`), the newest picture is a stale one – the stream stopped delivering (`stream`) – or its stamp left the
+ * window around the newest report's (`window`: the Pi's clock was set, a driver changed its mind). Null while it holds, and where
+ * there is no picture yet to compare. **The newest picture must be a fresh one** – the caller keeps the stream's spacing short
+ * between the runs – or a slow run's long spacing would be mistaken for a clock that went away.
+ */
+export function clockLost(facts: HoldFacts): ClockReason | null {
+  if (!facts.streamOk) return 'stream';
+  if (!facts.reportStamp) return 'relay';
+  if (!facts.newest) return null;
+  if (facts.nowMs - facts.newest.arrival > (facts.staleMs ?? STALE_PICTURE_MS)) return 'stream';
+  return domainFits(facts.newest.stamp, facts.reportStamp, facts.windowS) ? null : 'window';
+}

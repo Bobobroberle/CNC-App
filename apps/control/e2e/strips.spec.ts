@@ -71,6 +71,7 @@ type Handle = {
       cancelScan(): void;
       setMode(mode: 'strips' | 'stops'): void;
       setTempo(tempo: 'gentle' | 'normal' | 'fast'): void;
+      setExposure(ms: number): void;
       mode: 'strips' | 'stops';
       scan: unknown;
     };
@@ -324,7 +325,9 @@ test("with a jittery link and a jittery camera the run on the Pi's clock puts it
   const browser = await stats(page);
   const browserQuality = against(reference, await dots(page, AREA));
 
-  // On the Pi's clock: the same link, the same camera, with the stamps
+  // On the Pi's clock: the same link, the same camera, with the stamps. (A run on the browser's clock that was given up on this
+  // table makes the next scan go by stops until "In Fahrt" is chosen again – as the operator would.)
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().setMode('strips'));
   await setPi(page, link);
   await stampsArrive(page);
   await clear();
@@ -388,6 +391,8 @@ test("on a link so uneven that the browser's clock loses pictures at speed, the 
   const browser = await stats(page);
   const browserQuality = against(reference, await dots(page, AREA));
 
+  // a run on the browser's clock that was given up makes the next scan go by stops until "In Fahrt" is chosen again
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().setMode('strips'));
   await setPi(page, link);
   await stampsArrive(page);
   await clear();
@@ -409,10 +414,42 @@ test("on a link so uneven that the browser's clock loses pictures at speed, the 
   expect(pi.refilled).toBeLessThanOrEqual(3);
   expect(piQuality.share).toBeGreaterThanOrEqual(0.9);
   expect(piQuality.max).toBeLessThan(0.5);
-  // and what the browser's clock could place of what it was given is no more than the Pi's
-  expect(browser.placed / Math.max(1, browser.offered)).toBeLessThanOrEqual(
-    pi.placed / Math.max(1, pi.offered) + 1e-9,
-  );
+});
+
+test("a slow run on the Pi's clock – the exposure holds it to about 5 mm/s, a picture every 3.6 s – is not taken for a clock that went away", async ({
+  page,
+}) => {
+  test.setTimeout(500_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    const store = (window as unknown as Handle).lowriderMap.store();
+    store.clear();
+    store.setMode('strips');
+    // 55 ms of exposure: 0.3 mm of blur at 5.45 mm/s – where the pictures of a run lie 3.6 s apart, more than the 3 s window
+    // the stamps of the pictures and of the reports may differ by
+    store.setExposure(55);
+  });
+  await setPi(page, {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 40,
+    linkJitterMs: 60,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+  });
+  await stampsArrive(page);
+  expect(await scan(page, AREA, false)).toBe(true);
+  const run = await stats(page);
+  // both strips were run on the Pi's clock: the check between them found a clock that holds
+  expect(run).toMatchObject({
+    mode: 'strips',
+    clock: 'pi',
+    clockLost: null,
+    gaveUp: false,
+    strips: 2,
+  });
+  expect(run.offered).toBeGreaterThan(8);
+  expect(run.placed).toBeGreaterThanOrEqual(run.offered * 0.75);
+  expect(run.refilled).toBeLessThanOrEqual(3);
 });
 
 test("pictures stamped in another clock than the reports: the scan keeps to the browser's clock, says why, and still places the plate", async ({

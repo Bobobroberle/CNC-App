@@ -4,10 +4,13 @@ import {
   clockBlocker,
   clockFromStream,
   clockKey,
+  clockLost,
   pickStripFrames,
   pooledNoise,
   reportSeconds,
+  STALE_PICTURE_MS,
   type ClockFacts,
+  type HoldFacts,
   type PickOptions,
 } from '../src/lib/scanClock';
 import { PositionTrack } from '../src/lib/strips';
@@ -201,5 +204,51 @@ describe('the scatter of a whole scan', () => {
 
   it('is nothing where no strip could say', () => {
     expect(pooledNoise([])).toBeNull();
+  });
+});
+
+describe("whether the Pi's clock still holds between two strips", () => {
+  // the newest picture the stream kept: stamped on the Pi's clock, 0.3 s before the newest report, got by the page a moment ago
+  const holds: HoldFacts = {
+    streamOk: true,
+    reportStamp: REPORT,
+    newest: {
+      stamp: { domain: 'mono', t: 123_456.489, source: 'x-ustreamer-grab-time' },
+      arrival: 99_900,
+    },
+    nowMs: 100_000,
+  };
+
+  it('does, with a fresh picture on the same clock – and where there is no picture to compare yet', () => {
+    expect(clockLost(holds)).toBeNull();
+    expect(clockLost({ ...holds, newest: null })).toBeNull();
+  });
+
+  it('does not where the stream ended, or the reports lost their stamp – the stream first', () => {
+    expect(clockLost({ ...holds, streamOk: false })).toBe('stream');
+    expect(clockLost({ ...holds, reportStamp: null })).toBe('relay');
+    expect(clockLost({ ...holds, streamOk: false, reportStamp: null })).toBe('stream');
+  });
+
+  it("does not where the newest stamp left the window: the Pi's clock was set, or the driver changed its mind", () => {
+    const away = { ...holds.newest!.stamp, t: 123_460.1 };
+    expect(clockLost({ ...holds, newest: { ...holds.newest!, stamp: away } })).toBe('window');
+    expect(
+      clockLost({ ...holds, newest: { ...holds.newest!, stamp: away }, windowS: 5 }),
+    ).toBeNull();
+    // a stamp in the other clock altogether
+    const wall = { domain: 'mono' as const, t: 1_779_800_000.4, source: 'x-ustreamer-grab-time' };
+    expect(clockLost({ ...holds, newest: { ...holds.newest!, stamp: wall } })).toBe('window');
+  });
+
+  it('does not where the newest picture is a stale one: a stream that stopped, not a clock that left', () => {
+    const old = { ...holds.newest!, arrival: 100_000 - STALE_PICTURE_MS - 1 };
+    expect(clockLost({ ...holds, newest: old })).toBe('stream');
+    expect(
+      clockLost({ ...holds, newest: { ...old, arrival: 100_000 - STALE_PICTURE_MS } }),
+    ).toBeNull();
+    expect(clockLost({ ...holds, newest: old, staleMs: 10_000 })).toBeNull();
+    // a picture the page will only get shortly (the simulator's camera lag) is not stale
+    expect(clockLost({ ...holds, newest: { ...holds.newest!, arrival: 100_300 } })).toBeNull();
   });
 });

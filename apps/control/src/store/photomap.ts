@@ -35,6 +35,7 @@ import {
   clockBlocker,
   clockFromStream,
   clockKey,
+  clockLost,
   pickStripFrames,
   pooledNoise,
   reportSeconds,
@@ -1049,17 +1050,15 @@ interface PiTiming {
   source: FrameSource;
 }
 
-/**
- * Why the Pi's clock is gone, or null while it holds: the stream of pictures ended or was closed, the reports lost their
- * stamp, or the newest picture's stamp left the window around the newest report's (the Pi's clock was set, a driver
- * changed its mind). Asked before a strip moves anything.
- */
-function clockLost(timing: PiTiming): ClockReason | null {
-  if (!timing.source.ok) return 'stream';
-  const report = useMachine.getState().statusStamp;
-  if (!report) return 'relay';
-  const newest = timing.source.frames().at(-1)?.stamp;
-  return newest && !domainFits(newest, report) ? 'window' : null;
+/** Why the Pi's clock is gone, or null while it holds (`clockLost` in `lib/scanClock.ts`) – asked before a strip moves anything. */
+function clockGone(timing: PiTiming): ClockReason | null {
+  const newest = timing.source.frames().at(-1);
+  return clockLost({
+    streamOk: timing.source.ok,
+    reportStamp: useMachine.getState().statusStamp,
+    newest: newest ? { stamp: newest.stamp, arrival: newest.arrival } : null,
+    nowMs: performance.now(),
+  });
 }
 
 /**
@@ -1140,6 +1139,9 @@ function stampedCollector(timing: PiTiming, el: CameraPicture, plan: RunPlan): C
       running = false;
       off();
       stopPolling();
+      // The run is over: the stream keeps its pictures close again, so that the newest is a fresh one when the clock is checked
+      // before the next strip (a slow run's spacing is seconds – and a stale newest picture looks like a clock that left)
+      source.setMinSpacing(MIN_FRAME_SPACING_S);
     },
     harvest() {
       // chosen now, before the next strip clears the ring; decoded after, while the machine hops on
@@ -1187,7 +1189,7 @@ async function runStrip(
   const cal = useWorkshop.getState().settings.camera;
   if (timing) {
     // the clock is checked before anything moves: a strip that cannot be told apart is not run
-    const lost = clockLost(timing);
+    const lost = clockGone(timing);
     if (lost) return { end: 'clockLost', work: null, prior: null, lost };
   }
   const first = stripPoint(strip, strip.from);
