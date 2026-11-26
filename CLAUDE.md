@@ -13,7 +13,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
 - `pnpm e2e` – Playwright UI tests (builds and previews `apps/control`); projects `tablet`, `desktop` and
   `ipad` (touch tests in `e2e/ipad.spec.ts`, real multi-touch through CDP; the two-sided flow on the
   simulator in `e2e/flip.spec.ts`, series and jigs in `e2e/series.spec.ts` / `e2e/jigs.spec.ts`, the quick search in
-  `e2e/find.spec.ts`,
+  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
+  `e2e/select.spec.ts` (and `e2e/ipad.spec.ts` for touch),
   parts cut in sections on the simulator's long board in `e2e/sections.spec.ts`, the areas of the work –
   the start, its confirmations, the overrides, a lost connection – in `e2e/steps.spec.ts`, the jog
   panel, the bottom sheet at 800 × 600, Service & Diagnose, the message centre and the phone in
@@ -311,8 +312,25 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   when the finger lets go, one step of undo), `placing` (the mode "Stege setzen": ends by itself when the part is no longer the selected
   one, no longer by hand, or gone) – all through `remember` + `update`, so the job lock holds; `update` prunes places on contours a part no
   longer has (a grid made smaller) and places that stand on another's (`pruneTabs`) so the store never holds what the file reader refuses,
-  `moveTab`/`dragTab` put a tab dropped on another back. In the list of a drawing **only one row of a selected group holds the tab panel**
-  (a file's contours come in as one group): the first with tabs on, or the one asked for by ticking its box or "Stege einstellen". Gesture (only while `placing`; otherwise the
+  `moveTab`/`dragTab` put a tab dropped on another back. **The panel of a part's tabs opens on demand only and is the one thing in the list that
+  grows, so that selecting never changes the height of a row** (it used to open under the first ticked part and push every row below it away by
+  ~380 px – a hold of the ticked row cannot keep what lies below it): every row that has tabs on (`item.tabs`, an outside or inside cut) shows
+  the outline button "Stege einstellen" (`cam-tabs-open`, 48 px, `data-find="cam-tabs-open"`) **whether or not it is selected**; the panel (`CamTabs`)
+  opens for one row when that button is tapped, when the "Haltestege" box of the row is ticked on, or while "Stege setzen" is on, and has its own
+  "Schließen" (`cam-tabs-close`, 48 px, which ends `placing` too). **One place says which panel is open:** `useCam.tabsOpen` (an item id) with
+  `openTabs(id)` – selects the part's group alone *and* opens, in one `set` (the subscription below must not see the two apart; it ends
+  `placing` on another part) –, `closeTabs()` and `setPlacing(id)` (which opens the panel of that part as well). A subscription ends `tabsOpen` like it ends
+  `placing`: the part is no longer the one selected alone, its tabs are off, it is hidden or it is gone (undo does not bring a panel back);
+  `close()` resets it. **The button that opened the panel is gone with the tap, so a panel opened low in the list is brought into view**: `CamTabs` (a passive
+  effect on mount – the row's layout effect has held its head by then) calls `scrollIntoView({ block: 'nearest' })` on the panel **only where its head (name and "Schließen")
+  lies outside the visible part of the list, or under the sticky head of the workspace**; where the head is in view nothing moves, so the tap on the "Haltestege" box is not
+  taken from under the finger (the panel's `data-find` brings `scroll-margin-top`, which stops it below the sticky head; the CAM has no dock). `test/camTabsPanel.test.tsx`
+  holds the rule with measured boxes, `e2e/tabs.spec.ts` measures `inReach` of "Schließen" for a row at the bottom of the list – by the button and by the box – at tablet size and
+  in the 800 × 600 sheet. The old "one row of a group holds it / the first with tabs on" rule and its "Stege einstellen" move button are gone: each row
+  of a file's group has its own button. `e2e/tabs.spec.ts` measures every row's height through selecting, ticking, picking on the table, drawing a shape and
+  Mehrfachauswahl; `e2e/arrange.spec.ts` ticks rows 1, 2, 3 at **places worked out before the first tick** (a mouse click at a point – a locator would scroll
+  to the box again and never show a row that moved; on the machine's small screen, where three rows do not fit, the distances between them are held).
+  Gesture (only while `placing`; otherwise the
   table behaves as ever): a tap within 24 px of the part's line sets a tab at the nearest place (and returns its undo, being a tap), a tab is
   taken through the view's `grab` (`yields`), dragged along the line, and **`ViewGrab.tap` – called after `end`, only for a finger that went
   down and up on the spot – removes it**; the part's handles and its own dragging step aside meanwhile. The table shows `data-drawing-tabs`
@@ -324,7 +342,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `normalise`: none is null, one is the number – so every reader of a single group, `typeof selected === 'number'`, keeps its meaning).
   `isSelected` is the one test "is this thing selected"; `toggleGroup` (**a registration hole is never one of several: touching it selects it
   alone; `'all'` becomes the list of the part groups before one is taken out**), `invertGroups` (parts only), `unitsSelected` and `pruneSelection`
-  (what `update` uses to drop groups that are gone – the one place) are pure. **Input needs no modifier key:** `useCam.multi` is the
+  (what `update` uses to drop groups that are gone – the one place) are pure. **Input needs no modifier key** (and on a computer takes one – see "Shift/Ctrl + tap" below): `useCam.multi` is the
   "Mehrfachauswahl" checkbox in `CamArrange` (a mode of the screen – not a step of undo, off at `close`); while on, a tap (`host.tap` →
   `pick`) takes the part's group in or out and a tap beside everything keeps the set; in `TableView.grab` a press on a part's line **never goes
   through `pick` then** – on a member it takes the whole selection along (`ViewGrab.tap`, only for a finger that never moved, lets go of that
@@ -332,8 +350,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   current set (or of `'all'`) as it is, so a finger takes the whole set; a tap beside everything still lets go. A row of the list has a checkbox
   (`cam-pick`, its label is the 48 px target; `toggleSelect`) that works with or without the mode; the row's name still picks that part alone;
   "Alles auswählen" (`selectAll`, Ctrl/Cmd+A) and "Auswahl umkehren" (`invertSelection`) are in the selection state. **Not built, on purpose**
-  (in `docs/merkliste.katalog.mjs` as `cam-sel8`…`cam-sel12`): Umschalt/Strg+Tipp (no modifiers in `usePanZoom`), a rubber band, keys for
-  group and align, aligning to the stock or the table. **The unit of arranging is a group, rigid**: `unitsOf(items)` (registration holes
+  (in `docs/merkliste.katalog.mjs` as `cam-sel10`…`cam-sel12`): keys for group and align, aligning to the stock or the table. (Shift/Ctrl + tap, the
+  rubber band and the eye are built – the next paragraphs.) **The unit of arranging is a group, rigid**: `unitsOf(items)` (registration holes
   left out) gives group + the box of all its parts (`itemsBounds`: a circle by its true radius, a turned part by its turned outline).
   `alignDeltas(units, edge)` moves every unit to the box of the whole selection (left, centre, right, top, middle, bottom; y up, so top is the
   larger y; the unit furthest out stays; fewer than two units: nothing); `distributeDeltas(units, axis, mode)` needs three, orders by the
@@ -356,13 +374,71 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   **A ticked row stays where the finger put it** (`ItemRow`, `useLayoutEffect` on `selected`: the row's place on the screen is read before the
   toggle and, after the commit, `.panel-body.scrollTop` is moved by the difference – assigned, not `scrollTo({ behavior: 'instant' })`, whose value an older Safari rejects; nothing in the styles makes a scroll smooth – the small card of "nothing selected" becoming the
   whole one and the align panel coming and going would otherwise take the next box from under the finger; Safari has no scroll anchoring, and
-  Chrome's did not hold it either, measured). What is still moved is whatever lies _below_ the ticked row: the tab panel of a part picked alone
-  opens under its row (the tabs work) and goes with the second tick. **Quick search** entries `camMulti`, `camSelectAll`, `camInvert`, `camAlign`,
+  Chrome's did not hold it either, measured). What lies _below_ the ticked row no longer moves with a tick either: the tab panel opens on demand only (above). **The hold covers every tap of a row that
+  changes the selection or the cards above the list** – its box, its name, "Stege einstellen" (from nothing selected the card of the selection appears above the list; from a set the
+  align panel goes), the "Haltestege" box and **the eye** (`hold()` in `ItemRow`; the layout effect runs on the whole selection *and on this row's `hidden`*, not on this row's box only,
+  because a part that stays selected can still change the cards above it – a part of a selected set hidden leaves one to align, so the align panel goes, and shown it
+  comes back, with the selection unchanged; Safari has no scroll anchoring and Chrome's held it by chance, so `e2e/hide.spec.ts` turns `overflow-anchor` off to measure the app's own hold) – measured with a mouse click at a measured point in `e2e/tabs.spec.ts`
+  (a locator's click scrolls to the control again after the place was taken). **Quick search** entries `camMulti`, `camSelectAll`, `camInvert`, `camAlign`,
   `camDistribute`, `camGroup`, `camUngroup` each carry a chain ending in `cam-draw`, the card that is there with nothing drawn (`cam-select-all`
   and `cam-invert` are the buttons themselves; `test/camArrangePanel.test.tsx` and `e2e/find.spec.ts` follow the chain in an empty drawing,
   with one part and with several). **Project file: no change** – the group is a whole number per thing and `openProject` raises the counter above the file's
   (`test/camArrangeProject.test.ts`). Tests: `camSelect`, `camArrange` (hand-checked boxes), `camArrangeStore` (steps, two-sided holes),
   `camArrangeRunning` (a job under way), `camArrangePanel` (the buttons, the header, the held row, the folded panel, the search chains), `e2e/arrange.spec.ts` (the row measured on the screen at tablet size and in the 800 × 600 sheet), one touch case in `e2e/ipad.spec.ts`.
+  **Shift/Ctrl + tap** (`lib/gesture.ts`: `Modifiers { shift, ctrl }`, `additive(modifiers)`; `usePanZoom`): a computer takes a part in or out of the selection
+  with Shift, or Ctrl/Cmd, held on a tap, without the switch "Mehrfachauswahl". **The gesture layer passes the keys to the host – nothing changes where
+  none is held:** `PanZoomHost.tap(p, kind, modifiers?)` (the keys as the finger *lifted*, `PanZoom.up(…, modifiers)`) and `StageViewHost.grab(p, kind,
+  modifiers?)` (as it *came down*) get a third argument **only when Shift, Ctrl or Cmd is down** (a host or a test written without it is called with two
+  arguments as ever; `test/gesture.test.ts`, `test/viewGrab.test.tsx` hold that); Ctrl on the mouse *wheel* (a trackpad pinch) stays what it was.
+  **One code path:** `TableView` computes `more = additive(modifiers)` and uses it exactly where it asks `cam.multi` – the grab branch of "Mehrfachauswahl"
+  (a press on a member carries the whole set, on a non-member a tap takes it in and a drag takes it in and carries all) and `tapDrawing` (the one place for
+  what a tap does: tabs by hand, `cam.pick`, a tap beside lets go – kept by `more`) – and passes it to `pick(point, tolerance, inside, additive)`, which
+  reads `get().multi || additive`; **`useCam.multi` is never flipped by a key** (its hint would show). A handle of the selected part is still taken first.
+  The key sheet lists it (`lib/shortcuts.ts`: rows `camTapAdd`, `camBandAdd` with caps `tap`/`drag`, **`pointer: true` = no key event** – `keys: []`, so no clash
+  with a key; `jogWheel` is such a row too – `test/shortcuts.test.ts` holds the three).
+  **The rubber band – "Rahmen aufziehen"** (`useCam.marquee`, `MarqueeSwitch` in `CamArrange`, `data-find="cam-marquee"`; a mode of the screen like `multi`: no step of
+  undo, off at `close`; **in force only where its switch can be seen** – `frameOn` in `TableView`: not while the series flow is open, which replaces the
+  cards and the switch with them, and not with nothing drawn): with it on **a drag from anywhere on the table draws a dashed frame** (the painter's `drawingMarquee`, the selection colour,
+  plain `--stage-*` colours; `data-drawing-marquee` for the tests) and **on release** `selectRect(rect, add)` selects the groups of the visible parts whose *own* box the frame
+  touches (`itemsInRect`/`groupsInRect` in `lib/camSelect.ts`, hand-checked: an edge counts, a circle by its true radius, a turned part by its turned outline,
+  registration holes and hidden parts never, a group by a part of it the frame meets – not by its union box; mode `inside` is there for a frame that must hold
+  a part whole, the app uses `touch`). **Anywhere, not only on empty table** – decided: with the mode on, nothing is moved by a drag (no handle, no part, no tab),
+  which is also why it is safe; a tap is still a tap (`ViewGrab.tap` → `tapDrawing`). It **adds** to the selection where "Mehrfachauswahl" is on or Shift/Ctrl
+  is held as the frame is started (`addGroups`: list order), else it replaces it; a frame that touches nothing lets go of the selection, an added one changes
+  nothing. The two switches combine, they do not exclude each other: Mehrfachauswahl says what a tap and a frame do to the set, the frame says what a drag does.
+  Gesture: the grab yields (a second finger lets go of it; if the frame had not moved yet the two fingers pinch the view), `ViewGrab.end(lifted?)` is told
+  `true` only for a finger that was lifted – **a second finger, a lost touch (`pointercancel`) and leaving the app end the frame without selecting** (`usePanZoom`
+  passes `lifted` only then) – and `ViewGrab.move(p, finger?)` gets where the finger really is, so the corner of the frame is under the finger (a dragged part
+  starts from where the finger left the tap slop, a corner that did would lag by the first step). **What is lost while the mode is on:** one finger/the mouse no
+  longer pans (two fingers, the wheel and "Einpassen" do), a double tap does not fit (the grab takes every press; it does not reach `host.doubleTap`), and
+  the mode is off while tabs are put by hand (`placing`). Tests: `camHidden` (rectangles), `camHiddenStore` (`selectRect`), `e2e/select.spec.ts` (mouse), `e2e/ipad.spec.ts` (real touch: one finger, a second
+  finger before and after the frame moved, a lost touch, a pinch).
+  **Hiding parts – the eye** (`CamItem.hidden?: true`, `setHidden(id, hidden)`, `showAll()`; the eye is in the head of every row, `cam-eye`, 48 px, `data-find="cam-hide"`):
+  a hidden part is **not cut** (`generate` skips it inside `side()` and the cuts of the two-sided check – the array is not filtered, `row` stays the list's
+  number – so the program does not mention it at all, and shown again is the program of before **byte for byte**), is drawn on the table **faint and dashed**
+  in the muted colour (`drawingHidden`, never red; `data-drawing-hidden` = the boxes), is **out of a finger's reach** (`itemAt` skips it: tap, grab and the
+  hover cursor), has no tab marks (`itemTabMarks`), no "loose" warning (`looseContours`/`tabsMissing`), is out of the series motif and of its text lookup,
+  proposes **no registration holes** (`withHoles` takes the box of the parts in sight – with every part hidden the box of all of them, so hand-placed holes are
+  not thrown away and showing a part again brings them back), counts for no flip note (`backUsed`, `cuts`, `checkSides` read the parts in sight) and ends the tab
+  panel and `placing`. Its "Stege einstellen" is closed with a reason (`cam.hide.noTabs`; removing it would change the row's height). It stays in the list: the row is **set apart, never faded** (a dashed outline and no fill, like the part on the table, a word, "ausgeblendet", and the eye-off icon; the name is cut
+  short on one line there, so the row keeps its height). **No `opacity` anywhere in it** – at 0.7 the text fell to 4.5–7:1 and the controls (still operable) to 4.46:1 in the light theme's
+  selected row, below DESIGN.md §7's 7:1 and 4.5:1 – and the word is `--foreground`, not `--muted-foreground` (3.6:1 on the selected fill; `--muted-foreground` is held only at 4.5:1 on the
+  page, cards and popovers); `test/theme.test.ts` reads `rooms.css` for it and holds `--foreground` at 7:1 on `--muted` and `--input`, `e2e/hide.spec.ts` measures the opacity of what is in the row, can be ticked and selected, edited and shown again. **Selecting:** "Alles auswählen"/Ctrl+A, "Auswahl umkehren"
+  and `selectAll` leave out a **wholly hidden group** – `everything(items)` (`lib/camSelect.ts`) is `'all'` while none is, else the list of the groups with a
+  part in sight (and the registration holes with them; nothing in sight is nothing), and **the store never keeps `'all'` beside a wholly hidden group**
+  (`pruneSelection`, which `update` calls, converts it – hiding while everything is selected takes the part out of it – and `select('all')` goes through it),
+  or a move, a copy or a delete of "everything" would reach what the operator cannot see; a group ticked in the list is selected whatever it is.
+  **Decision – a group is rigid, hidden parts and all:** aligning and spreading work on `unitsOf(inSight(chosen))` – a group is aligned by the box of its parts in
+  sight, a group of hidden parts alone is no unit and **does not move with a selection that holds it** – but a group that holds hidden and visible parts moves
+  as one: `arrangeBy` shifts every part of the group, the hidden ones keep their place in it and stay hidden, and so do move, turn, scale, copy, delete. The align panel counts the
+  units in sight. Nothing in sight: `generate` takes the job off the stage like an empty drawing (`offStage`, never under a running job – `ahead` is set
+  instead, and **cleared again when the part is shown and the program is the one that lies there**) and the card says "Alle Teile sind ausgeblendet" with the hand-over
+  closed and its reason. **"Alle einblenden" and that note are below the list, never above it** (what the eye just tapped must not move away from the finger). Each switch
+  is **its own step of undo** (`remember()` without a `field`: hide, show, hide are three steps; `showAll` is one). **Project file:** optional boolean `hidden`,
+  written only when `true` (`withHidden` drops the key – the store never holds `hidden: false`), read strictly like `climb` – a non-boolean or a hidden registration hole
+  is `invalid-project` –, `false` reads as no key, version 1 unchanged, an old file opens as it was. Tests: `camHidden` (pure), `camHiddenStore` (program, undo,
+  selection, align, rigid group, two-sided holes and notes, project), `camHiddenRunning` (a job under way), `camHiddenPanel` (the row, the note, the quick-search
+  chains), `camPickAdditive`, `e2e/hide.spec.ts`.
   **Every other way to load, replace or take off the program goes through the central lock**
   in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived`, `unload` and
   `restoreOriginal` do nothing while a job is under way, say why (`job.locked`, its own message group `jobLocked`)

@@ -89,6 +89,10 @@ export interface Scene {
   drawing?: Path2D | null;
   /** What of it is cut from the back of a two-sided part (drawn as seen from the front): dashed */
   drawingBack?: Path2D | null;
+  /** The parts that are hidden (not cut): faint and dashed, in the muted colour – never the colour of a fault */
+  drawingHidden?: Path2D | null;
+  /** The frame a finger is drawing across the table ("Rahmen aufziehen"), work XY: dashed, in the selection colour */
+  drawingMarquee?: Extent | null;
   /** The line a two-sided part is turned over: from x/y to x/y, work XY */
   flipLine?: readonly [number, number, number, number] | null;
   /** The part of it that is selected for arranging, with the box around it */
@@ -405,10 +409,12 @@ export function drawTable(
     | 'fixtures'
     | 'drawing'
     | 'drawingBack'
+    | 'drawingHidden'
     | 'flipLine'
     | 'drawingSelected'
     | 'drawingTabs'
     | 'drawingTabsGrip'
+    | 'drawingMarquee'
     | 'sections'
   >,
   c: Colors,
@@ -468,6 +474,16 @@ export function drawTable(
     ctx.lineWidth = px(1);
     ctx.stroke(scene.drawing);
   }
+  if (scene.drawingHidden) {
+    // A part the eye has hidden: still seen where it lies, but faint and dashed – it is not cut
+    ctx.strokeStyle = c.axis;
+    ctx.globalAlpha = 0.75;
+    ctx.lineWidth = px(1);
+    ctx.setLineDash([px(2), px(4)]);
+    ctx.stroke(scene.drawingHidden);
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
   if (scene.drawingBack) {
     // The back, seen through the part: dashed, like a hidden edge in a drawing.
     ctx.strokeStyle = c.tool;
@@ -504,6 +520,18 @@ export function drawTable(
     ctx.setLineDash([]);
   }
   if (scene.drawingTabs?.length) drawTabs(ctx, vp, scene.drawingTabs, !!scene.drawingTabsGrip, c);
+  if (scene.drawingMarquee) {
+    // The frame of the selection being drawn: a light wash and a dashed line in the selection colour
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = c.live;
+    ctx.fillRect(...box(scene.drawingMarquee));
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = c.live;
+    ctx.lineWidth = px(1.5);
+    ctx.setLineDash([px(6), px(4)]);
+    ctx.strokeRect(...box(scene.drawingMarquee));
+    ctx.setLineDash([]);
+  }
   ctx.setTransform(vp.dpr, 0, 0, vp.dpr, 0, 0);
 }
 

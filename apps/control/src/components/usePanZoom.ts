@@ -1,5 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { PanZoom, TAP_SLOP, type PanZoomHost, type Point, type PointerKind } from '../lib/gesture';
+import {
+  PanZoom,
+  TAP_SLOP,
+  type Modifiers,
+  type PanZoomHost,
+  type Point,
+  type PointerKind,
+} from '../lib/gesture';
 import { holdStart } from '../lib/holds';
 
 /** One wheel notch zooms by this factor */
@@ -7,10 +14,18 @@ const WHEEL_STEP = 1.2;
 
 /** Something lying on the view that a finger has taken hold of. */
 export interface ViewGrab {
-  /** The finger is at `p` now (CSS px inside the view) */
-  move(p: Point): void;
-  /** The finger let go, or the touch was lost */
-  end(): void;
+  /**
+   * The finger is at `p` now (CSS px inside the view) – less the way it went inside the tap slop, so a thing that
+   * follows it starts without a jump. `finger` is where the finger really is, for a thing that is drawn to it
+   * (the corner of a frame).
+   */
+  move(p: Point, finger?: Point): void;
+  /**
+   * The finger let go, or the touch was lost. `lifted` is `true` only for a finger that was lifted – not for a
+   * second finger that took the grab away, a lost touch or the app being left (it is not passed then): a thing
+   * that is only decided by letting go (a frame drawn across the table) must not be decided by those.
+   */
+  end(lifted?: boolean): void;
   /**
    * The finger went down on the thing and came up again on the spot, never moving it: called after
    * `end`, and only then – not when a second finger or a lost touch ends the grab. How a thing that
@@ -30,9 +45,10 @@ export interface StageViewHost extends PanZoomHost {
   /**
    * Asked when a finger comes down alone: a thing under it (a measured point,
    * a clamp) that should follow the finger instead of the view. A grab is
-   * never a tap and never moves the view.
+   * never a tap and never moves the view. `modifiers` is there only when Shift or Ctrl was held as it
+   * came down.
    */
-  grab?(p: Point, kind: PointerKind): ViewGrab | null;
+  grab?(p: Point, kind: PointerKind, modifiers?: Modifiers): ViewGrab | null;
 }
 
 /**
@@ -51,7 +67,8 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
     write: (t) => latest.current.write(t),
     limits: () => latest.current.limits(),
     size: () => latest.current.size(),
-    tap: (p, kind) => latest.current.tap?.(p, kind),
+    tap: (p, kind, modifiers) =>
+      modifiers ? latest.current.tap?.(p, kind, modifiers) : latest.current.tap?.(p, kind),
     doubleTap: (p) => latest.current.doubleTap?.(p),
     grabbed: (how) => latest.current.grabbed?.(how),
   });
@@ -65,6 +82,11 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
     };
     const kind = (e: PointerEvent): PointerKind =>
       e.pointerType === 'mouse' ? 'mouse' : e.pointerType === 'pen' ? 'pen' : 'touch';
+    // Shift, and Ctrl or Cmd: only given on where one is held (the wheel's own Ctrl – a pinch – is not asked)
+    const modifiers = (e: PointerEvent): Modifiers | undefined =>
+      e.shiftKey || e.ctrlKey || e.metaKey
+        ? { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey }
+        : undefined;
     // A thing on the view that follows one finger; the view rests meanwhile.
     let drag: {
       id: number;
@@ -81,7 +103,8 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
       if (!d) return;
       drag = null;
       d.release();
-      d.grab.end();
+      if (lifted) d.grab.end(true);
+      else d.grab.end();
       // Down and up on the spot, never past the slop: a tap on the thing
       if (lifted && d.offset === null) d.grab.tap?.();
     };
@@ -111,7 +134,13 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
         pz.down(e.pointerId, p, e.timeStamp, kind(e));
         return;
       }
-      const grab = pz.touching === 0 ? latest.current.grab?.(p, kind(e)) : null;
+      const keys = modifiers(e);
+      const grab =
+        pz.touching === 0
+          ? keys
+            ? latest.current.grab?.(p, kind(e), keys)
+            : latest.current.grab?.(p, kind(e))
+          : null;
       if (grab) {
         pz.stop();
         // Like everything that is held: let go when the app loses the operator.
@@ -136,14 +165,14 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
           if (Math.hypot(p.x - drag.start.x, p.y - drag.start.y) <= drag.slop) return;
           drag.offset = { x: p.x - drag.start.x, y: p.y - drag.start.y };
         }
-        drag.grab.move({ x: p.x - drag.offset.x, y: p.y - drag.offset.y });
+        drag.grab.move({ x: p.x - drag.offset.x, y: p.y - drag.offset.y }, p);
         return;
       }
       pz.move(e.pointerId, local(e), e.timeStamp);
     };
     const up = (e: PointerEvent) => {
       if (drag?.id === e.pointerId) endDrag(true);
-      else pz.up(e.pointerId, local(e), e.timeStamp);
+      else pz.up(e.pointerId, local(e), e.timeStamp, modifiers(e));
     };
     const cancel = (e: PointerEvent) => {
       if (drag?.id === e.pointerId) endDrag();

@@ -105,7 +105,16 @@ import {
   tabValues,
   type TabValue,
 } from '../lib/camTabs';
-import { groupsOf, invertGroups, normalise, pruneSelection, toggleGroup } from '../lib/camSelect';
+import {
+  addGroups,
+  everything,
+  groupsInRect,
+  groupsOf,
+  invertGroups,
+  normalise,
+  pruneSelection,
+  toggleGroup,
+} from '../lib/camSelect';
 import { fixturesInWork } from '../lib/clamps';
 import { textBlockCentre } from '../lib/series';
 import { inViewSpot } from '../lib/tableBox';
@@ -222,6 +231,13 @@ interface CamStore {
    */
   multi: boolean;
   setMulti(on: boolean): void;
+  /**
+   * "Rahmen aufziehen" is on: a finger or the mouse drawn across the table draws a rectangle that takes the
+   * parts it touches on release. A mode of the screen like `multi` – not a step of the drawing – and it is
+   * off when the drawing is closed. It adds to the selection like `multi` does (or Shift/Ctrl held).
+   */
+  marquee: boolean;
+  setMarquee(on: boolean): void;
   /** Starts an empty drawing (or keeps the open one) */
   open(): void;
   close(): void;
@@ -270,6 +286,14 @@ interface CamStore {
   clear(): void;
   setItem(id: number, patch: ItemPatch): void;
   /**
+   * The eye of a part: hidden, it is not cut (the program does not mention it), drawn faint and dashed,
+   * out of a finger's reach and out of "everything" – and the drawing is made anew. Each switch is its
+   * own step of undo. A registration hole cannot be hidden; nothing happens where it is so already.
+   */
+  setHidden(id: number, hidden: boolean): void;
+  /** Every hidden part shown again, as one step */
+  showAll(): void;
+  /**
    * Own values for the holding tabs of a thing – a number, or undefined to take the drawing's default
    * again; a number is brought into its range (the count into whole numbers). Changes of one value
    * in a row are one step to undo.
@@ -298,10 +322,31 @@ interface CamStore {
    * when the thing is no longer selected, no longer has its tabs by hand, or is gone.
    */
   placing: number | null;
+  /** Starts ("Stege setzen") or ends putting tabs; starting it opens the thing's panel of tabs */
   setPlacing(id: number | null): void;
+  /**
+   * The thing whose panel of tabs is open in the list, or null. The panel opens only on demand
+   * (`openTabs`: "Stege einstellen", the box of the tabs ticked on, putting tabs by hand) and
+   * ends by itself like `placing`: when the thing is no longer the one selected, has no tabs any
+   * more, or is gone. Opening it never changes the height of any other row.
+   */
+  tabsOpen: number | null;
+  /** Selects the thing's group alone and opens its panel of tabs, in one step; nothing for a thing without tabs */
+  openTabs(id: number): void;
+  /** Closes the panel of tabs – and ends putting tabs by hand with it */
+  closeTabs(): void;
   select(selected: Selection): void;
-  /** Everything selected (the registration holes of a two-sided part with it) */
+  /**
+   * Everything selected (the registration holes of a two-sided part with it) – except the parts that are
+   * hidden, which it leaves out (`everything`).
+   */
   selectAll(): void;
+  /**
+   * What a rectangle on the table (work mm) takes: the groups of the visible parts whose box it touches
+   * – replacing the selection, or (`add`) added to it. A rectangle that touches nothing lets go of the
+   * selection; an added one changes nothing. Not a step of undo: only the selection changes.
+   */
+  selectRect(rect: Bounds, add: boolean): void;
   /** Every group of the parts that is not selected, and none of those that are */
   invertSelection(): void;
   /**
@@ -315,9 +360,15 @@ interface CamStore {
    * what has a line under the finger. What is selected already stays selected
    * (everything, or the several that are picked: a finger on one takes them all);
    * with "Mehrfachauswahl" on, a tap on a part takes it in or lets go of it.
-   * Returns whether there was something.
+   * Returns whether there was something. `additive` is Shift or Ctrl held on a computer: the tap
+   * behaves as with "Mehrfachauswahl" on, without touching the switch.
    */
-  pick(point: { x: number; y: number }, tolerance: number, inside?: boolean): boolean;
+  pick(
+    point: { x: number; y: number },
+    tolerance: number,
+    inside?: boolean,
+    additive?: boolean,
+  ): boolean;
   /**
    * The selection follows a finger: `move` shifts it by a distance from where
    * it lay – its lower left corner landing on a grid of `step` mm, if given –
@@ -569,6 +620,15 @@ export function ownsTable(fileName: string | null): boolean {
   return names !== null && (fileName === names.single || fileName === names.front);
 }
 
+/** The items that are not hidden. */
+const inSight = (items: readonly CamItem[]) => items.filter((i) => i.hidden !== true);
+
+/** The item hidden or shown: the key is only ever there as `true`. */
+function withHidden(item: CamItem, hidden: boolean): CamItem {
+  const { hidden: _was, ...rest } = item;
+  return hidden ? { ...rest, hidden: true } : rest;
+}
+
 /** A text flipped in place, so it reads right on the other side. */
 function mirrored(item: CamItem, axis: FlipAxis): CamItem {
   const b = itemsBounds([item]);
@@ -653,7 +713,11 @@ export const useCam = create<CamStore>((set, get) => {
    */
   const withHoles = (items: CamItem[], two: TwoSided | null) => {
     const parts = partsOf(items);
-    const box = itemsBounds(parts);
+    // The holes follow what is cut: a hidden part proposes none. With every part hidden they stay beside
+    // the parts as they were (an empty box would take hand-placed holes away, and showing a part again
+    // would not bring them back)
+    const seen = parts.filter((i) => i.hidden !== true);
+    const box = itemsBounds(seen.length > 0 ? seen : parts);
     if (!two || !box) return { items: parts, auto: true };
     const tool = toolDiameter(get().settings);
     const d = registrationDiameter(tool);
@@ -859,7 +923,8 @@ export const useCam = create<CamStore>((set, get) => {
     if (!p || made.length === 0) return;
     remember();
     const { settings } = get();
-    const before = p.items.flatMap((i) => i.contours);
+    // (a hidden part is not cut: a circle inside its outline is no hole of anything)
+    const before = p.items.filter((i) => i.hidden !== true).flatMap((i) => i.contours);
     const placed = made.map((m) => place(m.source, m.placement));
     // The first choices look at the whole drawing: a circle in an outline is a hole.
     const fresh = defaultOperations(
@@ -934,11 +999,13 @@ export const useCam = create<CamStore>((set, get) => {
     past: [],
     future: [],
     placing: null,
+    tabsOpen: null,
     settings: initialSettings(),
     problems: [],
     flipNotes: [],
     selected: null,
     multi: false,
+    marquee: false,
     ahead: false,
     table: null,
     open() {
@@ -951,6 +1018,8 @@ export const useCam = create<CamStore>((set, get) => {
         flipNotes: [],
         selected: null,
         multi: false,
+        marquee: false,
+        tabsOpen: null,
         past: [],
         future: [],
         ahead: false,
@@ -1060,7 +1129,8 @@ export const useCam = create<CamStore>((set, get) => {
       const b = ownBox(sketch, made.source);
       if (!b) return missing;
       get().open();
-      const parts = partsOf(get().project!.items);
+      // What it goes on is what is in sight: a hidden part is not the drawing
+      const parts = partsOf(get().project!.items).filter((i) => i.hidden !== true);
       const picked = partsOf(chosen());
       // In the middle of what it goes on (the selected part, else the drawing), or at the work zero.
       const on = itemsBounds(picked.length > 0 ? picked : parts);
@@ -1138,6 +1208,21 @@ export const useCam = create<CamStore>((set, get) => {
           return turned && two ? mirrored(next, two.axis) : next;
         }),
       );
+    },
+    setHidden(id, hidden) {
+      const p = get().project;
+      const item = p?.items.find((i) => i.id === id);
+      if (!p || !item || item.registration !== undefined || (item.hidden === true) === hidden)
+        return;
+      // Its own step each time: hiding, showing and hiding again are three steps (no `field` merges them)
+      remember();
+      update(p.items.map((i) => (i.id === id ? withHidden(i, hidden) : i)));
+    },
+    showAll() {
+      const p = get().project;
+      if (!p?.items.some((i) => i.hidden === true)) return;
+      remember();
+      update(p.items.map((i) => withHidden(i, false)));
     },
     setTabs(id, patch) {
       const keys = (['count', 'width', 'height'] as const).filter((k) => k in patch);
@@ -1248,12 +1333,43 @@ export const useCam = create<CamStore>((set, get) => {
         return { ...item.tabSpec!, at: at.filter((_, i) => i !== index) };
       });
     },
-    setPlacing: (placing) => set({ placing }),
+    // Putting tabs by hand happens in the panel of the thing: it is open then
+    setPlacing: (placing) => set(placing === null ? { placing } : { placing, tabsOpen: placing }),
+    openTabs(id) {
+      const { project, placing } = get();
+      const item = project?.items.find((i) => i.id === id);
+      if (!item || !tabsOn(item)) return;
+      lastField = null;
+      // One step: the selection and the open panel must not be seen apart (the thing ends the panel as soon as it
+      // is no longer the selected one). Putting tabs on another thing ends with the panel that held it.
+      set({
+        selected: item.group,
+        tabsOpen: id,
+        placing: placing === id ? placing : null,
+      });
+    },
+    closeTabs: () => set({ tabsOpen: null, placing: null }),
     setMulti: (multi) => set({ multi }),
+    setMarquee: (marquee) => set({ marquee }),
     select(selected) {
       lastField = null;
-      // A list of groups is one selection like any other: none is nothing, one is that group
-      set({ selected: Array.isArray(selected) ? normalise(selected) : selected });
+      // A list of groups is one selection like any other: none is nothing, one is that group; everything
+      // leaves out what is hidden
+      const items = get().project?.items;
+      set({
+        selected: Array.isArray(selected)
+          ? normalise(selected)
+          : selected === 'all' && items
+            ? everything(items)
+            : selected,
+      });
+    },
+    selectRect(rect, add) {
+      const { project, selected } = get();
+      if (!project) return;
+      const found = groupsInRect(project.items, rect);
+      lastField = null;
+      set({ selected: add ? addGroups(selected, found, project.items) : normalise(found) });
     },
     selectAll() {
       get().select('all');
@@ -1270,8 +1386,10 @@ export const useCam = create<CamStore>((set, get) => {
       lastField = null;
       set({ selected: toggleGroup(selected, group, project.items) });
     },
-    pick(point, tolerance, inside = true) {
-      const { project, selected, multi } = get();
+    pick(point, tolerance, inside = true, additive = false) {
+      const { project, selected } = get();
+      // The switch and the keys are the one way: Shift or Ctrl on a tap does what the switch does
+      const multi = get().multi || additive;
       const hit = project && itemAt(project.items, point, tolerance, inside);
       if (!hit) return false;
       if (multi) {
@@ -1455,11 +1573,13 @@ export const useCam = create<CamStore>((set, get) => {
         }),
       );
     },
+    // A hidden part is left out of aligning and spreading: a group is arranged by the box of its parts in
+    // sight (a group of hidden parts alone stays where it is), and moves rigidly with its hidden parts
     align(edge) {
-      get().arrangeBy(alignDeltas(unitsOf(chosen()), edge));
+      get().arrangeBy(alignDeltas(unitsOf(inSight(chosen())), edge));
     },
     distribute(axis, mode) {
-      get().arrangeBy(distributeDeltas(unitsOf(chosen()), axis, mode));
+      get().arrangeBy(distributeDeltas(unitsOf(inSight(chosen())), axis, mode));
     },
     group() {
       const p = get().project;
@@ -1580,7 +1700,8 @@ export const useCam = create<CamStore>((set, get) => {
     generate(opts) {
       const take = opts?.take === true;
       const { project, settings } = get();
-      const parts = project ? partsOf(project.items) : [];
+      // What is cut: a hidden part is not (the program does not mention it – not even as a part without work)
+      const parts = project ? inSight(partsOf(project.items)) : [];
       if (!project || parts.length === 0) {
         set({ problems: [], flipNotes: [] });
         offStage(take);
@@ -1596,7 +1717,8 @@ export const useCam = create<CamStore>((set, get) => {
         const operations: Operation[] = [];
         const rows: number[] = [];
         project.items.forEach((item, row) => {
-          if (item.registration !== undefined || (which && item.side !== which)) return;
+          if (item.registration !== undefined || item.hidden === true) return;
+          if (which && item.side !== which) return;
           lay(item.contours).forEach((c, k) => {
             operations.push({ contour: contours.length, ...itemOperation(item, settings, k) });
             contours.push(c);
@@ -1703,20 +1825,32 @@ export const useCam = create<CamStore>((set, get) => {
 });
 
 // Putting tabs on the table is a mode: it ends when its conditions go – the thing is no longer the
-// selected one, no longer has its tabs by hand, or is gone (a project closed, undo, a removal).
+// selected one, no longer has its tabs by hand, or is gone (a project closed, undo, a removal). The panel
+// of tabs that is open in the list ends the same way: with the thing no longer the one selected, its tabs
+// off, or the thing gone – it is never left open on a part that is not in the finger's hand.
 useCam.subscribe((s) => {
-  if (s.placing === null) return;
-  const item = s.project?.items.find((i) => i.id === s.placing);
-  if (
-    item &&
-    // One thing alone: with several or everything selected the tabs are not put by hand
-    s.selected === item.group &&
-    tabValues(item, s.settings.tabs).mode === 'manual' &&
-    tabsOn(item)
-  ) {
-    return;
+  if (s.placing !== null) {
+    const item = s.project?.items.find((i) => i.id === s.placing);
+    if (
+      !(
+        item &&
+        // One thing alone: with several or everything selected the tabs are not put by hand
+        s.selected === item.group &&
+        tabValues(item, s.settings.tabs).mode === 'manual' &&
+        tabsOn(item) &&
+        // (a hidden part has no tabs on the table to put by hand)
+        item.hidden !== true
+      )
+    ) {
+      useCam.setState({ placing: null });
+    }
   }
-  useCam.setState({ placing: null });
+  if (s.tabsOpen !== null) {
+    const item = s.project?.items.find((i) => i.id === s.tabsOpen);
+    if (!(item && s.selected === item.group && tabsOn(item) && item.hidden !== true)) {
+      useCam.setState({ tabsOpen: null });
+    }
+  }
 });
 
 // A job that ends – seen while connected, not lost with the link: where nothing lies on the table (a

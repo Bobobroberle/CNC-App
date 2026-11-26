@@ -218,6 +218,9 @@ function itemOf(v: unknown): SavedItem | null {
   if (v.side !== 'front' && v.side !== 'back') return null;
   if (v.depth !== undefined && !within(v.depth, 0.01, MAX_DEPTH)) return null;
   if (v.climb !== undefined && typeof v.climb !== 'boolean') return null;
+  // Hidden is only ever true, and no registration hole is hidden (they are two, and never in the way)
+  if (v.hidden !== undefined && typeof v.hidden !== 'boolean') return null;
+  if (v.hidden === true && v.registration !== undefined) return null;
   const tabSpec = v.tabSpec === undefined ? undefined : tabSpecOf(v.tabSpec, v.source.length);
   if (tabSpec === null) return null;
   if (v.registration !== undefined && v.registration !== 1 && v.registration !== 2) return null;
@@ -238,6 +241,7 @@ function itemOf(v: unknown): SavedItem | null {
     relief: v.relief,
     ...(v.depth !== undefined ? { depth: v.depth } : {}),
     ...(v.climb !== undefined ? { climb: v.climb } : {}),
+    ...(v.hidden === true ? { hidden: true } : {}),
     side: v.side,
     ...(v.registration !== undefined ? { registration: v.registration } : {}),
   };

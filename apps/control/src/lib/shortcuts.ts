@@ -50,6 +50,8 @@ export type Cap =
   | 'pageDown'
   | 'space'
   | 'wheel'
+  | 'tap'
+  | 'drag'
   | (string & {});
 
 export interface Shortcut {
@@ -59,8 +61,13 @@ export interface Shortcut {
   label: MessageKey;
   /** The ways to press it, each a row of key caps */
   caps: readonly (readonly Cap[])[];
-  /** The key events it stands for */
+  /** The key events it stands for – none for a `pointer` row */
   keys: readonly KeySpec[];
+  /**
+   * No key event at all: the mouse (the wheel, a tap or a drag) with keys held, listed for the overview. The
+   * handlers read the pointer event; the table holds no key for it, so it cannot clash with one.
+   */
+  pointer?: true;
   /** Global keys: the command of the quick search it runs, or the search itself */
   runs?: string;
   /** Machine keys: what the key does */
@@ -245,6 +252,33 @@ export const SHORTCUTS: readonly Shortcut[] = [
     keys: [{ key: 'Escape' }],
   },
   {
+    // A tap on a part with Shift or Ctrl held takes it into the selection or out of it – "Mehrfachauswahl" without
+    // the switch (`additive` of `lib/gesture.ts`, read from the pointer event)
+    id: 'camTapAdd',
+    group: 'drawing',
+    scope: 'drawing',
+    label: 'find.keys.camTapAdd',
+    caps: [
+      ['shift', 'tap'],
+      ['mod', 'tap'],
+    ],
+    keys: [],
+    pointer: true,
+  },
+  {
+    // With "Rahmen aufziehen" on, Shift or Ctrl held as the frame is started adds what it touches to the selection
+    id: 'camBandAdd',
+    group: 'drawing',
+    scope: 'drawing',
+    label: 'find.keys.camBandAdd',
+    caps: [
+      ['shift', 'drag'],
+      ['mod', 'drag'],
+    ],
+    keys: [],
+    pointer: true,
+  },
+  {
     id: 'jogXY',
     group: 'drive',
     scope: 'drive',
@@ -276,6 +310,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     label: 'find.keys.jogWheel',
     caps: [['wheel']],
     keys: [],
+    pointer: true,
   },
   {
     id: 'jogStop',

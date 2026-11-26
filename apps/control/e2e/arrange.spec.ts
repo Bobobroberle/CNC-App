@@ -393,14 +393,22 @@ test('the header counts what the buttons count: the parts, and the contours wher
 async function rowsStayUnderTheFinger(page: Page, cam: Locator) {
   const arrange = cam.getByTestId('cam-arrange');
   await arrange.getByRole('button', { name: 'Auswahl aufheben' }).click();
+  // The box of row `n` in the middle of the panel (its own scroll only – a locator's click would scroll once more
+  // by itself, after the place was measured) and where it stands there
   const box = async (n: number) => {
     const pick = cam.getByTestId('cam-pick').nth(n - 1);
-    await pick.scrollIntoViewIfNeeded();
+    await pick.evaluate((el) => {
+      const body = el.closest<HTMLElement>('.panel-body')!;
+      const at = el.getBoundingClientRect();
+      const room = body.getBoundingClientRect();
+      body.scrollTop += at.top - room.top - (room.height - at.height) / 2;
+    });
+    await page.waitForTimeout(50);
     return (await pick.boundingBox())!;
   };
   const tap = async (n: number, checked: boolean) => {
     const before = await box(n);
-    await tick(cam, n).click();
+    await page.mouse.click(before.x + before.width / 2, before.y + before.height / 2);
     await expect(tick(cam, n)).toBeChecked({ checked });
     // the selection and what hangs on it are drawn; the scroll that holds the row is made with it
     await page.waitForTimeout(150);
@@ -426,11 +434,90 @@ async function rowsStayUnderTheFinger(page: Page, cam: Locator) {
   await expect(arrange.getByRole('button', { name: 'Alles auswählen', exact: true })).toBeVisible();
 }
 
+/**
+ * Rows ticked one after the other at places worked out BEFORE the first tick: nothing a tick does – the cards
+ * above the list that grow, a part's panel of tabs, the row's own look – may move any other row against its
+ * neighbours, or the next tap lands on the wrong one. A mouse click at a point is what a finger does (a locator
+ * would look the box up again and scroll to it, and so never show a row that moved). Where the three rows are not
+ * on the screen at once (the machine's small screen) the rows are tapped by locator – the panel scrolls to each –
+ * and what is held is the distances between them, which are what a pre-computed place stands on.
+ */
+async function ticksAtFixedPlaces(page: Page, cam: Locator, onScreen: boolean) {
+  const arrange = cam.getByTestId('cam-arrange');
+  // (nothing selected is the state to start from; the small card of it has no such button)
+  if ((await arrange.getByRole('button', { name: 'Auswahl aufheben' }).count()) > 0) {
+    await arrange.getByRole('button', { name: 'Auswahl aufheben' }).click();
+  }
+  await expect(arrange.getByRole('button', { name: 'Alles auswählen', exact: true })).toBeVisible();
+  // The rows are on the screen at once, as a hand sees them – the first below the sticky head of the workspace –
+  // and then not scrolled by the test again (the panel's own scroll only: scrollIntoView would take the page along)
+  await cam
+    .getByTestId('cam-pick')
+    .first()
+    .evaluate((el) => {
+      const body = el.closest<HTMLElement>('.panel-body')!;
+      const head = body.querySelector('.workspace-head')?.getBoundingClientRect().height ?? 0;
+      body.scrollTop +=
+        el.getBoundingClientRect().top - body.getBoundingClientRect().top - head - 8;
+    });
+  await page.waitForTimeout(150);
+  const place = async (n: number) => {
+    const box = (await cam.getByTestId('cam-pick').nth(n).boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const spots = [await place(0), await place(1), await place(2)];
+  const view = page.viewportSize()!;
+  const fits = spots.every((spot) => spot.y < view.height - 24);
+  if (onScreen)
+    expect(fits, `the three rows on the screen at once ${JSON.stringify(spots)}`).toBe(true);
+  // How far each row lies from the first one (scroll cannot change that)
+  const gaps = async () => {
+    const first = (await place(0)).y;
+    return [(await place(1)).y - first, (await place(2)).y - first];
+  };
+  const before = await gaps();
+  expect(before[0]!, 'the rows lie one below the other').toBeGreaterThan(40);
+  for (const n of [1, 2, 3]) {
+    if (fits) await page.mouse.click(spots[n - 1]!.x, spots[n - 1]!.y);
+    else await tick(cam, n).click();
+    for (const m of [1, 2, 3]) {
+      await expect(tick(cam, m), `tick ${n}: row ${m}`).toBeChecked({ checked: m <= n });
+    }
+    // the selection and what hangs on it are drawn; the scroll that holds the ticked row is made with it
+    await page.waitForTimeout(150);
+    const now = await gaps();
+    for (const m of [0, 1]) {
+      expect(
+        Math.abs(now[m]! - before[m]!),
+        `tick ${n}: row ${m + 2} stays below row 1`,
+      ).toBeLessThan(1.5);
+    }
+    // …and the place of the rows on the screen is the one worked out before (the panel holds the ticked row)
+    if (fits) {
+      for (const m of [0, 1, 2]) {
+        expect(
+          Math.abs((await place(m)).y - spots[m]!.y),
+          `tick ${n}: row ${m + 1} stays where it was`,
+        ).toBeLessThan(1.5);
+      }
+    }
+  }
+}
+
 test('the box of a row stays where the finger put it while the cards above it grow and shrink', async ({
   page,
 }) => {
   const cam = await openDrawing(page);
   await rowsStayUnderTheFinger(page, cam);
+});
+
+test('the boxes of three rows ticked one after the other at places worked out before the first tick', async ({
+  page,
+}) => {
+  // tall enough for the three rows to be on the screen at once
+  await page.setViewportSize({ width: page.viewportSize()!.width, height: 1100 });
+  const cam = await openDrawing(page);
+  await ticksAtFixedPlaces(page, cam, true);
 });
 
 test('the same on the machine screen (800 × 600), in the sheet at its largest', async ({
@@ -441,4 +528,6 @@ test('the same on the machine screen (800 × 600), in the sheet at its largest',
   await page.locator('[data-slot="sheet-larger"]').click();
   await expect(page.locator('[data-slot="sheet"]')).toHaveAttribute('data-level', 'full');
   await rowsStayUnderTheFinger(page, cam);
+  // (the rows are taller than a third of this screen: the distances between them are what is held)
+  await ticksAtFixedPlaces(page, cam, false);
 });

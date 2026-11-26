@@ -76,7 +76,8 @@ export function itemTabs(item: CamItem, contour: number, defaults: Tabs): Tabs |
  * discs – is held only where every one of them is).
  */
 export function looseContours(item: CamItem, defaults: Tabs): number[] {
-  if (!tabsOn(item)) return [];
+  // A hidden part is not cut: nothing of it is loose
+  if (!tabsOn(item) || item.hidden === true) return [];
   const { mode, count } = tabValues(item, defaults);
   const closed = item.contours.flatMap((contour, c) => (contour.closed ? [c] : []));
   if (mode === 'auto') return count > 0 ? [] : closed;
@@ -226,7 +227,8 @@ function across(a: Point, b: Point, tangent: Point): Point {
 
 /** The tabs of one thing as the table draws them: all contours, in the order of the places. */
 export function itemTabMarks(item: CamItem, defaults: Tabs): TabMark[] {
-  if (!tabsOn(item)) return [];
+  // A hidden part is drawn faint and has no tabs to show: it is not cut
+  if (!tabsOn(item) || item.hidden === true) return [];
   // The same thing with the same defaults draws the same: what a finger moves is one thing, not all
   const seen = drawn.get(item);
   if (

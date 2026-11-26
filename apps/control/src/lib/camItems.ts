@@ -77,6 +77,13 @@ export interface CamItem {
   /** Climb (true) or conventional (false) milling of this part; undefined takes the job's setting */
   climb?: boolean;
   /**
+   * The eye of the list: a hidden part is not cut (the program does not even mention it), is drawn
+   * faint and dashed on the table, cannot be picked by a finger there and is left out of "everything"
+   * – it stays in the list, where it can be selected and shown again. Only ever `true` (the key is
+   * left off otherwise, so a project file stays as an older app wrote it); never on a registration hole.
+   */
+  hidden?: boolean;
+  /**
    * The side it is cut from when the part is machined from both; the
    * drawing shows either as seen from the front.
    */
@@ -135,14 +142,16 @@ const inBox = (p: Point, b: Bounds, grow: number) =>
  * finger's radius; else a text whose box it is in (letters are mostly gaps);
  * else – for a tap, not for taking hold (`inside`) – the smallest closed
  * shape it is inside of. Taking hold needs a line: the inside of a large
- * part stays free for moving the view.
+ * part stays free for moving the view. Hidden parts are never found.
  */
 export function itemAt(
-  items: readonly CamItem[],
+  all: readonly CamItem[],
   p: Point,
   tolerance: number,
   inside = true,
 ): CamItem | null {
+  // A hidden part is out of a finger's reach: it can only be selected in the list
+  const items = all.some((i) => i.hidden) ? all.filter((i) => !i.hidden) : all;
   let best: CamItem | null = null;
   let bestDistance = tolerance;
   for (const item of items) {

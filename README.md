@@ -320,8 +320,17 @@ das CAM zu sehen.
       macht aus mehreren Teilen eines, das sich gemeinsam wählen, schieben, drehen und ausrichten lässt;
       _Gruppierung aufheben_ macht aus jeder Kontur wieder ein eigenes Teil – so lassen sich auch die
       einzelnen Konturen einer DXF- oder SVG-Datei wählen. Jeder Knopf ist ein Schritt für _Rückgängig_;
-      die Passlöcher eines beidseitigen Teils rücken mit. Umschalt-Tipp, Rahmen aufziehen und Tasten
-      dafür gibt es noch nicht.
+      die Passlöcher eines beidseitigen Teils rücken mit. Am Rechner nimmt Umschalt- oder Strg-Tipp ein
+      Teil in die Auswahl oder heraus, ohne den Schalter anzufassen. Mit dem Schalter _Rahmen aufziehen_
+      zieht ein Finger oder die Maus über den Tisch einen gestrichelten Rahmen; beim Loslassen kommen alle
+      Teile in die Auswahl, die er berührt (mit _Mehrfachauswahl_ oder gehaltener Umschalt-/Strg-Taste
+      kommen sie dazu, sonst ersetzen sie die Auswahl). Dabei wird nichts verschoben; die Ansicht
+      verschieben und zoomen geht mit zwei Fingern oder dem Mausrad. Das Auge vor jeder Zeile blendet ein
+      Teil aus: Es wird nicht gefräst (das Programm erwähnt es nicht), steht gestrichelt und blass auf
+      dem Tisch, lässt sich dort nicht antippen und fehlt bei _Alles auswählen_ und beim Ausrichten –
+      in der Liste bleibt es, abgeblendet, und lässt sich wieder einblenden (_Alle einblenden_ steht unter
+      der Liste). Ein Teil in einer Gruppe, die auch sichtbare Teile hat, bleibt Teil der Gruppe und rückt mit.
+      Tasten für Gruppieren und Ausrichten gibt es noch nicht.
     - **Rückgängig / Wiederholen** (100 Schritte; Änderungen an einem Feld hintereinander sind ein
       Schritt) – Löschen fragt deshalb nicht nach.
     - **Tastatur (Laptop; alle Tasten zeigt `?`):** Entf/Rücktaste löscht, Esc hebt die Auswahl auf
@@ -339,7 +348,8 @@ das CAM zu sehen.
     Loch mit einer Helix gebohrt; offene Konturen lassen sich nur gravieren), eine eigene Tiefe und
     ein × zum Entfernen. Weitere Wahl nur, wo sie gilt: _Haltestege_ (bei Außen und Innen; an festen
     Stellen der gezeichneten Kontur, Schruppen und Schlichten heben an denselben Stellen; mit dem
-    Häkchen erscheint beim gewählten Teil ein Feld für seine Stege: _Anzahl_, _Breite_ und _Höhe_
+    Häkchen – oder mit _Stege einstellen_ in der Zeile des Teils – erscheint bei diesem Teil ein Feld für
+    seine Stege (es schiebt keine andere Zeile weg und schließt mit _Schließen_): _Anzahl_, _Breite_ und _Höhe_
     je Teil – leer gilt der Standardwert unter _Erweitert_ – und _Automatisch_ (gleichmäßig verteilt)
     oder _Von Hand_ mit _Stege setzen_: antippen setzt einen Steg auf die Kontur, ziehen verschiebt
     ihn entlang der Kontur, einen Steg antippen nimmt ihn weg. Auf dem Tisch-Bild stehen die Stege

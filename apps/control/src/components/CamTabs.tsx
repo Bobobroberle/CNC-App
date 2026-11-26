@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n';
 import type { CamItem } from '../lib/camItems';
 import { looseContours, TAB_LIMITS, tabsMissing, tabValues } from '../lib/camTabs';
@@ -14,12 +14,33 @@ import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control'
  * The holding tabs of one part (its "Haltestege" box is on): how they are spread – by count, evenly,
  * or by hand –, their own width, height and count (empty takes the drawing's default, a deviation is
  * marked), and the way to put them on the table with a finger. The tabs themselves are drawn on the
- * table beside the part, in their true width.
+ * table beside the part, in their true width. The panel is open on demand only ("Stege einstellen", the
+ * box of the tabs ticked on, "Stege setzen") and closes with its own button – so that selecting never
+ * makes it push the rows below it away.
  */
 export function CamTabs({ item, n }: { item: CamItem; n: number }) {
   const defaults = useCam((s) => s.settings.tabs);
   const placing = useCam((s) => s.placing === item.id);
   const [tooMany, setTooMany] = useState(false);
+  // It opens where the button that opened it stood, and that button is gone with the tap. A row low in the list
+  // would show nothing: where the head of the panel – its name and the way to close it – does not lie in the
+  // visible part of the list, the panel is brought into view once. Where its head is in view nothing moves (the
+  // tap on the box of the tabs must not take that box from under the finger). A passive effect on purpose: the row
+  // has held its head in place in a layout effect of its own by then, and this goes on from there.
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = panel.current;
+    const head = el?.firstElementChild;
+    const scroller = el?.closest<HTMLElement>('.panel-body');
+    if (!el || !head || !scroller) return;
+    const room = scroller.getBoundingClientRect();
+    const at = head.getBoundingClientRect();
+    // (the way back of the workspace is sticky at the top of the list: a head under it is out of sight)
+    const covered = scroller.querySelector('.workspace-head')?.getBoundingClientRect().height ?? 0;
+    if (at.top < room.top + covered || at.bottom > room.bottom) {
+      el.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, []);
   const cam = useCam.getState();
   const spec = item.tabSpec;
   const { mode } = tabValues(item, defaults);
@@ -54,6 +75,7 @@ export function CamTabs({ item, n }: { item: CamItem; n: number }) {
 
   return (
     <div
+      ref={panel}
       className="cam-tabs"
       role="group"
       aria-label={t('cam.tabPanel', { n })}
@@ -61,6 +83,18 @@ export function CamTabs({ item, n }: { item: CamItem; n: number }) {
       data-find="cam-tabs"
       data-mode={mode}
     >
+      {/* The panel is open on demand only: it says whose it is and closes with one tap */}
+      <div className="cam-tabs-head">
+        <strong>{t('cam.tabPanel', { n })}</strong>
+        <Button
+          variant="outline"
+          aria-label={t('cam.tabsCloseOf', { n })}
+          data-testid="cam-tabs-close"
+          onClick={cam.closeTabs}
+        >
+          {t('cam.tabsClose')}
+        </Button>
+      </div>
       <SegmentedControl
         role="group"
         aria-label={t('cam.tabMode', { n })}

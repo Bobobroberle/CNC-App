@@ -66,6 +66,33 @@ function MultiSwitch() {
   );
 }
 
+/**
+ * "Rahmen aufziehen": while it is on, a drag across the table draws a rectangle that takes the parts it
+ * touches into the selection on release – nothing in the drawing moves meanwhile. It adds to the selection
+ * where "Mehrfachauswahl" is on (or Shift/Ctrl is held), otherwise it replaces it. The two switches
+ * combine: Mehrfachauswahl says what a tap and a rectangle do to the set, the rectangle says what a drag does.
+ */
+function MarqueeSwitch() {
+  const marquee = useCam((s) => s.marquee);
+  return (
+    <div className="flex flex-col" data-find="cam-marquee">
+      <Label className="min-h-target gap-3 font-normal">
+        <Checkbox
+          checked={marquee}
+          data-testid="cam-marquee"
+          onCheckedChange={(on) => useCam.getState().setMarquee(on)}
+        />
+        <span>{t('cam.arrange.marquee')}</span>
+      </Label>
+      {marquee ? (
+        <p className="text-muted-foreground text-sm" data-testid="cam-marquee-hint">
+          {t('cam.arrange.marqueeHint')}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** What a button with an icon says: the icon, then the word. */
 const withIcon = (icon: IconName, text: string) => (
   <span className="with-icon">
@@ -242,6 +269,8 @@ export function CamArrange() {
   const own = frame?.own === true;
   // What is arranged against each other: the groups of the parts (a file's contours are one), not the contours
   const units = unitsOf(chosen);
+  // What aligning and spreading work on: the groups by their parts in sight (a hidden part is left out of them)
+  const alignable = unitsOf(chosen.filter((i) => !i.hidden));
   // The contours of those units (the registration holes are none): more than the units where a group has several
   const contours = partsOf(chosen);
   // What can be taken apart: a group of several things
@@ -273,6 +302,7 @@ export function CamArrange() {
           </Button>
         </div>
         <MultiSwitch />
+        <MarqueeSwitch />
       </div>
     );
   }
@@ -302,6 +332,7 @@ export function CamArrange() {
         </Button>
       </div>
       <MultiSwitch />
+      <MarqueeSwitch />
       <div className="cam-actions two">
         <Button variant="outline" data-find="cam-select-all" onClick={cam.selectAll}>
           {t('cam.arrange.all')}
@@ -456,7 +487,7 @@ export function CamArrange() {
           {t('cam.arrange.mirrorY')}
         </Button>
       </div>
-      {units.length >= 2 && !hole ? <AlignPanel units={units.length} /> : null}
+      {alignable.length >= 2 && !hole ? <AlignPanel units={alignable.length} /> : null}
       {one && sketch?.type === 'text' ? (
         <Fold title={t('cam.text.more')}>
           <div className="contents">

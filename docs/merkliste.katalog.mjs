@@ -178,7 +178,7 @@ add('cam', 'Auswählen & Anordnen', [
   [
     'cam-sel1',
     'Mehrfachauswahl',
-    'Schalter „Mehrfachauswahl“: ein Tipp auf dem Tisch nimmt ein Teil in die Auswahl oder heraus, ein Tipp daneben lässt sie, wie sie ist; ein Häkchen vor jeder Zeile der Liste tut dasselbe; „Alles auswählen“ und „Auswahl umkehren“ stehen bei der Auswahl. Umschalt/Strg+Tipp und Rahmen aufziehen sind nicht gebaut (cam-sel8, cam-sel9).',
+    'Schalter „Mehrfachauswahl“: ein Tipp auf dem Tisch nimmt ein Teil in die Auswahl oder heraus, ein Tipp daneben lässt sie, wie sie ist; ein Häkchen vor jeder Zeile der Liste tut dasselbe; „Alles auswählen“ und „Auswahl umkehren“ stehen bei der Auswahl. Umschalt/Strg+Tipp und Rahmen aufziehen: cam-sel8, cam-sel9.',
     'klein',
     { done: true },
   ],
@@ -212,9 +212,9 @@ add('cam', 'Auswählen & Anordnen', [
   [
     'cam-sel6',
     'Teile ausblenden',
-    'Auge je Teil: ausgeblendete Teile werden nicht gefräst und stören nicht beim Anordnen.',
+    'Auge je Teil: ausgeblendete Teile werden nicht gefräst und stören nicht beim Anordnen. Gebaut: Das Programm erwähnt ein ausgeblendetes Teil nicht (eingeblendet ist es wieder dasselbe Programm, Byte für Byte); auf dem Tisch steht es gestrichelt und blass, lässt sich dort nicht antippen und fehlt bei „Alles auswählen“, „Auswahl umkehren“ und beim Ausrichten; in der Liste bleibt es, abgeblendet, und lässt sich dort wählen und wieder einblenden („Alle einblenden“ steht unter der Liste). Eine Gruppe ist starr: Ein ausgeblendetes Teil einer Gruppe mit sichtbaren Teilen rückt mit. Die Projektdatei merkt es sich (optionales „hidden“, Version 1). Kein ausgeblendetes Teil schlägt Passlöcher vor oder zählt bei den Hinweisen zum Wenden.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-sel7',
@@ -225,16 +225,16 @@ add('cam', 'Auswählen & Anordnen', [
   [
     'cam-sel8',
     'Umschalt/Strg+Tipp',
-    'Am Rechner mit Umschalt oder Strg auf ein Teil tippen nimmt es in die Auswahl, ohne den Schalter „Mehrfachauswahl“ anzufassen. Braucht die Modifier-Tasten in der Gestenschicht (usePanZoom).',
+    'Am Rechner mit Umschalt oder Strg (Cmd) auf ein Teil tippen nimmt es in die Auswahl oder heraus, ohne den Schalter „Mehrfachauswahl“ anzufassen; Umschalt/Strg und Ziehen auf einem Teil der Auswahl nimmt die ganze Auswahl mit. Gebaut: Die Gestenschicht gibt die Tasten an Tippen und Greifen weiter, aber nur wo eine gehalten ist; der Schalter selbst wird nie umgelegt. Die Tastenliste führt es. Das Mausrad mit Strg (Pinch) bleibt Zoom.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-sel9',
     'Rahmen aufziehen',
-    'Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt.',
+    'Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt. Gebaut als Schalter „Rahmen aufziehen“: Beim Loslassen kommen die Gruppen aller sichtbaren Teile in die Auswahl, deren eigener Umriss den Rahmen berührt (Passlöcher und ausgeblendete Teile nie); mit „Mehrfachauswahl“ oder gehaltener Umschalt-/Strg-Taste kommen sie dazu, sonst ersetzen sie die Auswahl. Ein zweiter Finger und ein verlorener Finger nehmen nichts in die Auswahl (am iPad-Lauf mit echten Berührungen geprüft). Solange der Schalter an ist, zieht ein Finger oder die Maus nie ein Teil, sondern immer einen Rahmen; die Ansicht verschieben geht dann mit zwei Fingern, das Doppeltippen zum Einpassen fällt weg („Einpassen“ bleibt).',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-sel10',
@@ -974,9 +974,15 @@ add('cam', 'Auswählen & Anordnen', [
   [
     'cam-sel14',
     'Haltestege-Feld schiebt die Liste beim Abhaken',
-    'Das Feld der Haltestege klappt unter dem ersten abgehakten Teil auf und schiebt die Zeilen darunter um etwa 380 px. Lösung: das Feld erst auf Wunsch öffnen oder aus der Zeile herausnehmen.',
+    'Das Feld der Haltestege klappte unter dem ersten abgehakten Teil auf und schob die Zeilen darunter um etwa 380 px. Behoben: Das Feld öffnet nur noch auf Wunsch – mit „Stege einstellen“ in jeder Zeile, die Stege hat (ob sie gewählt ist oder nicht), mit dem Häkchen „Haltestege“ oder mit „Stege setzen“ – und schließt mit „Schließen“. Auswählen, Abhaken, Antippen auf dem Tisch, Zeichnen und die Mehrfachauswahl ändern keine Zeilenhöhe mehr (im Browser an drei Zeilen gemessen, jede an einem Platz getippt, der vor dem ersten Haken berechnet war). Dafür wird jede Zeile mit Stegen um den Knopf höher.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
+  ],
+  [
+    'cam-sel15',
+    'Rahmen: Treffer schon beim Ziehen zeigen',
+    'Während der Rahmen aufgezogen wird, die Teile hervorheben, die er beim Loslassen nimmt – bisher ändert sich die Auswahl erst beim Loslassen und der Rahmen ist die einzige Rückmeldung.',
+    'klein',
   ],
 ]);
 add('cam', 'Zeichnen & Formen', [

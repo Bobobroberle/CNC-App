@@ -338,3 +338,41 @@ test('a series with a name on every blank: scanned anew, measured with the camer
   expect(widths[1]!).toBeLessThan(widths[0]! - 3);
   expect(widths[2]!).toBeGreaterThan(widths[1]! + 3);
 });
+
+test('"Rahmen aufziehen" left on does not take the taps of the series flow – it has no switch there', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const cam = await openSeriesScene(page);
+  await drawShape(page, 'Rechteck', {
+    'Breite (mm)': '40',
+    'Höhe (mm)': '16',
+    'X links (mm)': '0',
+    'Y unten (mm)': '0',
+  });
+  await cam.getByRole('checkbox', { name: 'Rahmen aufziehen' }).check();
+  await cam
+    .getByTestId('series-entry')
+    .getByRole('button', { name: 'Serie: auf Rohlinge verteilen' })
+    .click();
+  const series = page.getByTestId('series-card');
+  await series.getByRole('button', { name: 'Auf dem Tisch-Bild suchen' }).click();
+  await expect(page.getByTestId('series-found')).toHaveText('6 Rohlinge gefunden');
+  // the switch is gone with the cards, and a tap on a blank leaves it out as ever
+  await expect(page.getByRole('checkbox', { name: 'Rahmen aufziehen' })).toHaveCount(0);
+  const square = (await drawnBlanks(page)).find((b) => b.id === 3)!;
+  const spot = await tableSpot(page, square);
+  expect(await onStage(page, spot)).toBe(true);
+  await page.mouse.click(spot.x, spot.y);
+  await expect(page.getByTestId('series-blank-3')).toHaveAttribute('data-state', 'excluded');
+  // and a drag is no frame: the view pans
+  const view = await page.getByTestId('table-view').getAttribute('data-view');
+  const canvas = (await page.getByTestId('stage-canvas').boundingBox())!;
+  const from = { x: canvas.x + canvas.width / 2, y: canvas.y + canvas.height * 0.8 };
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 90, from.y + 30, { steps: 8 });
+  await expect(page.getByTestId('table-view')).not.toHaveAttribute('data-drawing-marquee');
+  await page.mouse.up();
+  await expect.poll(() => page.getByTestId('table-view').getAttribute('data-view')).not.toBe(view);
+});

@@ -300,7 +300,8 @@ function CheckStep() {
   const missing = [...new Set(cut.flatMap((e) => e.missing))];
   const measured = cut.filter((e) => e.blank.measured).length;
   const placeholder = replaceableText(seriesMotif());
-  const words = project.items.find((i) => i.textStyle && i.kind !== 'none')?.text ?? '';
+  const words =
+    project.items.find((i) => i.textStyle && i.kind !== 'none' && !i.hidden)?.text ?? '';
   const quarter = entries.some((e) => e.blank.kind !== 'rect' || e.blank.angle === null);
   const listed = (ids: readonly number[]) =>
     numbers(entries.filter((e) => ids.includes(e.blank.id)));

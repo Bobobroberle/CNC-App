@@ -4,6 +4,7 @@ import {
   closeJog,
   connect,
   drawShape,
+  drawThreePlates,
   goTo,
   installFakeFluidNC,
   numberIn,
@@ -1382,6 +1383,8 @@ test('tabs by hand with a finger: a tap sets one, a drag moves it along the line
   const touch = await Touch.on(page);
   await drawShape(page, 'Rechteck');
   const panel = cam.getByTestId('cam-tabs');
+  // The panel opens on demand: one more tap
+  await cam.getByTestId('cam-tabs-open').tap();
   await panel.getByRole('button', { name: 'Von Hand' }).tap();
   await panel.getByRole('button', { name: 'Stege setzen' }).tap();
   await expect(table).toHaveAttribute('data-drawing-placing', '1');
@@ -1491,4 +1494,139 @@ test('several parts by finger: the Mehrfachauswahl switch, a tap takes a part in
   await page.waitForTimeout(400);
   await touch.tap(beside.x, beside.y);
   await expect(table).not.toHaveAttribute('data-drawing-selected');
+});
+
+test('"Rahmen aufziehen" by finger: one finger draws the frame and takes what it touches on release; a second finger or a lost touch takes nothing', async ({
+  page,
+}) => {
+  // No machine needed: arranging a drawing works at the kitchen table too.
+  await openApp(page);
+  const cam = await drawThreePlates(page);
+  const arrange = cam.getByTestId('cam-arrange');
+  const table = page.getByTestId('table-view');
+  const touch = await Touch.on(page);
+  // Three plates: A 0 0 40 20 · B 100 40 130 70 · C 60 100 110 110
+  const box = async () =>
+    ((await table.getAttribute('data-drawing-selected')) ?? '').split(',').map(Number);
+  const frame = async () => (await table.getAttribute('data-drawing-marquee')) ?? '';
+  const spot = async (x: number, y: number) => {
+    const at = await tableSpot(page, { x, y });
+    expect(await onStage(page, at), `${x},${y} is on the stage`).toBe(true);
+    return at;
+  };
+  const view = await restingTable(page);
+  await arrange.getByRole('button', { name: 'Auswahl aufheben' }).tap();
+  await expect(table).not.toHaveAttribute('data-drawing-selected');
+
+  // The switch is a full target; a tap on it turns the mode on
+  const word = cam.getByText('Rahmen aufziehen', { exact: true });
+  expect(
+    (await word.locator('xpath=ancestor::label').boundingBox())!.height,
+  ).toBeGreaterThanOrEqual(47.5);
+  await word.tap();
+  await expect(cam.getByRole('checkbox', { name: 'Rahmen aufziehen' })).toBeChecked();
+
+  // One finger from beside plate A over it and the corner of B: the frame is there while the finger is down,
+  // nothing is selected until it lifts – the view does not move meanwhile
+  const from = await spot(-8, -8);
+  const to = await spot(104, 44);
+  await touch.start({ id: 1, x: from.x, y: from.y });
+  await touch.move([{ id: 1, x: to.x, y: to.y }], 10);
+  await expect.poll(frame).not.toBe('');
+  const drawn = (await frame()).split(',').map(Number);
+  expect(drawn[0]!).toBeCloseTo(-8, 0);
+  // (the corner is under the finger itself, not a slop behind it)
+  expect(Math.abs(drawn[2]! - 104)).toBeLessThan(1.5);
+  await expect(table).not.toHaveAttribute('data-drawing-selected');
+  expect(await tableGeometry(page)).toEqual(view);
+  await touch.end();
+  await expect.poll(box).toEqual([0, 0, 130, 70]);
+  await expect(table).not.toHaveAttribute('data-drawing-marquee');
+  await expect(cam.getByTestId('cam-selected')).toContainText('2 Teile');
+  expect(await tableGeometry(page)).toEqual(view);
+
+  // A second finger that lands after the frame was started lets go of it: nothing is taken, nothing changes
+  await page.waitForTimeout(400);
+  const c1 = await spot(55, 95);
+  const c2 = await spot(115, 115);
+  await touch.start({ id: 1, x: c1.x, y: c1.y });
+  await touch.move([{ id: 1, x: c2.x, y: c2.y }], 8);
+  await expect.poll(frame).not.toBe('');
+  await touch.start({ id: 2, x: c1.x + 300, y: c1.y + 40 });
+  await expect(table).not.toHaveAttribute('data-drawing-marquee');
+  await touch.end(1, 2);
+  await page.waitForTimeout(300);
+  expect(await box()).toEqual([0, 0, 130, 70]);
+  expect(await tableGeometry(page)).toEqual(view);
+
+  // A touch the system takes away is no release: nothing is taken either
+  await page.waitForTimeout(400);
+  await touch.start({ id: 1, x: c1.x, y: c1.y });
+  await touch.move([{ id: 1, x: c2.x, y: c2.y }], 8);
+  await expect.poll(frame).not.toBe('');
+  await touch.cancel();
+  await expect(table).not.toHaveAttribute('data-drawing-marquee');
+  await page.waitForTimeout(300);
+  expect(await box()).toEqual([0, 0, 130, 70]);
+
+  // Two fingers that come down together are for the view, as ever: they zoom it, and no frame is drawn
+  await page.waitForTimeout(400);
+  const left = await spot(30, 60);
+  const right = await spot(100, 60);
+  await touch.start({ id: 1, x: left.x, y: left.y });
+  await touch.start({ id: 2, x: right.x, y: right.y });
+  await touch.move([
+    { id: 1, x: left.x - 60, y: left.y },
+    { id: 2, x: right.x + 60, y: right.y },
+  ]);
+  expect(await frame()).toBe('');
+  await touch.end();
+  await page.waitForTimeout(400);
+  expect((await tableGeometry(page)).scale).toBeGreaterThan(view.scale * 1.2);
+  expect(await box()).toEqual([0, 0, 130, 70]);
+
+  // A tap is a tap: a tap beside everything lets go of the selection, and the next takes the part under it (alone –
+  // the mode takes no part of Mehrfachauswahl)
+  const now = await restingTable(page);
+  expect(now.scale).toBeGreaterThan(0);
+  const beside = await spot(110, 20);
+  await touch.tap(beside.x, beside.y);
+  await expect(table).not.toHaveAttribute('data-drawing-selected');
+  await page.waitForTimeout(400);
+  const onA = await spot(20, 10);
+  await touch.tap(onA.x, onA.y);
+  await expect.poll(box).toEqual([0, 0, 40, 20]);
+});
+
+test('the eye of a part is a full target, and a hidden part is out of reach of a finger on the table', async ({
+  page,
+}) => {
+  await openApp(page);
+  const cam = await drawThreePlates(page);
+  const table = page.getByTestId('table-view');
+  const touch = await Touch.on(page);
+  await restingTable(page);
+  await cam.getByRole('button', { name: 'Teil 2 ausblenden' }).tap();
+  await expect(table).toHaveAttribute('data-drawing-hidden', '100.0,40.0,130.0,70.0');
+  await cam.getByTestId('cam-arrange').getByRole('button', { name: 'Auswahl aufheben' }).tap();
+  await page.waitForTimeout(400);
+  // a finger on the hidden plate's line and a tap inside it pick nothing
+  const line = await tableSpot(page, { x: 100, y: 55 });
+  const inside = await tableSpot(page, { x: 115, y: 55 });
+  expect(await onStage(page, line)).toBe(true);
+  expect(await onStage(page, inside)).toBe(true);
+  await touch.start({ id: 1, x: line.x, y: line.y });
+  await touch.end();
+  await page.waitForTimeout(400);
+  await touch.tap(inside.x, inside.y);
+  await page.waitForTimeout(300);
+  await expect(table).not.toHaveAttribute('data-drawing-selected');
+  // shown again: the same tap picks it
+  await cam.getByRole('button', { name: 'Teil 2 einblenden' }).tap();
+  await expect(table).not.toHaveAttribute('data-drawing-hidden');
+  await page.waitForTimeout(400);
+  await touch.tap(inside.x, inside.y);
+  await expect
+    .poll(async () => table.getAttribute('data-drawing-selected'))
+    .toBe('100.0,40.0,130.0,70.0');
 });

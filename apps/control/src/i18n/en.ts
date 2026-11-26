@@ -2539,7 +2539,10 @@ export const en: DictionaryShape = {
       invert: 'Invert the selection',
       multi: 'Multi-select',
       multiHint:
-        'A tap on a part takes it into the selection or out of it again. A tap beside everything leaves the selection as it is.',
+        'A tap on a part takes it into the selection or out of it again. A tap beside everything leaves the selection as it is. On a computer this also works without this switch: hold Shift or Ctrl and tap.',
+      marquee: 'Draw a frame',
+      marqueeHint:
+        'Drag across the table: on release every part the frame touches joins the selection. With "Multi-select" on, or with Shift or Ctrl held, they are added to the selection, otherwise they replace it. Nothing is moved by it. To move or zoom the view: two fingers or the mouse wheel.',
       parts: '{n} parts',
       partsOf: '{n} parts, {m} contours',
       groupOf: 'Group of {m} contours',
@@ -2602,6 +2605,16 @@ export const en: DictionaryShape = {
         },
       },
     },
+    hide: {
+      hide: 'Hide part',
+      hideOf: 'Hide part {n}',
+      showOf: 'Show part {n}',
+      state: 'hidden',
+      showAll: 'Show all',
+      note: 'Hidden parts are not cut, cannot be tapped on the table and are left out of "Select all" and of aligning. They stay in the list.',
+      allHidden: 'All parts are hidden – there is nothing to cut.',
+      noTabs: 'A hidden part has no tabs on the table – show it first.',
+    },
     group: {
       group: 'Group',
       ungroup: 'Ungroup',
@@ -2660,6 +2673,8 @@ export const en: DictionaryShape = {
     tabZero: 'Number 0 – the part is not held.',
     tabsOpenOf: 'Set the tabs of part {n}',
     tabsOpen: 'Set tabs',
+    tabsCloseOf: 'Close the tabs of part {n}',
+    tabsClose: 'Close',
     tabTooMany: 'Too many contours to place by hand: at most {max} tabs. The tabs stay automatic.',
     tabNote:
       'The width is the material that stays on the part (the cutter lifts over it by its diameter on top). Empty fields take the defaults under "Advanced".',
@@ -3557,6 +3572,8 @@ export const en: DictionaryShape = {
       camCopy: 'Copy and paste',
       camAll: 'Select everything',
       camDeselect: 'Let go of the selection',
+      camTapAdd: 'Take a part into the selection or out of it (without "Multi-select")',
+      camBandAdd: 'Draw a frame: add to the selection',
       jogXY: 'Move X and Y',
       jogZ: 'Raise and lower Z',
       jogStop: 'Stop the move',
@@ -3575,6 +3592,8 @@ export const en: DictionaryShape = {
       space: 'Space',
       pageDown: 'Page ↓',
       wheel: 'Mouse wheel (button held)',
+      tap: 'Tap',
+      drag: 'Drag',
     },
     // What else a function is found by: other names, wrong names, jargon.
     words: {
@@ -3691,7 +3710,13 @@ export const en: DictionaryShape = {
         'generate gcode, create g-code, generate, hand over, done, export, save as nc, download, post processor, compute toolpath',
       camUndo: 'undo, back, redo, repeat, last step back, deleted by mistake',
       camMulti:
-        'multi-select, select several, several parts, extend the selection, mark several, tap several, shift click, multiple selection, mehrfachauswahl, illustrator',
+        'multi-select, select several, several parts, extend the selection, mark several, tap several, shift click, ctrl click, shift tap, ctrl tap, multiple selection, mehrfachauswahl, umschalt tipp, illustrator',
+      camMarquee:
+        'draw a frame, rubber band, marquee, selection frame, drag a rectangle, lasso, select several with one drag, box select, rahmen aufziehen, auswahlrahmen',
+      camHide:
+        'hide part, hide, eye, eye icon, invisible, do not cut, leave a part out, visibility, ausblenden, auge, verstecken',
+      camShowAll:
+        'show all, unhide, show hidden parts, make everything visible, hidden parts, eye, alle einblenden, einblenden',
       camSelectAll:
         'select all, mark everything, all parts, whole drawing, ctrl a, select everything',
       camInvert:

@@ -69,6 +69,13 @@ describe.each([
     expect(contrast('#ffffff', theme['--estop-pressed']!)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it('writes the text of a row of the drawing list at 7:1 on the fill of a row and of a selected one', () => {
+    // The word of a hidden part ("ausgeblendet") says the state; the muted colour is 3.6:1 on the selected fill
+    for (const fill of ['--muted', '--input']) {
+      expect(on('--foreground', fill), fill).toBeGreaterThanOrEqual(7);
+    }
+  });
+
   it('gives the stage pictures plain colours, the cut never in red', () => {
     for (const name of [
       '--stage-bg',
@@ -117,5 +124,24 @@ describe('the two themes', () => {
     for (const name of ['--background', '--foreground', '--card', '--stage-bg', '--stage-text']) {
       expect(light[name], name).not.toBe(dark[name]);
     }
+  });
+});
+
+describe('a hidden part in the list of a drawing', () => {
+  const rooms = readFileSync(join(__dirname, '../src/styles/rooms.css'), 'utf8');
+  // The rules whose selector names a hidden row: `selector { body }`
+  const rules = [...rooms.matchAll(/([^{}]*hidden-part[^{}]*)\{([^{}]*)\}/g)].map((m) => ({
+    selector: m[1]!.replace(/\/\*[\s\S]*?\*\//g, '').trim(),
+    body: m[2]!,
+  }));
+
+  it('is never faded: half-transparent text and controls fall below 7:1 and 4.5:1 (measured at 0.7)', () => {
+    expect(rules.length).toBeGreaterThan(0);
+    for (const rule of rules) expect(rule.body, rule.selector).not.toMatch(/opacity/);
+  });
+
+  it('is set apart by an outline of another kind, not by the strength of what is in it', () => {
+    const row = rules.find((r) => r.selector === '.cam-row.hidden-part');
+    expect(row?.body).toMatch(/border-style:\s*dashed/);
   });
 });
