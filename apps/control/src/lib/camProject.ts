@@ -5,7 +5,8 @@ import {
   type Sketch,
   type TextOptions,
 } from '@lowrider/cam';
-import type { CamItem } from './camItems';
+import type { CamItem, TabSpec } from './camItems';
+import { TAB_LIMITS, tidySpec } from './camTabs';
 import type { CamProject, CamSettings, TwoSided } from '../store/cam';
 
 /**
@@ -169,6 +170,43 @@ function textStyleOf(v: unknown): CamItem['textStyle'] | null {
 
 const KINDS = ['outside', 'inside', 'on', 'pocket', 'drill', 'none'];
 
+/**
+ * How the tabs of an item are made – null when the file's spec is no spec this app writes, undefined
+ * when it says nothing the defaults would not (it is then no spec). Read like everything else of an item:
+ * a value of the wrong kind or outside the ranges of the fields refuses the file, and a place must name a
+ * contour the item has (`contours`) and lie on its line (0 ≤ u < 1).
+ */
+function tabSpecOf(v: unknown, contours: number): TabSpec | null | undefined {
+  if (!isObject(v) || (v.mode !== 'auto' && v.mode !== 'manual')) return null;
+  const { count, width, height } = TAB_LIMITS;
+  if (
+    v.count !== undefined &&
+    !(Number.isSafeInteger(v.count) && within(v.count, count.min, count.max))
+  ) {
+    return null;
+  }
+  if (v.width !== undefined && !within(v.width, width.min, width.max)) return null;
+  if (v.height !== undefined && !within(v.height, height.min, height.max)) return null;
+  let places: { c: number; u: number }[] | undefined;
+  if (v.at !== undefined) {
+    if (!Array.isArray(v.at) || v.at.length > TAB_LIMITS.places) return null;
+    places = [];
+    for (const p of v.at as unknown[]) {
+      if (!isObject(p) || !whole(p.c) || p.c >= contours || !num(p.u) || p.u < 0 || p.u >= 1) {
+        return null;
+      }
+      places.push({ c: p.c, u: p.u });
+    }
+  }
+  return tidySpec({
+    mode: v.mode,
+    ...(v.count !== undefined ? { count: v.count as number } : {}),
+    ...(v.width !== undefined ? { width: v.width as number } : {}),
+    ...(v.height !== undefined ? { height: v.height as number } : {}),
+    ...(places ? { at: places } : {}),
+  });
+}
+
 /** One item as the file has it – or null when it is no item. */
 function itemOf(v: unknown): SavedItem | null {
   if (!isObject(v) || !whole(v.id) || !whole(v.group)) return null;
@@ -180,6 +218,8 @@ function itemOf(v: unknown): SavedItem | null {
   if (v.side !== 'front' && v.side !== 'back') return null;
   if (v.depth !== undefined && !within(v.depth, 0.01, MAX_DEPTH)) return null;
   if (v.climb !== undefined && typeof v.climb !== 'boolean') return null;
+  const tabSpec = v.tabSpec === undefined ? undefined : tabSpecOf(v.tabSpec, v.source.length);
+  if (tabSpec === null) return null;
   if (v.registration !== undefined && v.registration !== 1 && v.registration !== 2) return null;
   if (v.text !== undefined && typeof v.text !== 'string') return null;
   const sketch = v.sketch === undefined ? null : sketchOf(v.sketch);
@@ -194,6 +234,7 @@ function itemOf(v: unknown): SavedItem | null {
     placement: v.placement,
     kind: v.kind as CamItem['kind'],
     tabs: v.tabs,
+    ...(tabSpec ? { tabSpec } : {}),
     relief: v.relief,
     ...(v.depth !== undefined ? { depth: v.depth } : {}),
     ...(v.climb !== undefined ? { climb: v.climb } : {}),
@@ -221,7 +262,7 @@ function twoSidedOf(v: unknown): TwoSided | null | undefined {
  * the app itself lets you type must come back from a file it wrote); the upper ones only keep a damaged
  * file from stalling the drawing.
  */
-const MAX_DEPTH = 500;
+export const MAX_DEPTH = 500;
 /** More passes than this is no way to cut: the stepdown of such a file is left out */
 const MAX_PASSES = 2000;
 const SETTING_RANGES = {
@@ -260,9 +301,9 @@ function settingsOf(v: unknown): { settings: Partial<CamSettings>; dropped: stri
   if (
     isObject(t) &&
     whole(t.count) &&
-    t.count <= 50 &&
-    within(t.width, 0.1, 100) &&
-    within(t.height, 0.1, MAX_DEPTH)
+    t.count <= TAB_LIMITS.count.max &&
+    within(t.width, TAB_LIMITS.width.min, TAB_LIMITS.width.max) &&
+    within(t.height, TAB_LIMITS.height.min, MAX_DEPTH)
   ) {
     out.tabs = { count: t.count, width: t.width, height: t.height };
   } else if (t !== undefined) {

@@ -2631,6 +2631,30 @@ export const de = {
       none: 'Nicht fräsen',
     },
     tabs: 'Haltestege',
+    tabPanel: 'Haltestege von Teil {n}',
+    tabMode: 'Verteilung der Haltestege von Teil {n}',
+    tabAuto: 'Automatisch',
+    tabManual: 'Von Hand',
+    tabCountField: 'Anzahl',
+    tabWidthField: 'Breite (mm)',
+    tabHeightField: 'Höhe (mm)',
+    tabCountOf: 'Anzahl der Stege von Teil {n}',
+    tabWidthOf: 'Stegbreite von Teil {n} (mm)',
+    tabHeightOf: 'Steghöhe von Teil {n} (mm)',
+    tabSpread: 'Gleichmäßig verteilen',
+    tabSpreadAuto: 'Im Modus „Automatisch“ sind die Stege schon gleichmäßig verteilt.',
+    tabPlace: 'Stege setzen',
+    tabPlaceHint:
+      'Auf die Kontur tippen setzt einen Steg, einen Steg ziehen verschiebt ihn, antippen entfernt ihn. Bis zu {max} Stege.',
+    tabNone: 'Keine Stege gesetzt – das Teil wird nicht gehalten.',
+    tabSome: '{n} von {m} Konturen haben keinen Steg – sie werden nicht gehalten.',
+    tabZero: 'Anzahl 0 – das Teil wird nicht gehalten.',
+    tabsOpenOf: 'Stege von Teil {n} einstellen',
+    tabsOpen: 'Stege einstellen',
+    tabTooMany:
+      'Zu viele Konturen für das Setzen von Hand: höchstens {max} Stege. Die Stege bleiben automatisch.',
+    tabNote:
+      'Die Breite ist das Material, das am Teil stehen bleibt (der Fräser hebt sich darüber noch um seinen Durchmesser). Leere Felder nehmen die Standardwerte unter „Erweitert“.',
     tool: 'Werkzeug',
     suggest: 'Werte aus Werkzeug und Material vorschlagen',
     suggestNeedsMaterial:
@@ -2645,9 +2669,9 @@ export const de = {
     rampAngle: 'Rampe (°, 90 = senkrecht)',
     stepover: 'Bahnabstand Tasche (%)',
     safeZ: 'Sichere Höhe (mm)',
-    tabWidth: 'Stegbreite (mm)',
-    tabHeight: 'Steghöhe (mm)',
-    tabCount: 'Stege je Kontur',
+    tabWidth: 'Standard-Stegbreite (mm)',
+    tabHeight: 'Standard-Steghöhe (mm)',
+    tabCount: 'Standard-Anzahl Stege je Kontur',
     climb: 'Gleichlauf (sonst Gegenlauf)',
     direction: 'Laufrichtung von Teil {n}',
     directions: { job: 'Laufrichtung wie der Job', climb: 'Gleichlauf', conventional: 'Gegenlauf' },
@@ -3600,7 +3624,11 @@ export const de = {
         'dxf, svg, importieren, datei einlesen, vektor, inkscape, zeichnung laden, fusion, freecad, import, vector, kontur aus datei',
       camHow:
         'operation, bearbeitung, kontur, ausschneiden, außen, innen, tasche, taschen, pocket, bohren, drill, gravieren, tiefe, frästiefe, vorschub, wie fräsen, außenkontur, innenkontur, auf der linie',
-      tabs: 'haltestege, stege, tabs, anbindung, haltenasen, brücken, bridges, teil festhalten, damit das teil nicht wegfliegt',
+      tabs: 'haltestege, stege, tabs, anbindung, anbindungen, haltenasen, brücken, bridges, hold-bridges, teil festhalten, damit das teil nicht wegfliegt, stegbreite, steghöhe, anzahl der stege, estlcam, automatisch verteilen',
+      tabsPlace:
+        'stege setzen, stege von hand, haltestege platzieren, manuell setzen, stege verschieben, stege löschen, stege antippen, tabs manuell, anbindung setzen, estlcam',
+      tabsSpread:
+        'gleichmäßig verteilen, stege verteilen, automatisch verteilen, stege neu verteilen, stege zurücksetzen, automatik, anzahl der stege, estlcam, tabs verteilen',
       camTool: 'fräser wählen, werkzeug für die zeichnung, fräserdurchmesser, bit, endmill, tool',
       camAdvanced:
         'erweitert, zustellung, eintauchen, rampe, drehzahl, aufmaß, schlichten, gleichlauf, gegenlauf, bahnabstand, sichere höhe, stegbreite, steghöhe, advanced, stepdown, stepover, plunge, climb, rpm',

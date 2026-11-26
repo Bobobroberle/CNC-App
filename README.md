@@ -326,7 +326,13 @@ das CAM zu sehen.
     _Tasche_, _Bohren_ oder _Nicht fräsen_ (Bohren: passend zum Fräser wird gepeckt, ein größeres
     Loch mit einer Helix gebohrt; offene Konturen lassen sich nur gravieren), eine eigene Tiefe und
     ein × zum Entfernen. Weitere Wahl nur, wo sie gilt: _Haltestege_ (bei Außen und Innen; an festen
-    Stellen der gezeichneten Kontur, Schruppen und Schlichten heben an denselben Stellen), die Ecken
+    Stellen der gezeichneten Kontur, Schruppen und Schlichten heben an denselben Stellen; mit dem
+    Häkchen erscheint beim gewählten Teil ein Feld für seine Stege: _Anzahl_, _Breite_ und _Höhe_
+    je Teil – leer gilt der Standardwert unter _Erweitert_ – und _Automatisch_ (gleichmäßig verteilt)
+    oder _Von Hand_ mit _Stege setzen_: antippen setzt einen Steg auf die Kontur, ziehen verschiebt
+    ihn entlang der Kontur, einen Steg antippen nimmt ihn weg. Auf dem Tisch-Bild stehen die Stege
+    aller Teile als Balken in ihrer wahren Breite – dem Material, das stehen bleibt; der Fräser hebt
+    sich darüber noch um seinen Durchmesser), die Ecken
     – _Ecken rund_, _Ecken frei (diagonal)_ (Dogbone) oder _Ecken frei (längs)_ (T-Bone), damit ein
     eckiges Teil hineinpasst; nur bei Konturen mit Innenecken – und die Seite, _Vorderseite_ oder
     _Rückseite_ (nur bei beidseitigen Teilen). _Zeichnung leeren_ nimmt alles weg (auch das lässt
@@ -334,7 +340,8 @@ das CAM zu sehen.
     Werkzeug und Material vorschlagen_ braucht das Material aus Job → _Vorbereiten_; unter
     _Erweitert_ Gravurtiefe, Schlichtzugabe (0 = aus; schruppen, dann ein Schlichtgang in voller
     Tiefe), Zustellung, Eintauchen, Drehzahl, Rampe (90° = senkrecht), Bahnabstand Tasche, Sichere
-    Höhe, Stegbreite, Steghöhe, Stege je Kontur und _Gleichlauf (sonst Gegenlauf)_. Jeder Wert
+    Höhe, Standard-Stegbreite, Standard-Steghöhe, Standard-Anzahl Stege je Kontur (die Werte, die
+    ein Teil ohne eigene nimmt) und _Gleichlauf (sonst Gegenlauf)_. Jeder Wert
     ändert die Bahn auf dem Tisch sofort. Ein einzelnes Teil kann seine eigene _Laufrichtung_
     haben (_wie der Job_ · _Gleichlauf_ · _Gegenlauf_, auf der Zeile des Teils bei außen, innen und
     Tasche; für gebohrte Löcher gibt es die Wahl nicht). Hat das gewählte Werkzeug eigene

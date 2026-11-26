@@ -102,8 +102,28 @@ export interface Scene {
     /** What stands at the frame while a finger changes it: its size, angle or place */
     label?: string | null;
   } | null;
+  /**
+   * The holding tabs of the things of the drawing that have them: each the stretch of the line it
+   * covers (a bar of its true width – the material that stays), with a short tick across at either
+   * end; the selected thing's bold, the others muted. Work XY.
+   */
+  drawingTabs?: readonly TabBar[];
+  /** Tabs are being put by hand: every tab of the selected thing carries a grip to take hold of */
+  drawingTabsGrip?: boolean;
   /** A part longer than the table, around the section that is the job; top view only */
   sections?: SectionsMark | null;
+}
+
+/** One holding tab as the table draws it. */
+export interface TabBar {
+  /** The bar along the contour, round its corners */
+  span: readonly { x: number; y: number }[];
+  /** Unit vectors across the line at the start and the end of the bar */
+  ends: readonly [{ x: number; y: number }, { x: number; y: number }];
+  /** The middle of the bar */
+  at: { x: number; y: number };
+  /** The tab of a selected thing */
+  selected: boolean;
 }
 
 /** A part cut in sections as the table draws it around the section at hand. */
@@ -387,6 +407,8 @@ export function drawTable(
     | 'drawingBack'
     | 'flipLine'
     | 'drawingSelected'
+    | 'drawingTabs'
+    | 'drawingTabsGrip'
     | 'sections'
   >,
   c: Colors,
@@ -481,7 +503,72 @@ export function drawTable(
     ctx.stroke();
     ctx.setLineDash([]);
   }
+  if (scene.drawingTabs?.length) drawTabs(ctx, vp, scene.drawingTabs, !!scene.drawingTabsGrip, c);
   ctx.setTransform(vp.dpr, 0, 0, vp.dpr, 0, 0);
+}
+
+/**
+ * The holding tabs: a bar along the line as wide as the material that stays, a tick across at each
+ * end, the selected thing's in the selection colour and bold over the muted others. A dark rim keeps
+ * them readable on a photo. While tabs are put by hand a dot marks the middle of each one that
+ * belongs to the selected thing (the finger's target is larger than the dot).
+ */
+function drawTabs(
+  ctx: CanvasRenderingContext2D,
+  vp: Viewport,
+  tabs: readonly TabBar[],
+  grip: boolean,
+  c: Colors,
+) {
+  const px = (n: number) => n / vp.scale;
+  const bar = (t: TabBar) => {
+    const path = new Path2D();
+    t.span.forEach((p, i) => (i ? path.lineTo(p.x, p.y) : path.moveTo(p.x, p.y)));
+    return path;
+  };
+  const ticks = (t: TabBar) => {
+    const path = new Path2D();
+    const reach = px(t.selected ? 9 : 7);
+    [t.span[0]!, t.span[t.span.length - 1]!].forEach((p, i) => {
+      const n = t.ends[i]!;
+      path.moveTo(p.x - n.x * reach, p.y - n.y * reach);
+      path.lineTo(p.x + n.x * reach, p.y + n.y * reach);
+    });
+    return path;
+  };
+  ctx.setLineDash([]);
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'round';
+  // The selected thing's last, so its tabs lie on top
+  for (const selected of [false, true]) {
+    for (const t of tabs) {
+      if (t.selected !== selected) continue;
+      const b = bar(t);
+      const k = ticks(t);
+      ctx.strokeStyle = c.bg;
+      ctx.lineWidth = px(selected ? 9 : 7);
+      ctx.stroke(b);
+      ctx.lineWidth = px(selected ? 6 : 5);
+      ctx.stroke(k);
+      ctx.strokeStyle = selected ? c.live : c.axis;
+      ctx.lineWidth = px(selected ? 6 : 4);
+      ctx.stroke(b);
+      ctx.lineWidth = px(selected ? 3 : 2);
+      ctx.stroke(k);
+    }
+  }
+  if (grip) {
+    for (const t of tabs) {
+      if (!t.selected) continue;
+      ctx.beginPath();
+      ctx.arc(t.at.x, t.at.y, px(7), 0, Math.PI * 2);
+      ctx.fillStyle = c.tool;
+      ctx.fill();
+      ctx.strokeStyle = c.live;
+      ctx.lineWidth = px(2.5);
+      ctx.stroke();
+    }
+  }
 }
 
 /**

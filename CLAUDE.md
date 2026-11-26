@@ -76,6 +76,18 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   program that is not the drawing's own – next to content that is being edited it would invite a slip), and anything
   in the action bar. On the machine's small screen the sheet at "half" is too short for a card and its dock beside the
   row above it (800 × 600: ~100 px of body): the sheet's "Größer" is the way (the spec measures at that rest).
+- **Merkliste** (the living checklist of what is deferred or wished for: the artifact "LowRider Ideenliste",
+  <https://claude.ai/artifact/EC2LME1AYPN14P4B6ZXNmi>, a page with the `db` capability; the operator ticks it too): the page is data-driven –
+  collections `cats` (`title`, `note`, `order`) and `items`, one document per entry (`cat`, `grp`, `title`, `text`, `kind` =
+  vorhanden | klein | gross | forschung | hardware | aufgabe, `done`, `want` = the ★ "will ich haben", `building` = "in Arbeit", `src`
+  = claude | migriert | user, `added`, `doneAt`, `order`). **Content goes through the `ArtifactData` tool (set / update / batch), never by
+  republishing the page.** The catalog and a markdown copy live in the project: `docs/merkliste.katalog.mjs` (source),
+  `docs/merkliste.md` (generated: `node scripts/merkliste.mjs md`; `seed <dir>` writes one JSON file per document for a new database).
+  Rules: **a recommendation that is not built now becomes an entry** (catalog + db, `src: 'claude'`, honest `kind`); when something lands,
+  set `done` and clear `building` (never leave `building` on what did not land); **at the start of a session that plans work or touches
+  the list, read the db (`ArtifactData list items`) – the operator's ★ and ✓ are decisions** – fold changes back into the catalog flags
+  and regenerate the md; an entry says only what was measured or read (no promised accuracy); `u…`/`k…`/`p…`/`h…`/`o…` ids are the
+  older Ideenliste, `src: 'user'` entries are the operator's own.
 - Navigation (`store/ui.ts`): a `Place` is `start`, one of the three areas of the work `job`, `setup`, `run`
   (Job, Einrichten, Fräsen), the drawing workspace `cam`, or an area `toollist`, `service`, `settings`, `console`
   (the console only with the expert switch). **The one way into the CAM is `openCam()`** (`store/camPlace.ts`: an
@@ -274,6 +286,39 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `settings`, `alongWith` for the way forward), raises the id counter above the file's,
   and **never loads a program itself** – it goes through the drawing's own `update`, so the job lock and the "not its own
   program" rule hold. A part may have its own direction (`CamItem.climb` → `Operation.climb`, falling back to the job's).
+  **Holding tabs** (`Tabs` with optional `at`, `tabSites`/`nearestOnContour`/`contourSpan` in `packages/cam/src/toolpath.ts`; app side
+  `lib/camTabs.ts`, `CamItem.tabSpec`, `components/CamTabs.tsx`): **one function gives the sites – `tabSites(contour, tabs)` – and both the
+  toolpath (`cut` → `loopWalk`) and the table's drawing ask it, so what is drawn is what is cut.** A site is a fraction `0 ≤ u < 1` of the
+  *drawn* contour's length from its first point (in the order of its points – so it names the same spot of the part after a move, turn,
+  mirror and on the back of a two-sided part, which `flipContours` cuts anew with the point order kept; **other measures of a drawn shape
+  change the length, so `carryTabs` (`lib/camTabs.ts`, called from `reshaped` and the magnify path of `resized`) takes each place to the same
+  share of its contour's own box in the sketch's coordinates – a grid hole by its cell (column, row) when the grid gets other columns or rows –
+  and drops places that find no contour; never "the same fraction"**); without `at` they are `count` places
+  evenly, `((k + 0.5) · length) / count` exactly as before (the schild golden is untouched), `at: []` is no tab, an open contour has none.
+  `width` is **the material that stays on the part** – the cutter lifts over `width + toolDiameter`, and the table's marker is the bar of the
+  true width. `CamItem.tabs` stays the switch; `tabSpec` (`mode` auto | manual, own `count`/`width`/`height`, `at: {c, u}[]` with `c` the
+  contour of the item) overrides the drawing's defaults (`settings.tabs`, "Standard-…" under Erweitert) value by value;
+  `itemTabs(item, c, defaults)` is the one way to the effective `Tabs` of a contour (`itemOperation(item, settings, c)`, the two-sided
+  `loose` note through `itemHasTabs`: **a part is held only where every closed contour of it has a tab – by hand a place on each (a grid of
+  holes needs one per hole), spread a count above 0; `looseContours` names the ones that have none and the panel says how many**),
+  `tidySpec` drops a spec that says nothing. The cutter walks beside the drawn line, so the toolpath lifts at the nearest place of the loop
+  (a slot narrower than the cutter puts the tab a little away: **a limit, not drawn**); a hole whose cut falls into several loops
+  (`tabsPerLoop`, only for places told by hand) gives each place to the loop it is nearest to and a loop with none the nearest one – never a
+  loop cut free; a tab across the start of a loop is lifted over its whole width (the walk's marks start at the lap before).
+  Store: `setTabs` (clamps
+  to `TAB_LIMITS` – the project file's ranges: count 0–50, width 0.1–100, height 0.1–500, 50 places), `spreadTabs`, `manualTabs` (seeded with
+  the current even sites; refused above 50 places), `addTab`, `moveTab`, `removeTab`, `dragTab` (the picture follows, the toolpath is made
+  when the finger lets go, one step of undo), `placing` (the mode "Stege setzen": ends by itself when the part is no longer the selected
+  one, no longer by hand, or gone) – all through `remember` + `update`, so the job lock holds; `update` prunes places on contours a part no
+  longer has (a grid made smaller) and places that stand on another's (`pruneTabs`) so the store never holds what the file reader refuses,
+  `moveTab`/`dragTab` put a tab dropped on another back. In the list of a drawing **only one row of a selected group holds the tab panel**
+  (a file's contours come in as one group): the first with tabs on, or the one asked for by ticking its box or "Stege einstellen". Gesture (only while `placing`; otherwise the
+  table behaves as ever): a tap within 24 px of the part's line sets a tab at the nearest place (and returns its undo, being a tap), a tab is
+  taken through the view's `grab` (`yields`), dragged along the line, and **`ViewGrab.tap` – called after `end`, only for a finger that went
+  down and up on the spot – removes it**; the part's handles and its own dragging step aside meanwhile. The table shows `data-drawing-tabs`
+  (JSON per part: sites `{c,u,x,y,w,index}`), `data-drawing-placing`. A series takes manual places along (`seriesMotif`: one part per
+  contour). **Project file:** optional `tabSpec` per item, read strictly like `climb` (wrong type or range → `invalid-project`, `c` below the
+  item's contour count, `u` finite in [0, 1)), written only when present; format and version unchanged.
   **Every other way to load, replace or take off the program goes through the central lock**
   in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived`, `unload` and
   `restoreOriginal` do nothing while a job is under way, say why (`job.locked`, its own message group `jobLocked`)

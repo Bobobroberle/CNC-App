@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   bounds,
   circle,
+  contourSpan,
   defaultOperations,
   holeGrid,
+  nearestOnContour,
   nestingDepths,
   offsetPolygons,
   passDepths,
@@ -14,6 +16,7 @@ import {
   signedArea,
   slot,
   tabPoints,
+  tabSites,
   textContours,
   toGcode,
   toolpaths,
@@ -21,6 +24,7 @@ import {
   type CutSettings,
   type Move,
   type Operation,
+  type Point,
 } from '../src';
 
 const s: CutSettings = {
@@ -556,6 +560,348 @@ describe('holding tabs', () => {
     // No tabs at all when their count is zero.
     const none = toolpaths([loop], [{ contour: 0, kind: 'on', tabs: { ...tabs, count: 0 } }], s);
     expect(cutting(none.moves).some((m) => Math.abs(m.z! - -4) < 1e-9)).toBe(false);
+  });
+
+  it('lift the cutter over their whole width where the walk begins inside a tab', () => {
+    // One pass of 6; the tab, 0.3 mm before the start of the loop at 0, 0 (u 0.999 of 300 round, on
+    // the left side going down): 8 wide plus the cutter is 7 mm to either side of 0, 0.3.
+    const one = { ...s, depth: 6, stepdown: 6 };
+    const part = rectangle(0, 0, 100, 50);
+    const tabs = { count: 0, width: 8, height: 2, at: [0.999] };
+    const { moves } = toolpaths([part], [{ contour: 0, kind: 'on', tabs }], one);
+    const r = (v: number) => Math.round(v * 1e6) / 1e6;
+    const way = cutting(moves).map((m) => [r(m.x!), r(m.y!), m.z]);
+    // It begins at the height of the tab (−4) and keeps it 6.7 mm along the lower side – 7 behind
+    // the tab's middle, which lies 0.3 before the start – and only there goes down to −6 …
+    expect(moves.find((m) => m.x === undefined && m.z === -4)).toBeDefined();
+    expect(way[0]).toEqual([6.7, 0, -4]);
+    expect(moves[moves.indexOf(cutting(moves)[0]!) + 1]).toEqual({ z: -6, feed: 300 });
+    // … round the part at full depth, and lifts again 7.3 before the start: the tab's other side.
+    expect(way.slice(1)).toEqual([
+      [100, 0, -6],
+      [100, 50, -6],
+      [0, 50, -6],
+      [0, 7.3, -6],
+      [0, 0, -4],
+    ]);
+    // 6.7 + 7.3 = 14 mm of the path are lifted: the tab's 8 and the cutter's 6.
+  });
+});
+
+describe('the places of the tabs', () => {
+  // 100 × 50, drawn from 0/0 to the right: the way along it is 0–100 below, 100–150 right,
+  // 150–250 above (towards the left) and 250–300 on the left (downwards).
+  const plate = rectangle(0, 0, 100, 50);
+  // To nine decimals, and never −0
+  const r9 = (v: number) => Math.round(v * 1e9) / 1e9 + 0;
+  const where = (c: Contour, tabs: { count: number; at?: number[] }) =>
+    tabSites(c, tabs).map((t) => [t.u, t.point.x, t.point.y, t.tangent.x, t.tangent.y].map(r9));
+  const us = (c: Contour, at: number[]) => tabSites(c, { count: 1, at }).map((t) => r9(t.u));
+
+  it('spreads count tabs evenly, each in the middle of its share, with the way the line runs', () => {
+    expect(where(plate, { count: 4 })).toEqual([
+      [0.125, 37.5, 0, 1, 0],
+      [0.375, 100, 12.5, 0, 1],
+      [0.625, 62.5, 50, -1, 0],
+      [0.875, 0, 37.5, 0, -1],
+    ]);
+    // One tab sits in the middle of the whole line: 150 along, the corner at 100/50.
+    expect(where(plate, { count: 1 })).toEqual([[0.5, 100, 50, -1, 0]]);
+    // `tabPoints` is its places only
+    expect(tabPoints(plate.points, 4)).toEqual(tabSites(plate, { count: 4 }).map((t) => t.point));
+  });
+
+  it('has none for count 0, for no places, for an open line and for a line of no length', () => {
+    expect(tabSites(plate, { count: 0 })).toEqual([]);
+    expect(tabSites(plate, { count: 4, at: [] })).toEqual([]);
+    expect(tabSites({ ...plate, closed: false }, { count: 4 })).toEqual([]);
+    const dot = { x: 5, y: 5 };
+    expect(tabSites({ closed: true, points: [dot, dot, dot] }, { count: 4 })).toEqual([]);
+    expect(tabSites({ closed: true, points: [dot] }, { count: 4 })).toEqual([]);
+    expect(tabSites({ closed: true, points: [] }, { count: 4 })).toEqual([]);
+    expect(tabPoints([], 4)).toEqual([]);
+  });
+
+  it('puts a tab where it is told: sorted, wrapped round, count ignored', () => {
+    // 0.5 is the corner 150 along (100/50), where the next side begins: the way goes on to the left.
+    expect(where(plate, { count: 9, at: [0.5, 0.1] })).toEqual([
+      [0.1, 30, 0, 1, 0],
+      [0.5, 100, 50, -1, 0],
+    ]);
+    // 1.25, −0.25 and 1 are 0.25, 0.75 and 0: one lap, three places.
+    expect(where(plate, { count: 1, at: [1.25, -0.25, 1] })).toEqual([
+      [0, 0, 0, 1, 0],
+      [0.25, 75, 0, 1, 0],
+      [0.75, 25, 50, -1, 0],
+    ]);
+    // A hair below the start is the start, not the end; −0 is 0.
+    expect(us(plate, [-1e-20, -0])).toEqual([0]);
+    // What is no number is no place.
+    expect(where(plate, { count: 1, at: [Number.NaN, Infinity, 0.25] })).toEqual([
+      [0.25, 75, 0, 1, 0],
+    ]);
+  });
+
+  it('takes places that lie together as one – also across the start of the line', () => {
+    expect(us(plate, [0.3, 0.3 + 1e-10, 0.6])).toEqual([0.3, 0.6]);
+    // Just beyond the start and just before the end of the line: the same place (the first stays).
+    expect(tabSites(plate, { count: 1, at: [1e-10, 0.5, 1 - 1e-10] }).map((t) => t.u)).toEqual([
+      1e-10, 0.5,
+    ]);
+    // Far enough apart are two.
+    expect(tabSites(plate, { count: 1, at: [0.3, 0.3 + 1e-6] })).toHaveLength(2);
+    // A single place is never taken for its own twin.
+    expect(tabSites(plate, { count: 1, at: [0.5] })).toHaveLength(1);
+  });
+
+  it('is not confused by a point drawn twice, at the end or in between', () => {
+    const [a, b, c, d] = plate.points as [Point, Point, Point, Point];
+    const closing = { closed: true, points: [a, b, c, d, a] };
+    expect(where(closing, { count: 4 })).toEqual(where(plate, { count: 4 }));
+    // A square of 400: the corner 100/0 drawn twice lies exactly 100 along – the way goes on
+    // up the right side, never along a segment of no length.
+    const twice: Contour = {
+      closed: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
+      ],
+    };
+    expect(where(twice, { count: 1, at: [0.25, 0.125] })).toEqual([
+      [0.125, 50, 0, 1, 0],
+      [0.25, 100, 0, 0, 1],
+    ]);
+  });
+
+  it('follows a circle by its polygon: four tabs a quarter turn apart, from the first point', () => {
+    const round = circle(0, 0, 20);
+    const sites = tabSites(round, { count: 4 });
+    // The polygon starts at 0° and runs counter-clockwise: 45°, 135°, 225°, 315° – to a chord's width.
+    expect(sites).toHaveLength(4);
+    sites.forEach((site, k) => {
+      const angle = ((45 + 90 * k) * Math.PI) / 180;
+      expect(site.point.x).toBeCloseTo(10 * Math.cos(angle), 1);
+      expect(site.point.y).toBeCloseTo(10 * Math.sin(angle), 1);
+      // The line runs counter-clockwise: across the radius, a quarter turn ahead of it.
+      expect(site.tangent.x).toBeCloseTo(-Math.sin(angle), 1);
+      expect(site.tangent.y).toBeCloseTo(Math.cos(angle), 1);
+    });
+  });
+
+  it('turns a point into the nearest place on the line', () => {
+    const near = (p: Point) => {
+      const n = nearestOnContour(plate, p)!;
+      return [n.u, n.point.x, n.point.y, n.distance].map(r9);
+    };
+    // 30 along the lower side, 5 below it.
+    expect(near({ x: 30, y: -5 })).toEqual([0.1, 30, 0, 5]);
+    // Inside the part, nearer to the right side (10 away) than to the upper (25).
+    expect(near({ x: 90, y: 25 })).toEqual([r9(125 / 300), 100, 25, 10]);
+    // Beside the start corner: the start itself (a tie goes to the first side).
+    expect(near({ x: -3, y: -4 })).toEqual([0, 0, 0, 5]);
+    // On the last side, 3 above the start: 297 along.
+    expect(near({ x: -5, y: 3 })).toEqual([r9(297 / 300), 0, 3, 5]);
+    // A point drawn twice at the end does not matter.
+    const [a, b, c, d] = plate.points as [Point, Point, Point, Point];
+    const closing = nearestOnContour({ closed: true, points: [a, b, c, d, a] }, { x: 30, y: -5 })!;
+    expect(r9(closing.u)).toBe(0.1);
+    expect(closing.point).toEqual({ x: 30, y: 0 });
+    // And the place it names is the place a tab put there stands at.
+    const n = nearestOnContour(plate, { x: 62, y: 70 })!;
+    const there = tabSites(plate, { count: 0, at: [n.u] })[0]!.point;
+    expect(r9(there.x)).toBe(62);
+    expect(r9(there.y)).toBe(50);
+  });
+
+  it('has no place on a line without points, and the point itself on one of no length', () => {
+    expect(nearestOnContour({ closed: true, points: [] }, { x: 1, y: 1 })).toBeNull();
+    const dot = { x: 5, y: 5 };
+    expect(nearestOnContour({ closed: true, points: [dot, dot] }, { x: 8, y: 9 })).toEqual({
+      u: 0,
+      point: dot,
+      distance: 5,
+    });
+  });
+
+  it('draws the stretch a tab covers, round corners and across the start', () => {
+    const square = rectangle(0, 0, 100, 100);
+    // A straight stretch: 10 mm of the lower side around 37.5.
+    expect(contourSpan(plate, 0.125, 10)).toEqual([
+      { x: 32.5, y: 0 },
+      { x: 42.5, y: 0 },
+    ]);
+    // Across the corner 100/0, 100 along: 10 mm to either side, the corner in between.
+    expect(contourSpan(square, 0.25, 20)).toEqual([
+      { x: 90, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 10 },
+    ]);
+    // Across the start of the line.
+    expect(contourSpan(square, 0, 20)).toEqual([
+      { x: 0, y: 10 },
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+    ]);
+    // Wider than the whole line it is the whole line, once round.
+    expect(contourSpan(square, 0, 1000)).toEqual([
+      { x: 100, y: 100 },
+      { x: 0, y: 100 },
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+    ]);
+    // No width, no stretch: both ends at the place.
+    expect(contourSpan(plate, 0.125, -4)).toEqual([
+      { x: 37.5, y: 0 },
+      { x: 37.5, y: 0 },
+    ]);
+    // Open or of no length: nothing.
+    expect(contourSpan({ ...plate, closed: false }, 0.5, 10)).toEqual([]);
+    expect(contourSpan({ closed: true, points: [{ x: 1, y: 1 }] }, 0.5, 10)).toEqual([]);
+  });
+
+  it('cuts where it is told: only the places named lift the cutter', () => {
+    // 30 along the lower side and 180 along the whole line: 70 along the upper side, from the right.
+    const tabs = { count: 4, width: 8, height: 2, at: [0.1, 0.6] };
+    const { moves } = toolpaths([plate], [{ contour: 0, kind: 'outside', tabs }], s);
+    const high = cutting(moves)
+      .filter((m) => Math.abs(m.z! - -4) < 1e-9)
+      .map((m) => [Math.round(m.x! * 100) / 100, Math.round(m.y! * 100) / 100])
+      .sort((a, b) => a[0]! - b[0]! || a[1]! - b[1]!);
+    // Each tab is 8 mm plus the cutter: 14 mm of path, ending 7 behind the tab's middle – on the
+    // lower side towards +x (the cutter is 3 below the line), on the upper one towards −x.
+    expect(high).toEqual([
+      [37, -3],
+      [63, 53],
+    ]);
+    // The even spread's tab at 37.5 is not there.
+    expect(high.some(([x, y]) => x === 44.5 && y === -3)).toBe(false);
+    // Four tabs by `count` and by the same places named are one program.
+    const spread = { count: 4, width: 8, height: 2 };
+    const named = { ...spread, at: tabSites(plate, spread).map((t) => t.u) };
+    const code = (t: typeof spread) =>
+      toGcode(toolpaths([plate], [{ contour: 0, kind: 'outside', tabs: t }], s).moves, {
+        name: 'x',
+        rpm: 1000,
+        safeZ: 5,
+      });
+    expect(code(named)).toBe(code(spread));
+    // Named but empty: a program without any tab.
+    const none = toolpaths(
+      [plate],
+      [{ contour: 0, kind: 'outside', tabs: { ...tabs, at: [] } }],
+      s,
+    );
+    const bare = toolpaths([plate], [{ contour: 0, kind: 'outside' }], s);
+    expect(none.moves).toEqual(bare.moves);
+  });
+
+  describe('of a hole whose cut falls into two loops', () => {
+    // Two lobes of 40 × 40 joined by a neck 4 wide: the cutter, 6 across, goes round each lobe
+    // separately (3 inside the line) and cannot enter the neck. 352 mm round, from the lower left.
+    const dumbbell: Contour = {
+      closed: true,
+      points: [
+        [0, 0],
+        [40, 0],
+        [40, 18],
+        [60, 18],
+        [60, 0],
+        [100, 0],
+        [100, 40],
+        [60, 40],
+        [60, 22],
+        [40, 22],
+        [40, 40],
+        [0, 40],
+      ].map(([x, y]) => ({ x: x!, y: y! })),
+    };
+    const one = { ...s, depth: 6, stepdown: 6 };
+    /** The stretches cut at the tabs' height (−4): from x, y to x, y, in mm to 0.01 */
+    const stretches = (tabs: { count: number; at?: number[] }) => {
+      const { moves, problems } = toolpaths(
+        [dumbbell],
+        [{ contour: 0, kind: 'inside', tabs: { width: 8, height: 2, ...tabs } }],
+        one,
+      );
+      expect(problems).toEqual([]);
+      const out: number[][] = [];
+      let from: number[] = [];
+      let x = 0;
+      let y = 0;
+      let z = 0;
+      for (const m of moves) {
+        const was = z;
+        x = m.x ?? x;
+        y = m.y ?? y;
+        z = m.z ?? z;
+        if (z === -4 && was !== -4) from = [x, y];
+        else if (was === -4 && z !== -4)
+          out.push([...from, x, y].map((v) => Math.round(v * 100) / 100));
+      }
+      return out;
+    };
+
+    it('stand on the lobe they were put on, and only there', () => {
+      // 88 mm along is 8 up the wall of the neck (60, 8), 264 mm is 10 up the lobe's side at (40, 32).
+      const told = stretches({ count: 0, at: [0.25, 0.75] });
+      // Left lobe: 7 either side of 37, 32 – up 5 to the corner, 2 along the top, and 7 down.
+      expect(told.filter(([x]) => x! < 40)).toEqual([[35, 37, 37, 25]]);
+      // Right lobe: 7 either side of 63, 8 – 5 down to the corner of 63, 3 and on 2 along the bottom
+      // (the walk begins at that corner: the stretch is in two pieces) – nothing more.
+      expect(told.filter(([x]) => x! > 60)).toEqual([
+        [63, 3, 63, 15],
+        [65, 3, 63, 3],
+      ]);
+      // The same two places spread by count (88 and 264 mm along): every loop keeps every place, each
+      // at its nearest – as it always did. The left lobe also has a tab at 37, 8 (nearest to 60, 8:
+      // 7 up the side, 5 down it to the corner and 2 along the bottom), the right one at 63, 32
+      // (nearest to 40, 32: 7 down the side, 5 up it to the corner and 2 along the top).
+      const spread = stretches({ count: 2 });
+      expect(spread.filter(([x]) => x! < 40)).toEqual([
+        [37, 3, 35, 3],
+        [35, 37, 37, 25],
+        [37, 15, 37, 3],
+      ]);
+      expect(spread.filter(([x]) => x! > 60)).toEqual([
+        [63, 3, 63, 15],
+        [63, 25, 65, 37],
+        [65, 3, 63, 3],
+      ]);
+    });
+
+    it('are not lost: a lobe none of them is nearest to takes the nearest one', () => {
+      // One tab at 0, 17.6 on the left: the right lobe is cut free as well – with a tab of its own,
+      // as before, on its side towards the neck.
+      const told = stretches({ count: 0, at: [0.95] });
+      expect(told.filter(([x]) => x! < 40)).toEqual([[3, 10.6, 3, 24.6]]);
+      expect(told.filter(([x]) => x! > 60)).toHaveLength(1);
+      // Two on the left (the second 4.8 below the top: 0, 35.2), none nearest to the right lobe: it
+      // takes one all the same – the one nearer to it, as with the single place – and the left lobe
+      // keeps both: 7 either side of 3, 17.6, and from 3, 28.2 up to the corner and 5.2 along the top.
+      const both = stretches({ count: 0, at: [0.9, 0.95] });
+      expect(both.filter(([x]) => x! < 40)).toEqual([
+        [3, 10.6, 3, 24.6],
+        [3, 28.2, 8.2, 37],
+      ]);
+      expect(both.filter(([x]) => x! > 60)).toEqual(told.filter(([x]) => x! > 60));
+      // The same place by count is the same program, for one place there is nothing to divide.
+      expect(stretches({ count: 1 })).toEqual(stretches({ count: 0, at: [0.5] }));
+      expect(stretches({ count: 1 })).toHaveLength(2);
+      // The same place named twice is one place.
+      expect(stretches({ count: 0, at: [0.5, 0.5] })).toEqual(stretches({ count: 1 }));
+    });
+  });
+
+  it('keeps tabs off an open line and off a contour of no length', () => {
+    const open = { closed: false, points: [...plate.points] };
+    const tabs = { count: 4, width: 8, height: 2 };
+    const a = toolpaths([open], [{ contour: 0, kind: 'on', tabs }], s);
+    const b = toolpaths([open], [{ contour: 0, kind: 'on' }], s);
+    expect(a.moves).toEqual(b.moves);
   });
 });
 

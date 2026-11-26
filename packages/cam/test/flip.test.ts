@@ -26,6 +26,7 @@ import {
   rotation,
   signedArea,
   tabPoints,
+  tabSites,
   toolpaths,
   translation,
   type Contour,
@@ -330,6 +331,44 @@ describe('cutting the mirrored side', () => {
     expect(Math.min(up[0]!.from, up[0]!.to)).toBeCloseTo(54, 6);
     expect(Math.max(up[0]!.from, up[0]!.to)).toBeCloseTo(66, 6);
     expect(front.filter((f) => f.z === -6).length).toBeGreaterThan(0);
+  });
+
+  it('tabs put by hand stand at the same places of the part on the back, mirrored', () => {
+    const plate = rectangle(0, 0, 100, 60);
+    // 0.1 and 0.6 of the 320 mm: 32 along the lower side, and 192 along – 32 along the upper side
+    // from its right end (the way runs 100 below, 60 right, 100 above, 60 left).
+    const at = [0.1, 0.6];
+    const placed = (c: Contour) =>
+      tabSites(c, { count: 4, at }).map((t) => [t.u, Math.round(t.point.x * 1e6) / 1e6, t.point.y]);
+    expect(placed(plate)).toEqual([
+      [0.1, 32, 0],
+      [0.6, 68, 60],
+    ]);
+    const flip = { axis: 'x', at: 50 } as const;
+    const back = flipContours([plate], flip)[0]!;
+    // The same fractions, the mirror image of the same places: x ↦ 100 − x.
+    expect(placed(back)).toEqual([
+      [0.1, 68, 0],
+      [0.6, 32, 60],
+    ]);
+    // And the cutter on the back lifts there: along the lower side (3 below the line) it is up
+    // only over 68 – 6 mm of tab and the cutter's width, from 62 to 74 – and down beyond.
+    const tabs = { count: 4, width: 6, height: 2, at };
+    const { moves } = toolpaths([back], [{ contour: 0, kind: 'outside', tabs }], s);
+    let now = { x: 0, y: 0, z: 0 };
+    const lower: { from: number; to: number; z: number }[] = [];
+    for (const m of moves) {
+      const next = { x: m.x ?? now.x, y: m.y ?? now.y, z: m.z ?? now.z };
+      if (m.feed !== null && Math.abs(now.y + 3) < 0.01 && Math.abs(next.y + 3) < 0.01) {
+        if (next.x !== now.x) lower.push({ from: now.x, to: next.x, z: next.z });
+      }
+      now = next;
+    }
+    const up = lower.filter((f) => f.z === -4);
+    expect(up).toHaveLength(1);
+    expect(Math.min(up[0]!.from, up[0]!.to)).toBeCloseTo(62, 6);
+    expect(Math.max(up[0]!.from, up[0]!.to)).toBeCloseTo(74, 6);
+    expect(lower.filter((f) => f.z === -6).length).toBeGreaterThan(0);
   });
 });
 

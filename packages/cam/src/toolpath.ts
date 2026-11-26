@@ -17,11 +17,27 @@ import { reliefCorners, type Relief, type ReliefCorner } from './relief';
 export type OperationKind = 'outside' | 'inside' | 'on' | 'pocket' | 'drill' | 'none';
 
 export interface Tabs {
+  /** How many are spread evenly along a contour (ignored where `at` names the places) */
   count: number;
-  /** Width on the part, mm */
+  /** Width on the part, mm: the material that is left, not the stretch the cutter lifts over */
   width: number;
   /** Height above the bottom of the cut, mm */
   height: number;
+  /**
+   * Where the tabs stand, by hand: fractions 0 ≤ u < 1 of the drawn contour's length from its
+   * first point, in the order of its points – so a place names the same spot of the part whatever
+   * is done to the drawing (moved, turned, mirrored, cut from the back). Absent: `count` tabs,
+   * evenly spread. An empty list: no tabs at all.
+   */
+  at?: readonly number[];
+}
+
+/** One place where a contour keeps a tab: how far along it (0 ≤ u < 1), the point, the way the line runs there. */
+export interface TabSite {
+  u: number;
+  point: Point;
+  /** Unit vector along the contour, in the order of its points */
+  tangent: Point;
 }
 
 export interface CutSettings {
@@ -95,23 +111,30 @@ function startNear(loop: Point[], from: Point): Point[] {
   return [...loop.slice(best), ...loop.slice(0, best)];
 }
 
-/** A closed loop by its length: the way along it to each vertex, points on it, the place nearest to a point. */
+/**
+ * A closed loop by its length: the way along it to each vertex, the segment and the point at a way,
+ * the place nearest to a point. A point drawn twice makes a segment of no length: every search steps over it.
+ */
 function measure(loop: readonly Point[]) {
   const n = loop.length;
   const cum = [0];
   for (let i = 1; i <= n; i++) cum.push(cum[i - 1]! + distance(loop[i - 1]!, loop[i % n]!));
-  const pointAt = (sm: number): Point => {
+  /** The segment (from vertex i to the next) a way along the loop lies on */
+  const segmentAt = (sm: number): number => {
     let i = 0;
     while (i < n - 1 && cum[i + 1]! <= sm) i++;
+    return i;
+  };
+  const pointAt = (sm: number): Point => {
+    const i = segmentAt(sm);
     const a = loop[i]!;
     const b = loop[(i + 1) % n]!;
     // Never a zero-length segment: the search above steps over them.
     const t = (sm - cum[i]!) / (cum[i + 1]! - cum[i]!);
     return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
   };
-  const nearest = (p: Point): number => {
-    let best = 0;
-    let bestDistance = Infinity;
+  const closest = (p: Point): { s: number; point: Point; distance: number } => {
+    let best = { s: 0, point: loop[0]!, distance: Infinity };
     for (let i = 0; i < n; i++) {
       const a = loop[i]!;
       const b = loop[(i + 1) % n]!;
@@ -120,24 +143,120 @@ function measure(loop: readonly Point[]) {
       const along = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / length;
       const t = Math.max(0, Math.min(length, along));
       const q = { x: a.x + ((b.x - a.x) * t) / length, y: a.y + ((b.y - a.y) * t) / length };
-      if (distance(p, q) < bestDistance) {
-        bestDistance = distance(p, q);
-        best = cum[i]! + t;
-      }
+      const d = distance(p, q);
+      if (d < best.distance) best = { s: cum[i]! + t, point: q, distance: d };
     }
     return best;
   };
-  return { cum, length: cum[n]!, pointAt, nearest };
+  const nearest = (p: Point): number => closest(p).s;
+  return { cum, length: cum[n]!, segmentAt, pointAt, closest, nearest };
 }
 
 /**
- * Where the tabs of a contour stand: evenly along the drawn line, counted
- * from its first point. Every loop cut for the contour (roughing, finishing)
- * lifts at the same places of the part.
+ * A fraction of a loop, brought into 0 ≤ u < 1: what lies beyond either end comes round, a hair
+ * below 0 is the start (not 1), and −0 is 0.
+ */
+export function wrapUnit(u: number): number {
+  const w = u % 1;
+  const r = w < 0 ? w + 1 : w;
+  return r >= 1 ? 0 : r + 0;
+}
+
+/** Two places closer than this (as a fraction of the contour) are one */
+const SAME_PLACE = 1e-9;
+
+/**
+ * Where the tabs of a closed contour stand, in the order of its points: the places `tabs.at` names
+ * (wrapped into 0 ≤ u < 1, sorted, places closer than 1e-9 one), else `count` tabs evenly along the
+ * drawn line, counted from its first point – each at the middle of its share. Both the toolpath and
+ * the drawing of the tabs ask here, so the two agree about the places. The cutter walks a loop beside
+ * the drawn line, so it lifts at the nearest place of that loop; where it cannot follow the line (a
+ * slot narrower than the cutter) that is a little away from the drawn place, and a hole that falls into
+ * several loops keeps each place on the loop nearest to it (`tabsPerLoop`), a loop with none the one
+ * nearest to it. An open contour has none (nothing is cut free there), nor has a contour of no length.
+ */
+export function tabSites(contour: Contour, tabs: Pick<Tabs, 'count' | 'at'>): TabSite[] {
+  if (!contour.closed) return [];
+  const m = measure(contour.points);
+  if (m.length === 0) return [];
+  // Each place as its way along the drawn line and its fraction of it
+  let places: { s: number; u: number }[];
+  if (tabs.at) {
+    const sorted = tabs.at
+      .filter(Number.isFinite)
+      .map(wrapUnit)
+      .sort((a, b) => a - b);
+    const apart = sorted.filter((u, i) => i === 0 || u - sorted[i - 1]! >= SAME_PLACE);
+    // The last may lie just before the end of the line, the first just behind its start
+    if (apart.length > 1 && apart[0]! + 1 - apart[apart.length - 1]! < SAME_PLACE) apart.pop();
+    places = apart.map((u) => ({ s: (u * m.length) % m.length, u }));
+  } else {
+    places = Array.from({ length: tabs.count }, (_, k) => ({
+      s: ((k + 0.5) * m.length) / tabs.count,
+      u: (k + 0.5) / tabs.count,
+    }));
+  }
+  return places.map(({ s, u }) => {
+    const i = m.segmentAt(s);
+    const a = contour.points[i]!;
+    const b = contour.points[(i + 1) % contour.points.length]!;
+    const long = m.cum[i + 1]! - m.cum[i]!;
+    return {
+      u,
+      point: m.pointAt(s),
+      tangent: { x: (b.x - a.x) / long, y: (b.y - a.y) / long },
+    };
+  });
+}
+
+/**
+ * Where the tabs of a contour stand when they are spread evenly: the points of `tabSites`.
+ * Kept for what only needs the places.
  */
 export function tabPoints(contour: readonly Point[], count: number): Point[] {
-  const m = measure(contour);
-  return Array.from({ length: count }, (_, k) => m.pointAt(((k + 0.5) * m.length) / count));
+  return tabSites({ points: [...contour], closed: true }, { count }).map((site) => site.point);
+}
+
+/**
+ * The place of a closed contour nearest to a point – how a tap or a finger becomes a place for a
+ * tab: its fraction of the drawn line (0 ≤ u < 1), the point on the line and how far the given point
+ * is from it. Null for a contour without points. A contour of no length is its one point.
+ */
+export function nearestOnContour(
+  contour: Contour,
+  p: Point,
+): { u: number; point: Point; distance: number } | null {
+  const first = contour.points[0];
+  if (!first) return null;
+  const m = measure(contour.points);
+  if (m.length === 0) return { u: 0, point: first, distance: distance(p, first) };
+  const near = m.closest(p);
+  // The end of the line is its start
+  return { u: wrapUnit(near.s / m.length), point: near.point, distance: near.distance };
+}
+
+/**
+ * The stretch of a closed contour that is `width` mm long with the fraction `u` in its middle, as a
+ * polyline following the line round its corners (what a tab of that width covers; a width beyond the
+ * whole line is the whole line). Empty for an open contour or one of no length.
+ */
+export function contourSpan(contour: Contour, u: number, width: number): Point[] {
+  if (!contour.closed) return [];
+  const m = measure(contour.points);
+  if (m.length === 0) return [];
+  const w = Math.min(Math.max(0, width), m.length);
+  const start = wrapUnit(u) * m.length - w / 2;
+  const end = start + w;
+  const at = (way: number) => m.pointAt(((way % m.length) + m.length) % m.length);
+  const inside: Point[] = [];
+  // The vertices that lie strictly between the two ends, on this lap and the ones next to it
+  for (const lap of [-1, 0, 1]) {
+    contour.points.forEach((p, i) => {
+      const way = lap * m.length + m.cum[i]!;
+      if (way > start && way < end) inside.push(p);
+    });
+  }
+  return [at(start), ...inside, at(end)];
 }
 
 interface LoopExtras {
@@ -146,6 +265,42 @@ interface LoopExtras {
   tabAt?: readonly Point[];
   /** Detours into corners (relief), by the loop vertex they leave from */
   spurs?: ReadonlyMap<Point, Point>;
+}
+
+/**
+ * Which places of the drawn contour each of the loops of one stage (all the roughing loops, or all the
+ * finishing ones) keeps. Normally every loop keeps them all, each at its nearest place. Where a cut-out
+ * falls into several loops (a hole with a neck narrower than the cutter) and the places are told one by
+ * one (`split`), a place belongs to the loop it lies nearest to – so a tab put on one lobe is cut on
+ * that lobe and not also on the other. A loop that no place is nearest to would be cut free without a
+ * tab: it takes the one place nearest to it, as it did before.
+ */
+function tabsPerLoop(
+  loops: readonly (readonly Point[])[],
+  sites: readonly Point[],
+  split: boolean,
+): Point[][] {
+  if (!split || loops.length < 2) return loops.map(() => [...sites]);
+  const near = loops.map((loop) => {
+    const m = measure(loop);
+    return sites.map((p) => m.closest(p).distance);
+  });
+  const own = loops.map(() => [] as Point[]);
+  sites.forEach((p, k) => {
+    let best = 0;
+    near.forEach((d, i) => {
+      if (d[k]! < near[best]![k]!) best = i;
+    });
+    own[best]!.push(p);
+  });
+  return own.map((mine, i) => {
+    if (mine.length > 0) return mine;
+    let k = 0;
+    near[i]!.forEach((d, j) => {
+      if (d < near[i]![k]!) k = j;
+    });
+    return [sites[k]!];
+  });
 }
 
 /**
@@ -197,7 +352,9 @@ function loopWalk(
     marks.add(p.start + p.ramp);
   }
   marks.add(end);
-  for (let lap = 0; (lap - 1) * P <= end; lap++) {
+  // From the lap before the start: a tab across the start ends its zone there, `c + tabHalf − P` into
+  // the first lap (everything the lap before gives that lies before the start is left out below).
+  for (let lap = -1; (lap - 1) * P <= end; lap++) {
     for (const c of cum) marks.add(lap * P + c);
     for (const c of tabCentres) {
       marks.add(lap * P + c - tabHalf);
@@ -412,8 +569,10 @@ export function toolpaths(
     const depth = op.depth ?? s.depth;
     const depths = passDepths(depth, s.stepdown);
     const finish = [-depth];
-    const tabs = op.tabs && op.tabs.count > 0 ? op.tabs : undefined;
-    const tabAt = tabs && c.closed ? tabPoints(c.points, tabs.count) : [];
+    // The same places the drawing shows (`tabSites`); none on an open contour or without any
+    const sites = op.tabs ? tabSites(c, op.tabs) : [];
+    const tabs = sites.length > 0 ? op.tabs : undefined;
+    const tabAt = sites.map((site) => site.point);
     // This contour's own direction, else the job's
     const climb = op.climb ?? s.climb;
     if (op.kind === 'on') {
@@ -440,18 +599,22 @@ export function toolpaths(
       // Material left of the cutter for climb: outside counter-clockwise, inside clockwise.
       const turned = (g: Point[]) => ((op.kind === 'outside') === climb ? ccw(g) : cw(g));
       const rough = allowance > 0 ? offsetPolygons([outline], sign * (r + allowance)) : [];
-      for (const g of rough) {
-        at = loopWalk(startNear(turned(g), at), depths, s, moves, { tabs, tabAt });
-      }
-      for (const g of final) {
+      // Told one by one, the places go to the loops they lie nearest to
+      const split = op.tabs?.at !== undefined && tabAt.length > 1;
+      const roughAt = tabsPerLoop(rough, tabAt, split);
+      rough.forEach((g, k) => {
+        at = loopWalk(startNear(turned(g), at), depths, s, moves, { tabs, tabAt: roughAt[k] });
+      });
+      const finalAt = tabsPerLoop(final, tabAt, split);
+      final.forEach((g, k) => {
         const loop = startNear(turned(g), at);
         // After roughing, one pass at full depth takes off the allowance.
         at = loopWalk(loop, rough.length > 0 ? finish : depths, s, moves, {
           tabs,
-          tabAt,
+          tabAt: finalAt[k],
           spurs: spursOn(loop, corners),
         });
-      }
+      });
     } else {
       const islands = shapes
         .filter((o, j) => j !== op.contour && o.contour.closed && isInside(o, shapes[op.contour]!))

@@ -254,6 +254,14 @@ export const COMMANDS: readonly Command[] = [
   draw('projectSave', 'cam.project.save', 'project-save'),
   draw('camHow', 'cam.steps.how', 'cam-how'),
   draw('tabs', 'cam.tabs', 'cam-how'),
+  // The panel of a part's tabs shows with the part selected and its tabs on; else the card is the place
+  entry({ id: 'tabsPlace', title: 'cam.tabPlace', place: 'cam', anchor: ['cam-tabs', 'cam-how'] }),
+  entry({
+    id: 'tabsSpread',
+    title: 'cam.tabSpread',
+    place: 'cam',
+    anchor: ['cam-tabs', 'cam-how'],
+  }),
   draw('camTool', 'cam.tool', 'cam-tool', 'tool'),
   draw('camAdvanced', 'cam.advanced', 'cam-advanced'),
   draw('bothSides', 'flip.both', 'cam-sides'),

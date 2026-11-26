@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n';
 import { zoneHandles } from '../lib/clamps';
-import { flipFor, pointInPolygon } from '@lowrider/cam';
+import { flipFor, nearestOnContour, pointInPolygon } from '@lowrider/cam';
 import {
   frameAngle,
   frameCorners as selectionCorners,
@@ -13,6 +13,7 @@ import {
   selectionFrame,
 } from '../lib/camEdit';
 import { holeCentre, isSelected, itemAt, itemsBounds } from '../lib/camItems';
+import { itemTabMarks, placeNear, tabNear } from '../lib/camTabs';
 import { provideTableBox } from '../lib/tableBox';
 import { formatNumber } from '../lib/format';
 import { jigsWithTag, tagCorners, tagLabel } from '../lib/jigs';
@@ -146,6 +147,9 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   const drawingOpen = useUi((s) => s.place === 'cam');
   const project = useCam((s) => s.project);
   const selected = useCam((s) => s.selected);
+  // The holding tabs are drawn with the drawing's defaults and follow them; putting them by hand is a mode
+  const tabDefaults = useCam((s) => s.settings.tabs);
+  const placing = useCam((s) => s.placing);
   /** What a finger is doing to the selected part of the drawing right now */
   const [held, setHeld] = useState<'size' | 'turn' | 'move' | null>(null);
 
@@ -203,6 +207,31 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     } else if (box && held === 'move') {
       label = t('cam.live.place', { x: mm(box.minX), y: mm(box.minY) });
     }
+    // The holding tabs of every thing that has them – the places the toolpath is cut with
+    const marks = project.items.flatMap((i) => itemTabMarks(i, tabDefaults));
+    const chosenIds = new Set(chosen.map((i) => i.id));
+    const byItem = new Map<number, typeof marks>();
+    for (const m of marks) byItem.set(m.item, [...(byItem.get(m.item) ?? []), m]);
+    const fourth = (n: number) => Math.round(n * 1e4) / 1e4;
+    const tabsData =
+      marks.length > 0
+        ? JSON.stringify(
+            [...byItem].map(([item, ms]) => ({
+              item,
+              selected: chosenIds.has(item),
+              sites: ms.map((m) => ({
+                c: m.c,
+                u: fourth(m.u),
+                x: fourth(m.x),
+                y: fourth(m.y),
+                w: m.w,
+                index: m.index,
+              })),
+            })),
+          )
+        : undefined;
+    // Putting tabs by hand: the thing must still be the selected one
+    const placingNow = placing !== null && chosenIds.has(placing);
     const all = itemsBounds(project.items);
     const backItems = project.items.filter((i) => i.side === 'back');
     const holes = project.items.filter((i) => i.registration !== undefined);
@@ -228,14 +257,23 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
               outline: outline(chosen),
               box: boundsExtent(box),
               frame,
-              // A registration hole is only moved.
-              handles: !chosen.some((i) => i.registration !== undefined),
+              // A registration hole is only moved; while tabs are put by hand the handles stay away
+              handles: !placingNow && !chosen.some((i) => i.registration !== undefined),
               label,
             }
           : null,
+      tabs: marks.map((m) => ({
+        span: m.span,
+        ends: m.ends,
+        at: { x: m.x, y: m.y },
+        selected: chosenIds.has(m.item),
+      })),
+      marks,
+      tabsData,
+      placing: placingNow,
       extent: all ? boundsExtent(all) : null,
     };
-  }, [drawingOpen, project, selected, top, held]);
+  }, [drawingOpen, project, selected, top, held, tabDefaults, placing]);
   const drawingRef = useRef(drawing);
   // In the drawing workspace the tap tools and the clamps are out of reach of the finger.
   const drawingOpenRef = useRef(drawingOpen);
@@ -380,6 +418,8 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     drawingBack: drawing?.back,
     flipLine: drawing?.flipLine,
     drawingSelected: drawing?.selected,
+    drawingTabs: drawing?.tabs,
+    drawingTabsGrip: drawing?.placing,
     sections: sections.mark,
   };
   const followRef = useRef(follow);
@@ -572,9 +612,21 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
         }
       }
       if (drawingRef.current) {
+        const cam = useCam.getState();
+        // Putting tabs by hand: a tap on the line of that part puts a tab at the nearest place (taken
+        // back, like every tap, if it turns out to be the first of a double tap); beside the line it
+        // is a tap as ever.
+        const placingItem = drawingRef.current.placing
+          ? cam.project?.items.find((i) => i.id === cam.placing)
+          : undefined;
+        const near = placingItem && placeNear(placingItem, { x: u, y: v }, GRAB_PX / vp.scale);
+        if (placingItem && near) {
+          return cam.addTab(placingItem.id, near.c, near.u)
+            ? () => useCam.getState().undo()
+            : undefined;
+        }
         // While drawing, a tap selects the part under it – also the one it is
         // inside of – and a tap beside everything lets go of the selection.
-        const cam = useCam.getState();
         const before = cam.selected;
         if (cam.pick({ x: u, y: v }, GRAB_PX / vp.scale)) {
           return () => useCam.getState().select(before);
@@ -608,6 +660,35 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
           setHeld(null);
           end();
         };
+        // Putting tabs by hand: a tab is taken first – dragged along the line it stands on, taken
+        // back by a tap. On the part's own line a finger then moves the view (and a tap puts a tab):
+        // no handle and no dragging of the part itself gets in the way.
+        const placingItem = drawingRef.current.placing
+          ? cam.project?.items.find((i) => i.id === cam.placing)
+          : undefined;
+        if (placingItem) {
+          const reach = GRAB_PX / vp.scale;
+          const tab = tabNear(drawingRef.current.marks, placingItem.id, at, reach);
+          const drag = tab && tab.index >= 0 ? cam.dragTab(placingItem.id, tab.index) : null;
+          if (tab && drag) {
+            const contour = placingItem.contours[tab.c]!;
+            return {
+              move(q) {
+                const [u, v] = screenToWorld(vp, q.x, q.y);
+                // The tab follows the finger's way; it stays on its line, at the nearest place
+                const near = nearestOnContour(contour, {
+                  x: tab.x + (u - u0),
+                  y: tab.y + (v - v0),
+                });
+                if (near) drag.move(near.u);
+              },
+              end: drag.end,
+              tap: () => cam.removeTab(placingItem.id, tab.index),
+              yields: true,
+            };
+          }
+          if (placeNear(placingItem, at, reach)) return null;
+        }
         // A handle of the selected part first: its corners and sides, the dot for turning.
         const sel = drawingRef.current.selected;
         const handle = sel?.handles ? handleAt(sel.frame, at, vp.scale) : null;
@@ -811,6 +892,8 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
           : undefined
       }
       data-drawing-label={drawing?.selected?.label ?? undefined}
+      data-drawing-tabs={drawing?.tabsData}
+      data-drawing-placing={drawing?.placing ? '1' : undefined}
       data-zone={zones
         .filter((z) => z.selected)
         .map((z) => [z.box.minU, z.box.minV, z.box.maxU, z.box.maxV].map((n) => n.toFixed(1)))

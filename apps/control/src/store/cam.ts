@@ -29,10 +29,12 @@ import {
   sketchContours,
   sketchKeepsProportions,
   sketchTextOptions,
+  tabSites,
   textContours,
   toGcode,
   toolpaths,
   translation,
+  wrapUnit,
   type Contour,
   type CutSettings,
   type FlipAxis,
@@ -77,7 +79,21 @@ import {
   place,
   type CamItem,
   type Selection,
+  type TabSpec,
 } from '../lib/camItems';
+import {
+  clampTab,
+  carryTabs,
+  itemHasTabs,
+  itemTabs,
+  pruneTabs,
+  samePlace,
+  TAB_LIMITS,
+  tabsOn,
+  tidySpec,
+  tabValues,
+  type TabValue,
+} from '../lib/camTabs';
 import { fixturesInWork } from '../lib/clamps';
 import { textBlockCentre } from '../lib/series';
 import { inViewSpot } from '../lib/tableBox';
@@ -235,6 +251,36 @@ interface CamStore {
   /** Empties the drawing */
   clear(): void;
   setItem(id: number, patch: ItemPatch): void;
+  /**
+   * Own values for the holding tabs of a thing – a number, or undefined to take the drawing's default
+   * again; a number is brought into its range (the count into whole numbers). Changes of one value
+   * in a row are one step to undo.
+   */
+  setTabs(id: number, patch: Partial<Record<TabValue, number | undefined>>): void;
+  /** The tabs automatic again: the thing's count spread evenly; the places put by hand are forgotten */
+  spreadTabs(id: number): void;
+  /**
+   * The tabs by hand from now on, starting with the places the automatic spread makes right now –
+   * so one starts from the even distribution and moves them. False where that cannot be (more
+   * places than a thing may have, tabs off).
+   */
+  manualTabs(id: number): boolean;
+  /** A tab at a place (fraction `u` of its contour `c`) of a thing whose tabs are by hand; false: not possible */
+  addTab(id: number, c: number, u: number): boolean;
+  /** Puts the tab `index` of the thing's places at another place of its contour; one step per tab in a row */
+  moveTab(id: number, index: number, u: number): void;
+  /**
+   * A finger takes the tab `index`: `move` shows it at a place of its contour (the toolpath waits),
+   * `end` makes the job anew – one step to undo for the whole drag. Null where there is no such tab.
+   */
+  dragTab(id: number, index: number): { move(u: number): void; end(): void } | null;
+  removeTab(id: number, index: number): void;
+  /**
+   * The thing whose tabs a finger is putting on the table ("Stege setzen"), or null. It ends by itself
+   * when the thing is no longer selected, no longer has its tabs by hand, or is gone.
+   */
+  placing: number | null;
+  setPlacing(id: number | null): void;
   select(selected: Selection): void;
   /**
    * A finger on the drawing at a work point: selects what lies there – for a
@@ -383,12 +429,19 @@ const EMPTY: CamProject = { name: 'zeichnung', items: [], twoSided: null, skippe
 
 const through = (kind: OperationKind) => kind === 'outside' || kind === 'inside';
 
-/** How an item of the drawing is cut: its operation without the contour it belongs to. */
-export function itemOperation(item: CamItem, settings: CamSettings): Omit<Operation, 'contour'> {
+/**
+ * How an item of the drawing is cut: its operation without the contour it belongs to – `contour`
+ * names which of the item's contours it is for (its tabs may stand at places of their own).
+ */
+export function itemOperation(
+  item: CamItem,
+  settings: CamSettings,
+  contour = 0,
+): Omit<Operation, 'contour'> {
   return {
     kind: item.kind,
     depth: item.depth ?? (item.kind === 'on' ? settings.engraveDepth : undefined),
-    tabs: through(item.kind) && item.tabs ? settings.tabs : undefined,
+    tabs: itemTabs(item, contour, settings.tabs),
     relief: (through(item.kind) || item.kind === 'pocket') && item.relief ? item.relief : undefined,
     // its own direction, where it has one to choose (a stale one from another kind does not count);
     // else the job's (the library falls back)
@@ -593,7 +646,8 @@ export const useCam = create<CamStore>((set, get) => {
   ): boolean => {
     const p = get().project;
     if (!p) return false;
-    const held = withHoles(items, p.twoSided);
+    // Places by hand on a contour the thing no longer has (a grid made smaller) go with it
+    const held = withHoles(items.map(pruneTabs), p.twoSided);
     const gone = typeof selected === 'number' && !held.items.some((i) => i.group === selected);
     set({
       project: {
@@ -678,7 +732,14 @@ export const useCam = create<CamStore>((set, get) => {
       const sketch = magnifySketch(i.sketch, k);
       const placement = compose(compose(grow, i.placement), scaling(1 / k));
       const { missing: _missing, ...made } = fromSketch(sketch);
-      return { ...i, ...made, sketch, placement, contours: place(made.source, placement) };
+      // The places of tabs by hand follow the measures (a uniform scale keeps them where they are)
+      return carryTabs(i, {
+        ...i,
+        ...made,
+        sketch,
+        placement,
+        contours: place(made.source, placement),
+      });
     });
   };
   /**
@@ -703,7 +764,14 @@ export const useCam = create<CamStore>((set, get) => {
       );
     }
     const { missing: _missing, ...rest } = made;
-    return { ...item, ...rest, sketch, placement, contours: place(made.source, placement) };
+    // The places of tabs by hand are fractions of a contour whose length has changed: they follow it
+    return carryTabs(item, {
+      ...item,
+      ...rest,
+      sketch,
+      placement,
+      contours: place(made.source, placement),
+    });
   };
   /** Replaces the chosen items by their changed selves (same ids), without making the job. */
   const show = (changed: readonly CamItem[]) => {
@@ -789,10 +857,40 @@ export const useCam = create<CamStore>((set, get) => {
       ? { ...now, name: get().project!.name, settings: get().settings }
       : now;
 
+  /**
+   * Changes how one thing's tabs are made, as one step to undo (steps of one `field` in a row are
+   * one). `change` gives the new spec – `undefined` for none –, or null where there is nothing to do.
+   */
+  const respec = (
+    id: number,
+    field: string | null,
+    change: (item: CamItem) => TabSpec | undefined | null,
+  ): boolean => {
+    const p = get().project;
+    const item = p?.items.find((i) => i.id === id);
+    if (!p || !item) return false;
+    const next = change(item);
+    if (next === null) return false;
+    remember(snap(), field);
+    const tidy = next && tidySpec(next);
+    update(
+      p.items.map((i) => {
+        if (i.id !== id) return i;
+        const { tabSpec: _was, ...rest } = i;
+        return tidy ? { ...rest, tabSpec: tidy } : rest;
+      }),
+    );
+    return true;
+  };
+  /** The places of a thing whose tabs are by hand; null for any other. */
+  const placesOf = (item: CamItem | undefined) =>
+    item && tabsOn(item) && item.tabSpec?.mode === 'manual' ? (item.tabSpec.at ?? []) : null;
+
   return {
     project: null,
     past: [],
     future: [],
+    placing: null,
     settings: initialSettings(),
     problems: [],
     flipNotes: [],
@@ -996,6 +1094,116 @@ export const useCam = create<CamStore>((set, get) => {
         }),
       );
     },
+    setTabs(id, patch) {
+      const keys = (['count', 'width', 'height'] as const).filter((k) => k in patch);
+      if (keys.length === 0) return;
+      respec(id, `tabs:${id}:${keys.join()}`, (item) => {
+        const spec: TabSpec = { ...(item.tabSpec ?? { mode: 'auto' }) };
+        for (const key of keys) {
+          const v = patch[key];
+          // Not a number (an emptied field): the drawing's default again
+          if (v === undefined || !Number.isFinite(v)) delete spec[key];
+          else spec[key] = clampTab(key, v);
+        }
+        return spec;
+      });
+    },
+    spreadTabs(id) {
+      respec(id, null, (item) => {
+        if (item.tabSpec?.mode !== 'manual') return null;
+        const { at: _put, ...rest } = item.tabSpec;
+        return { ...rest, mode: 'auto' };
+      });
+    },
+    manualTabs(id) {
+      const { project, settings } = get();
+      const item = project?.items.find((i) => i.id === id);
+      if (!item || !tabsOn(item)) return false;
+      if (item.tabSpec?.mode === 'manual') return true;
+      // What the automatic spread makes now, contour by contour, is where one starts
+      const at = item.contours.flatMap((contour, c) => {
+        const tabs = itemTabs(item, c, settings.tabs);
+        return tabs ? tabSites(contour, tabs).map((site) => ({ c, u: site.u })) : [];
+      });
+      if (at.length > TAB_LIMITS.places) return false;
+      return respec(id, null, (it) => ({ ...(it.tabSpec ?? {}), mode: 'manual', at }));
+    },
+    addTab(id, c, u) {
+      return respec(id, null, (item) => {
+        const at = placesOf(item);
+        const contour = item.contours[c];
+        if (!at || !contour?.closed || !Number.isFinite(u) || at.length >= TAB_LIMITS.places) {
+          return null;
+        }
+        const here = wrapUnit(u);
+        // Not onto a tab that stands there
+        if (at.some((p) => p.c === c && samePlace(p.u, here))) return null;
+        return { ...item.tabSpec!, at: [...at, { c, u: here }] };
+      });
+    },
+    moveTab(id, index, u) {
+      respec(id, `tab:${id}:${index}`, (item) => {
+        const at = placesOf(item);
+        const was = at?.[index];
+        if (!at || !was || !Number.isFinite(u) || samePlace(was.u, u)) return null;
+        // Not onto another tab of the same contour (it would stand there twice, one of them unseen)
+        if (at.some((p, i) => i !== index && p.c === was.c && samePlace(p.u, u))) return null;
+        return {
+          ...item.tabSpec!,
+          at: at.map((p, i) => (i === index ? { c: p.c, u: wrapUnit(u) } : p)),
+        };
+      });
+    },
+    dragTab(id, index) {
+      const item = get().project?.items.find((i) => i.id === id);
+      const at = placesOf(item);
+      const was = at?.[index];
+      if (!item || !at || !was) return null;
+      const before = snap();
+      let to = was.u;
+      let moved = false;
+      return {
+        move(u) {
+          if (!Number.isFinite(u)) return;
+          moved = true;
+          to = wrapUnit(u);
+          // Only the picture follows the finger; the toolpath is made when it lets go.
+          show([
+            {
+              ...item,
+              tabSpec: {
+                ...item.tabSpec!,
+                at: at.map((p, i) => (i === index ? { c: p.c, u: to } : p)),
+              },
+            },
+          ]);
+        },
+        end() {
+          const p = get().project;
+          // Never moved (a tap, a second finger): nothing was shown, nothing to make or remember
+          if (!p || !moved) return;
+          // Let go where it was taken (or put back there), or onto another tab of the same contour
+          // (it would stand there twice): it is put back, nothing changed, nothing to remember
+          if (
+            samePlace(was.u, to) ||
+            at.some((q, i) => i !== index && q.c === was.c && samePlace(q.u, to))
+          ) {
+            show([item]);
+            return;
+          }
+          remember(before);
+          update(p.items);
+        },
+      };
+    },
+    removeTab(id, index) {
+      respec(id, null, (item) => {
+        const at = placesOf(item);
+        if (!at || !at[index]) return null;
+        return { ...item.tabSpec!, at: at.filter((_, i) => i !== index) };
+      });
+    },
+    setPlacing: (placing) => set({ placing }),
     select(selected) {
       lastField = null;
       set({ selected });
@@ -1259,11 +1467,11 @@ export const useCam = create<CamStore>((set, get) => {
         const rows: number[] = [];
         project.items.forEach((item, row) => {
           if (item.registration !== undefined || (which && item.side !== which)) return;
-          for (const c of lay(item.contours)) {
-            operations.push({ contour: contours.length, ...itemOperation(item, settings) });
+          lay(item.contours).forEach((c, k) => {
+            operations.push({ contour: contours.length, ...itemOperation(item, settings, k) });
             contours.push(c);
             rows.push(row);
-          }
+          });
         });
         const path = toolpaths(contours, operations, cut);
         return {
@@ -1291,7 +1499,8 @@ export const useCam = create<CamStore>((set, get) => {
           kind: item.kind,
           contours: item.contours,
           depth: depthOf(item),
-          tabs: through(item.kind) && item.tabs,
+          // Held only where a tab is cut: none by hand, or none by count, leaves the part loose
+          tabs: itemHasTabs(item, settings.tabs),
         }));
         const backUsed = parts.some((i) => i.side === 'back' && i.kind !== 'none');
         if (!backUsed) notes.push({ code: 'no-back' });
@@ -1361,6 +1570,23 @@ export const useCam = create<CamStore>((set, get) => {
       return true;
     },
   };
+});
+
+// Putting tabs on the table is a mode: it ends when its conditions go – the thing is no longer the
+// selected one, no longer has its tabs by hand, or is gone (a project closed, undo, a removal).
+useCam.subscribe((s) => {
+  if (s.placing === null) return;
+  const item = s.project?.items.find((i) => i.id === s.placing);
+  if (
+    item &&
+    isSelected(item, s.selected) &&
+    s.selected !== 'all' &&
+    tabValues(item, s.settings.tabs).mode === 'manual' &&
+    tabsOn(item)
+  ) {
+    return;
+  }
+  useCam.setState({ placing: null });
 });
 
 // A job that ends – seen while connected, not lost with the link: where nothing lies on the table (a

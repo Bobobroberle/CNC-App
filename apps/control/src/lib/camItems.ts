@@ -16,6 +16,30 @@ import {
 } from '@lowrider/cam';
 
 /**
+ * How the holding tabs of one thing are made, where it differs from the drawing's defaults
+ * (Einstellungen of the CAM): its own width, height and count, and – by hand – the places.
+ * `CamItem.tabs` stays the switch; without a spec the defaults are spread evenly.
+ */
+export interface TabSpec {
+  /** `auto`: `count` tabs evenly along every contour; `manual`: only the places in `at` */
+  mode: 'auto' | 'manual';
+  /** Own number of tabs per contour (automatic only); undefined takes the default */
+  count?: number;
+  /** Own width on the part, mm – the material that stays; undefined takes the default */
+  width?: number;
+  /** Own height above the bottom of the cut, mm; undefined takes the default */
+  height?: number;
+  /**
+   * The places of a manual spec: `c` is the contour of the item (its index in `source` and
+   * `contours`), `u` the fraction 0 ≤ u < 1 of that drawn contour's length from its first point –
+   * so it names the same spot of the part when it is moved, turned, mirrored, copied or cut from the
+   * back. When the measures of a drawn shape change the length changes with them: `carryTabs` takes
+   * each place to the same share of the contour's box. In the order they were put.
+   */
+  at?: { c: number; u: number }[];
+}
+
+/**
  * One thing of the drawing: a shape, a text, a contour of an imported file.
  * It keeps what was added (`source`) and where that lies now (`placement`),
  * so moving, turning and mirroring never wear the geometry out.
@@ -44,6 +68,8 @@ export interface CamItem {
   kind: OperationKind;
   /** Holding tabs (outside and inside cuts) */
   tabs: boolean;
+  /** How they are made when that differs from the drawing's defaults: own values, the places by hand */
+  tabSpec?: TabSpec;
   /** Relief of the inside corners (contours and pockets) */
   relief: Relief | null;
   /** Depth of this cut, mm; undefined takes the job's depth (engraving: the engraving depth) */

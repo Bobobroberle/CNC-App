@@ -12,6 +12,12 @@ export interface ViewGrab {
   /** The finger let go, or the touch was lost */
   end(): void;
   /**
+   * The finger went down on the thing and came up again on the spot, never moving it: called after
+   * `end`, and only then – not when a second finger or a lost touch ends the grab. How a thing that
+   * is taken by a finger is also tapped (a marker that a tap removes and a drag moves).
+   */
+  tap?(): void;
+  /**
    * A second finger lets go of the thing where it is – and, if it had not
    * moved yet, the two fingers pinch the view. Without this, further fingers
    * do nothing while the thing is held.
@@ -70,12 +76,14 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
       offset: Point | null;
       release: () => void;
     } | null = null;
-    const endDrag = () => {
+    const endDrag = (lifted = false) => {
       const d = drag;
       if (!d) return;
       drag = null;
       d.release();
       d.grab.end();
+      // Down and up on the spot, never past the slop: a tap on the thing
+      if (lifted && d.offset === null) d.grab.tap?.();
     };
     const down = (e: PointerEvent) => {
       // Only the main mouse button moves the view.
@@ -134,7 +142,7 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
       pz.move(e.pointerId, local(e), e.timeStamp);
     };
     const up = (e: PointerEvent) => {
-      if (drag?.id === e.pointerId) endDrag();
+      if (drag?.id === e.pointerId) endDrag(true);
       else pz.up(e.pointerId, local(e), e.timeStamp);
     };
     const cancel = (e: PointerEvent) => {

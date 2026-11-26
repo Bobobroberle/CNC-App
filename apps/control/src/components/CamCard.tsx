@@ -1,5 +1,5 @@
 import { reliefCorners, type OperationKind, type Relief, type Side } from '@lowrider/cam';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { t } from '../i18n';
 import { camKey, typingInto } from '../lib/camKeys';
 import { isSelected, partsOf } from '../lib/camItems';
@@ -18,6 +18,7 @@ import { useFlip } from '../store/flip';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
 import { useSeries } from '../store/series';
+import { CamTabs } from './CamTabs';
 import { Feature } from './Feature';
 import { useUi } from '../store/ui';
 import { useJobUnderWay } from '../store/underway';
@@ -86,8 +87,24 @@ const hasDirection = (item: CamItem) =>
 
 const DIRECTIONS = ['job', 'climb', 'conventional'] as const;
 
-/** One thing of the drawing in the list: what it is, how it is cut and how deep. */
-function ItemRow({ item, n }: { item: CamItem; n: number }) {
+/**
+ * One thing of the drawing in the list: what it is, how it is cut and how deep. Of the things of one
+ * selected group (a file's contours come in together) only one row, `panel`, holds the tab panel; the
+ * others, where `several` have tabs, have a button that moves it to them.
+ */
+function ItemRow({
+  item,
+  n,
+  panel,
+  several,
+  onPanel,
+}: {
+  item: CamItem;
+  n: number;
+  panel: boolean;
+  several: boolean;
+  onPanel: () => void;
+}) {
   const selected = useCam((s) => isSelected(item, s.selected));
   // A tap on the one selected part lets go of it; from "everything" it picks this part.
   const alone = useCam((s) => s.selected === item.group);
@@ -159,10 +176,27 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
             <Label className="min-h-target gap-3 font-normal">
               <Checkbox
                 checked={item.tabs}
-                onCheckedChange={(checked) => cam.setItem(item.id, { tabs: checked })}
+                onCheckedChange={(checked) => {
+                  cam.setItem(item.id, { tabs: checked });
+                  // The tabs are shown on the table with the part selected: that is where they are set
+                  if (checked) {
+                    cam.select(item.group);
+                    onPanel();
+                  }
+                }}
               />
               <span>{t('cam.tabs')}</span>
             </Label>
+          ) : null}
+          {alone && several && !panel && item.tabs && through(item.kind) ? (
+            <Button
+              variant="outline"
+              aria-label={t('cam.tabsOpenOf', { n })}
+              data-testid="cam-tabs-open"
+              onClick={onPanel}
+            >
+              {t('cam.tabsOpen')}
+            </Button>
           ) : null}
           {hasDirection(item) ? (
             <NativeSelect
@@ -200,6 +234,7 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
           ) : null}
         </div>
       ) : null}
+      {alone && panel && item.tabs && through(item.kind) ? <CamTabs item={item} n={n} /> : null}
     </li>
   );
 }
@@ -323,6 +358,9 @@ export function CamCard() {
   const running = useJobUnderWay();
   const canUndo = useCam((s) => s.past.length > 0);
   const canRedo = useCam((s) => s.future.length > 0);
+  const group = useCam((s) => s.selected);
+  // Of the things of the selected group, the one whose tab panel is open (the first until another is asked for)
+  const [tabRow, setTabRow] = useState<number | null>(null);
   if (!project) return null;
   // A series on scattered blanks takes the place of the drawing's cards while it is put together.
   if (seriesOpen) return <SeriesCard />;
@@ -339,6 +377,11 @@ export function CamCard() {
   // The drawing's own program lies on the table (not the aligned back, not a file opened since).
   const made = ownsTable(fileName);
   const parts = partsOf(project.items);
+  const tabbed =
+    typeof group === 'number'
+      ? parts.filter((i) => i.group === group && i.tabs && through(i.kind))
+      : [];
+  const panelId = (tabbed.find((i) => i.id === tabRow) ?? tabbed[0])?.id ?? null;
   const relieved = parts.some((i) => i.relief !== null && hasCorners(i));
   const backText = parts.some((i) => i.side === 'back' && i.text !== undefined);
 
@@ -384,7 +427,19 @@ export function CamCard() {
           <>
             <ul className="cam-list" data-testid="cam-contours">
               {parts.map((item, i) => (
-                <ItemRow key={item.id} item={item} n={i + 1} />
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  n={i + 1}
+                  panel={item.id === panelId}
+                  several={tabbed.length > 1}
+                  onPanel={() => {
+                    // Putting tabs on the table belongs to the one panel that is open
+                    const { placing, setPlacing } = useCam.getState();
+                    if (placing !== null && placing !== item.id) setPlacing(null);
+                    setTabRow(item.id);
+                  }}
+                />
               ))}
             </ul>
             {relieved ? (

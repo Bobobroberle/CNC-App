@@ -1370,3 +1370,63 @@ test.describe('upright, the quick search', () => {
     await expect(page.locator('[data-find="cam-sides"]')).toBeInViewport();
   });
 });
+
+test('tabs by hand with a finger: a tap sets one, a drag moves it along the line, a tap takes it away', async ({
+  page,
+}) => {
+  // No machine needed: the tabs belong to the drawing.
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  const cam = page.getByTestId('cam-card');
+  const table = page.getByTestId('table-view');
+  const touch = await Touch.on(page);
+  await drawShape(page, 'Rechteck');
+  const panel = cam.getByTestId('cam-tabs');
+  await panel.getByRole('button', { name: 'Von Hand' }).tap();
+  await panel.getByRole('button', { name: 'Stege setzen' }).tap();
+  await expect(table).toHaveAttribute('data-drawing-placing', '1');
+  await restingTable(page);
+  type Site = { x: number; y: number; index: number };
+  const sites = async (): Promise<Site[]> =>
+    JSON.parse((await table.getAttribute('data-drawing-tabs')) ?? '[]')[0]?.sites ?? [];
+  await expect.poll(async () => (await sites()).length).toBe(4);
+
+  // A tap on the lower side: a tab at the nearest place (the first tap is no double tap)
+  const line = await tableSpot(page, { x: 15, y: 0 });
+  expect(await onStage(page, line)).toBe(true);
+  await touch.tap(line.x, line.y);
+  await expect.poll(async () => (await sites()).length).toBe(5);
+  const added = (await sites()).find((s) => s.index === 4)!;
+  expect(added.y).toBeCloseTo(0, 6);
+  expect(Math.abs(added.x - 15)).toBeLessThan(2);
+  await page.waitForTimeout(400);
+
+  // A finger on it takes it – the view stays – and carries it along the line, off the line a little
+  const from = await tableSpot(page, added);
+  const to = await tableSpot(page, { x: 28, y: 0 });
+  expect(await onStage(page, to)).toBe(true);
+  const view = await tableGeometry(page);
+  await touch.start({ id: 1, x: from.x, y: from.y });
+  await touch.move([{ id: 1, x: to.x, y: to.y - 12 }], 10);
+  await touch.end();
+  const moved = await rested(page, async () => (await sites()).find((s) => s.index === 4)!);
+  expect(moved.y).toBeCloseTo(0, 6);
+  // The finger went 13 mm along the line; what it moved inside the tap slop (10 px) does not count –
+  // the gesture layer starts a drag where the finger left the slop – so it lands a little short
+  expect(moved.x).toBeGreaterThan(added.x + 5);
+  expect(moved.x).toBeLessThanOrEqual(29);
+  expect(await tableGeometry(page)).toEqual(view);
+  await page.waitForTimeout(400);
+
+  // A second finger lets go of it where it is; nothing is changed or taken away
+  const again = await tableSpot(page, moved);
+  await touch.start({ id: 1, x: again.x, y: again.y });
+  await touch.start({ id: 2, x: again.x + 120, y: again.y - 60 });
+  await touch.end(1, 2);
+  expect(await sites()).toHaveLength(5);
+  await page.waitForTimeout(400);
+
+  // A tap on the tab takes it away
+  await touch.tap(again.x, again.y);
+  await expect.poll(async () => (await sites()).length).toBe(4);
+});

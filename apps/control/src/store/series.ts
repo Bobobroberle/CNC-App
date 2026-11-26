@@ -6,6 +6,7 @@ import { t } from '../i18n';
 import { findBlanks, type RejectReason } from '../lib/blanks';
 import { imageToMachine, type Point } from '../lib/camera';
 import { partsOf } from '../lib/camItems';
+import { tabsOn } from '../lib/camTabs';
 import type { Rect } from '../lib/photomap';
 import {
   blankOnTable,
@@ -112,11 +113,19 @@ export function seriesMotif(): MotifPart[] {
   if (!project) return [];
   return partsOf(project.items)
     .filter((item) => item.kind !== 'none')
-    .map((item) => ({
-      contours: item.contours,
-      ...itemOperation(item, settings),
-      ...(item.textStyle ? { text: { ...item.textStyle, placement: item.placement } } : {}),
-    }));
+    .flatMap((item): MotifPart[] => {
+      const text = item.textStyle ? { text: { ...item.textStyle, placement: item.placement } } : {};
+      // Tabs put by hand stand at places of each contour: such a part is one part per contour
+      // (the places are fractions of a contour, so they follow it onto every blank, turned or not)
+      if (item.tabSpec?.mode === 'manual' && tabsOn(item) && !item.textStyle) {
+        return item.contours.map((c, k) => ({
+          contours: [c],
+          ...itemOperation(item, settings, k),
+          ...text,
+        }));
+      }
+      return [{ contours: item.contours, ...itemOperation(item, settings), ...text }];
+    });
 }
 
 const textOf = (s: Pick<SeriesStore, 'mode' | 'names' | 'firstNumber'>): SeriesText =>

@@ -1905,3 +1905,29 @@
   height: 0.5rem;
   background: var(--card);
 }
+
+/* The tabs of a part: how they are spread, their own values, the way to put them by hand */
+.cam-tabs {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.cam-tabs-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.5rem 0.75rem;
+}
+
+.cam-tabs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.cam-tabs-actions > [data-slot='button'] {
+  flex: 1 1 10rem;
+}
