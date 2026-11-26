@@ -79,12 +79,12 @@ describe('the tab panel in the list of a drawing', () => {
     // A tab box ticked on again opens that part's panel
     fireEvent.click(within(rows()[0]!).getByTestId('cam-tabs-open'));
     expect(within(rows()[0]!).queryByTestId('cam-tabs')).not.toBeNull();
-    fireEvent.click(within(rows()[1]!).getAllByRole('checkbox')[0]!);
+    fireEvent.click(within(rows()[1]!).getByRole('checkbox', { name: 'Haltestege' }));
     expect(items().find((i) => i.id === two!.id)!.tabs).toBe(false);
     // its panel is gone with the tabs, the first part's is the one that is left
     expect(panels()).toHaveLength(1);
     expect(within(rows()[0]!).queryByTestId('cam-tabs')).not.toBeNull();
-    fireEvent.click(within(rows()[1]!).getAllByRole('checkbox')[0]!);
+    fireEvent.click(within(rows()[1]!).getByRole('checkbox', { name: 'Haltestege' }));
     expect(items().find((i) => i.id === two!.id)!.tabs).toBe(true);
     expect(panels()).toHaveLength(1);
     expect(within(rows()[1]!).queryByTestId('cam-tabs')).not.toBeNull();

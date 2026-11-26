@@ -687,9 +687,30 @@
   background: var(--input);
 }
 
-/* The name of a row is the way to select it */
-.cam-name {
+/* The head of a row: the box that takes the part in or out of the selection, and its name */
+.cam-head {
   grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* The checkbox is drawn small; the label around it is the target */
+.cam-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--target);
+  height: var(--target);
+  margin-left: -0.5rem;
+  cursor: pointer;
+}
+
+/* The name of a row is the way to select it alone */
+.cam-name {
+  flex: 1;
+  min-width: 0;
   min-height: var(--target);
   font-weight: 600;
   text-align: left;
@@ -781,6 +802,11 @@
 
 .cam-actions.two {
   grid-template-columns: 1fr 1fr;
+}
+
+/* The align buttons: the horizontal three above the vertical three */
+.cam-actions.three {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .cam-actions[hidden] {

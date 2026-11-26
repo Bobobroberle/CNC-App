@@ -319,6 +319,50 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   (JSON per part: sites `{c,u,x,y,w,index}`), `data-drawing-placing`. A series takes manual places along (`seriesMotif`: one part per
   contour). **Project file:** optional `tabSpec` per item, read strictly like `climb` (wrong type or range → `invalid-project`, `c` below the
   item's contour count, `u` finite in [0, 1)), written only when present; format and version unchanged.
+  **Selecting several, aligning, distributing, grouping** (`lib/camSelect.ts`, `lib/camArrange.ts`, `store/cam.ts`, `CamArrange.tsx`, the rows
+  in `CamCard.tsx`): `Selection` is `null` · a group number · `'all'` · `readonly number[]` (two or more groups, in the order of the list;
+  `normalise`: none is null, one is the number – so every reader of a single group, `typeof selected === 'number'`, keeps its meaning).
+  `isSelected` is the one test "is this thing selected"; `toggleGroup` (**a registration hole is never one of several: touching it selects it
+  alone; `'all'` becomes the list of the part groups before one is taken out**), `invertGroups` (parts only), `unitsSelected` and `pruneSelection`
+  (what `update` uses to drop groups that are gone – the one place) are pure. **Input needs no modifier key:** `useCam.multi` is the
+  "Mehrfachauswahl" checkbox in `CamArrange` (a mode of the screen – not a step of undo, off at `close`); while on, a tap (`host.tap` →
+  `pick`) takes the part's group in or out and a tap beside everything keeps the set; in `TableView.grab` a press on a part's line **never goes
+  through `pick` then** – on a member it takes the whole selection along (`ViewGrab.tap`, only for a finger that never moved, lets go of that
+  part), on a non-member a tap takes it in and a drag takes it in on its first move and carries all. Without the mode `pick` leaves a part of the
+  current set (or of `'all'`) as it is, so a finger takes the whole set; a tap beside everything still lets go. A row of the list has a checkbox
+  (`cam-pick`, its label is the 48 px target; `toggleSelect`) that works with or without the mode; the row's name still picks that part alone;
+  "Alles auswählen" (`selectAll`, Ctrl/Cmd+A) and "Auswahl umkehren" (`invertSelection`) are in the selection state. **Not built, on purpose**
+  (in `docs/merkliste.katalog.mjs` as `cam-sel8`…`cam-sel12`): Umschalt/Strg+Tipp (no modifiers in `usePanZoom`), a rubber band, keys for
+  group and align, aligning to the stock or the table. **The unit of arranging is a group, rigid**: `unitsOf(items)` (registration holes
+  left out) gives group + the box of all its parts (`itemsBounds`: a circle by its true radius, a turned part by its turned outline).
+  `alignDeltas(units, edge)` moves every unit to the box of the whole selection (left, centre, right, top, middle, bottom; y up, so top is the
+  larger y; the unit furthest out stays; fewer than two units: nothing); `distributeDeltas(units, axis, mode)` needs three, orders by the
+  middle of the boxes (a tie keeps the list's order), keeps the two outermost where they are and gives equal **gaps** (boxes that overlap
+  more than they are wide get an equal negative gap) or equal **centre** distances; both return `Map<group, {dx, dy}>` in the order of the units
+  given, a shift under `MOVES` (10⁻⁹ mm: float noise) moves nothing. Store actions, each **one `remember()` and one `update()`** (so the job lock, `ahead` and
+  the holes follow): `arrangeBy(shifts)` – no field, so two aligns in a row are two steps, `update` not `moved` (holes are never touched by it:
+  with `autoHoles` they are proposed anew for the moved parts, put by hand they stay) and nothing remembered when nothing moves –, `align`,
+  `distribute`, `group` (two or more units: the parts of the selected groups get **one new id from `nextId++`**, the list keeps its order, so the
+  program is the same one and `ahead` stays as it was), `ungroup` (every part of the selected groups gets a group of its own, all of them
+  selected; nothing when no selected group has several parts – this is what makes the single contours of an import pickable). Copies:
+  `duplicate` and `paste` select the groups of the copies (`'all'` stays), `array` of one group stays on the original, of several selects the
+  copies. In `CamArrange`: the checkbox, all/invert, "Gruppieren"/"Gruppierung aufheben" (**the row is there only where one of the two can
+  act** – two units or more, or a group of several contours; a single plain part has none – and a `Reason` says why the other is disabled) and the fold
+  "Ausrichten und verteilen" (`data-find="cam-align"`, shown from two units; open until it is folded once and then as it was left, `useUi.depth.camAlign`)
+  with six align buttons and four distribute buttons (disabled with a reason below three). **The header counts what the buttons count**: units, a group
+  is one ("2 Teile"), and where a group holds several contours says so ("2 Teile, 3 Konturen", "Gruppe aus 3 Konturen") – never contours as "Teile";
+  registration holes are no part: "everything" of a two-sided drawing counts its parts only, one part with its holes is named as that part, and nothing
+  but holes counts them.
+  **A ticked row stays where the finger put it** (`ItemRow`, `useLayoutEffect` on `selected`: the row's place on the screen is read before the
+  toggle and, after the commit, `.panel-body.scrollTop` is moved by the difference – assigned, not `scrollTo({ behavior: 'instant' })`, whose value an older Safari rejects; nothing in the styles makes a scroll smooth – the small card of "nothing selected" becoming the
+  whole one and the align panel coming and going would otherwise take the next box from under the finger; Safari has no scroll anchoring, and
+  Chrome's did not hold it either, measured). What is still moved is whatever lies _below_ the ticked row: the tab panel of a part picked alone
+  opens under its row (the tabs work) and goes with the second tick. **Quick search** entries `camMulti`, `camSelectAll`, `camInvert`, `camAlign`,
+  `camDistribute`, `camGroup`, `camUngroup` each carry a chain ending in `cam-draw`, the card that is there with nothing drawn (`cam-select-all`
+  and `cam-invert` are the buttons themselves; `test/camArrangePanel.test.tsx` and `e2e/find.spec.ts` follow the chain in an empty drawing,
+  with one part and with several). **Project file: no change** – the group is a whole number per thing and `openProject` raises the counter above the file's
+  (`test/camArrangeProject.test.ts`). Tests: `camSelect`, `camArrange` (hand-checked boxes), `camArrangeStore` (steps, two-sided holes),
+  `camArrangeRunning` (a job under way), `camArrangePanel` (the buttons, the header, the held row, the folded panel, the search chains), `e2e/arrange.spec.ts` (the row measured on the screen at tablet size and in the 800 × 600 sheet), one touch case in `e2e/ipad.spec.ts`.
   **Every other way to load, replace or take off the program goes through the central lock**
   in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived`, `unload` and
   `restoreOriginal` do nothing while a job is under way, say why (`job.locked`, its own message group `jobLocked`)

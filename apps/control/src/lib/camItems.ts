@@ -95,14 +95,20 @@ export const holeCentre = (item: CamItem): Point => {
   return { x: c.cx, y: c.cy };
 };
 
-/** What is selected for arranging: a group, everything, or nothing. */
-export type Selection = number | 'all' | null;
+/**
+ * What is selected for arranging: a group, several groups (two or more – `lib/camSelect.ts` keeps one
+ * of them a plain number), everything, or nothing.
+ */
+export type Selection = number | 'all' | readonly number[] | null;
 
 export const place = (source: readonly Contour[], placement: Matrix): Contour[] =>
   source.map((c) => transformContour(c, placement));
 
 export const isSelected = (item: CamItem, selected: Selection): boolean =>
-  selected === 'all' || item.group === selected;
+  selected === 'all' ||
+  (typeof selected === 'number'
+    ? item.group === selected
+    : selected?.includes(item.group) === true);
 
 /** The box around contours, or null when they hold no point. */
 export function contoursBox(contours: readonly Contour[]): Bounds | null {

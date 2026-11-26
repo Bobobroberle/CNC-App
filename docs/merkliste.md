@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-16 von 141 erledigt.
+20 von 151 erledigt.
 
 ## Scan & Kamera
 
@@ -46,19 +46,26 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 
 ### Auswählen & Anordnen
 
-- [ ] **Mehrfachauswahl** (kleiner Schritt, in Arbeit) – Umschalt/Strg+Tipp, Rahmen aufziehen, alles auswählen, Auswahl umkehren.
-- [ ] **Ausrichten** (kleiner Schritt, in Arbeit) – Links, mittig, rechts, oben, Mitte, unten: an der Auswahl oder am Rohteil/Tisch.
-- [ ] **Gleichmäßig verteilen** (kleiner Schritt, in Arbeit) – Gleiche Abstände oder gleiche Mitten, waagerecht und senkrecht.
-- [ ] **Gruppieren und auflösen** (kleiner Schritt, in Arbeit) – Teile zu einer Gruppe verbinden, die sich gemeinsam schieben, drehen und skalieren lässt.
+- [x] **Mehrfachauswahl** (kleiner Schritt) – Schalter „Mehrfachauswahl“: ein Tipp auf dem Tisch nimmt ein Teil in die Auswahl oder heraus, ein Tipp daneben lässt sie, wie sie ist; ein Häkchen vor jeder Zeile der Liste tut dasselbe; „Alles auswählen“ und „Auswahl umkehren“ stehen bei der Auswahl. Umschalt/Strg+Tipp und Rahmen aufziehen sind nicht gebaut (cam-sel8, cam-sel9).
+- [x] **Ausrichten** (kleiner Schritt) – Sechs Knöpfe: links, waagerecht mittig, rechts, oben, senkrecht mittig, unten – an der Auswahl (das äußerste Teil bleibt); eine Gruppe zählt als ein Teil. Am Rohteil oder am Tisch ausrichten ist nicht gebaut (cam-sel11, cam-sel12).
+- [x] **Gleichmäßig verteilen** (kleiner Schritt) – Waagerecht und senkrecht, mit gleichen Abständen oder gleichen Mitten; ab drei Teilen, die beiden äußeren bleiben stehen.
+- [x] **Gruppieren und auflösen** (kleiner Schritt) – Gruppieren verbindet die gewählten Teile zu einer Gruppe, die sich gemeinsam wählen, schieben, drehen, skalieren und ausrichten lässt; „Gruppierung aufheben“ macht aus jeder Kontur wieder ein eigenes Teil (so lassen sich auch die einzelnen Konturen einer DXF- oder SVG-Datei wählen).
 - [ ] **Teile sperren** (kleiner Schritt) – Ein gesperrtes Teil lässt sich nicht versehentlich schieben.
 - [ ] **Teile ausblenden** (kleiner Schritt) – Auge je Teil: ausgeblendete Teile werden nicht gefräst und stören nicht beim Anordnen.
 - [ ] **Gleiche Art auswählen** (kleiner Schritt) – Alle Bohrungen, alle Taschen oder alle Teile mit demselben Werkzeug mit einem Tipp wählen.
+- [ ] **Umschalt/Strg+Tipp** (kleiner Schritt) – Am Rechner mit Umschalt oder Strg auf ein Teil tippen nimmt es in die Auswahl, ohne den Schalter „Mehrfachauswahl“ anzufassen. Braucht die Modifier-Tasten in der Gestenschicht (usePanZoom).
+- [ ] **Rahmen aufziehen** (kleiner Schritt) – Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt.
+- [ ] **Tasten für Gruppieren und Ausrichten** (kleiner Schritt) – Strg+G gruppiert, Strg+Umschalt+G löst auf, Tasten zum Ausrichten – jede mit Zeile in der Tastenliste und in der Schnellsuche.
+- [ ] **Am Rohteil ausrichten** (kleiner Schritt) – Links, mittig, rechts … am eingegebenen Rohteil statt an der Auswahl, etwa zum Mittigsetzen auf der Platte. Der Speicher kennt das Rohteil schon (enteredStock), es fehlt die Wahl in der Oberfläche.
+- [ ] **Am Tisch ausrichten** (kleiner Schritt) – Dasselbe am Arbeitsbereich der Maschine. Der Zeichen-Speicher kennt die Tischgröße noch nicht; sie wird nur im Tischbild aus dem Maschinenprofil abgeleitet.
 - [ ] **Fangen an Kanten, Mitten und Rohteil** (kleiner Schritt) – Beim Schieben rastet ein Teil an Kanten und Mitten anderer Teile und am Rohteil ein, mit sichtbarer Hilfslinie.
 - [ ] **Abstände zwischen Teilen anzeigen** (kleiner Schritt) – Beim Schieben erscheinen die Maße zu den Nachbarn (wie bei Illustrator).
 - [ ] **Raster und Hilfslinien** (kleiner Schritt) – Raster mit einstellbarem Maß, Lineale, Hilfslinien aus dem Lineal ziehen.
 - [ ] **Anordnen im Kreis** (kleiner Schritt) – Kreisförmige Anordnung (Polar-Array) mit Anzahl und Winkel.
 - [ ] **Automatisch verschachteln (Nesting)** (größeres Projekt) – Teile so auf dem Rohteil verteilen, dass möglichst wenig Material übrig bleibt.
 - [ ] **Reihenfolge der Bearbeitung von Hand** (kleiner Schritt) – Teile in der Liste ziehen, um die Fräsreihenfolge festzulegen (statt automatisch innen vor außen).
+- [ ] **Beziehungen festhalten** (größeres Projekt) – Teile an Regeln binden, die beim Ändern bestehen bleiben: ein Loch bleibt mittig im Teil, ein Abstand bleibt 10 mm, zwei Teile bleiben bündig, auch wenn eines größer wird (wie Einschränkungen in CAD).
+- [ ] **Haltestege-Feld schiebt die Liste beim Abhaken** (kleiner Schritt) – Das Feld der Haltestege klappt unter dem ersten abgehakten Teil auf und schiebt die Zeilen darunter um etwa 380 px. Lösung: das Feld erst auf Wunsch öffnen oder aus der Zeile herausnehmen.
 
 ### Zeichnen & Formen
 
@@ -72,6 +79,7 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [ ] **Foto des Tisches als Vorlage** (kleiner Schritt) – Die Fotokarte liegt hinter der Zeichnung und kann zum Abpausen genutzt werden (Kontur der Vorlage nachfahren).
 - [ ] **Seitenverhältnis sperren** (kleiner Schritt) – Beim Ziehen am Griff bleibt das Verhältnis; Schloss neben den Maßen.
 - [ ] **Anmerkungen und Maße** (kleiner Schritt) – Maßpfeile und Texte, die auf dem Tisch stehen, aber nicht gefräst werden.
+- [ ] **Verbindungen erzeugen** (größeres Projekt) – Zinken, Schlitz und Zapfen, Nut und Feder als Vorlage mit Maßen: erzeugt beide Teile passend zur Materialstärke und zum Fräserdurchmesser.
 
 ### Konturen bearbeiten
 
@@ -110,6 +118,8 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [ ] **Fahrwege kürzen** (kleiner Schritt) – Reihenfolge der Teile so wählen, dass die Eilgänge möglichst kurz werden.
 - [ ] **Tiefe und Materialdicke je Teil** (kleiner Schritt) – Jedes Teil mit eigener Materialdicke und eigenem Z-Versatz (Stufen im Rohteil).
 - [ ] **Einstieg nur außerhalb des Teils** (kleiner Schritt) – Bei Ausschnitten außerhalb der Kontur einstechen, wo der Verschnitt liegt.
+- [ ] **Flächen schraffieren** (kleiner Schritt) – Eine geschlossene Form mit Linien füllen (Gravur mit kleinem Fräser oder V-Fräser), mit Abstand und Winkel.
+- [ ] **Fase mit V-Fräser entlang der Kontur** (kleiner Schritt) – Eine Kante anfasen: der V-Fräser fährt die Kontur ab, die Tiefe bestimmt die Fasenbreite.
 
 ### Prüfen & Simulieren
 

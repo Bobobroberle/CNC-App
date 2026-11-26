@@ -1,5 +1,5 @@
 import { reliefCorners, type OperationKind, type Relief, type Side } from '@lowrider/cam';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n';
 import { camKey, typingInto } from '../lib/camKeys';
 import { isSelected, partsOf } from '../lib/camItems';
@@ -113,16 +113,44 @@ function ItemRow({
   const sided = twoSided && item.kind !== 'none';
   const cam = useCam.getState();
   const usual = item.kind === 'on' ? settings.engraveDepth : settings.depth;
+  // The box is tapped where it is, again and again. What grows or shrinks above it with the selection (the card
+  // of the selection, the align panel) must not take the row from under the finger: after the change it goes
+  // back to where it was on the screen. Measured, not guessed – no browser keeps it (Safari has no scroll anchoring).
+  const head = useRef<HTMLDivElement>(null);
+  const was = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const top = was.current;
+    was.current = null;
+    const el = head.current;
+    const scroller = el?.closest<HTMLElement>('.panel-body');
+    if (top === null || !el || !scroller) return;
+    const by = el.getBoundingClientRect().top - top;
+    // Assigned, not `scrollTo({ behavior: 'instant' })`: an older Safari knows only 'auto' and 'smooth' there and
+    // throws – and nothing in the app's styles makes a scroll smooth, so the assignment is at once
+    if (Math.abs(by) > 0.5) scroller.scrollTop += by;
+  }, [selected]);
+  const pick = () => {
+    was.current = head.current?.getBoundingClientRect().top ?? null;
+    // A tap that changes nothing here must not leave the mark for the next change
+    requestAnimationFrame(() => (was.current = null));
+    cam.toggleSelect(item.group);
+  };
   return (
     <li className={`cam-row${selected ? ' selected' : ''}`}>
-      <button
-        type="button"
-        className="cam-name"
-        aria-pressed={selected}
-        onClick={() => cam.select(alone ? null : item.group)}
-      >
-        {n}. {describeItem(item)}
-      </button>
+      <div className="cam-head" ref={head}>
+        {/* Takes the part's group into the selection or out of it – with or without "Mehrfachauswahl" */}
+        <Label className="cam-pick" data-testid="cam-pick">
+          <Checkbox checked={selected} aria-label={t('cam.pick', { n })} onCheckedChange={pick} />
+        </Label>
+        <button
+          type="button"
+          className="cam-name"
+          aria-pressed={selected}
+          onClick={() => cam.select(alone ? null : item.group)}
+        >
+          {n}. {describeItem(item)}
+        </button>
+      </div>
       <NativeSelect
         aria-label={t('cam.operation', { n })}
         value={item.kind}
@@ -273,7 +301,7 @@ function useCamKeys() {
         case 'paste':
           return cam.paste();
         case 'all':
-          return cam.select('all');
+          return cam.selectAll();
       }
     };
     window.addEventListener('keydown', down);

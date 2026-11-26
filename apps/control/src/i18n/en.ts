@@ -2536,7 +2536,13 @@ export const en: DictionaryShape = {
     arrange: {
       hint: 'To change a part, tap it on the table or in the list.',
       all: 'Select all',
+      invert: 'Invert the selection',
+      multi: 'Multi-select',
+      multiHint:
+        'A tap on a part takes it into the selection or out of it again. A tap beside everything leaves the selection as it is.',
       parts: '{n} parts',
+      partsOf: '{n} parts, {m} contours',
+      groupOf: 'Group of {m} contours',
       size: '{w} × {h} mm',
       deselect: 'Clear the selection',
       x: 'X left (mm)',
@@ -2561,6 +2567,48 @@ export const en: DictionaryShape = {
       gap: 'Gap (mm)',
       array: 'Make it {n} pieces',
     },
+    align: {
+      title: 'Align and distribute',
+      hint: 'Things are aligned to the selection: the part that lies furthest out stays where it is. A group counts as one part ({n} parts).',
+      left: 'Left',
+      leftLabel: 'Align left edges',
+      centre: 'Centre ↔',
+      centreLabel: 'Align horizontal centres',
+      right: 'Right',
+      rightLabel: 'Align right edges',
+      top: 'Top',
+      topLabel: 'Align top edges',
+      middle: 'Middle ↕',
+      middleLabel: 'Align vertical middles',
+      bottom: 'Bottom',
+      bottomLabel: 'Align bottom edges',
+      spreadTitle: 'Distribute',
+      spreadHint:
+        'The outermost part on each side stays, the others move evenly in between – with equal gaps or equal centres.',
+      needThree:
+        'Select at least three parts or groups to distribute them – a group counts as one.',
+      spread: {
+        h: {
+          gaps: 'Gaps ↔',
+          gapsLabel: 'Distribute horizontally: equal gaps',
+          centres: 'Centres ↔',
+          centresLabel: 'Distribute horizontally: equal centres',
+        },
+        v: {
+          gaps: 'Gaps ↕',
+          gapsLabel: 'Distribute vertically: equal gaps',
+          centres: 'Centres ↕',
+          centresLabel: 'Distribute vertically: equal centres',
+        },
+      },
+    },
+    group: {
+      group: 'Group',
+      ungroup: 'Ungroup',
+      needTwo: 'Select at least two parts or groups to group them – a group counts as one.',
+      nothingToUngroup: 'The selection holds no group of several parts.',
+    },
+    pick: 'Contour {n} in the selection',
     empty: 'Nothing drawn yet – tap a shape, a text or a file above.',
     rectLabel: 'Rectangle {w} × {h} mm',
     slotLabel: 'Slot {l} × {w} mm',
@@ -3573,6 +3621,20 @@ export const en: DictionaryShape = {
       camDone:
         'generate gcode, create g-code, generate, hand over, done, export, save as nc, download, post processor, compute toolpath',
       camUndo: 'undo, back, redo, repeat, last step back, deleted by mistake',
+      camMulti:
+        'multi-select, select several, several parts, extend the selection, mark several, tap several, shift click, multiple selection, mehrfachauswahl, illustrator',
+      camSelectAll:
+        'select all, mark everything, all parts, whole drawing, ctrl a, select everything',
+      camInvert:
+        'invert the selection, invert selection, select the rest, everything but, opposite, auswahl umkehren',
+      camAlign:
+        'align, align left, align right, align top, align bottom, align centre, align center, flush, line up, centre, center, middle, same edge, ausrichten, illustrator, cad',
+      camDistribute:
+        'distribute, distribute evenly, equal gaps, equal spacing, equal distances, equal centres, even spacing, space evenly, verteilen, illustrator',
+      camGroup:
+        'group, group parts, combine, put together, move together, make a group, gruppieren, illustrator',
+      camUngroup:
+        'ungroup, ungroup parts, take apart, split a group, pick single contours, single contours of a file, gruppierung aufheben, release group',
       series:
         'series, many of the same, several parts, blanks, distribute, copies, batch, nesting, multiple, coasters, offcuts',
       jog: 'jog, jogging, move, drive, move the axes, handwheel, d-pad, step size, move manually, move x y z, arrow keys, gamepad, controller',

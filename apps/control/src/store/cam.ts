@@ -59,6 +59,17 @@ import { splitLines } from '@lowrider/gcode-core';
 import { suggestFor, toolOwnValues } from '@lowrider/workshop';
 import { create } from 'zustand';
 import {
+  alignDeltas,
+  distributeDeltas,
+  MOVES,
+  movesAnything,
+  unitsOf,
+  type Axis,
+  type Edge,
+  type Shifts,
+  type Spread,
+} from '../lib/camArrange';
+import {
   framePoint,
   resizeTo,
   selectionFrame,
@@ -94,6 +105,7 @@ import {
   tabValues,
   type TabValue,
 } from '../lib/camTabs';
+import { groupsOf, invertGroups, normalise, pruneSelection, toggleGroup } from '../lib/camSelect';
 import { fixturesInWork } from '../lib/clamps';
 import { textBlockCentre } from '../lib/series';
 import { inViewSpot } from '../lib/tableBox';
@@ -204,6 +216,12 @@ interface CamStore {
   flipNotes: CamFlipNote[];
   /** What the arranging acts on */
   selected: Selection;
+  /**
+   * "Mehrfachauswahl" is on: a tap on a part takes its group into the selection or lets go of it, and a
+   * tap beside everything keeps the selection. A mode of the screen, not a step of the drawing.
+   */
+  multi: boolean;
+  setMulti(on: boolean): void;
   /** Starts an empty drawing (or keeps the open one) */
   open(): void;
   close(): void;
@@ -282,10 +300,22 @@ interface CamStore {
   placing: number | null;
   setPlacing(id: number | null): void;
   select(selected: Selection): void;
+  /** Everything selected (the registration holes of a two-sided part with it) */
+  selectAll(): void;
+  /** Every group of the parts that is not selected, and none of those that are */
+  invertSelection(): void;
+  /**
+   * A group taken into the selection, or let go of if it is in it (a registration hole is selected
+   * alone: it is never one of several).
+   */
+  toggleSelect(group: number): void;
   /**
    * A finger on the drawing at a work point: selects what lies there – for a
    * tap also the shape it is inside of, for taking hold (`inside` false) only
-   * what has a line under the finger. Returns whether there was something.
+   * what has a line under the finger. What is selected already stays selected
+   * (everything, or the several that are picked: a finger on one takes them all);
+   * with "Mehrfachauswahl" on, a tap on a part takes it in or lets go of it.
+   * Returns whether there was something.
    */
   pick(point: { x: number; y: number }, tolerance: number, inside?: boolean): boolean;
   /**
@@ -323,6 +353,20 @@ interface CamStore {
   mirror(axis: 'x' | 'y'): void;
   /** A copy beside the selection, selected in its place */
   duplicate(): void;
+  /**
+   * Moves the units of the selection – each group by its own shift, rigid – as one step of undo, and
+   * the selection stays. Nothing happens, and nothing is remembered, when no shift moves anything.
+   * The registration holes are never moved by it: they follow the drawing, where they are meant to.
+   */
+  arrangeBy(shifts: Shifts): void;
+  /** The units of the selection on one edge or middle line of the selection's whole box */
+  align(edge: Edge): void;
+  /** The units of the selection spread evenly along an axis, the two outermost ones staying */
+  distribute(axis: Axis, mode: Spread): void;
+  /** The parts of two or more selected groups become one group, selected */
+  group(): void;
+  /** Every part of the selected groups becomes a group of its own, all of them selected */
+  ungroup(): void;
   /** Copies of the selection in a grid of columns × rows, `gap` mm apart */
   array(columns: number, rows: number, gap: number): void;
   removeSelection(): void;
@@ -648,14 +692,14 @@ export const useCam = create<CamStore>((set, get) => {
     if (!p) return false;
     // Places by hand on a contour the thing no longer has (a grid made smaller) go with it
     const held = withHoles(items.map(pruneTabs), p.twoSided);
-    const gone = typeof selected === 'number' && !held.items.some((i) => i.group === selected);
     set({
       project: {
         ...p,
         items: held.items,
         twoSided: p.twoSided && { ...p.twoSided, autoHoles: held.auto },
       },
-      selected: gone ? null : selected,
+      // A group the drawing no longer has is no longer selected
+      selected: pruneSelection(selected, held.items),
     });
     return get().generate({ take });
   };
@@ -666,10 +710,9 @@ export const useCam = create<CamStore>((set, get) => {
    */
   const moved = (items: CamItem[]) => {
     const { selected, project } = get();
-    const hole =
-      typeof selected === 'number'
-        ? items.find((i) => i.registration !== undefined && i.group === selected)
-        : undefined;
+    // One hole taken on its own (never both, as with everything selected: they move together)
+    const holes = items.filter((i) => i.registration !== undefined && isSelected(i, selected));
+    const hole = holes.length === 1 ? holes[0] : undefined;
     const other = hole && items.find((i) => i.registration !== undefined && i !== hole);
     if (!project?.twoSided || !hole || !other) {
       update(items);
@@ -895,6 +938,7 @@ export const useCam = create<CamStore>((set, get) => {
     problems: [],
     flipNotes: [],
     selected: null,
+    multi: false,
     ahead: false,
     table: null,
     open() {
@@ -906,6 +950,7 @@ export const useCam = create<CamStore>((set, get) => {
         problems: [],
         flipNotes: [],
         selected: null,
+        multi: false,
         past: [],
         future: [],
         ahead: false,
@@ -1204,16 +1249,39 @@ export const useCam = create<CamStore>((set, get) => {
       });
     },
     setPlacing: (placing) => set({ placing }),
+    setMulti: (multi) => set({ multi }),
     select(selected) {
       lastField = null;
-      set({ selected });
+      // A list of groups is one selection like any other: none is nothing, one is that group
+      set({ selected: Array.isArray(selected) ? normalise(selected) : selected });
+    },
+    selectAll() {
+      get().select('all');
+    },
+    invertSelection() {
+      const { project, selected } = get();
+      if (!project) return;
+      lastField = null;
+      set({ selected: invertGroups(selected, project.items) });
+    },
+    toggleSelect(group) {
+      const { project, selected } = get();
+      if (!project) return;
+      lastField = null;
+      set({ selected: toggleGroup(selected, group, project.items) });
     },
     pick(point, tolerance, inside = true) {
-      const { project, selected } = get();
+      const { project, selected, multi } = get();
       const hit = project && itemAt(project.items, point, tolerance, inside);
       if (!hit) return false;
-      // With everything selected, a finger on any part takes all of it.
-      if (selected !== 'all') set({ selected: hit.group });
+      if (multi) {
+        lastField = null;
+        set({ selected: toggleGroup(selected, hit.group, project.items) });
+      } else if (!isSelected(hit, selected)) {
+        set({ selected: hit.group });
+      }
+      // What is selected already stays: with everything or several selected, a finger on any
+      // of them takes all of it.
       return true;
     },
     drag() {
@@ -1338,8 +1406,9 @@ export const useCam = create<CamStore>((set, get) => {
       remember();
       pasted += 1;
       const made = copies([{ x: pasted * PASTE_SHIFT, y: -pasted * PASTE_SHIFT }], clipboard);
-      const one = made.every((i) => i.group === made[0]!.group);
-      update([...p.items, ...made], one ? made[0]!.group : get().selected);
+      // What was pasted is selected: its group, or the several groups that were copied – and what
+      // was "everything" stays so (the copies are part of it)
+      update([...p.items, ...made], get().selected === 'all' ? 'all' : normalise(groupsOf(made)));
     },
     rotate(degrees) {
       const c = middle();
@@ -1353,10 +1422,13 @@ export const useCam = create<CamStore>((set, get) => {
       const p = get().project;
       const b = itemsBounds(chosen());
       if (!p || !b) return;
-      remember();
       const made = copies([{ x: b.maxX - b.minX + COPY_GAP, y: 0 }]);
+      // Nothing to copy: only a registration hole is selected (there are two, and they are not copied)
+      if (made.length === 0) return;
+      remember();
       const { selected } = get();
-      update([...p.items, ...made], selected === 'all' ? 'all' : made[0]!.group);
+      // The copy is selected in place of what it was made from: its group, or the groups of the copies
+      update([...p.items, ...made], selected === 'all' ? 'all' : normalise(groupsOf(made)));
     },
     array(columns, rows, gap) {
       const p = get().project;
@@ -1364,7 +1436,65 @@ export const useCam = create<CamStore>((set, get) => {
       if (!p || !b) return;
       const offsets = gridOffsets(columns, rows, b.maxX - b.minX + gap, b.maxY - b.minY + gap);
       remember();
-      update([...p.items, ...copies(offsets.slice(0, MAX_COPIES))]);
+      const made = copies(offsets.slice(0, MAX_COPIES));
+      const { selected } = get();
+      // One group stays selected (the original, as ever); several groups: the groups of the copies
+      update([...p.items, ...made], Array.isArray(selected) ? normalise(groupsOf(made)) : selected);
+    },
+    arrangeBy(shifts) {
+      const p = get().project;
+      if (!p || !movesAnything(shifts)) return;
+      remember();
+      update(
+        p.items.map((i) => {
+          const s = i.registration === undefined ? shifts.get(i.group) : undefined;
+          // A unit that stays is left as it is: no rounding noise in its placement
+          if (!s || (Math.abs(s.dx) <= MOVES && Math.abs(s.dy) <= MOVES)) return i;
+          const placement = compose(translation(s.dx, s.dy), i.placement);
+          return { ...i, placement, contours: place(i.source, placement) };
+        }),
+      );
+    },
+    align(edge) {
+      get().arrangeBy(alignDeltas(unitsOf(chosen()), edge));
+    },
+    distribute(axis, mode) {
+      get().arrangeBy(distributeDeltas(unitsOf(chosen()), axis, mode));
+    },
+    group() {
+      const p = get().project;
+      const units = unitsOf(chosen()).map((u) => u.group);
+      if (!p || units.length < 2) return;
+      remember();
+      const group = nextId++;
+      // The list keeps its order, so the program is the same one: grouping changes nothing at the machine
+      update(
+        p.items.map((i) =>
+          i.registration === undefined && units.includes(i.group) ? { ...i, group } : i,
+        ),
+        group,
+      );
+    },
+    ungroup() {
+      const p = get().project;
+      const units = new Set(unitsOf(chosen()).map((u) => u.group));
+      // Only a group of several things can be taken apart
+      const several = p?.items.some(
+        (i) =>
+          i.registration === undefined &&
+          units.has(i.group) &&
+          p.items.some((o) => o !== i && o.registration === undefined && o.group === i.group),
+      );
+      if (!p || !several) return;
+      remember();
+      const fresh: number[] = [];
+      const items = p.items.map((i) => {
+        if (i.registration !== undefined || !units.has(i.group)) return i;
+        const group = nextId++;
+        fresh.push(group);
+        return { ...i, group };
+      });
+      update(items, normalise(fresh));
     },
     removeSelection() {
       const p = get().project;
@@ -1579,8 +1709,8 @@ useCam.subscribe((s) => {
   const item = s.project?.items.find((i) => i.id === s.placing);
   if (
     item &&
-    isSelected(item, s.selected) &&
-    s.selected !== 'all' &&
+    // One thing alone: with several or everything selected the tabs are not put by hand
+    s.selected === item.group &&
     tabValues(item, s.settings.tabs).mode === 'manual' &&
     tabsOn(item)
   ) {

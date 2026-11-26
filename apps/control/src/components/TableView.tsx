@@ -626,12 +626,14 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
             : undefined;
         }
         // While drawing, a tap selects the part under it – also the one it is
-        // inside of – and a tap beside everything lets go of the selection.
+        // inside of – and a tap beside everything lets go of the selection. With "Mehrfachauswahl"
+        // on, a tap takes the part in or lets go of it, and a tap beside everything keeps what
+        // is selected. Taken back, like every tap, if it turns out to be the first of a double tap.
         const before = cam.selected;
         if (cam.pick({ x: u, y: v }, GRAB_PX / vp.scale)) {
           return () => useCam.getState().select(before);
         }
-        if (before !== null) {
+        if (before !== null && !cam.multi) {
           cam.select(null);
           return () => useCam.getState().select(before);
         }
@@ -710,17 +712,47 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
           sel !== undefined &&
           Math.min(...Object.values(frameSize(sel.frame))) * vp.scale < 4 * HANDLE_PX &&
           insideFrame(sel.frame, at);
-        const drag = cam.pick(at, GRAB_PX / vp.scale, false) || small ? cam.drag() : null;
-        if (drag) {
-          setHeld('move');
-          return {
-            move(q) {
-              const [u, v] = screenToWorld(vp, q.x, q.y);
-              drag.move(u - u0, v - v0, step);
-            },
-            end: done(drag.end),
-            yields: true,
-          };
+        if (cam.multi) {
+          // "Mehrfachauswahl": a finger on a part that is selected takes the whole selection along (and,
+          // lifted on the spot, lets go of that part); on one that is not, a tap takes it in and a
+          // drag takes it in and then moves all of it.
+          const hit = cam.project && itemAt(cam.project.items, at, GRAB_PX / vp.scale, false);
+          const member = hit ? isSelected(hit, cam.selected) : false;
+          if (hit || (small && cam.selected !== null)) {
+            let drag = member || !hit ? cam.drag() : null;
+            if (drag) setHeld('move');
+            return {
+              move(q) {
+                if (!drag) {
+                  if (hit) cam.toggleSelect(hit.group);
+                  drag = cam.drag();
+                  if (!drag) return;
+                  setHeld('move');
+                }
+                const [u, v] = screenToWorld(vp, q.x, q.y);
+                drag.move(u - u0, v - v0, step);
+              },
+              end: done(() => drag?.end()),
+              // Lifted on the spot: a tap, as if the finger had not taken hold – with the mode on `pick`
+              // takes the part under it in or out (also inside a small selected part, where a finger
+              // always takes hold)
+              tap: () => void cam.pick(at, GRAB_PX / vp.scale),
+              yields: true,
+            };
+          }
+        } else {
+          const drag = cam.pick(at, GRAB_PX / vp.scale, false) || small ? cam.drag() : null;
+          if (drag) {
+            setHeld('move');
+            return {
+              move(q) {
+                const [u, v] = screenToWorld(vp, q.x, q.y);
+                drag.move(u - u0, v - v0, step);
+              },
+              end: done(drag.end),
+              yields: true,
+            };
+          }
         }
       }
       if (drawingOpenRef.current || !top || !status?.wco) return null;

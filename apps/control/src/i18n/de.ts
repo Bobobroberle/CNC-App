@@ -2575,7 +2575,13 @@ export const de = {
     arrange: {
       hint: 'Zum Ändern ein Teil auf dem Tisch oder in der Liste antippen.',
       all: 'Alles auswählen',
+      invert: 'Auswahl umkehren',
+      multi: 'Mehrfachauswahl',
+      multiHint:
+        'Ein Tipp auf ein Teil nimmt es in die Auswahl oder wieder heraus. Ein Tipp daneben lässt die Auswahl, wie sie ist.',
       parts: '{n} Teile',
+      partsOf: '{n} Teile, {m} Konturen',
+      groupOf: 'Gruppe aus {m} Konturen',
       size: '{w} × {h} mm',
       deselect: 'Auswahl aufheben',
       x: 'X links (mm)',
@@ -2600,6 +2606,49 @@ export const de = {
       gap: 'Abstand (mm)',
       array: 'Auf {n} Stück vervielfältigen',
     },
+    align: {
+      title: 'Ausrichten und verteilen',
+      hint: 'Ausgerichtet wird an der Auswahl: Das Teil, das am weitesten außen liegt, bleibt, wo es ist. Eine Gruppe zählt als ein Teil ({n} Teile).',
+      left: 'Links',
+      leftLabel: 'Linksbündig ausrichten',
+      centre: 'Mitte ↔',
+      centreLabel: 'Waagerecht mittig ausrichten',
+      right: 'Rechts',
+      rightLabel: 'Rechtsbündig ausrichten',
+      top: 'Oben',
+      topLabel: 'Oben ausrichten',
+      middle: 'Mitte ↕',
+      middleLabel: 'Senkrecht mittig ausrichten',
+      bottom: 'Unten',
+      bottomLabel: 'Unten ausrichten',
+      spreadTitle: 'Verteilen',
+      spreadHint:
+        'Das äußerste Teil auf jeder Seite bleibt, die anderen rücken gleichmäßig dazwischen – mit gleichem Abstand oder mit gleichen Mitten.',
+      needThree:
+        'Zum Verteilen mindestens drei Teile oder Gruppen auswählen – eine Gruppe zählt als eines.',
+      spread: {
+        h: {
+          gaps: 'Abstände ↔',
+          gapsLabel: 'Waagerecht verteilen: gleiche Abstände',
+          centres: 'Mitten ↔',
+          centresLabel: 'Waagerecht verteilen: gleiche Mitten',
+        },
+        v: {
+          gaps: 'Abstände ↕',
+          gapsLabel: 'Senkrecht verteilen: gleiche Abstände',
+          centres: 'Mitten ↕',
+          centresLabel: 'Senkrecht verteilen: gleiche Mitten',
+        },
+      },
+    },
+    group: {
+      group: 'Gruppieren',
+      ungroup: 'Gruppierung aufheben',
+      needTwo:
+        'Zum Gruppieren mindestens zwei Teile oder Gruppen auswählen – eine Gruppe zählt als eines.',
+      nothingToUngroup: 'Die Auswahl enthält keine Gruppe aus mehreren Teilen.',
+    },
+    pick: 'Kontur {n} zur Auswahl',
     empty: 'Noch nichts gezeichnet – oben eine Form, einen Text oder eine Datei antippen.',
     rectLabel: 'Rechteck {w} × {h} mm',
     slotLabel: 'Langloch {l} × {w} mm',
@@ -3638,6 +3687,20 @@ export const de = {
         'gcode erzeugen, g-code erstellen, generieren, übergeben, fertig, exportieren, speichern als nc, herunterladen, generate, export, postprozessor, werkzeugweg berechnen',
       camUndo:
         'rückgängig, zurück, undo, wiederholen, redo, letzter schritt zurück, versehentlich gelöscht',
+      camMulti:
+        'mehrfachauswahl, mehrere auswählen, mehrere teile, mehrfach, auswahl erweitern, mehrere markieren, mehrere teile anfassen, mehrere antippen, multi select, shift, umschalt, illustrator',
+      camSelectAll:
+        'alles auswählen, alles markieren, alle teile, ganze zeichnung, select all, strg a, ctrl a, alles anfassen',
+      camInvert:
+        'auswahl umkehren, invertieren, umgekehrt auswählen, den rest auswählen, alles außer, invert selection, gegenteil',
+      camAlign:
+        'ausrichten, bündig, linksbündig, rechtsbündig, obenbündig, untenbündig, mittig, zentrieren, zentriert, in einer linie, an einer kante, auf eine höhe, waagerecht, senkrecht, align, illustrator, cad',
+      camDistribute:
+        'verteilen, gleichmäßig verteilen, gleiche abstände, gleicher abstand, gleiche mitten, abstände angleichen, gleichmäßig anordnen, distribute, spacing, illustrator, in einer reihe',
+      camGroup:
+        'gruppieren, gruppe, zusammenfassen, teile verbinden, zu einer gruppe, zusammen bewegen, gruppe bilden, group, illustrator',
+      camUngroup:
+        'gruppierung aufheben, gruppe auflösen, gruppe trennen, einzelne konturen, konturen einzeln wählen, aus einer datei einzeln wählen, aufteilen, ungroup, entgruppieren',
       series:
         'serie, viele gleiche, mehrere teile, rohlinge, verteilen, kopien, stapel, batch, nesting, mehrfach, auf rohlinge, untersetzer, reststücke',
       jog: 'joggen, jog, fahren, bewegen, verfahren, achsen bewegen, handrad, steuerkreuz, schrittweite, manuell fahren, x y z bewegen, pfeiltasten, gamepad, controller',

@@ -176,30 +176,30 @@ add('cam', 'Auswählen & Anordnen', [
   [
     'cam-sel1',
     'Mehrfachauswahl',
-    'Umschalt/Strg+Tipp, Rahmen aufziehen, alles auswählen, Auswahl umkehren.',
+    'Schalter „Mehrfachauswahl“: ein Tipp auf dem Tisch nimmt ein Teil in die Auswahl oder heraus, ein Tipp daneben lässt sie, wie sie ist; ein Häkchen vor jeder Zeile der Liste tut dasselbe; „Alles auswählen“ und „Auswahl umkehren“ stehen bei der Auswahl. Umschalt/Strg+Tipp und Rahmen aufziehen sind nicht gebaut (cam-sel8, cam-sel9).',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'cam-sel2',
     'Ausrichten',
-    'Links, mittig, rechts, oben, Mitte, unten: an der Auswahl oder am Rohteil/Tisch.',
+    'Sechs Knöpfe: links, waagerecht mittig, rechts, oben, senkrecht mittig, unten – an der Auswahl (das äußerste Teil bleibt); eine Gruppe zählt als ein Teil. Am Rohteil oder am Tisch ausrichten ist nicht gebaut (cam-sel11, cam-sel12).',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'cam-sel3',
     'Gleichmäßig verteilen',
-    'Gleiche Abstände oder gleiche Mitten, waagerecht und senkrecht.',
+    'Waagerecht und senkrecht, mit gleichen Abständen oder gleichen Mitten; ab drei Teilen, die beiden äußeren bleiben stehen.',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'cam-sel4',
     'Gruppieren und auflösen',
-    'Teile zu einer Gruppe verbinden, die sich gemeinsam schieben, drehen und skalieren lässt.',
+    'Gruppieren verbindet die gewählten Teile zu einer Gruppe, die sich gemeinsam wählen, schieben, drehen, skalieren und ausrichten lässt; „Gruppierung aufheben“ macht aus jeder Kontur wieder ein eigenes Teil (so lassen sich auch die einzelnen Konturen einer DXF- oder SVG-Datei wählen).',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'cam-sel5',
@@ -217,6 +217,36 @@ add('cam', 'Auswählen & Anordnen', [
     'cam-sel7',
     'Gleiche Art auswählen',
     'Alle Bohrungen, alle Taschen oder alle Teile mit demselben Werkzeug mit einem Tipp wählen.',
+    'klein',
+  ],
+  [
+    'cam-sel8',
+    'Umschalt/Strg+Tipp',
+    'Am Rechner mit Umschalt oder Strg auf ein Teil tippen nimmt es in die Auswahl, ohne den Schalter „Mehrfachauswahl“ anzufassen. Braucht die Modifier-Tasten in der Gestenschicht (usePanZoom).',
+    'klein',
+  ],
+  [
+    'cam-sel9',
+    'Rahmen aufziehen',
+    'Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt.',
+    'klein',
+  ],
+  [
+    'cam-sel10',
+    'Tasten für Gruppieren und Ausrichten',
+    'Strg+G gruppiert, Strg+Umschalt+G löst auf, Tasten zum Ausrichten – jede mit Zeile in der Tastenliste und in der Schnellsuche.',
+    'klein',
+  ],
+  [
+    'cam-sel11',
+    'Am Rohteil ausrichten',
+    'Links, mittig, rechts … am eingegebenen Rohteil statt an der Auswahl, etwa zum Mittigsetzen auf der Platte. Der Speicher kennt das Rohteil schon (enteredStock), es fehlt die Wahl in der Oberfläche.',
+    'klein',
+  ],
+  [
+    'cam-sel12',
+    'Am Tisch ausrichten',
+    'Dasselbe am Arbeitsbereich der Maschine. Der Zeichen-Speicher kennt die Tischgröße noch nicht; sie wird nur im Tischbild aus dem Maschinenprofil abgeleitet.',
     'klein',
   ],
   [
@@ -913,6 +943,43 @@ add('cam', 'Haltestege', [
     'cam-tab9',
     'Angehobene Strecken im Werkzeugweg zeigen',
     'In der Vorschau des Werkzeugwegs (Tisch und 3D) die Strecken anders zeichnen, auf denen der Fräser über einem Steg angehoben ist. Bisher zeigt nur die Zeichnung die Stege.',
+    'klein',
+  ],
+]);
+
+add('cam', 'Auswählen & Anordnen', [
+  [
+    'cam-sel13',
+    'Beziehungen festhalten',
+    'Teile an Regeln binden, die beim Ändern bestehen bleiben: ein Loch bleibt mittig im Teil, ein Abstand bleibt 10 mm, zwei Teile bleiben bündig, auch wenn eines größer wird (wie Einschränkungen in CAD).',
+    'gross',
+  ],
+  [
+    'cam-sel14',
+    'Haltestege-Feld schiebt die Liste beim Abhaken',
+    'Das Feld der Haltestege klappt unter dem ersten abgehakten Teil auf und schiebt die Zeilen darunter um etwa 380 px. Lösung: das Feld erst auf Wunsch öffnen oder aus der Zeile herausnehmen.',
+    'klein',
+  ],
+]);
+add('cam', 'Zeichnen & Formen', [
+  [
+    'cam-draw11',
+    'Verbindungen erzeugen',
+    'Zinken, Schlitz und Zapfen, Nut und Feder als Vorlage mit Maßen: erzeugt beide Teile passend zur Materialstärke und zum Fräserdurchmesser.',
+    'gross',
+  ],
+]);
+add('cam', 'Bahnen & Strategien', [
+  [
+    'cam-path14',
+    'Flächen schraffieren',
+    'Eine geschlossene Form mit Linien füllen (Gravur mit kleinem Fräser oder V-Fräser), mit Abstand und Winkel.',
+    'klein',
+  ],
+  [
+    'cam-path15',
+    'Fase mit V-Fräser entlang der Kontur',
+    'Eine Kante anfasen: der V-Fräser fährt die Kontur ab, die Tiefe bestimmt die Fasenbreite.',
     'klein',
   ],
 ]);

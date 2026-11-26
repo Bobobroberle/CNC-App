@@ -70,6 +70,11 @@ export type CommandIcon =
   | 'text'
   | 'file'
   | 'undo'
+  | 'alignLeft'
+  | 'spreadH'
+  | 'group'
+  | 'ungroup'
+  | 'select'
   | 'play'
   | 'keyboard'
   | 'stop';
@@ -267,6 +272,57 @@ export const COMMANDS: readonly Command[] = [
   draw('bothSides', 'flip.both', 'cam-sides'),
   draw('camDone', 'cam.steps.done', 'cam-done'),
   draw('camUndo', 'cam.undo', 'cam-undo', 'undo'),
+  // The arranging tools show with a part on the table (the buttons of the selection with a selection, the align panel
+  // with two things or more); where one is not there yet the next of its chain is, down to the card that always is
+  entry({
+    id: 'camMulti',
+    title: 'cam.arrange.multi',
+    place: 'cam',
+    anchor: ['cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
+  entry({
+    id: 'camSelectAll',
+    title: 'cam.arrange.all',
+    place: 'cam',
+    anchor: ['cam-select-all', 'cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
+  entry({
+    id: 'camInvert',
+    title: 'cam.arrange.invert',
+    place: 'cam',
+    anchor: ['cam-invert', 'cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
+  entry({
+    id: 'camAlign',
+    title: 'cam.align.title',
+    place: 'cam',
+    anchor: ['cam-align', 'cam-multi', 'cam-draw'],
+    icon: 'alignLeft',
+  }),
+  entry({
+    id: 'camDistribute',
+    title: 'cam.align.spreadTitle',
+    place: 'cam',
+    anchor: ['cam-align', 'cam-multi', 'cam-draw'],
+    icon: 'spreadH',
+  }),
+  entry({
+    id: 'camGroup',
+    title: 'cam.group.group',
+    place: 'cam',
+    anchor: ['cam-group', 'cam-multi', 'cam-draw'],
+    icon: 'group',
+  }),
+  entry({
+    id: 'camUngroup',
+    title: 'cam.group.ungroup',
+    place: 'cam',
+    anchor: ['cam-group', 'cam-multi', 'cam-draw'],
+    icon: 'ungroup',
+  }),
   entry({ id: 'series', title: 'series.open', place: 'cam', anchor: 'series', needs: 'series' }),
 
   // ② Werkzeuge

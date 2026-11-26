@@ -310,6 +310,18 @@ das CAM zu sehen.
       ändern sich Breite und Höhe zusammen. Daneben _Löschen_, _Duplizieren_, _↺ 90°_ und _↻ 90°_,
       _Spiegeln ↔_ und _Spiegeln ↕_ und unter _Mehrfach anordnen_ Spalten × Reihen mit Abstand; ohne
       Auswahl bietet die Karte _Alles auswählen_.
+    - **Mehrere Teile (Mehrfachauswahl, Ausrichten, Verteilen, Gruppieren):** Mit dem Schalter
+      _Mehrfachauswahl_ nimmt ein Tipp auf dem Tisch ein Teil in die Auswahl oder wieder heraus (ein
+      Tipp daneben lässt sie, wie sie ist); das Häkchen vor jeder Zeile der Liste tut dasselbe, auch
+      ohne den Schalter; _Alles auswählen_ und _Auswahl umkehren_ stehen bei der Auswahl. Ab zwei Teilen
+      richtet _Ausrichten und verteilen_ sie links, waagerecht mittig, rechts, oben, senkrecht mittig oder
+      unten an der Auswahl aus (das äußerste Teil bleibt), ab drei verteilt es sie waagerecht oder
+      senkrecht mit gleichen Abständen oder gleichen Mitten (die beiden äußeren bleiben). _Gruppieren_
+      macht aus mehreren Teilen eines, das sich gemeinsam wählen, schieben, drehen und ausrichten lässt;
+      _Gruppierung aufheben_ macht aus jeder Kontur wieder ein eigenes Teil – so lassen sich auch die
+      einzelnen Konturen einer DXF- oder SVG-Datei wählen. Jeder Knopf ist ein Schritt für _Rückgängig_;
+      die Passlöcher eines beidseitigen Teils rücken mit. Umschalt-Tipp, Rahmen aufziehen und Tasten
+      dafür gibt es noch nicht.
     - **Rückgängig / Wiederholen** (100 Schritte; Änderungen an einem Feld hintereinander sind ein
       Schritt) – Löschen fragt deshalb nicht nach.
     - **Tastatur (Laptop; alle Tasten zeigt `?`):** Entf/Rücktaste löscht, Esc hebt die Auswahl auf

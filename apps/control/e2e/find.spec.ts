@@ -514,6 +514,45 @@ test('PAUSE: on every screen, one tap holds the feed; Space pauses while somethi
   await expect(pause).toBeInViewport({ ratio: 1 });
 });
 
+test('the arranging entries lead to something that is there: the card of the drawing while nothing is', async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  // Nothing drawn: the card that picks parts is not there, so the search lands on the card of the drawing
+  // (each outline fades before the next search, or an earlier one would stand for the later)
+  const faded = (anchor: string) =>
+    expect(page.locator(`[data-find~="${anchor}"]`)).not.toHaveClass(/found/);
+  await find(page, 'Mehrfachauswahl', 'Mehrfachauswahl', 'Zeichnen/CAM');
+  await landed(page, 'cam-draw');
+  await faded('cam-draw');
+  await find(page, 'Alles auswählen', 'Alles auswählen', 'Zeichnen/CAM');
+  await landed(page, 'cam-draw');
+  await faded('cam-draw');
+  await find(page, 'Gruppieren', 'Gruppieren', 'Zeichnen/CAM');
+  await landed(page, 'cam-draw');
+  await faded('cam-draw');
+  // Parts, nothing picked: "Alles auswählen" is its own button, the others lead to the switch beside it
+  const add = page.getByTestId('cam-add');
+  await add.getByRole('button', { name: 'Rechteck', exact: true }).click();
+  await add.getByRole('button', { name: 'Rechteck', exact: true }).click();
+  await page.getByRole('button', { name: 'Auswahl aufheben' }).click();
+  await find(page, 'Alles auswählen', 'Alles auswählen', 'Zeichnen/CAM');
+  await expect(await landed(page, 'cam-select-all')).toBeVisible();
+  await faded('cam-select-all');
+  await find(page, 'Auswahl umkehren', 'Auswahl umkehren', 'Zeichnen/CAM');
+  await landed(page, 'cam-multi');
+  await faded('cam-multi');
+  // Everything picked: invert has its button, aligning its panel – nothing was pressed by going there
+  await page.getByRole('button', { name: 'Alles auswählen', exact: true }).click();
+  await find(page, 'Auswahl umkehren', 'Auswahl umkehren', 'Zeichnen/CAM');
+  await landed(page, 'cam-invert');
+  await faded('cam-invert');
+  await find(page, 'linksbündig', 'Ausrichten und verteilen', 'Zeichnen/CAM');
+  await landed(page, 'cam-align');
+  await expect(page.getByTestId('cam-selected')).toContainText('2 Teile');
+});
+
 test('in the drawing its own keys go on working beside the global ones', async ({ page }) => {
   await openApp(page);
   await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();

@@ -1430,3 +1430,65 @@ test('tabs by hand with a finger: a tap sets one, a drag moves it along the line
   await touch.tap(again.x, again.y);
   await expect.poll(async () => (await sites()).length).toBe(4);
 });
+
+test('several parts by finger: the Mehrfachauswahl switch, a tap takes a part in, a tap beside keeps the set, aligning is a button', async ({
+  page,
+}) => {
+  // No machine needed: arranging a drawing works at the kitchen table too.
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  const cam = page.getByTestId('cam-card');
+  const table = page.getByTestId('table-view');
+  const touch = await Touch.on(page);
+  const box = async () =>
+    ((await table.getAttribute('data-drawing-selected')) ?? '').split(',').map(Number);
+  // Two plates: 0 0 40 20 and 100 40 130 70
+  await drawShape(page, 'Rechteck', { 'Breite (mm)': '40', 'Höhe (mm)': '20' });
+  await drawShape(page, 'Rechteck', {
+    'Breite (mm)': '30',
+    'Höhe (mm)': '30',
+    'X links (mm)': '100',
+    'Y unten (mm)': '40',
+  });
+  await restingTable(page);
+  await page.waitForTimeout(400);
+  const spot = async (x: number, y: number) => {
+    const at = await tableSpot(page, { x, y });
+    expect(await onStage(page, at)).toBe(true);
+    return at;
+  };
+
+  // The switch is a full target; a tap on it turns the mode on
+  const word = cam.getByText('Mehrfachauswahl', { exact: true });
+  const row = (await word.locator('xpath=ancestor::label').boundingBox())!;
+  expect(row.height).toBeGreaterThanOrEqual(47.5);
+  await word.tap();
+  await expect(cam.getByRole('checkbox', { name: 'Mehrfachauswahl' })).toBeChecked();
+
+  // The second plate is selected; a tap inside the first takes it in, a tap beside both keeps both
+  expect(await box()).toEqual([100, 40, 130, 70]);
+  const first = await spot(20, 10);
+  await touch.tap(first.x, first.y);
+  await expect.poll(box).toEqual([0, 0, 130, 70]);
+  await expect(cam.getByTestId('cam-selected')).toContainText('2 Teile');
+  await page.waitForTimeout(400);
+  const beside = await spot(20, 50);
+  await touch.tap(beside.x, beside.y);
+  await page.waitForTimeout(300);
+  expect(await box()).toEqual([0, 0, 130, 70]);
+
+  // Aligning is a button, large enough for a finger: the two plates on one left edge – one step
+  const left = cam.getByRole('button', { name: 'Linksbündig ausrichten' });
+  expect((await left.boundingBox())!.height).toBeGreaterThanOrEqual(47.5);
+  await left.tap();
+  await expect.poll(box).toEqual([0, 0, 40, 70]);
+  await cam.getByRole('button', { name: 'Rückgängig' }).tap();
+  await expect.poll(box).toEqual([0, 0, 130, 70]);
+
+  // Off again: a tap beside everything lets go of the selection, as ever
+  await word.tap();
+  await expect(cam.getByRole('checkbox', { name: 'Mehrfachauswahl' })).not.toBeChecked();
+  await page.waitForTimeout(400);
+  await touch.tap(beside.x, beside.y);
+  await expect(table).not.toHaveAttribute('data-drawing-selected');
+});
