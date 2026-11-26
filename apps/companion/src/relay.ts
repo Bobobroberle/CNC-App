@@ -20,7 +20,8 @@ export interface RelayClient {
 
 /**
  * The Pi's clock in one reading: `mono` is CLOCK_MONOTONIC in ms with 3 decimals (what `process.hrtime`
- * counts on Linux, and the clock ustreamer stamps its frames in), `wall` the real time in ms since 1970.
+ * counts on Linux – the clock ustreamer's own times are in; the time it takes from the V4L2 buffer is the
+ * driver's clock, usually the same, which the app checks later), `wall` the real time in ms since 1970.
  */
 export interface ClockReading {
   mono: number;

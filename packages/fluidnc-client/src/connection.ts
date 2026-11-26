@@ -23,7 +23,7 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected';
 /**
  * The companion relay's clock at the moment it received a message from FluidNC (`STAMP:<mono>:<wall>`,
  * sent only to a client that asked for it with `?stamp=1`). `mono` is CLOCK_MONOTONIC in ms (the clock
- * ustreamer stamps its frames in), `wall` the Pi's real time in ms since 1970.
+ * ustreamer's own times are in; its grab time is the V4L2 driver's), `wall` the Pi's real time in ms since 1970.
  */
 export interface RelayStamp {
   mono: number;

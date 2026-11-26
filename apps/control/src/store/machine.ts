@@ -145,8 +145,8 @@ interface MachineStore {
   connection: ConnectionState;
   status: MachineStatus | null;
   /**
-   * The Pi's clock when its relay received `status` from FluidNC (monotonic ms, the clock ustreamer stamps
-   * its frames in, and wall ms) – set in the same step as `status`. null for a report that came without one:
+   * The Pi's clock when its relay received `status` from FluidNC (CLOCK_MONOTONIC ms, ustreamer's
+   * own clock, and wall ms) – set in the same step as `status`. null for a report that came without one:
    * the simulator, FluidNC typed in directly, an older companion, a relay that was not asked.
    */
   statusStamp: RelayStamp | null;

@@ -247,7 +247,8 @@ WLAN, den Pi und wieder das WLAN gelaufen ist. Darum stempelt das Relais auf dem
   verlieren – deshalb ist es nie vorgegeben). Jeder andere Wert von `stamp` (oder gar keiner) ist ein Browser ohne
   Stempel; die Aufzeichnung am Relais bekommt nie einen.
 - **`mono`** sind Millisekunden mit drei Nachkommastellen auf der **monotonen Uhr** des Pi (`process.hrtime`, unter Linux
-  `CLOCK_MONOTONIC` – dieselbe Uhr, in der ustreamer die Aufnahmezeiten seiner Bilder angibt), **`wall`** die Uhrzeit des Pi in
+  `CLOCK_MONOTONIC` – die Uhr, in der ustreamer seine eigenen Zeiten angibt; die Aufnahmezeit eines Bildes nimmt er aus dem V4L2-Treiber, meist
+  dieselbe Uhr – ob das auf diesem Pi stimmt, ist ungeprüft), **`wall`** die Uhrzeit des Pi in
   Millisekunden seit 1970 (`Date.now()`). Beides wird beim Eintreffen der Nachricht am Pi **einmal** gelesen und gilt für
   alle Browser, die Stempel wollen. Der Stempel gehört zur Nachricht direkt dahinter – auch zu einer Meldung, die keine
   Position ist; die App wirft ihn dann weg.
