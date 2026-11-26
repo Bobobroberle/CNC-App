@@ -558,7 +558,16 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   Outside a job the app tries again by itself (2 s → 30 s, `retryDelay`) while `autoRetry` is on
   ("Aufhören" switches it off, remembered); `mayRetry` refuses during a job and while
   `link.lostDuringJob` is set. A reconnect only asks (`?`, `$I`, `$G`, `$#`). The relay drops
-  commands sent before FluidNC is there (only a status query waits). With a companion relaying,
+  commands sent before FluidNC is there (only a status query waits). **Relay stamps are opt-in per client**: the socket
+  through the Pi is opened with `?stamp=1` (`socketUrl`; the typed address stays what `isRelayUrl` compares), and only
+  then the companion sends a `STAMP:<mono>:<wall>` text frame (the Pi's CLOCK_MONOTONIC and real time in ms) right before
+  each message of FluidNC – every other client sees byte-identical frames as before, because an older app glues an unknown
+  text frame onto the next line and loses the report (pinned frame-list tests in `apps/companion/test`). The library
+  consumes the frame (`STAMP` is in its meta list, parsed strictly, a malformed one is dropped as meta), keeps it for the
+  very next frame only and gives it to the reports that frame holds – the one a line began in, if it is split – as the
+  second argument of `status` (`RelayStamp`); the store keeps it as `statusStamp`, set in the same step as `status`, `null`
+  for a report without one (simulator, FluidNC direct, an older companion that ignores the parameter). `/api/health` says
+  `stamps: true` and `clock: {mono, wall}`. Nothing uses the stamp yet (the strip scan comes next); `docs/companion.md`. With a companion relaying,
   "Über den Pi verbinden" is the one way in the connection card; HTTP uploads go to FluidNC's own
   host (`fluidncHttpBase`), not the Pi.
 - FluidNC's limits ("Grenzen der Steuerung", `MachineLimitsCard`, `store/limits.ts`, pure

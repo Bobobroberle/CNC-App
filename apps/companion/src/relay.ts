@@ -10,6 +10,34 @@
 export interface RelayClient {
   send(data: string | Uint8Array, options: { binary: boolean }): void;
   close(code?: number, reason?: string): void;
+  /**
+   * The client asked for stamps (`?stamp=1`): every message from FluidNC is preceded by a `STAMP:` text
+   * frame. Opt-in because an older app would glue an unknown text frame onto the next line and lose
+   * the report; a client without it sees exactly the frames it always did.
+   */
+  readonly stamp?: boolean;
+}
+
+/**
+ * The Pi's clock in one reading: `mono` is CLOCK_MONOTONIC in ms with 3 decimals (what `process.hrtime`
+ * counts on Linux, and the clock ustreamer stamps its frames in), `wall` the real time in ms since 1970.
+ */
+export interface ClockReading {
+  mono: number;
+  wall: number;
+}
+export type Clock = () => ClockReading;
+
+/** The real clock. */
+export const systemClock: Clock = () => ({
+  // ns → µs as a whole number first: a bigint holds it exactly, a double does not past about 104 days of uptime
+  mono: Number(process.hrtime.bigint() / 1000n) / 1000,
+  wall: Date.now(),
+});
+
+/** The text frame that goes before a message from FluidNC for a client that asked for stamps. */
+export function stampFrame(reading: ClockReading): string {
+  return `STAMP:${reading.mono.toFixed(3)}:${Math.round(reading.wall)}`;
 }
 
 export interface Upstream {
@@ -74,6 +102,8 @@ export class FluidNCRelay {
     private readonly openTimeoutMs = 5000,
     /** A controlling browser silent this long hands control on to the next one that speaks */
     private readonly silenceMs = 10_000,
+    /** The clock the stamps are read from (the tests set their own) */
+    readonly clock: Clock = systemClock,
   ) {}
 
   get clientCount(): number {
@@ -156,7 +186,15 @@ export class FluidNCRelay {
     up.onmessage = (ev) => {
       const binary = typeof ev.data !== 'string';
       const data = binary ? new Uint8Array(ev.data as ArrayBuffer) : (ev.data as string);
-      for (const c of this.clients) c.send(data, { binary });
+      // One reading per message, shared by every client that asked: the stamp goes right before it
+      let stamp: string | null = null;
+      for (const c of this.clients) {
+        if (c.stamp) {
+          stamp ??= stampFrame(this.clock());
+          c.send(stamp, { binary: false });
+        }
+        c.send(data, { binary });
+      }
     };
     up.onclose = () => this.fail(up, opened);
     up.onerror = () => up.close();

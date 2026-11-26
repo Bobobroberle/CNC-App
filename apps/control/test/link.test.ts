@@ -7,6 +7,7 @@ import {
   relayTarget,
   retryDelay,
   secondsUntil,
+  socketUrl,
   viaFor,
 } from '../src/lib/link';
 import { useMachine } from '../src/store/machine';
@@ -27,6 +28,19 @@ describe('the way to the machine (pure)', () => {
     expect(relayTarget('FluidNC disconnected: ws://jackpot.local:81/')).toBe('jackpot.local:81');
     expect(relayTarget('No FluidNC address configured')).toBeNull();
     expect(relayTarget(undefined)).toBeNull();
+  });
+
+  it("asks the companion's relay for stamps – on the socket only, and for no other address", () => {
+    expect(socketUrl('ws://192.168.0.198:8080/fluidnc')).toBe(
+      'ws://192.168.0.198:8080/fluidnc?stamp=1',
+    );
+    expect(socketUrl(' wss://pi.local/fluidnc/ ')).toBe('wss://pi.local/fluidnc/?stamp=1');
+    // FluidNC typed in directly, or the simulator: unchanged
+    expect(socketUrl('ws://192.168.0.200:81/')).toBe('ws://192.168.0.200:81/');
+    expect(socketUrl('sim://lowrider')).toBe('sim://lowrider');
+    // the address with the parameter is no relay path for `isRelayUrl`: the typed one stays what is compared
+    expect(isRelayUrl(socketUrl('ws://192.168.0.198:8080/fluidnc'))).toBe(false);
+    expect(isRelayUrl('ws://192.168.0.198:8080/fluidnc')).toBe(true);
   });
 
   it('tells a failure with the address of the Pi – the series knows it, else the one that was typed', () => {
@@ -447,6 +461,80 @@ describe('coming back by itself', () => {
     socket.onmessage?.({ data: 'ROLE:viewer' });
     useMachine.getState().disconnect();
     expect(useMachine.getState().viewer).toBe(false);
+  });
+
+  describe("the Pi's stamp of a report", () => {
+    const frame = (text: string) => ({ data: new TextEncoder().encode(text).buffer });
+
+    it('opens the socket with `stamp=1` through the Pi – and only then', async () => {
+      useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
+      ScriptedSocket.scripts = ['answer'];
+      await useMachine.getState().connect();
+      expect(ScriptedSocket.last!.url).toBe('ws://192.168.0.198:8080/fluidnc?stamp=1');
+      useMachine.getState().disconnect();
+      useMachine.getState().setUrl('192.168.0.200');
+      ScriptedSocket.scripts = ['answer'];
+      await useMachine.getState().connect();
+      expect(ScriptedSocket.last!.url).toBe('ws://192.168.0.200:81/');
+    });
+
+    it('is set with the report it belongs to, and null for one that came without', async () => {
+      useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
+      ScriptedSocket.scripts = ['answer'];
+      await useMachine.getState().connect();
+      const socket = ScriptedSocket.last!;
+      // the first report came from a relay that did not stamp it (an older companion)
+      expect(useMachine.getState().status).not.toBeNull();
+      expect(useMachine.getState().statusStamp).toBeNull();
+      // every state the store passes through: a report and its stamp are never apart
+      const seen: { x: number; stamp: unknown }[] = [];
+      const off = useMachine.subscribe((s, prev) => {
+        if (s.status !== prev.status) seen.push({ x: s.status!.mpos[0]!, stamp: s.statusStamp });
+      });
+      socket.onmessage?.({ data: 'STAMP:5000.250:1700000000100' });
+      socket.onmessage?.(frame('<Run|MPos:1,2,3>\n'));
+      socket.onmessage?.({ data: 'STAMP:5200.750:1700000000300' });
+      socket.onmessage?.(frame('<Run|MPos:2,2,3>\n'));
+      // a report that came plain does not keep the stamp of the one before
+      socket.onmessage?.(frame('<Run|MPos:3,2,3>\n'));
+      off();
+      expect(seen).toEqual([
+        { x: 1, stamp: { mono: 5000.25, wall: 1700000000100 } },
+        { x: 2, stamp: { mono: 5200.75, wall: 1700000000300 } },
+        { x: 3, stamp: null },
+      ]);
+      expect(useMachine.getState().statusStamp).toBeNull();
+    });
+
+    it('is gone with the connection', async () => {
+      useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
+      ScriptedSocket.scripts = ['answer'];
+      await useMachine.getState().connect();
+      const socket = ScriptedSocket.last!;
+      socket.onmessage?.({ data: 'STAMP:1.000:2' });
+      socket.onmessage?.(frame('<Idle|MPos:1,2,3>\n'));
+      expect(useMachine.getState().statusStamp).toEqual({ mono: 1, wall: 2 });
+      // lost: the report and its stamp go together
+      socket.drop(1006, '');
+      expect(useMachine.getState().status).toBeNull();
+      expect(useMachine.getState().statusStamp).toBeNull();
+      // and "Trennen" does the same
+      ScriptedSocket.scripts = ['answer'];
+      await useMachine.getState().connect();
+      ScriptedSocket.last!.onmessage?.({ data: 'STAMP:3.000:4' });
+      ScriptedSocket.last!.onmessage?.(frame('<Idle|MPos:1,2,3>\n'));
+      expect(useMachine.getState().statusStamp).toEqual({ mono: 3, wall: 4 });
+      useMachine.getState().disconnect();
+      expect(useMachine.getState().statusStamp).toBeNull();
+    });
+
+    it('is null for FluidNC typed in directly: nothing stamps there', async () => {
+      useMachine.getState().setUrl('192.168.0.200');
+      ScriptedSocket.scripts = ['answer'];
+      await useMachine.getState().connect();
+      expect(useMachine.getState().status).not.toBeNull();
+      expect(useMachine.getState().statusStamp).toBeNull();
+    });
   });
 
   it('"Verbinden abbrechen" ends a try that waits for FluidNC – quietly, without a retry', async () => {

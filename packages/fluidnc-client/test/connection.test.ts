@@ -232,6 +232,196 @@ describe('receiving', () => {
     expect(lines).toEqual(['ok']);
   });
 
+  describe('relay stamps (opt-in: the companion sends them only to a client that asked)', () => {
+    type Stamp = { mono: number; wall: number } | null;
+
+    /** Every status the connection reports, with the stamp it was given. */
+    function collect(c: FluidNCConnection) {
+      const got: { state: string; x: number; stamp: Stamp }[] = [];
+      c.on('status', (s, stamp) => got.push({ state: s.state, x: s.mpos[0] ?? NaN, stamp }));
+      return got;
+    }
+
+    it("gives the report of the next frame the relay's stamp, once", async () => {
+      const c = await connected();
+      const got = collect(c);
+      const meta: string[] = [];
+      c.on('meta', (m) => meta.push(m));
+      socket.receiveText('STAMP:123456.789:1700000000123');
+      socket.receive('<Idle|MPos:1,0,0>\n');
+      socket.receive('<Run|MPos:2,0,0>\n');
+      expect(got).toEqual([
+        { state: 'Idle', x: 1, stamp: { mono: 123456.789, wall: 1700000000123 } },
+        // the stamp belonged to one frame only
+        { state: 'Run', x: 2, stamp: null },
+      ]);
+      // a stamp is consumed, not told as a meta message
+      expect(meta).toEqual([]);
+      // whole milliseconds are stamps too
+      socket.receiveText('STAMP:5:6');
+      socket.receive('<Idle|MPos:3,0,0>\n');
+      expect(got.at(-1)?.stamp).toEqual({ mono: 5, wall: 6 });
+    });
+
+    it('leaves plain frames as they are: no stamp, and a listener that does not ask is not told', async () => {
+      const c = await connected();
+      const got = collect(c);
+      const payloads: unknown[][] = [];
+      c.on('status', (...args: unknown[]) => payloads.push(args));
+      socket.receive('<Idle|MPos:1,0,0>\n');
+      expect(got).toEqual([{ state: 'Idle', x: 1, stamp: null }]);
+      expect(payloads).toHaveLength(1);
+      // a listener of another event gets nothing extra
+      const lines: unknown[][] = [];
+      c.on('line', (...args: unknown[]) => lines.push(args));
+      socket.receive('ok\n');
+      expect(lines).toEqual([['ok', undefined]]);
+    });
+
+    it('drops a malformed stamp as meta and gives the next report none', async () => {
+      const c = await connected();
+      const got = collect(c);
+      const meta: string[] = [];
+      c.on('meta', (m) => meta.push(m));
+      const bad = [
+        'STAMP:',
+        'STAMP:abc:5',
+        'STAMP:1.2.3:5',
+        'STAMP:-1:5',
+        'STAMP:1:2.5',
+        'STAMP:1:2:3',
+        'STAMP:1e9:5',
+        'STAMP: 1:5',
+        'STAMP:1:5 ',
+        'STAMP:1234567890123456:5',
+        'STAMP:1:12345678901234567',
+        'stamp:1:5',
+      ];
+      for (const frame of bad) {
+        socket.receiveText(frame);
+        socket.receive('<Idle|MPos:1,0,0>\n');
+      }
+      expect(meta).toEqual(bad);
+      expect(got.map((g) => g.stamp)).toEqual(bad.map(() => null));
+      // a malformed stamp after a good one is the next frame: it takes the good one with it
+      socket.receiveText('STAMP:1:2');
+      socket.receiveText('STAMP:x:y');
+      socket.receive('<Idle|MPos:1,0,0>\n');
+      expect(got.at(-1)?.stamp).toBeNull();
+    });
+
+    it('does not hold a stamp for a later frame: any frame after it takes it, meta too', async () => {
+      const c = await connected();
+      const got = collect(c);
+      socket.receiveText('STAMP:10:20');
+      socket.receiveText('PING:5000:5000');
+      socket.receive('<Idle|MPos:1,0,0>\n');
+      expect(got.at(-1)?.stamp).toBeNull();
+      // two stamps in a row: the later one counts
+      socket.receiveText('STAMP:10:20');
+      socket.receiveText('STAMP:11:21');
+      socket.receive('<Idle|MPos:2,0,0>\n');
+      expect(got.at(-1)?.stamp).toEqual({ mono: 11, wall: 21 });
+      // a frame that holds no line at all still takes it
+      socket.receiveText('STAMP:12:22');
+      socket.receive('');
+      socket.receive('<Idle|MPos:3,0,0>\n');
+      expect(got.at(-1)?.stamp).toBeNull();
+    });
+
+    it("gives every report of a multi-line frame the frame's stamp", async () => {
+      const c = await connected();
+      const got = collect(c);
+      socket.receiveText('STAMP:100.5:200');
+      socket.receive('<Idle|MPos:1,0,0>\nok\n<Run|MPos:2,0,0>\n');
+      socket.receive('<Run|MPos:3,0,0>\n');
+      const frame = { mono: 100.5, wall: 200 };
+      expect(got.map((g) => [g.x, g.stamp])).toEqual([
+        [1, frame],
+        [2, frame],
+        [3, null],
+      ]);
+    });
+
+    it('stamps a text frame of controller output, too', async () => {
+      const c = await connected();
+      const got = collect(c);
+      socket.receiveText('STAMP:7:8');
+      socket.receiveText('<Idle|MPos:1,0,0>\n');
+      expect(got).toEqual([{ state: 'Idle', x: 1, stamp: { mono: 7, wall: 8 } }]);
+    });
+
+    it('stamps a report split across frames with the frame its first byte came in', async () => {
+      const c = await connected();
+      const got = collect(c);
+      socket.receiveText('STAMP:1000:1');
+      socket.receive('<Idle|MPos:1,');
+      socket.receiveText('STAMP:1005:2');
+      socket.receive('0,0>\n<Run|MPos:2,0,0>\n<Run|MPos:3,');
+      socket.receiveText('STAMP:1010:3');
+      socket.receive('0,0>\n');
+      expect(got.map((g) => [g.x, g.stamp?.mono])).toEqual([
+        [1, 1000], // began in the first frame
+        [2, 1005], // whole in the second
+        [3, 1005], // began in the second, finished in the third
+      ]);
+      // a plain frame's report is not given a stamp left over from before
+      socket.receive('<Idle|MPos:4,0,0>\n');
+      expect(got.at(-1)?.stamp).toBeNull();
+    });
+
+    it('is no answer of the controller', async () => {
+      const c = new FluidNCConnection({
+        url: 'ws://pi/fluidnc?stamp=1',
+        createSocket,
+        statusIntervalMs: 0,
+      });
+      const p = c.connect();
+      socket.open();
+      socket.receiveText('STAMP:1:2');
+      expect(c.state).toBe('connecting');
+      socket.receive('<Idle|MPos:0,0,0>\n');
+      await p;
+      expect(c.state).toBe('connected');
+    });
+
+    it('forgets a stamp whose frame never came, and the half line, when the connection ends', async () => {
+      const c = await connected();
+      const got = collect(c);
+      socket.receiveText('STAMP:1:2');
+      socket.receive('<Idle|MPos:1,');
+      // a second stamp is waiting for a frame that never comes
+      socket.receiveText('STAMP:3:4');
+      c.disconnect();
+      // the same object connects again: nothing of that is left over
+      const p = c.connect();
+      socket.answer();
+      await p;
+      socket.receive('<Idle|MPos:9,0,0>\n');
+      expect(got.map((g) => [g.x, g.stamp])).toEqual([
+        [0, null],
+        [9, null],
+      ]);
+    });
+
+    it('forgets them when the socket closes by itself', async () => {
+      const c = await connected();
+      const got = collect(c);
+      socket.receiveText('STAMP:5:6');
+      socket.receive('<Idle|MPos:1,');
+      socket.receiveText('STAMP:7:8');
+      socket.close(1006, '');
+      const p = c.connect();
+      socket.answer();
+      await p;
+      socket.receive('<Idle|MPos:9,0,0>\n');
+      expect(got.map((g) => [g.x, g.stamp])).toEqual([
+        [0, null],
+        [9, null],
+      ]);
+    });
+  });
+
   it('only looks and stops while the relay says another device controls', async () => {
     const c = await connected();
     const roles: string[] = [];

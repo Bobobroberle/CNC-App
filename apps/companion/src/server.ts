@@ -12,7 +12,7 @@ import {
   type NotifyEvent,
 } from './notify';
 import { Recorder, RecorderError, validateStart } from './recorder';
-import { FluidNCRelay, type RelayClient } from './relay';
+import { FluidNCRelay, systemClock, type Clock, type RelayClient } from './relay';
 import { SensorHub, validateSample } from './sensors';
 import type { BackupStatus } from './backup';
 import { MAX_MEASUREMENTS, validateMeasurement } from './measurements';
@@ -78,6 +78,8 @@ export interface ServerOptions {
    */
   cameraUrl?: string;
   relay?: FluidNCRelay;
+  /** The Pi's clock for the stamps of the relay and the health report (the tests set their own) */
+  clock?: Clock;
   sensors?: SensorHub;
   fetch?: typeof fetch;
   logger?: boolean;
@@ -124,7 +126,12 @@ export function parseRange(header: string | undefined, size: number): [number, n
 export async function buildServer(options: ServerOptions): Promise<FastifyInstance> {
   const { store } = options;
   const sensors = options.sensors ?? new SensorHub();
-  const relay = options.relay ?? (options.fluidncUrl ? new FluidNCRelay(options.fluidncUrl) : null);
+  const clock = options.clock ?? options.relay?.clock ?? systemClock;
+  const relay =
+    options.relay ??
+    (options.fluidncUrl
+      ? new FluidNCRelay(options.fluidncUrl, undefined, undefined, undefined, clock)
+      : null);
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 64 * 1024 * 1024 });
   let shutdownError: string | null = null;
 
@@ -183,6 +190,12 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     backup: options.backup?.() ?? null,
     // The state documents (`/api/state`): an older companion has none, the app then keeps its state here only.
     state: true,
+    // The relay stamps what FluidNC says with this clock for a client that connects with `?stamp=1` (an older
+    // companion has neither field: the app then keeps the browser's clock for everything).
+    stamps: true,
+    // A snapshot of the clock at the moment of this request: the app compares it with the camera's stamps,
+    // which tells it whether both are in one domain
+    clock: clock(),
   }));
 
   // Host power: the app shows feedback by polling /api/health until it stops answering.
@@ -590,12 +603,15 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
   });
 
   // FluidNC relay
-  app.get('/fluidnc', { websocket: true }, (socket) => {
+  app.get('/fluidnc', { websocket: true }, (socket, req) => {
     if (!relay) {
       socket.close(1011, 'No FluidNC address configured');
       return;
     }
-    const client = {
+    // Only `stamp=1` asks for the stamp frames; any other query (or none) is a plain client, as always
+    const stamp = (req.query as { stamp?: unknown }).stamp === '1';
+    const client: RelayClient = {
+      stamp,
       send: (data: string | Uint8Array, o: { binary: boolean }) => socket.send(data, o),
       close: (code?: number, reason?: string) => socket.close(code, reason),
     };
