@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-23 von 155 erledigt.
+24 von 155 erledigt.
 
 ## Scan & Kamera
 
@@ -13,7 +13,7 @@ _Position und Schärfe der Aufnahmen, Kamera und Licht._
 - [x] **Eine Uhr für Bild und Position** (kleiner Schritt) – Der Pi stempelt Kamerabild und Statusbericht mit derselben Uhr. Im Simulator sank die Streuung der Zeit von 11–33 ms auf 1–2 ms, die fertige Karte wurde dort nicht genauer; bei sehr schlechtem Link gab der Browser-Takt auf, der Pi-Takt nicht. An der echten Maschine ist die Genauigkeit ungemessen.
 - [ ] **Hardware-Trigger statt Uhr** (größeres Projekt) – Eine Global-Shutter-Kamera wird von einem FluidNC-Ausgang ausgelöst (M62/M63); die Position des Bildes ist die befohlene Position, es gibt keine Uhr. Ob M62/M63 auf der Jackpot bewegungssynchron schaltet, ist ungeprüft.
 - [ ] **Absolute Referenz im Bild** (größeres Projekt) – Ein Streifen mit gedruckten Marken am Tischrand gibt die Position aus dem Bild selbst; wirkt gegen jede Verzögerung, aber nur nahe am Streifen.
-- [ ] ★ **Adaptives Warten im Stopp-Modus** (kleiner Schritt, in Arbeit) – Das Bild wird gemacht, sobald Position und Bild ruhig sind, nicht nach fester Pause. Schneller, ohne Uhr.
+- [x] ★ **Adaptives Warten im Stopp-Modus** (kleiner Schritt) – Das Bild wird gemacht, sobald Position und Bild ruhig sind, nicht nach fester Pause. Schneller, ohne Uhr. Gebaut mit Beleg: nur wo die Bilder selbst zeigen, dass sie frisch sind (Rauschen der Kamera, die Fahrt im Bild gesehen, ruhig über mindestens 150 ms, nicht vor der auf den ersten drei Punkten gelernten Zeit), sonst die feste Zeit wie bisher; die Serie und die Vorrichtungen bleiben bei der festen Zeit. Im Simulator fiel die Pause je Bild bei einer Kamera ohne Verzögerung von etwa 1,0 s auf 0,2 s, wo das Bild genug Struktur zeigt (über blanker Fläche gibt es keinen Beleg und bleibt es bei der festen Zeit: der Scan eines 725 × 290 mm großen Tisches dauerte statt 204 s noch 170 s); bei 0,8 s Verzögerung lag mit fester Zeit ein Bild 1,8 mm daneben, mit Wartezeit keines. An der echten Kamera ist weder der Gewinn noch die Empfindlichkeit gemessen.
 - [ ] **Verzögerung an der Maschine messen** (Aufgabe) – Einen Streifen-Scan mit Aufzeichnung fahren und mit dem Auswerter die Verzögerung der Kamera bestimmen (Anleitung in docs/scan.md).
 - [ ] **Zeitstempel von ustreamer prüfen** (Aufgabe) – Am Pi mit curl nachsehen, welche Kopfzeilen der Stream pro Bild sendet und was der Stempel bedeutet (Aufnahme, Kodierung oder Senden).
 - [ ] **M62/M63 an der Jackpot prüfen** (Aufgabe) – Pulst der Ausgang wirklich in der Bewegung, ohne sie anzuhalten? Mit einer LED oder dem Oszilloskop messen.

@@ -263,8 +263,23 @@ let running = false;
  * What a real camera does that the simulated one did not: it is late. The picture shows where the camera was
  * `ms` ago, give or take `jitterMs`, and out of focus by `blurPx` (motion blur or a poor focus wipes out fine texture)
  * – set by the tests, unseen by the app, which has to find out for itself.
+ *
+ * Three more, **all off by default** (the simulator is then as it was): `noise` – the sensor's noise in grey levels
+ * (rms, per pixel), a different draw for every picture the camera takes and the same one for a picture shown again, so
+ * a picture that is shown late or twice is identical to its first showing, exactly as a real stream's repeated frame is;
+ * `frozen` – the camera delivers nothing new (the canvas stays as it was); `flat` – a table with nothing on it to see
+ * (one even colour). `shown` is what the canvas shows right now – where the tool was in the picture, machine mm – and
+ * is written by the simulator, for the tests to hold a picture taken by the app against where the tool really rests.
  */
-export const simulatorCameraLag = { ms: 0, jitterMs: 0, blurPx: 0 };
+export const simulatorCameraLag = {
+  ms: 0,
+  jitterMs: 0,
+  blurPx: 0,
+  noise: 0,
+  frozen: false,
+  flat: false,
+  shown: null as { x: number; y: number } | null,
+};
 (globalThis as { lowriderCameraLag?: typeof simulatorCameraLag }).lowriderCameraLag =
   simulatorCameraLag;
 const trail: { t: number; tool: { x: number; y: number } }[] = [];
@@ -284,19 +299,56 @@ function blur(ctx: CanvasRenderingContext2D, source: HTMLCanvasElement, px: numb
   ctx.filter = 'none';
 }
 
-/** Where the camera was `lag` ms ago, from the trail of the frames painted so far. */
+/**
+ * Where the camera was `lag` ms ago, from the trail of the frames painted so far – and the moment that picture was
+ * taken (`at`, ms), which names the draw of the sensor's noise it carries.
+ */
 function laggedTool(now: number, current: { x: number; y: number }) {
   trail.push({ t: now, tool: current });
   while (trail.length > 2 && trail[1]!.t < now - 3000) trail.shift();
   const { ms, jitterMs } = simulatorCameraLag;
-  if (ms <= 0 && jitterMs <= 0) return current;
+  if (ms <= 0 && jitterMs <= 0) return { tool: current, at: now };
   // monotonic: a picture never shows an earlier place than the one before it
   const want = Math.max(lastShown, now - ms - (Math.sin(now * 0.37) * 0.5 + 0.5) * jitterMs);
   lastShown = want;
   for (let i = trail.length - 1; i >= 0; i--) {
-    if (trail[i]!.t <= want) return trail[i]!.tool;
+    if (trail[i]!.t <= want) return { tool: trail[i]!.tool, at: want };
   }
-  return trail[0]!.tool;
+  return { tool: trail[0]!.tool, at: want };
+}
+
+let noiseTile: HTMLCanvasElement | null | undefined;
+
+/** A tile of grey noise, drawn over a picture at an offset that only depends on which picture it is. */
+function sensorNoise(ctx: CanvasRenderingContext2D, level: number, at: number) {
+  if (noiseTile === undefined) {
+    const t = document.createElement('canvas');
+    t.width = t.height = 256;
+    const g = t.getContext('2d');
+    if (g) {
+      const rnd = seeded(31);
+      const img = g.createImageData(256, 256);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = Math.floor(rnd() * 256);
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+        img.data[i + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+    }
+    noiseTile = g ? t : null;
+  }
+  const pattern = noiseTile ? ctx.createPattern(noiseTile, 'repeat') : null;
+  if (!pattern) return;
+  // the camera takes SIM_FRAME_FPS pictures a second: the draw is the picture's number, not the time the canvas is painted
+  const n = Math.floor((at * SIM_FRAME_FPS) / 1000);
+  const ox = Math.abs(Math.imul(n, 2654435761)) % 256;
+  const oy = Math.abs(Math.imul(n ^ 0x5bd1e995, 40503)) % 256;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, ox, oy);
+  ctx.globalAlpha = Math.min(1, level / 74);
+  ctx.fillStyle = pattern;
+  ctx.fillRect(-ox, -oy, SIM_CAMERA.width, SIM_CAMERA.height);
+  ctx.restore();
 }
 
 /**
@@ -323,11 +375,20 @@ function start() {
   running = true;
   const frame = () => {
     if (!running || !canvas) return;
-    paint(
-      canvas.getContext('2d')!,
-      undefined,
-      laggedTool(performance.now(), simulator().physical()),
-    );
+    const lag = simulatorCameraLag;
+    const { tool, at } = laggedTool(performance.now(), simulator().physical());
+    // a camera that delivers nothing new leaves the canvas as it was
+    if (!lag.frozen) {
+      const ctx = canvas.getContext('2d')!;
+      paint(ctx, undefined, tool);
+      if (lag.flat) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = '#9a8a6a';
+        ctx.fillRect(0, 0, SIM_CAMERA.width, SIM_CAMERA.height);
+      }
+      if (lag.noise > 0) sensorNoise(ctx, lag.noise, at);
+      lag.shown = { x: tool.x, y: tool.y };
+    }
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

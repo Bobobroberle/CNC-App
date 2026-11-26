@@ -72,6 +72,8 @@ export function PhotoMapPanel() {
   const stripsBad = usePhotoMap((s) => s.stripsBad);
   const exposureMs = usePhotoMap((s) => s.exposureMs);
   const lastClock = usePhotoMap((s) => s.lastClock);
+  // what the last scan by stops applied as its pause: the estimate counts it
+  usePhotoMap((s) => s.restMs);
   const trace = useScanTrace();
   const { scanArea, cancelScan, clear, setMode, setTempo, setExposure } = usePhotoMap.getState();
   const connected = useMachine((s) => s.connection === 'connected');

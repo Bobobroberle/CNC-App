@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { t } from '../i18n';
 import type { Point } from '../lib/camera';
+import { LEARN_NEED } from '../lib/calm';
 import { clockChoiceText, clockLostText } from '../lib/clockText';
 import { formatNumber } from '../lib/format';
 import {
@@ -78,6 +79,7 @@ import {
 } from './camera';
 import { useJob } from './job';
 import { useMachine } from './machine';
+import { RestWaiter, type RestResult } from './restWait';
 import { settled, wait } from './settle';
 import {
   traceBegin,
@@ -143,6 +145,11 @@ interface PhotoMapStore {
   exposureMs: number;
   /** What the last scan in strips ran its clock on and why (null: none yet) – for the panel */
   lastClock: ClockSummary | null;
+  /**
+   * What a picture at a stop cost in the last scan by stops after it had learned the camera (the mean time from the machine reporting
+   * rest to the picture, ms), null before one – the panel's estimate uses it in place of the fixed pause (`stopRestSeconds`)
+   */
+  restMs: number | null;
   setMode(mode: ScanMode): void;
   setTempo(tempo: ScanTempo): void;
   setExposure(ms: number): void;
@@ -482,6 +489,19 @@ function restSeconds(): number {
   return (useWorkshop.getState().settings.calibration.settleMs + FRAME_LAG_MS + 200) / 1000;
 }
 
+/**
+ * Seconds a picture costs in a scan by stops: the fixed pause on the first points, which learn the camera, and – once a scan has
+ * shown what the pause comes to when it is waited for (`restMs`) – that on the rest. Strips keep the fixed pause for their pictures
+ * at rest (`restPicture` is as it was).
+ */
+function stopRestSeconds(count: number): number {
+  const fixed = restSeconds();
+  const { restMs } = usePhotoMap.getState();
+  if (restMs === null || count <= LEARN_NEED) return fixed;
+  // + the report that says "stopped", as in `restSeconds`
+  return (LEARN_NEED * fixed + (count - LEARN_NEED) * (restMs / 1000 + 0.2)) / count;
+}
+
 /** Feed of a scan by stops and of the hops between strips, mm/min */
 function stopFeed(): number {
   return Math.min(2000, useJob.getState().profile.jogFeed.xy);
@@ -505,7 +525,11 @@ export function scanEstimate(area: Rect, tempo: ScanTempo): ScanEstimate {
   return {
     stops: {
       count: points.length,
-      seconds: estimateStops(points, start, { speed: hop, accel, restSeconds: restSeconds() }),
+      seconds: estimateStops(points, start, {
+        speed: hop,
+        accel,
+        restSeconds: stopRestSeconds(points.length),
+      }),
     },
     strips: strips
       ? {
@@ -618,6 +642,26 @@ export interface ScanStats {
   stamp: { domain: StampDomain; source: string } | null;
   /** How much the clock scattered over the runs, ms (what is left after the lag, a constant, is taken out) – null where the runs did not say */
   timingNoiseMs: number | null;
+  /**
+   * How the wait for each picture at a stop ended: `adaptive` – taken before the fixed pause was over, on evidence; `fixed` – at the
+   * fixed pause (still learning, no evidence, or `precise`); `unsure` – the picture was still changing at the longest wait;
+   * `extended` – waited beyond the fixed pause because the picture was still changing. `meanMs` is the mean time from the machine
+   * reporting rest to the picture over the points that came after the camera was learned, `learnedAt` how many points were taken
+   * before that (null: nothing was learned)
+   */
+  rest: {
+    adaptive: number;
+    fixed: number;
+    unsure: number;
+    extended: number;
+    meanMs: number | null;
+    learnedAt: number | null;
+    /**
+     * How each wait ended, in the order of the pictures, one short text each: the kind (`a` adaptive, `f` fixed, `u` unsure), the ms from
+     * the machine reporting rest to the picture, `!` if the wait went beyond the fixed pause and `*` if the camera was not learned yet
+     */
+    points: string[];
+  };
   /** Per strip: pictures taken, reached by the chain from the start and by the one from the end, placed */
   detail: {
     offered: number;
@@ -632,6 +676,8 @@ let lastScan: ScanStats | null = null;
 export const scanStats = () => lastScan;
 (globalThis as { lowriderMap?: unknown }).lowriderMap = {
   stats: () => lastScan,
+  /** What `scanEstimate` says for an area at the normal tempo – for the tests of the pause the estimate counts */
+  estimate: (area: Rect) => scanEstimate(area, 'normal'),
   picture: () => mapPicture(),
   store: () => usePhotoMap.getState(),
   trace: () => useScanTrace.getState(),
@@ -1302,6 +1348,7 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
   ...loadScan(),
   stripsBad: false,
   lastClock: null,
+  restMs: null,
 
   setMode(mode) {
     set({ mode, stripsBad: false });
@@ -1441,6 +1488,15 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       clockLost: null,
       stamp: null,
       timingNoiseMs: null,
+      rest: {
+        adaptive: 0,
+        fixed: 0,
+        unsure: 0,
+        extended: 0,
+        meanMs: null,
+        learnedAt: null,
+        points: [],
+      },
       detail: [],
     };
     // the scatter of each run that said, put together at the end
@@ -1460,16 +1516,50 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       stats.clockLost = why;
       addLog('info', t('photomap.clockLost', { why: clockLostText(why) }));
     };
+    // The wait for the picture at a stop is learned from the first points of this scan and then shortened where the machine and the
+    // picture are both calm (`store/restWait.ts`). `precise` – the series and the jigs, where the place of every picture counts –
+    // keeps the pause as it always was, and so does everything the scan cannot tell: the strips' pictures at rest (`restPicture`) too.
+    const rest = options.precise ? null : new RestWaiter();
+    const restTimes: number[] = [];
+    let stopsTaken = 0;
+    let learnedAt: number | null = null;
+    const tally = (r: RestResult) => {
+      stats.rest[r.kind]++;
+      if (r.extended) stats.rest.extended++;
+      stats.rest.points.push(
+        `${r.kind[0]}${Math.round(r.ms)}${r.extended ? '!' : ''}${r.learned ? '' : '*'}`,
+      );
+      if (r.learned) {
+        learnedAt ??= stopsTaken;
+        restTimes.push(r.ms);
+      }
+      stopsTaken++;
+    };
     // One picture at a stop – the way an area is scanned picture by picture, and what fills the gaps of strips.
     const stopAt = async (p: Point) => {
       // The picture is laid down where the status report says the machine stands:
       // wait for the report of this position, not the one from before the move.
       const at = { x: p.x - cal.offsetX, y: p.y - cal.offsetY };
-      if (!((await moveMachine(at, feed)) && (await settled(at)) !== null)) return false;
-      if (cancelled) return true;
-      await wait(settle);
-      const now = picture();
-      if (now) await freshFrame(now.el);
+      // a picture of a `<video>` is waited for by its own next frame (`freshFrame`), not by a time: that stays as it was
+      const el = picture()?.el;
+      const watch =
+        rest && el && !(typeof HTMLVideoElement !== 'undefined' && el instanceof HTMLVideoElement)
+          ? rest.begin()
+          : null;
+      try {
+        if (!((await moveMachine(at, feed)) && (await settled(at)) !== null)) return false;
+        if (cancelled) return true;
+        if (watch) {
+          tally(await watch.finish({ fixedMs: settle + FRAME_LAG_MS, cancelled: () => cancelled }));
+        } else {
+          await wait(settle);
+          const now = picture();
+          if (now) await freshFrame(now.el);
+          stats.rest.fixed++;
+        }
+      } finally {
+        watch?.stop();
+      }
       get().addTile();
       return true;
     };
@@ -1650,10 +1740,18 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       stats.seconds = (Date.now() - startedAt) / 1000;
       stats.lag = stripLag;
       stats.timingNoiseMs = pooledNoise(noises);
+      if (restTimes.length > 0) {
+        stats.rest.meanMs = restTimes.reduce((a, b) => a + b, 0) / restTimes.length;
+        stats.rest.learnedAt = learnedAt;
+      }
       lastScan = stats;
       traceEnd({ ok, end, cancelled, count, stats });
       set({
         scan: null,
+        // what the estimate counts per picture: what this scan applied once it had learned – or the fixed pause where it learned nothing
+        ...(rest && ok && !cancelled && stopsTaken > LEARN_NEED
+          ? { restMs: stats.rest.meanMs }
+          : {}),
         // the panel says which clock a scan that used one ran on – a scan with stops used none
         ...(stats.mode === 'strips' && clockChosen
           ? {
@@ -1729,7 +1827,11 @@ export function startPhotoMap(): () => void {
       next.offsetY !== cal.offsetY ||
       next.focusHeight !== cal.focusHeight;
     // another camera or another stream: its picture is late by another time
-    if (next.streamUrl !== cal.streamUrl || next.source !== cal.source) lagKnown = false;
+    if (next.streamUrl !== cal.streamUrl || next.source !== cal.source) {
+      lagKnown = false;
+      // …and so is the wait for its picture at a stop: what the last scan applied belongs to the other camera
+      usePhotoMap.setState({ restMs: null });
+    }
     cal = next;
     // another scale, height or turn: the frames look different, what was learned of the lens goes
     if (changed) flat.reset();

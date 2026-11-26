@@ -36,6 +36,90 @@ Werten einer Standard-LowRider (Jog 50 mm/s, Beschleunigung 200 mm/s²) und eine
 fahren. Ein Vielfaches im Sinn von ×5 bis ×10 gibt dieses Verfahren nicht her; die Streifen liegen so eng wie die Zeilen beim Scan mit
 Halt, damit die Fläche lückenlos ist.
 
+## Mit Halt: warten, bis Maschine und Bild ruhig sind
+
+Beim Scan **mit Halt** wartete die App nach jedem Halt eine feste Zeit: die Beruhigungszeit (Voreinstellung 600 ms, unter Service → Kalibrieren)
+und 250 ms für die Verzögerung des Bildes. Jetzt nimmt sie das Bild, **sobald die Maschine ruht und das Bild ruhig ist** – aber nur, wo die Bilder
+selbst belegen, dass sie frisch sind. Wo nicht, bleibt es bei der festen Zeit, genau wie bisher. Die Uhr spielt dabei keine Rolle: nichts hier hängt davon ab,
+wie spät die Kamera ist, nur davon, was das Bild zeigt.
+
+**Was „belegt“ heißt – alles zusammen, sonst die feste Zeit:**
+
+1. **Neue Bilder.** Die App sieht alle 25 ms in das Kamerabild (fünf Ausschnitte von 48 × 48 Pixeln in der Auflösung der Kamera, in Blöcken von 4 × 4 gemittelt –
+   `lib/calm.ts`). Nur ein Bild zählt, das sich vom vorigen überhaupt unterscheidet: Ein Sensor rauscht, ein noch einmal gezeigtes oder
+   stehengebliebenes Bild ist gleich. Eine Kamera **ohne Rauschen** (der Simulator, wie er bisher war) lässt sich von einem stehengebliebenen Strom nicht unterscheiden – dort gibt es keinen Beleg.
+2. **Die Fahrt war im Bild zu sehen.** Ein Bild, das sich nie geändert hat, sagt nicht, ob es aktuell ist (ein Tisch ohne Struktur, eine Kamera, die steht).
+3. **Das Bild ist ruhig.** In den letzten 150 ms (bei einer langsamen Kamera vier Bildabstände) liegen mindestens drei neue Bilder, die sich vom neuesten nur um das
+   Rauschen unterscheiden, und das neueste ist frisch (nicht älter als 100 ms oder 2,5 Bildabstände). Ein Strom, der steht, liefert keine neuen Bilder; das
+   Fenster wird dann nie voll.
+4. **Nicht vor der gelernten Zeit.** Die ersten drei Punkte eines Scans laufen mit der festen Zeit und werden dabei beobachtet: Wie lange nach der Ruhemeldung der Maschine
+   hat sich das Bild noch verändert, bis es das endgültige war? Für die folgenden Punkte gilt ein hohes Quantil (0,9) dieser Zeiten plus 100 ms (oder drei Bildabstände) als Mindestwartezeit; jeder weitere Punkt lernt mit,
+   eine Kamera, die langsamer wird, verlängert sie also.
+5. **Die Maschine ruht:** zwei Statusmeldungen hintereinander „Idle“, auf 0,02 mm gleich – dasselbe wie `settled()`, nur über zwei Meldungen. Wie lange die Maschine
+   nachschwingt, sagt keine Meldung; das sagt nur das Bild – dafür ist das ruhige Fenster da, an Stelle der Beruhigungszeit.
+
+Steht das Bild bei der festen Zeit noch in Bewegung – oder steht es nach der Bewegung still, obwohl die Kamera schon Rauschen gezeigt hat (ein Strom, der aussetzt) –,
+**wartet die App**: höchstens 1,5 s je Punkt über die feste Zeit hinaus. Eine Kamera, die einfach später ist als die feste Zeit, wird auf jedem Punkt abgewartet und kostet das
+Guthaben nicht; was bei einem Bild, das nie ruhig wird, über die feste Zeit hinaus gewartet wird (`ScanStats.rest.unsure`), zählt zusammen höchstens 15 s je Scan. Enden zwei Punkte
+hintereinander so, vergisst die App, was sie gelernt hat, und lernt neu (feste Zeit). Ein Bild, das auch dann noch nicht ruhig ist, wird – wie bisher – trotzdem genommen.
+
+Das Rauschen wird aus den letzten zwölf neuen Bildern bestimmt (dem mittleren Abstand zweier aufeinanderfolgender Bilder); ein Flackern des Lichts, das jedes fünfte Bild heller macht,
+verfälscht es nicht, und ein Bild, dessen Abstände sich nicht so beschreiben lassen (`noiseOf` sagt null), wird nicht für ruhig erklärt: die Kamera wird nicht gelernt, jeder Punkt
+wartet die feste Zeit und – solange das Guthaben reicht – bis zu 1,5 s mehr (Test mit einem Flackern in `test/restWait.test.ts`: kein Bild vorzeitig, höchstens 15 s mehr im Scan). Bei einem häufigeren
+Flackern (etwa jedes dritte Bild) ist der mittlere Abstand selbst groß; die Schwelle wäre dann grob und ein Kriechen unter ihr bliebe unbemerkt – aus der Bauart gefolgert, nicht getestet.
+
+**Unverändert, mit fester Zeit:** die Serie auf Rohlingen und die Vorrichtungen (`precise`: dort kommt es auf die Lage jedes Bildes an), die Ankerbilder der Fahrt in Streifen
+(`restPicture`), Bilder eines `<video>`-Elements (dort wartet die App auf das nächste Bild der Kamera), ein Bild, das sich nicht lesen lässt, und ein Tisch ohne Struktur. Es gibt
+keine neue Einstellung; die Beruhigungszeit bleibt die feste Zeit der ersten Punkte und der Fälle ohne Beleg.
+
+**Die Zeitschätzung** über dem Scan rechnet nach einem Scan mit der Pause, die er angewendet hat (die ersten drei Bilder mit der festen Zeit, die übrigen mit der gemessenen);
+vor dem ersten Scan und nach einem Kamerawechsel rechnet sie mit der festen Zeit.
+
+**Der Test, der das entscheidet** (`e2e/restwait.spec.ts`, Simulator): Die Kamera zeigt den Tisch 0, 0,15, 0,4 und 0,8 s zu spät (plus 40 ms Schwanken) und rauscht (`lowriderCameraLag`:
+`ms`, `jitterMs`, `noise`); jedes Bild wird in dem Augenblick, in dem die App es liest, mit dem verglichen, was der Simulator wirklich unter der Spindel hat (`shown` gegen
+`physical()`): keines darf mehr als 0,02 mm daneben liegen. Dazu: eine Verzögerung, die in dem Moment auf 1 s springt, in dem die Maschine hält, nachdem sie bei 0,15 s gelernt wurde;
+eine Kamera, die bei jedem Halt 0,4 s lang nichts Neues liefert (`frozen`); ein Tisch ohne Struktur (`flat`); eine Kamera, die von Anfang an nichts liefert; eine Kamera ohne Rauschen. Eine
+naive Wartezeit (350 ms nach der Ruhemeldung) fiel durch: bei 0,4 s Verzögerung lag das schlechteste Bild 0,925 mm daneben; ein Warten auf „ruhig“ nach der Uhrzeit, ohne zu verlangen, dass die Bilder neu sind, fiel bei der springenden
+Verzögerung (5,7 mm) und beim Aussetzen (7,2 mm) durch.
+
+**Gemessen im Simulator** (Projekt „desktop“, neben einem anderen Testlauf; Fläche 240 × 100 mm, acht Bilder; die Pause ist die Zeit von der letzten Bewegung der Maschine bis zum Lesen des Bildes, Mittel über alle acht Bilder – die ersten drei haben die feste Zeit; alles Rauschen 2 Graustufen):
+
+| Verzögerung der Kamera | feste Zeit | mit Wartezeit | davon ab dem vierten Bild | Bilder: adaptiv / fest / unsicher / verlängert | schlechtestes Bild |
+| --- | --- | --- | --- | --- | --- |
+| 0 s | 1041 ms (19,9 s) | 547 ms (15,9 s) | 203 ms | 5 / 3 / 0 / 0 | 0,000 mm |
+| 0,15 s | 1018 ms (19,8 s) | 620 ms (16,6 s) | 239 ms | 5 / 3 / 0 / 0 | 0,000 mm |
+| 0,4 s | 1021 ms (19,7 s) | 786 ms (17,9 s) | 503 ms | 5 / 3 / 0 / 0 | 0,000 mm |
+| 0,8 s | 1002 ms (19,6 s) | 1112 ms (20,4 s) | 937 ms | 0 / 8 / 0 / 7 | 0,000 mm |
+
+Ein Lauf; ein zweiter, später, auf dem endgültigen Stand: mit Wartezeit 572 / 625 / 784 / 1097 ms, ab dem vierten Bild 217 / 254 / 531 / 880 ms, bei 0,8 s 4 Bilder verlängert – die Zahlen streuen von Lauf zu Lauf um einige Prozent.
+
+**Gemessen auf der ganzen Tischfläche** (derselbe Simulator, Fläche 725 × 290 mm = 66 Bilder, jedes Mal von derselben Ecke aus gestartet; `MEASURE_REST=1 pnpm exec playwright test e2e/restwait -g measuring`, 19 Minuten, neben einem anderen Testlauf; die feste Zeit nur bei 0 und 0,8 s, weil ihre Pause von der Verzögerung nicht abhängt – 1002 bis 1041 ms in allen Läufen oben):
+
+| Verzögerung der Kamera | Scan mit fester Zeit | Scan mit Wartezeit | Pause je Bild (fest → adaptiv) | Bilder: adaptiv / fest / unsicher / verlängert | schlechtestes Bild (fest / adaptiv) |
+| --- | --- | --- | --- | --- | --- |
+| 0 s | 203,8 s | 170,1 s (−17 %) | 1003 → 624 ms | 33 / 33 / 0 / 0 | 0,000 / 0,000 mm |
+| 0,15 s | – | 175,4 s | – → 706 ms | 33 / 33 / 0 / 0 | – / 0,000 mm |
+| 0,4 s | – | 183,3 s | – → 823 ms | 34 / 32 / 0 / 0 | – / 0,000 mm |
+| 0,8 s | 194,8 s | 197,3 s (+1 %) | 987 → 1032 ms | 0 / 66 / 0 / 25 | **1,766** / 0,000 mm |
+
+Der Gewinn ist kleiner als die Pause je Bild vermuten lässt, weil **nur dort Beleg da ist, wo das Bild genug Struktur zeigt**: Bei 0 s Verzögerung (ein eigener Lauf mit Protokoll jedes Bildes, `ScanStats.rest.points`)
+begann der Scan über blanker Spanplatte; die ersten **25 Bilder** blieben bei der festen Zeit (854–880 ms nach der Ruhemeldung), erst als die Tafel ins Bild kam, war die Kamera gelernt. Danach kamen 33 von 41 Bildern nach
+183–234 ms und 8 nach der festen Zeit (Stellen mit zu wenig Struktur für den Beleg „die Fahrt war im Bild zu sehen“). Die Schätzung über dem Scan zeigte vor dem Scan 209 s (feste Zeit, noch nichts gelernt) und danach 176 s; der nächste Scan dauerte 170 s.
+**Bei 0,8 s liegt die feste Zeit zu knapp:** im Scan der ganzen Fläche lag ein Bild mit fester Zeit **1,766 mm** neben dem, was der Simulator wirklich unter der Spindel hatte (in den acht Bildern oben nie) – das ist das Verhalten vor dieser Änderung. Mit Wartezeit
+wurde bei 25 Bildern über die feste Zeit hinaus gewartet, und kein Bild lag daneben; das kostet 1 % Zeit.
+
+**Die Grenzen der Tests.** Sie decken Verzögerungen von 0 bis 1 s ab (die springende bis 1 s, im Test für die Wartezeit bis 1,5 s). Eine Kamera, die um mehr als die feste Zeit plus 1,5 s zu spät ist, zeigt
+noch den vorigen Halt: ruhig und mit neuen Bildern, die Fahrt ist im Bild noch nicht zu sehen – dann gibt es keinen Beleg (zweite Bedingung), und das Bild wird wie bisher bei der festen Zeit genommen, ohne als unsicher
+gezählt zu werden. Das ist das Verhalten vor dieser Änderung, nicht besser.
+
+**Was das nicht zeigt.** Der Gewinn ergibt sich aus der Bauweise des Simulators: seine Kamera ist genau so spät, wie der Test sie einstellt, sein Rauschen ist gleichmäßig (2 Graustufen je Pixel,
+für jedes Bild neu), die Maschine schwingt nicht nach, und die Beruhigungszeit von 600 ms wurde dort nie gebraucht. Bei 0,8 s Verzögerung – nahe an der festen Zeit – gibt es keinen Gewinn, und die Pause ist 11 % länger, weil
+das Bild bei der festen Zeit noch ein wenig in Bewegung war und abgewartet wurde (7 von 8 Punkten). **Unbekannt bleibt an einer echten Kamera:** wie stark sie rauscht und ob ihr Rauschen
+von Bild zu Bild wirklich neu ist (Kompression, Belichtungsregelung und Flackern des Lichts machen aus Rauschen etwas anderes); ob ein Bild, das ein Stück weit verrutscht ist, die Schwelle (1,5-faches Rauschen plus 0,05 Graustufen) überschreitet – die
+Empfindlichkeit für ein langsames Kriechen unter etwa 0,1 mm ist nur im Simulator gesehen, nicht an einer Maschine; ob eine Maschine nachschwingt und in welchem Takt (das ruhige Fenster von 150 ms sieht Schwingungen unter etwa 7 Hz nicht
+sicher); wie sich der Strom bei Aussetzern verhält (das Bild bleibt stehen oder kommt als Stoß nach). Wo eine dieser Annahmen nicht stimmt, kostet das Zeit (das Bild ist nie ruhig: die feste Zeit plus höchstens 1,5 s) oder – im
+ungünstigen Fall, den der Test nicht kennt – ein Bild von kurz vor dem Halt. Einen Schalter dafür gibt es nicht (keine neue Einstellung); die Serie und die Vorrichtungen scannen weiter mit der festen Zeit.
+
 ## Belichtung eintragen: wie schnell ein Bild unscharf wird
 
 Bei „In Fahrt“ steht unter dem Tempo das Feld **Belichtung (ms)**. Trag dort ein, **wie lange deine Kamera ein Bild belichtet – wenn du es

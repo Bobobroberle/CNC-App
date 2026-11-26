@@ -829,6 +829,19 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   that may not stream a fetch body (then `stream`/`no-body-stream`, the browser's clock), the camera's own constant latency (learned),
   and which ustreamer version the Pi runs – `docs/scan.md` gives the two commands that tell. **Not told apart:** a stream whose first picture decodes and
   whose later ones do not (the probe then gets few pictures and sets `stripsBad`, as for a table with nothing to fit by) – only the picture the choice decodes is checked.
+- **The wait at a stop is adaptive – where the pictures give evidence** (scan by stops, `stopAt` in `scanArea`; pure `lib/calm.ts`, `store/restWait.ts`
+  `RestWaiter`/`Eye`): the picture is taken once the reports (`positionCalm`: two Idle reports within 0.02 mm) *and* the picture are calm, not after
+  `settleMs + FRAME_LAG_MS`. **Evidence rule – all of it, else the fixed pause exactly as before:** the picture is looked at every 25 ms at its own
+  resolution (five 48 px patches, block-averaged); only a **new frame** counts (it differs at all from the one before – a sensor has noise, a re-shown
+  or stalled picture is identical, so a camera without noise, the simulator's default, is no evidence); the move must have shown in the pictures
+  (`account().moved`); the last ≥ 150 ms must hold ≥ 3 new frames within the noise of the newest, which must be fresh (`calmNow`); and not before the
+  flush time learned on the first three points (`FlushLearner`: machine reports rest → picture final; 0.9 quantile + the margin), which keep the fixed
+  pause while they are watched. A picture still changing at the fixed pause (or standing still after changing on a camera that showed noise) is waited
+  for – 1.5 s a point, 15 s a scan; two such points in a row make it forget. Unchanged: `precise` scans (series, jigs), the strips' rest pictures
+  (`restPicture`), `<video>` pictures, an unreadable picture, a table with nothing to see. `scanEstimate` counts the pause the last scan applied
+  (`stopRestSeconds`, `restMs`). **The pre-stop test** (`e2e/restwait.spec.ts`; simulator camera `noise`, `frozen`, `flat`, `shown`): every picture is
+  held, as the app reads it, against where the tool rests (< 0.02 mm) at lags 0 / 0.15 / 0.4 / 0.8 s, a lag that jumps to 1 s at the stop and a camera
+  that freezes at every stop; a plain wait and a time-window calm without new frames both fail it. Numbers and what stays unknown: `docs/scan.md`.
 - **Recording a scan for analysis** (`lib/scanTrace.ts`, `store/scanTrace.ts`, the checkbox and the buttons in the photo map panel,
   `scripts/analyze-scan.py`): the lag of the camera, its blur at speed and what the real table gives to fit pictures by cannot be
   tested here, so a scan can be **recorded** and the file worked through away from the machine (`python3 scripts/analyze-scan.py
