@@ -78,3 +78,64 @@ Die Auswertung (Python mit numpy und Pillow) nennt die Verzögerung der Bilder h
 Takt der Bilder und der Meldungen, Aussetzer der Seite, wie viele Bilder der Fahrt sich einpassen ließen und wie weit die eingepassten Bilder
 von den Bildern im Stillstand abweichen. Die Seite selbst kostet beim Aufzeichnen etwas Zeit (Aussetzer von 30–50 ms stehen in der Auswertung);
 das ist bei der Deutung zu berücksichtigen.
+
+## Wie ein Kamerabild seinen Zeitstempel bekommt
+
+Ein Bild aus der Fahrt kommt dorthin auf die Karte, wo die Kamera war, als es aufgenommen wurde. Die Uhr des Browsers weiß das nicht
+(das Bild wird spät gesehen, um eine unbekannte und schwankende Zeit). Deshalb liest die App den Kamera-Stream des Pi (ustreamer,
+Port 8081) **selbst**, als zweite Verbindung neben dem Bild auf dem Schirm, mit `…/stream?extra_headers=1`, und nimmt den Zeitstempel
+aus dem Kopf jedes Bildes. Die Positionsmeldungen der Steuerung stempelt das Relais des Companions mit der Uhr des Pi
+(`docs/companion.md`); beide zusammen liegen dann auf **einer** Zeitachse – sofern es dieselbe Uhr ist, und das wird geprüft.
+
+Gebaut ist das so: `lib/mjpeg.ts` zerlegt den endlosen Strom (`multipart/x-mixed-replace`) in Bilder mit ihren Köpfen, `lib/frameStamp.ts`
+wählt aus den Köpfen den Zeitstempel und prüft ihn gegen den der Positionsmeldung, `store/stampedFrames.ts` sammelt die Bilder. **Während der
+Fahrt werden nur Bytes und Stempel kopiert** – in einen Ring mit festen Grenzen (höchstens 300 Bilder und 64 MB; Bilder, die näher als
+50 ms am zuletzt behaltenen liegen, bleiben weg; dasselbe Bild zweimal wird nur einmal behalten). Entschlüsselt wird erst nach der Fahrt, ein
+Bild nach dem anderen. Der Scan benutzt das in dieser Stufe noch nicht; die Bausteine und ihre Tests sind da.
+
+**Was ustreamer pro Bild schickt** – gelesen im Quelltext von v4.13, v5.0, v5.41, v6.0, v6.20 und des Master-Zweigs (Stand 2026-11), nicht
+ausprobiert. Jedes Bild beginnt mit `--boundarydonotcross`, hat Kopfzeilen, dann die JPEG-Bytes, dann `CRLF --boundarydonotcross CRLF`:
+
+| Kopfzeile                     | ab                                     | Einheit und Uhr                                           | Bedeutung                                                                                   |
+| ----------------------------- | -------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `X-Timestamp`                 | v4.13 bis Master, immer                | Sekunden, Echtzeituhr (CLOCK_REALTIME)                    | der Moment, in dem der Kopf zum Senden geschrieben wurde: **Sendezeit**, nicht Aufnahmezeit |
+| `X-UStreamer-Grab-Time`       | v4.13 bis v6.20, mit `extra_headers=1` | Sekunden, CLOCK_MONOTONIC, soweit es die des Treibers ist | `grab_ts` des Bildes                                                                        |
+| `X-UStreamer-Grab-Begin-Time` | Master, mit `extra_headers=1`          | wie oben                                                  | `grab_begin_ts`, der Zeitstempel des V4L2-Puffers                                           |
+| `X-UStreamer-Grab-End-Time`   | Master, mit `extra_headers=1`          | Sekunden, CLOCK_MONOTONIC von ustreamer selbst            | gleich nach dem Holen des Puffers genommen, also später als die Aufnahme                    |
+| `X-UStreamer-Online`          | v4.13 bis Master                       | `true` / `false`                                          | `false`: ein Platzhalterbild, nicht das der Kamera                                          |
+
+Die App nimmt in dieser Reihenfolge: `Grab-Begin-Time`, `Grab-Time`, `Grab-End-Time`, zuletzt `X-Timestamp` (Sendezeit, die schlechteste Wahl). Sie
+sagt dabei, welche Kopfzeile es war, und mischt nie zwei: das erste Bild entscheidet für den ganzen Strom.
+
+Was daran sicher ist, und was nicht:
+
+- Alle Zahlen sind Sekunden mit sechs Nachkommastellen, aber von ustreamer **auf Millisekunden gerundet** (gelesen im Master-Zweig; für die
+  älteren Versionen lag die Zeitfunktion nicht vor). Die Auflösung jedes Stempels ist 1 ms.
+- Die Grab-Zeit ist in v6.20 und im Master der **Zeitstempel des V4L2-Puffers**, also die Uhr des Kameratreibers (bei den meisten
+  Treibern CLOCK_MONOTONIC, bei manchen die Echtzeituhr). Für v4.13 bis v6.0 lag die Quelle des Aufnahmeteils nicht vor: **dort ist nicht bekannt**, was
+  `grab_ts` ist. Darum wird zur Laufzeit geprüft, ob der Stempel eines Bildes höchstens 3 s neben dem der letzten Positionsmeldung in derselben
+  Uhr liegt (`domainFits`); wenn nicht, ist es nicht dieselbe Uhr, und der Scan nimmt die Uhr des Browsers.
+- ustreamer schickt dasselbe Bild **noch einmal**, wenn länger als eine Sekunde kein neues kam – mit derselben Grab-Zeit, aber neuem `X-Timestamp`.
+  Darum erkennt die App eine Wiederholung an der Grab-Zeit, und bei der Sendezeit an den Bytes.
+- `advance_headers=1` (schickt keine `Content-Length` und keine `X-UStreamer-*`-Zeilen, und der `X-Timestamp` ist der des _nächsten_ Bildes) fordert die App nie an.
+- Welche ustreamer-Version auf deinem Pi läuft, weiß die App nicht; sie nimmt, was da ist. Und ob ein Safari auf dem iPad den Stream
+  stückweise lesen lässt (`fetch` mit Datenstrom), ist hier nicht geprüft – wenn nicht, sagt die App „nicht verfügbar“ und die Fahrt geht wie bisher.
+
+**Zwei Befehle auf dem Pi** (per SSH), die sagen, was deine Kamera wirklich schickt:
+
+```bash
+curl -s 'http://127.0.0.1:8081/stream?extra_headers=1' | head -c 3000 | strings
+curl -sD- -o /dev/null http://127.0.0.1:8081/snapshot
+```
+
+Worauf du achtest:
+
+- Beim ersten Befehl: Zeilen `X-Timestamp: 17…` (eine Zahl um 1,7 Milliarden: Echtzeit) und `X-UStreamer-Grab-Time:` oder `X-UStreamer-Grab-Begin-Time:`
+  (eine **kleine** Zahl, etwa `123456.789000`: Sekunden seit dem Start des Pi, also CLOCK_MONOTONIC). Fehlen alle `X-UStreamer-…`-Zeilen,
+  kennt dein ustreamer `extra_headers` nicht, und es bleibt die Sendezeit. Steht bei der Grab-Zeit eine Zahl um 1,7 Milliarden, stempelt
+  der Treiber mit der Echtzeituhr (die App erkennt das und fällt zurück); steht dort `0.000000`, gibt der Treiber keine Zeit an.
+- Zum Vergleich der Uhren: `python3 -c "import time; print(time.monotonic())"` auf dem Pi. Die Grab-Zeit muss in derselben Größenordnung liegen und
+  um höchstens wenige Sekunden von dieser Zahl abweichen; steht dort etwas ganz anderes, ist es nicht dieselbe Uhr.
+- Beim zweiten Befehl (die Köpfe eines Einzelbilds): Heißen die Zeilen `X-UStreamer-Grab-Begin-Timestamp` und `…Grab-End-Timestamp`, ist es der
+  Master-Zweig; heißt eine `X-UStreamer-Grab-Timestamp`, ist es v4.13 bis v6.20. `X-UStreamer-Send-Timestamp` ist die Zeit von ustreamer
+  selbst (CLOCK_MONOTONIC) beim Senden – auch sie mit `time.monotonic()` vergleichen. `ustreamer --version` nennt die Version.
