@@ -277,6 +277,13 @@ interface MachineStore {
    * could not be (a stop of it needs a reset, which loses the position). Refused outside the travel once homed.
    */
   jogMachine(axis: 'x' | 'y', target: number, feed: number): Promise<boolean>;
+  /**
+   * Asks FluidNC for its status every `everyMs` on top of the regular poll (5 Hz), until the returned function is called –
+   * for the strip scan, which places its pictures by the reports and wants more of them while the camera runs. Only a status
+   * query goes out (the one byte the regular poll sends), never a command; without a connection, or while the socket closes,
+   * a query is skipped. The relay hands every answer on to every device, so it is meant for the run itself, not for good.
+   */
+  pollStatus(everyMs: number): () => void;
   /** Joystick deflection −1…1 (Y up); 0, 0 or `stickStop()` ends the motion */
   stick(vx: number, vy: number): void;
   stickStop(): void;
@@ -1351,6 +1358,17 @@ export const useMachine = create<MachineStore>((set, get) => ({
       );
       return false;
     }
+  },
+
+  pollStatus(everyMs) {
+    const timer = setInterval(() => {
+      try {
+        if (connection?.state === 'connected') connection.realtime(Realtime.StatusReport);
+      } catch {
+        // a socket that is closing, or a device that only watches: the regular poll carries on
+      }
+    }, everyMs);
+    return () => clearInterval(timer);
   },
 
   async jogMachine(axis, target, feed) {

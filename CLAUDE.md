@@ -567,7 +567,7 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   very next frame only and gives it to the reports that frame holds – the one a line began in, if it is split – as the
   second argument of `status` (`RelayStamp`); the store keeps it as `statusStamp`, set in the same step as `status`, `null`
   for a report without one (simulator, FluidNC direct, an older companion that ignores the parameter). `/api/health` says
-  `stamps: true` and `clock: {mono, wall}`. Nothing uses the stamp yet (the strip scan comes next); `docs/companion.md`. With a companion relaying,
+  `stamps: true` and `clock: {mono, wall}`. The strip scan uses the stamps (one clock per scan, see the photo map below); `docs/companion.md`. With a companion relaying,
   "Über den Pi verbinden" is the one way in the connection card; HTTP uploads go to FluidNC's own
   host (`fluidncHttpBase`), not the Pi.
 - FluidNC's limits ("Grenzen der Steuerung", `MachineLimitsCard`, `store/limits.ts`, pure
@@ -664,6 +664,39 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   exposure time and the motion blur at speed, a real controller's report timing and its feed hold during a jog (Grbl-family firmware
   ends a jog on a hold as Idle, the simulator as Hold – both end the scan), a real table's texture. Hence "In Fahrt" is opt-in with both
   estimates side by side, the series flow stays by stops, and `docs/scan.md` says how to check a strip scan on the machine.
+  **One clock per scan, the Pi's or the browser's – never a mixture** (`lib/scanClock.ts` pure, `chooseScanClock` in `store/photomap.ts`,
+  decided once per scan before the probe run): on **`pi`** the reports are put on the line with the relay's stamp (`statusStamp`, in the
+  domain the pictures are stamped in: `mono` for a grab time, `wall` for `X-Timestamp`) and the pictures are the **stamped stream's**
+  (`store/stampedFrames.ts`, opened once per scan, closed in `finally`; `lib/mjpeg.ts`, `lib/frameStamp.ts`) instead of the page's `FrameWatch`
+  sampling – during the run only bytes and stamps are copied, `pickStripFrames` chooses the pictures after it (those inside the span of the
+  `Jog` reports with the lag allowed for, ≥ 3 mm from the start, `MAX_STRIP_PICTURES`) and `decodeStamped` makes pixels of them one at a
+  time with `turn()` in between; the status is asked for every `STRIP_POLL_MS` (100 ms) on top of the regular poll (`useMachine.pollStatus`,
+  only a `?`) for the run only. Everything after that – anchors at rest, `registerShift`, `solveStripSteps`, the give-up gate, the
+  refill by stops – is unchanged. **`browser` is the old path and its code did not change** (`browserCollector` is the moved sampler).
+  The Pi's clock is used only if the reports carry a stamp (`relay`), the camera is a stream of the Pi (`device`), the stamped stream opened
+  and gave a picture (`stream`, with the failure code in `clockDetail` – never an address) **and** the newest picture's stamp lies within
+  `STAMP_WINDOW_S` (3 s) of the newest report's in the same clock (`window`: a driver that stamps with another clock); otherwise the scan
+  runs on the browser's clock and says why (`ScanStats.clockReason`, the log, the panel) – and no reason where no Pi is part of the
+  connection. A stream that dies or leaves the window **during** the scan stops the runs before the next strip moves (`clockLost`; the
+  refill by stops covers the rest, `stripsBad` is not set). **The lag is per clock** (`lagClock`): a scan on another clock than the last
+  one forgets it and measures again (also on a change of camera source or stream, as before); the Pi's first guess is 0 and its limits
+  are `PI_LAG_LIMITS` (−0.5 … 1.5 s) because a report is stamped when the Pi *received* it, a little after FluidNC measured, so the lag
+  between the two stamps can be below zero. `ScanStats` says `clock`, `clockReason`, `clockLost`, `stamp`, and `timingNoiseMs` – the spread
+  of what the single pictures imply for the lag around its median, which no constant takes out (`timingNoiseMs` in `lib/strips.ts`). **The
+  panel** names the clock of the last scan in strips and why not the Pi's (`lastClock`), and has the exposure of the camera (this device's,
+  kept with mode and tempo under `lowrider-control.scan`, 0 = unknown): `maxSpeedForBlur` caps `stripSpeed` at 0.3 mm of blur, and where
+  that is below 5 mm/s (the lag cannot be learned slower) the scan goes by stops and says so. **The simulator's Pi** is
+  `window.lowriderPiClock` (`PiClockSetup` in `sim/index.ts`; undefined by default = the simulator as it was): a Pi clock `offsetMs`
+  hours ahead of the page's (7.2 million ms in the tests, so any mixing fails loudly), every message of the simulated controller late and
+  uneven on its way to the page (`linkMs`, `linkJitterMs`, in order), a `STAMP:` frame before each (`stampLagMs`, `stampNoiseMs` are what
+  stays in the stamp), `stamps: false` for a companion that stamps nothing, and `simulatorFrameSource()` – the camera's pictures at the true
+  moment (the machine is caught up to it), stamped to the millisecond with `frameStampNoiseMs`, `frameClockOffsetMs` for a driver with its
+  own clock; the camera's browser-side lag (`lowriderCameraLag`) touches neither stamp nor picture. `e2e/strips.spec.ts` holds the Pi's
+  clock to the plate like a scan by stops, compares it with the browser's on a bad link and camera (numbers in `docs/scan.md`), and
+  checks the fallback. **What stays and cannot be tested here:** the jitter of the Jackpot→Pi WLAN hop and FluidNC's own sampling and
+  send time (both in the report's stamp), the V4L2 driver's buffer timestamp semantics, ustreamer's 1 ms resolution, a Safari on the iPad
+  that may not stream a fetch body (then `stream`/`no-body-stream`, the browser's clock), the camera's own constant latency (learned),
+  and which ustreamer version the Pi runs – `docs/scan.md` gives the two commands that tell.
 - **Recording a scan for analysis** (`lib/scanTrace.ts`, `store/scanTrace.ts`, the checkbox and the buttons in the photo map panel,
   `scripts/analyze-scan.py`): the lag of the camera, its blur at speed and what the real table gives to fit pictures by cannot be
   tested here, so a scan can be **recorded** and the file worked through away from the machine (`python3 scripts/analyze-scan.py
@@ -684,7 +717,12 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   checked against the pictures at rest – its timing noise, the sharpness by speed (content dependent), what the app could place and
   where the placed pictures really lie against the pictures at rest. `e2e/strips.spec.ts` records a stops and a strip scan with a lag
   of 0.3 s ± 40 ms and the pair was proven on it: lag found 342 ms (0.3 s + the mean of the jitter + the frame), timing noise 21 ms,
-  placement against rest 0.03 mm mean, 0.12 mm worst.
+  placement against rest 0.03 mm mean, 0.12 mm worst. **A scan on the Pi's clock records both clocks** (still `TRACE_VERSION` 1, the new
+  fields optional): `meta.clock` (`pi`, `browser`, `mixed`) and `options.clock` per scan, `stamp` on a report (the relay's mono/wall),
+  `pictures` (every picture the stream kept in a run: when the page got it and the Pi's stamp), `stamp` on a `run` picture, and on a
+  `solved` event the clock and per picture its stamp and its arrival – so one file gives the analyzer the lag and the timing noise of the
+  page's clock and of the Pi's from the same placed pictures, says which scatters less, and reports how unevenly the page saw reports and
+  pictures against their stamps. An older file, or a run on the browser's clock, has none of it and is read as before.
 - **The accuracy check with a rule and the squaring of the gantry** (`components/AccuracyCheck.tsx`, `AccuracySketch.tsx`,
   `CorrectionPanel.tsx`, pure `lib/squaring.ts`): frame of reference everywhere – the same as the test pattern's labels – origin
   at the **front left**, X to the right, Y to the back (Y is the long axis, rails left and right), the gantry's ends **X− and X+**,

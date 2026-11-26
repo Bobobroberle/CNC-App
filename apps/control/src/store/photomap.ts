@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import { t } from '../i18n';
 import type { Point } from '../lib/camera';
 import { formatNumber } from '../lib/format';
+import {
+  releaseDrawable,
+  domainFits,
+  type Drawable,
+  type FrameSource,
+  type FrameStamp,
+  type SourceFrame,
+  type StampDomain,
+} from '../lib/frameStamp';
+import { isRelayUrl } from '../lib/link';
+import { companionBase } from '../lib/companion';
 import { COVERED, FlatField, Mosaic, type Frame, type MosaicChunk } from '../lib/mosaic';
 import {
   boundsOf,
@@ -20,22 +31,42 @@ import {
   type Rect,
 } from '../lib/photomap';
 import {
+  BROWSER_CLOCK,
+  clockBlocker,
+  clockFromStream,
+  clockKey,
+  pickStripFrames,
+  pooledNoise,
+  reportSeconds,
+  type ClockFacts,
+  type ClockReason,
+  type PiClock,
+  type ScanClock,
+} from '../lib/scanClock';
+import {
   estimateStops,
   estimateStrips,
+  LAG_LIMITS,
   lagFromCorrections,
+  maxSpeedForBlur,
+  MIN_LAG_SPEED,
   moveSeconds,
+  PI_LAG_LIMITS,
   planStrips,
   PositionTrack,
   solveStripSteps,
   stripPoint,
+  timingNoiseMs,
   type Strip,
 } from '../lib/strips';
+import { isSimulatorAddress, simulatedPi, simulatorFrameSource } from '../sim';
 import {
   cameraElement,
   crosshairPoint,
   FOCUS_TOLERANCE,
   focusError,
   pictureSize,
+  useCamera,
   type CameraPicture,
 } from './camera';
 import { useJob } from './job';
@@ -43,14 +74,19 @@ import { useMachine } from './machine';
 import { settled, wait } from './settle';
 import {
   traceBegin,
+  traceClock,
   traceDense,
   traceEnd,
   traceFrame,
   traceGap,
   traceNote,
+  tracePicture,
   traceStamp,
+  traceTimeOf,
+  tracing,
   useScanTrace,
 } from './scanTrace';
+import { MIN_FRAME_SPACING_S, openStampedStream } from './stampedFrames';
 import { useWorkshop, type CameraSettings } from './workshop';
 
 /** Why no picture can go onto the map right now (null = it can) */
@@ -68,6 +104,12 @@ export interface ScanProgress {
 export type ScanMode = 'strips' | 'stops';
 /** How fast the strips are run: slow is sharp, fast is quick */
 export type ScanTempo = 'gentle' | 'normal' | 'fast';
+
+/** What the panel says of the clock the last scan in strips ran on */
+export type ClockSummary = Pick<
+  ScanStats,
+  'clock' | 'clockReason' | 'clockDetail' | 'clockLost' | 'stamp' | 'timingNoiseMs'
+>;
 
 export interface ScanOptions {
   /** Whatever the setting says: stop for every picture – where the position of each must be as exact as it can be */
@@ -87,8 +129,16 @@ interface PhotoMapStore {
   tempo: ScanTempo;
   /** A scan in strips was given up on this table: the next goes by stops until the choice is made again */
   stripsBad: boolean;
+  /**
+   * How long the camera exposes a picture, ms – this device's figure, 0 where it is not known. From it the speed of a run
+   * is capped so that a picture is not blurred by more than a third of a millimetre (`maxSpeedForBlur`).
+   */
+  exposureMs: number;
+  /** What the last scan in strips ran its clock on and why (null: none yet) – for the panel */
+  lastClock: ClockSummary | null;
   setMode(mode: ScanMode): void;
   setTempo(tempo: ScanTempo): void;
+  setExposure(ms: number): void;
   /** Lays the current picture onto the map; false without a usable picture */
   addTile(): boolean;
   /** Lays a given picture onto the map as if taken with the spindle at `spindle` (machine XY) */
@@ -157,10 +207,19 @@ const EXTENT_CROP = CROP;
 
 let scratch: HTMLCanvasElement | null = null;
 
+/** What pixels can be read from: the camera's own element, or a decoded picture of its stamped stream */
+type Readable = CameraPicture | Drawable;
+
+function sizeOf(el: Readable): { width: number; height: number } {
+  return el instanceof HTMLVideoElement || el instanceof HTMLImageElement
+    ? pictureSize(el)
+    : { width: el.width, height: el.height };
+}
+
 /** The camera's picture as pixels (shrunk to `FRAME_PX_MAX`) and the shrink factor, or null where it cannot be read. */
-function readFrame(el: CameraPicture): { frame: Frame; k: number } | null {
+function readFrame(el: Readable): { frame: Frame; k: number } | null {
   if (typeof document === 'undefined') return null;
-  const { width, height } = pictureSize(el);
+  const { width, height } = sizeOf(el);
   if (!width || !height) return null;
   const k = Math.min(1, FRAME_PX_MAX / width);
   const w = Math.max(1, Math.round(width * k));
@@ -342,12 +401,26 @@ function lay(read: Read, sp: Point) {
 // ---------- scanning ----------
 
 const SCAN_KEY = 'lowrider-control.scan';
-const DEFAULT_SCAN: { mode: ScanMode; tempo: ScanTempo } = { mode: 'stops', tempo: 'normal' };
+/** The longest exposure the field takes, ms (a camera that exposes longer than this is no camera for a run) */
+export const MAX_EXPOSURE_MS = 1000;
+interface ScanChoice {
+  mode: ScanMode;
+  tempo: ScanTempo;
+  exposureMs: number;
+}
+const DEFAULT_SCAN: ScanChoice = { mode: 'stops', tempo: 'normal', exposureMs: 0 };
 
-function loadScan(): { mode: ScanMode; tempo: ScanTempo } {
+/** An exposure from outside (storage, a field): a number of ms from 0 (unknown) to the longest, else 0 */
+function exposureOf(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.min(MAX_EXPOSURE_MS, value)
+    : 0;
+}
+
+function loadScan(): ScanChoice {
   try {
     const v = JSON.parse(localStorage.getItem(SCAN_KEY) ?? 'null') as Partial<
-      Record<'mode' | 'tempo', unknown>
+      Record<keyof ScanChoice, unknown>
     > | null;
     return {
       mode: v?.mode === 'stops' || v?.mode === 'strips' ? v.mode : DEFAULT_SCAN.mode,
@@ -355,27 +428,40 @@ function loadScan(): { mode: ScanMode; tempo: ScanTempo } {
         v?.tempo === 'gentle' || v?.tempo === 'normal' || v?.tempo === 'fast'
           ? v.tempo
           : DEFAULT_SCAN.tempo,
+      exposureMs: exposureOf(v?.exposureMs),
     };
   } catch {
     return DEFAULT_SCAN;
   }
 }
 
-function saveScan(mode: ScanMode, tempo: ScanTempo) {
+function saveScan(choice: ScanChoice) {
   try {
-    localStorage.setItem(SCAN_KEY, JSON.stringify({ mode, tempo }));
+    localStorage.setItem(SCAN_KEY, JSON.stringify(choice));
   } catch {
     // a browser that keeps nothing: the choice holds until the page closes
   }
 }
 
-/** mm/s a strip is run at: a share of the jog feed, never above what the axes can do */
-export function stripSpeed(tempo: ScanTempo): number {
+/** mm/s the tempo asks for: a share of the jog feed, never above what the axes can do (and never below 5) */
+export function tempoSpeed(tempo: ScanTempo): number {
   const { profile } = useJob.getState();
   const share = tempo === 'gentle' ? 0.4 : tempo === 'fast' ? 1.4 : 0.8;
   const axes = profile.kinematics.axes;
   const cap = (Math.min(axes.x.maxRate, axes.y.maxRate) / 60) * 0.9;
   return Math.max(5, Math.min((profile.jogFeed.xy / 60) * share, cap));
+}
+
+/**
+ * mm/s a strip is run at: what the tempo asks for – and, where the camera's exposure is known, never above what keeps a
+ * picture from being blurred by more than a third of a millimetre. That cap is the one thing that may take it below 5 mm/s
+ * (which a run is not worth, see `scanArea`).
+ */
+export function stripSpeed(tempo: ScanTempo): number {
+  return Math.max(
+    1,
+    Math.min(tempoSpeed(tempo), maxSpeedForBlur(usePhotoMap.getState().exposureMs)),
+  );
 }
 
 /** mm/s² the machine accelerates at along X and Y, the lower of the two */
@@ -509,6 +595,22 @@ export interface ScanStats {
   seconds: number;
   /** The run was given up for what the pictures showed (too little to fit them by), the rest scanned by stops */
   gaveUp: boolean;
+  /**
+   * The clock the pictures of the runs were put on the time line with: the Pi's (reports and pictures stamped there) or the
+   * browser's (both stamped when this page saw them – what a scan with stops and every scan before this one used, and so
+   * the value of a scan that used no clock at all)
+   */
+  clock: 'pi' | 'browser';
+  /** Why the browser's where a Pi is part of the connection (`relay`: reports unstamped, `device`: the camera is no stream, `stream`: it cannot be read, `window`: its stamps are in another clock) */
+  clockReason: ClockReason | null;
+  /** More of a stream's failure: its code (never an address) */
+  clockDetail: string | null;
+  /** The Pi's clock went away during the scan (the stream ended, its stamps left the window): the runs stopped there, the rest was scanned by stops */
+  clockLost: ClockReason | null;
+  /** On the Pi's clock: which clock the pictures are stamped in and the header the stamp is read from */
+  stamp: { domain: StampDomain; source: string } | null;
+  /** How much the clock scattered over the runs, ms (what is left after the lag, a constant, is taken out) – null where the runs did not say */
+  timingNoiseMs: number | null;
   /** Per strip: pictures taken, reached by the chain from the start and by the one from the end, placed */
   detail: {
     offered: number;
@@ -526,6 +628,8 @@ export const scanStats = () => lastScan;
   picture: () => mapPicture(),
   store: () => usePhotoMap.getState(),
   trace: () => useScanTrace.getState(),
+  /** The relay's stamp of the newest report (null: it came without one) – for the tests of the Pi's clock */
+  stamp: () => useMachine.getState().statusStamp,
 };
 
 /** Pictures taken during a strip, every this share of the trusted length along it */
@@ -539,8 +643,28 @@ let stripLag = 0.3;
  * right one – so the first strip of a scan runs slowly, where the clock's error is small, and measures it.
  */
 let lagKnown = false;
+/** What the lag is guessed to be before it is measured, s: the browser's (the MJPEG picture is late) and the Pi's (reports and pictures are both stamped there) */
+const FIRST_LAG = { browser: 0.3, pi: 0 } as const;
+/**
+ * The clock the lag above is of (`clockKey`). A lag in the browser's clock is no lag in the Pi's – and the other way round –
+ * so what was learned is dropped when a scan runs on another clock, and the first strip measures it again.
+ */
+let lagClock = 'browser';
 /** mm/s of the strip that measures the lag: at this speed 0.3 s is 4 mm – less than half a dot of the plate */
 const PROBE_SPEED = 12;
+/** While a run is on the Pi's clock the status is asked for this often, ms – on top of the regular poll (200 ms): more reports to fit the line through */
+const STRIP_POLL_MS = 100;
+/** Longest the first stamped picture of the camera may be waited for in the simulator, ms (a real stream has its own limits) */
+const SIM_FIRST_PICTURE_MS = 1000;
+
+/** The clock of a scan decides what the lag is: another clock than the last one means the lag is not known */
+function useClockLag(clock: ScanClock) {
+  const key = clockKey(clock);
+  if (key === lagClock) return;
+  lagClock = key;
+  lagKnown = false;
+  stripLag = FIRST_LAG[clock.kind];
+}
 
 interface StripResult {
   placed: number;
@@ -548,9 +672,12 @@ interface StripResult {
   forward: number;
   backward: number;
   disagreement: number;
+  /** How much the clock scattered over this run, ms, and from how many pictures (null: too few said) */
+  noise: { ms: number; count: number } | null;
 }
 
-type StripEnd = 'done' | 'cancelled' | 'lost' | 'held' | 'failed' | 'gaveUp';
+/** `clockLost`: the Pi's clock is gone (the stream ended, its stamps left the window) – nothing was moved for this strip */
+type StripEnd = 'done' | 'cancelled' | 'lost' | 'held' | 'failed' | 'gaveUp' | 'clockLost';
 
 /** Waits for a jog to end: at its target, ended by whoever pressed what, or never started. */
 async function awaitJog(axis: 'x' | 'y', target: number, limitMs: number): Promise<StripEnd> {
@@ -607,15 +734,28 @@ async function restPicture(): Promise<Rest | null> {
     : null;
 }
 
+/** A picture of a run, read and ready for the solver */
+interface Taken {
+  read: Read;
+  /** When it was taken, s, on the clock of the run's reports: the page's (when it was first seen) or the Pi's (its stamp) */
+  t: number;
+  /** Where it is in the recording, if one is made */
+  trace: string | null;
+  /** On the Pi's clock: when the page got it (ms, `performance.now()`) and the stamp it carries */
+  arrival?: number;
+  stamp?: FrameStamp;
+}
+
 /** Puts the pictures of a strip where they were taken, and lays them down. */
 async function solveAndLay(
   strip: Strip,
   a: Rest,
   b: Rest,
-  taken: { read: Read; t: number; trace: string | null }[],
+  taken: Taken[],
   track: PositionTrack,
   speed: number,
-) {
+  clock: ScanClock,
+): Promise<StripResult> {
   const cal = useWorkshop.getState().settings.camera;
   const alongOf = (r: Rest) =>
     strip.axis === 'x' ? r.spindle.x + cal.offsetX : r.spindle.y + cal.offsetY;
@@ -651,6 +791,7 @@ async function solveAndLay(
         speed,
         lag: stripLag,
         lagKnown,
+        clock: clock.kind,
         anchors: [
           { file: a.trace, along: alongOf(a) },
           { file: b.trace, along: alongOf(b) },
@@ -658,6 +799,10 @@ async function solveAndLay(
         frames: frames.map((f, i) => ({
           file: kept[i]!.trace,
           t: kept[i]!.t,
+          // on the Pi's clock: when the page got the picture (ms on the recording's clock) and its stamp – both clocks of one picture
+          ...(kept[i]!.stamp
+            ? { arrival: traceTimeOf(kept[i]!.arrival!), stamp: kept[i]!.stamp }
+            : {}),
           predicted: f.predicted,
           speed: f.speed,
         })),
@@ -680,7 +825,13 @@ async function solveAndLay(
         if (cancelled) break;
       }
       lay(b.read, b.spindle);
-      const lag = lagFromCorrections(stripLag, samples);
+      // the scatter is of the lag the run was predicted with: taken before the lag learns from this very run
+      const noise = timingNoiseMs(stripLag, samples);
+      const lag = lagFromCorrections(
+        stripLag,
+        samples,
+        clock.kind === 'pi' ? PI_LAG_LIMITS : LAG_LIMITS,
+      );
       if (lag !== null) {
         // the first measurement replaces the guess; later ones follow it
         stripLag = lagKnown ? 0.5 * stripLag + 0.5 * lag : lag;
@@ -692,13 +843,24 @@ async function solveAndLay(
         forward: sol.forward.filter((v) => v !== null).length,
         backward: sol.backward.filter((v) => v !== null).length,
         disagreement: sol.disagreement,
+        noise,
       };
     }
     await turn();
     if (cancelled)
-      return { placed: 0, offered: frames.length, forward: 0, backward: 0, disagreement: 0 };
+      return {
+        placed: 0,
+        offered: frames.length,
+        forward: 0,
+        backward: 0,
+        disagreement: 0,
+        noise: null,
+      };
   }
 }
+
+/** The clock the scan that began runs on, for what the recording is told – the browser's until the choice is made */
+let clockKind: 'pi' | 'browser' = 'browser';
 
 /** What a recording of a scan is told about the camera and the machine (never an address or a login). */
 function traceMeta(visible: { width: number; height: number }): Record<string, unknown> {
@@ -728,6 +890,8 @@ function traceMeta(visible: { width: number; height: number }): Record<string, u
     stripSpeedMmS: stripSpeed(tempo),
     stripLagS: stripLag,
     lagKnown,
+    // which clock the pictures of the runs are put on the time line with – the first scan's; each scan names its own
+    clock: clockKind,
     viaCompanion: useMachine.getState().link.via !== null,
     probeSpeedMmS: PROBE_SPEED,
     densePx: [320, 240],
@@ -751,10 +915,260 @@ const poor = (r: StripResult) => !keepGoing && r.offered >= 6 && r.placed < 0.5 
 /** While a scan is recorded the run is not given up: the pictures of a table that fits badly are what is wanted */
 let keepGoing = false;
 
+// ---------- which clock ----------
+
+/** What is known of the Pi right now, for the choice of the clock */
+function clockFacts(): ClockFacts {
+  const machine = useMachine.getState();
+  if (isSimulatorAddress(machine.url)) {
+    // the simulator has a Pi only where the tests set one up (`window.lowriderPiClock`)
+    const piThere = simulatedPi();
+    return { piConfigured: piThere, reportStamp: machine.statusStamp, streamAvailable: piThere };
+  }
+  const { companionUrl, camera } = useWorkshop.getState().settings;
+  return {
+    // the Pi is part of the connection where the controller is reached through it, or where one is set up at all
+    piConfigured: isRelayUrl(machine.url) || companionBase(companionUrl) !== null,
+    reportStamp: machine.statusStamp,
+    streamAvailable: useCamera.getState().source === 'stream' && camera.streamUrl.trim() !== '',
+  };
+}
+
+/** Waits for the first picture of a source, or until it fails or `ms` have passed */
+async function firstPicture(source: FrameSource, ms: number) {
+  const until = performance.now() + ms;
+  while (source.ok && source.frames().length === 0 && performance.now() < until) await wait(20);
+}
+
+/**
+ * Chooses the clock of a scan, once, and opens what the Pi's clock needs: the stream of stamped pictures (the simulated
+ * Pi's, in the simulator), which then stays open for the whole scan. All or nothing: the Pi's clock only where the reports
+ * carry the relay's stamp, the pictures carry the Pi's, and the two are in one clock (`clockFromStream`); anything else is
+ * the browser's clock with the reason, and the stream is closed again.
+ */
+async function chooseScanClock(): Promise<{ clock: ScanClock; source: FrameSource | null }> {
+  const blocked = clockBlocker(clockFacts());
+  if (blocked) return { clock: blocked, source: null };
+  const simulated = isSimulatorAddress(useMachine.getState().url);
+  const source = simulated
+    ? simulatorFrameSource()
+    : await openStampedStream(useWorkshop.getState().settings.camera.streamUrl);
+  if (!source) return { clock: { kind: 'browser', reason: 'stream' }, source: null };
+  if (simulated) await firstPicture(source, SIM_FIRST_PICTURE_MS);
+  const clock = clockFromStream({
+    ok: source.ok,
+    reason: source.reason,
+    frame: source.frames().at(-1)?.stamp ?? null,
+    reportStamp: useMachine.getState().statusStamp,
+  });
+  if (clock.kind !== 'pi') {
+    source.close();
+    return { clock, source: null };
+  }
+  return { clock, source };
+}
+
+// ---------- what a run collects ----------
+
+/** What a run needs to know about the strip it takes pictures on */
+interface RunPlan {
+  /** Where along the strip a machine position is (the crosshair, mm) */
+  along: (mpos: readonly number[]) => number;
+  /** Where the run began, along the strip */
+  startAlong: number;
+  /** Seconds between two pictures the run takes */
+  every: number;
+}
+
+/**
+ * The reports and the pictures of one run. The browser's collector is the code the app always had (moved, not changed);
+ * the Pi's takes the stamps the Pi put on both.
+ */
+interface Collector {
+  /** What the reports say about where the machine was, on the clock the pictures are told by */
+  track: PositionTrack;
+  /** The jog is over: nothing more is collected */
+  stop(): void;
+  /** The machine rests at the end of the run: the pictures it took, ready for the solver (called once, at that moment) */
+  harvest(): Promise<Taken[]>;
+}
+
+/**
+ * On the page's clock: a report is stamped when it arrives here and a picture when the screen first shows it –
+ * looked at on every frame of the screen, a few pixels summed.
+ */
+function browserCollector(el: CameraPicture, plan: RunPlan): Collector {
+  const watch = new FrameWatch(el);
+  const track = new PositionTrack();
+  const taken: Taken[] = [];
+  const off = useMachine.subscribe((s, prev) => {
+    if (s.status && s.status !== prev.status)
+      track.add(performance.now() / 1000, plan.along(s.status.mpos));
+  });
+  let running = true;
+  let lastAt = -Infinity;
+  let lastFrameAt = performance.now();
+  const sample = () => {
+    if (!running) return;
+    const status = useMachine.getState().status;
+    const t = performance.now() / 1000;
+    // looked at on every frame of the screen: a picture is stamped when it is first seen
+    const fresh = watch.changed();
+    traceGap(performance.now() - lastFrameAt);
+    lastFrameAt = performance.now();
+    if (fresh && status?.state === 'Jog') {
+      traceStamp();
+      traceDense(el);
+    }
+    if (
+      fresh &&
+      status?.state === 'Jog' &&
+      taken.length < MAX_STRIP_PICTURES &&
+      t - lastAt >= plan.every &&
+      Math.abs(plan.along(status.mpos) - plan.startAlong) >= 3
+    ) {
+      const read = readFrame(el);
+      if (read) {
+        taken.push({ read, t, trace: traceFrame('run', read) });
+        lastAt = t;
+      }
+    }
+    requestAnimationFrame(sample);
+  };
+  requestAnimationFrame(sample);
+  return {
+    track,
+    stop() {
+      running = false;
+      off();
+    },
+    harvest: () => Promise.resolve(taken),
+  };
+}
+
+/** What a scan on the Pi's clock holds on to: the clock and the stream of stamped pictures that stays open for the scan */
+interface PiTiming {
+  clock: PiClock;
+  source: FrameSource;
+}
+
+/**
+ * Why the Pi's clock is gone, or null while it holds: the stream of pictures ended or was closed, the reports lost their
+ * stamp, or the newest picture's stamp left the window around the newest report's (the Pi's clock was set, a driver
+ * changed its mind). Asked before a strip moves anything.
+ */
+function clockLost(timing: PiTiming): ClockReason | null {
+  if (!timing.source.ok) return 'stream';
+  const report = useMachine.getState().statusStamp;
+  if (!report) return 'relay';
+  const newest = timing.source.frames().at(-1)?.stamp;
+  return newest && !domainFits(newest, report) ? 'window' : null;
+}
+
+/**
+ * Pixels of the pictures a run took, one at a time with the screen and the buttons (PAUSE, NOT-HALT) given their turn
+ * in between – the stream only copied bytes while the camera ran.
+ */
+async function decodeStamped(
+  source: FrameSource,
+  chosen: readonly SourceFrame[],
+): Promise<Taken[]> {
+  const out: Taken[] = [];
+  for (const f of chosen) {
+    if (cancelled) break;
+    const drawable = await source.decode(f);
+    const read = drawable ? readFrame(drawable) : null;
+    releaseDrawable(drawable);
+    if (read) {
+      out.push({
+        read,
+        t: f.stamp.t,
+        arrival: f.arrival,
+        stamp: f.stamp,
+        // `t` of a recorded picture is when the page got it; the stamp beside it is the Pi's
+        trace: traceFrame('run', read, { t: traceTimeOf(f.arrival), stamp: f.stamp }),
+      });
+    }
+    await turn();
+  }
+  return out;
+}
+
+/**
+ * On the Pi's clock: the reports are put on the line with the stamp the relay gave them, the pictures are the stamped
+ * stream's – **no sampling of the screen**, so the page's own late and uneven view of the camera is not in it. While the
+ * run goes the status is asked for faster (`STRIP_POLL_MS`); the stream keeps bytes and stamps only, and what the run took is
+ * chosen from them and decoded afterwards. A report that came without a stamp is left out, never mixed in.
+ */
+function stampedCollector(timing: PiTiming, el: CameraPicture, plan: RunPlan): Collector {
+  const { source, clock } = timing;
+  const track = new PositionTrack();
+  // the pictures this run asks for, and a clean ring: what an earlier strip left there is not this run's
+  source.clear();
+  source.setMinSpacing(Math.max(MIN_FRAME_SPACING_S, plan.every));
+  const evictedBefore = source.evicted;
+  let jogFrom = Infinity;
+  let jogTo = -Infinity;
+  const off = useMachine.subscribe((s, prev) => {
+    if (!s.status || s.status === prev.status || !s.statusStamp) return;
+    const t = reportSeconds(s.statusStamp, clock.domain);
+    track.add(t, plan.along(s.status.mpos));
+    if (s.status.state === 'Jog') {
+      jogFrom = Math.min(jogFrom, t);
+      jogTo = Math.max(jogTo, t);
+    }
+  });
+  const stopPolling = useMachine.getState().pollStatus(STRIP_POLL_MS);
+  // only a recording looks at the screen's picture: the dense series and the page's stalls (a view of how late it is)
+  let running = tracing();
+  let lastFrameAt = performance.now();
+  const watch = running ? new FrameWatch(el) : null;
+  const sample = () => {
+    if (!running) return;
+    const fresh = watch!.changed();
+    traceGap(performance.now() - lastFrameAt);
+    lastFrameAt = performance.now();
+    if (fresh && useMachine.getState().status?.state === 'Jog') {
+      traceStamp();
+      traceDense(el);
+    }
+    requestAnimationFrame(sample);
+  };
+  if (running) requestAnimationFrame(sample);
+  return {
+    track,
+    stop() {
+      running = false;
+      off();
+      stopPolling();
+    },
+    harvest() {
+      // chosen now, before the next strip clears the ring; decoded after, while the machine hops on
+      const all = source.frames();
+      for (const f of all) tracePicture(f.arrival, f.stamp);
+      const chosen = pickStripFrames(all, {
+        track,
+        lag: stripLag,
+        startAlong: plan.startAlong,
+        jogFrom,
+        jogTo,
+        max: MAX_STRIP_PICTURES,
+      });
+      traceNote('stamped-pictures', {
+        kept: all.length,
+        chosen: chosen.length,
+        evicted: source.evicted - evictedBefore,
+      });
+      return decodeStamped(source, chosen);
+    },
+  };
+}
+
 /**
  * One strip: hop to its start, a picture at rest there, the run (a jog – it can be ended cleanly), a picture at
  * rest at its end. The pictures of the run are put where they were taken only once both pictures at rest are in
  * (`solveAndLay`, handed back as `work`: it goes on while the machine hops to the next strip).
+ * `timing` is the Pi's clock where the scan runs on it, null for the browser's.
  */
 async function runStrip(
   strip: Strip,
@@ -762,9 +1176,21 @@ async function runStrip(
   hopFeed: number,
   visible: { width: number; height: number },
   previous: Promise<StripResult> | null,
-): Promise<{ end: StripEnd; work: Promise<StripResult> | null; prior: StripResult | null }> {
+  timing: PiTiming | null = null,
+): Promise<{
+  end: StripEnd;
+  work: Promise<StripResult> | null;
+  prior: StripResult | null;
+  /** Why the clock was lost, with `end` `clockLost` */
+  lost?: ClockReason;
+}> {
   const { moveMachine, jogMachine } = useMachine.getState();
   const cal = useWorkshop.getState().settings.camera;
+  if (timing) {
+    // the clock is checked before anything moves: a strip that cannot be told apart is not run
+    const lost = clockLost(timing);
+    if (lost) return { end: 'clockLost', work: null, prior: null, lost };
+  }
   const first = stripPoint(strip, strip.from);
   const home = { x: first.x - cal.offsetX, y: first.y - cal.offsetY };
   if (!(await moveMachine(home, hopFeed)) || (await settled(home)) === null) {
@@ -788,44 +1214,10 @@ async function runStrip(
   const along = (mpos: readonly number[]) => (mpos[index] ?? 0) + offset;
   const startAlong = along([a.spindle.x, a.spindle.y]);
   const every = (STRIP_SPACING * (strip.axis === 'x' ? visible.width : visible.height)) / speed;
-  const watch = new FrameWatch(pic.el);
-  const track = new PositionTrack();
-  const taken: { read: Read; t: number; trace: string | null }[] = [];
-  const off = useMachine.subscribe((s, prev) => {
-    if (s.status && s.status !== prev.status)
-      track.add(performance.now() / 1000, along(s.status.mpos));
-  });
-  let running = true;
-  let lastAt = -Infinity;
-  let lastFrameAt = performance.now();
-  const sample = () => {
-    if (!running) return;
-    const status = useMachine.getState().status;
-    const t = performance.now() / 1000;
-    // looked at on every frame of the screen: a picture is stamped when it is first seen
-    const fresh = watch.changed();
-    traceGap(performance.now() - lastFrameAt);
-    lastFrameAt = performance.now();
-    if (fresh && status?.state === 'Jog') {
-      traceStamp();
-      traceDense(pic.el);
-    }
-    if (
-      fresh &&
-      status?.state === 'Jog' &&
-      taken.length < MAX_STRIP_PICTURES &&
-      t - lastAt >= every &&
-      Math.abs(along(status.mpos) - startAlong) >= 3
-    ) {
-      const read = readFrame(pic.el);
-      if (read) {
-        taken.push({ read, t, trace: traceFrame('run', read) });
-        lastAt = t;
-      }
-    }
-    requestAnimationFrame(sample);
-  };
-  requestAnimationFrame(sample);
+  const plan: RunPlan = { along, startAlong, every };
+  const collector = timing
+    ? stampedCollector(timing, pic.el, plan)
+    : browserCollector(pic.el, plan);
   const target = strip.to - offset;
   let end: StripEnd = 'failed';
   try {
@@ -844,13 +1236,19 @@ async function runStrip(
       traceNote('jog-end', { end });
     }
   } finally {
-    running = false;
-    off();
+    collector.stop();
   }
   if (end !== 'done') return { end, work: null, prior };
   const b = await restPicture();
   if (!b) return { end: 'failed', work: null, prior };
-  return { end: 'done', work: solveAndLay(strip, a, b, taken, track, speed), prior };
+  const clock = timing?.clock ?? BROWSER_CLOCK;
+  return {
+    end: 'done',
+    work: collector
+      .harvest()
+      .then((taken) => solveAndLay(strip, a, b, taken, collector.track, speed, clock)),
+    prior,
+  };
 }
 
 export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
@@ -860,15 +1258,25 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
   scan: null,
   ...loadScan(),
   stripsBad: false,
+  lastClock: null,
 
   setMode(mode) {
     set({ mode, stripsBad: false });
-    saveScan(mode, get().tempo);
+    const { tempo, exposureMs } = get();
+    saveScan({ mode, tempo, exposureMs });
   },
 
   setTempo(tempo) {
     set({ tempo });
-    saveScan(get().mode, tempo);
+    const { mode, exposureMs } = get();
+    saveScan({ mode, tempo, exposureMs });
+  },
+
+  setExposure(ms) {
+    const exposureMs = exposureOf(ms);
+    set({ exposureMs });
+    const { mode, tempo } = get();
+    saveScan({ mode, tempo, exposureMs });
   },
 
   addTile() {
@@ -952,7 +1360,13 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       addLog('info', t('photomap.stripsSkipped'));
       strips = null;
     }
+    // a run the exposure holds below what the lag can be measured at is slower than stops are
+    if (strips && stripSpeed(get().tempo) < MIN_LAG_SPEED) {
+      addLog('info', t('photomap.stripsTooSlow', { speed: formatNumber(MIN_LAG_SPEED, 0) }));
+      strips = null;
+    }
     cancelled = false;
+    clockKind = 'browser';
     const startedAt = Date.now();
     const tiles0 = get().tiles;
     traceBegin(() => traceMeta(visible), area, strips ? 'strips' : 'stops', {
@@ -979,8 +1393,17 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       lag: stripLag,
       seconds: 0,
       gaveUp: false,
+      clock: 'browser',
+      clockReason: null,
+      clockDetail: null,
+      clockLost: null,
+      stamp: null,
+      timingNoiseMs: null,
       detail: [],
     };
+    // the scatter of each run that said, put together at the end; the Pi's stamped pictures stay open for the scan
+    const noises: { ms: number; count: number }[] = [];
+    let timing: PiTiming | null = null;
     // One picture at a stop – the way an area is scanned picture by picture, and what fills the gaps of strips.
     const stopAt = async (p: Point) => {
       // The picture is laid down where the status report says the machine stands:
@@ -1000,6 +1423,34 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
         const z = cal.focusHeight! + (status.wco[2] ?? 0);
         ok = (await moveMachine({ z }, profile.jogFeed.z)) && (await settled({ z })) !== null;
       }
+      if (strips && ok && !cancelled) {
+        // The clock is chosen once for the scan, all or nothing (`chooseScanClock`): reports and pictures both on the
+        // Pi's, or both on the browser's – and what was learned of the lag belongs to the clock it was learned on.
+        const chosen = await chooseScanClock();
+        useClockLag(chosen.clock);
+        clockKind = chosen.clock.kind;
+        stats.clock = chosen.clock.kind;
+        if (chosen.clock.kind === 'pi') {
+          timing = { clock: chosen.clock, source: chosen.source! };
+          stats.stamp = { domain: chosen.clock.domain, source: chosen.clock.source };
+        } else if (chosen.clock.reason) {
+          stats.clockReason = chosen.clock.reason;
+          stats.clockDetail = chosen.clock.detail ?? null;
+          // said once: a Pi is there and its clock was not used – and why
+          addLog(
+            'info',
+            t('photomap.clockFallback', { why: t(`photomap.clockWhy.${chosen.clock.reason}`) }),
+          );
+        }
+        traceClock(chosen.clock.kind);
+        traceNote('clock', {
+          clock: chosen.clock.kind,
+          domain: chosen.clock.kind === 'pi' ? chosen.clock.domain : null,
+          source: chosen.clock.kind === 'pi' ? chosen.clock.source : null,
+          reason: chosen.clock.kind === 'browser' ? chosen.clock.reason : null,
+          detail: chosen.clock.kind === 'browser' ? (chosen.clock.detail ?? null) : null,
+        });
+      }
       if (strips && ok && !lagKnown) {
         // A short slow run first: it measures the lag of the pictures and shows whether this table has anything to
         // fit them by – if not, the whole scan goes by stops and has cost seconds, not minutes.
@@ -1015,8 +1466,17 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
           feed,
           visible,
           null,
+          timing,
         );
-        if (r.end !== 'done') {
+        if (r.end === 'clockLost') {
+          // the Pi's clock went away before the first run: the whole area goes by stops, and strips are not given up on
+          stats.clockLost = r.lost ?? 'stream';
+          addLog(
+            'info',
+            t('photomap.clockLost', { why: t(`photomap.clockWhy.${stats.clockLost}`) }),
+          );
+          strips = null;
+        } else if (r.end !== 'done') {
           ok = false;
           end = r.end;
         } else if (r.work) {
@@ -1024,6 +1484,7 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
           stats.offered += res.offered;
           stats.placed += res.placed;
           stats.detail.push(res);
+          if (res.noise) noises.push(res.noise);
           if (!cancelled && (!lagKnown || poor(res) || res.placed < 4)) {
             set({ stripsBad: true });
             stats.gaveUp = true;
@@ -1038,9 +1499,19 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
         const works: Promise<StripResult>[] = [];
         for (const [i, strip] of strips.entries()) {
           if (cancelled) break;
-          const r = await runStrip(strip, speed, feed, visible, work);
+          const r = await runStrip(strip, speed, feed, visible, work, timing);
           work = r.work;
           if (r.work) works.push(r.work);
+          if (r.end === 'clockLost') {
+            // Never a mixture: the runs stop, what is left of the area goes by stops (the gaps are filled below) –
+            // and strips are not blamed: the next scan may well have its clock
+            stats.clockLost = r.lost ?? 'stream';
+            addLog(
+              'info',
+              t('photomap.clockLost', { why: t(`photomap.clockWhy.${stats.clockLost}`) }),
+            );
+            break;
+          }
           if (r.end === 'gaveUp') {
             // What is left of the area goes by stops (the gaps are filled below); the next scan does not try
             // strips again until it is asked to.
@@ -1061,6 +1532,7 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
           stats.offered += w.offered;
           stats.placed += w.placed;
           stats.detail.push(w);
+          if (w.noise) noises.push(w.noise);
         }
         stats.lag = stripLag;
         // What the strips left out – a picture with no clear match, a strip cut short – is taken by stops.
@@ -1104,11 +1576,30 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
         }
       }
     } finally {
+      // the stamped pictures were kept open for this scan only
+      timing?.source.close();
       const count = get().tiles - tiles0;
       stats.seconds = (Date.now() - startedAt) / 1000;
+      stats.lag = stripLag;
+      stats.timingNoiseMs = pooledNoise(noises);
       lastScan = stats;
       traceEnd({ ok, end, cancelled, count, stats });
-      set({ scan: null });
+      set({
+        scan: null,
+        // the panel says which clock a scan that used one ran on – a scan with stops used none
+        ...(stats.mode === 'strips'
+          ? {
+              lastClock: {
+                clock: stats.clock,
+                clockReason: stats.clockReason,
+                clockDetail: stats.clockDetail,
+                clockLost: stats.clockLost,
+                stamp: stats.stamp,
+                timingNoiseMs: stats.timingNoiseMs,
+              },
+            }
+          : {}),
+      });
       if (cancelled || end === 'cancelled') addLog('info', t('photomap.scanCancelled', { count }));
       else if (end === 'held') addLog('error', t('photomap.scanHeld'), 'photomap.scanHeld');
       else if (end === 'lost') addLog('error', t('photomap.scanLost'), 'photomap.scanLost');

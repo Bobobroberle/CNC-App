@@ -3344,6 +3344,37 @@ export const de = {
     estimateStrips: '{count} Streifen, etwa {minutes} min',
     estimateCompare: 'Mit Halt wären es {count} Bilder, etwa {minutes} min.',
     scanningStrips: 'Scan läuft: Streifen {done} von {total}, noch etwa {minutes} min',
+    stripsTooSlow:
+      'Bei dieser Belichtung wäre die Fahrt langsamer als {speed} mm/s – dann geht es mit Halt schneller. Der Scan läuft mit Halt für jedes Bild.',
+    exposure: 'Belichtung (ms)',
+    exposureHint:
+      'Wie lange die Kamera ein Bild belichtet (0 = unbekannt, dann gibt es keine Begrenzung). Daraus folgt das schnellste Tempo, bei dem ein Bild nicht mehr als 0,3 mm verwischt.',
+    blur: 'Unschärfe bei diesem Tempo etwa {mm} mm',
+    capped: 'Tempo auf {speed} mm/s begrenzt, damit ein Bild nicht mehr als 0,3 mm verwischt.',
+    tooSlow:
+      'Bei dieser Belichtung wäre die Fahrt langsamer als {speed} mm/s – mit Halt geht es schneller.',
+    clockFallback:
+      'Die Zeitstempel des Pi werden nicht genutzt: {why}. Die Bilder der Fahrt werden nach der Uhr dieser Seite abgelegt.',
+    clockLost:
+      'Die Uhr des Pi ist während des Scans weggefallen: {why}. Die Fahrt endet hier, der Rest wird mit Halt gescannt.',
+    clockWhy: {
+      relay:
+        'die Meldungen der Steuerung kommen ohne Zeitstempel des Pi (nicht über den Pi verbunden, oder ein älterer Companion)',
+      device: 'die Kamera ist kein Stream des Pi (Gerätekamera oder keine Adresse)',
+      stream: 'der Kamera-Stream lässt sich von dieser Seite nicht mit Zeitstempeln lesen',
+      window:
+        'die Zeitstempel der Kamerabilder liegen in einer anderen Uhr als die der Meldungen (mehr als 3 s Unterschied)',
+    },
+    clock: {
+      title: 'Uhr des letzten Scans in Fahrt',
+      pi: 'Pi – Meldungen und Kamerabilder tragen den Zeitstempel des Pi ({domain}, {source}).',
+      domains: { mono: 'Monotonuhr', wall: 'Echtzeituhr' },
+      browser:
+        'Browser – Meldungen und Bilder liegen dort, wo diese Seite sie zuerst sah (später und ungleichmäßiger als die Zeit auf dem Pi).',
+      why: 'Grund: {why}.',
+      lost: 'Die Uhr des Pi fiel während des Scans weg: {why}.',
+      noise: 'Zeitrauschen der Uhr: etwa {ms} ms.',
+    },
     trace: {
       label: 'Scan für die Auswertung aufzeichnen',
       hint: 'Speichert die Kamerabilder, die Zeitpunkte und die Meldungen der Steuerung zu den Scans in einer Datei (bis etwa 40 MB). Sie enthält Fotos deines Tisches. Nichts davon geht irgendwohin, bis du die Datei weitergibst. Mit Aufzeichnung gibt die Fahrt nicht auf, auch wenn die Bilder sich schlecht einpassen lassen.',

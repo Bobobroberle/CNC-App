@@ -54,6 +54,62 @@ describe('a recording of a scan', () => {
     expect(rec.scans).toBe(1);
   });
 
+  it('keeps both clocks of a report and of a picture: when the page got it and the stamp the Pi gave it', () => {
+    let clock = 5000;
+    const rec = new TraceRecorder(() => clock, {}, 1e6, '2026-11-26T10:00:00.000Z');
+    rec.beginScan({ minX: 0 }, 'strips');
+    clock += 200;
+    rec.report('Jog', [1, 2, 3], { mono: 7_200_123_456.789, wall: 1_779_807_200_123 });
+    // a report that came without a stamp (a relay that was not asked) has none in the file – and so does an older file
+    rec.report('Jog', [2, 2, 3], null);
+    rec.report('Idle', [3, 2, 3]);
+    clock += 50;
+    // `at` turns a moment on the page's clock into the recording's
+    expect(rec.at(5300)).toBe(300);
+    rec.picture(5300, { domain: 'mono', t: 7_200_123.4, source: 'x-ustreamer-grab-time' });
+    const f = rec.snapshot();
+    expect(f.reports[0]).toEqual({
+      t: 200,
+      state: 'Jog',
+      mpos: [1, 2, 3],
+      stamp: { mono: 7_200_123_456.789, wall: 1_779_807_200_123 },
+    });
+    expect(f.reports[1]).toEqual({ t: 200, state: 'Jog', mpos: [2, 2, 3] });
+    expect(f.reports[2]).toEqual({ t: 200, state: 'Idle', mpos: [3, 2, 3] });
+    expect(f.pictures).toEqual([
+      {
+        t: 300,
+        scan: 1,
+        stamp: { domain: 'mono', t: 7_200_123.4, source: 'x-ustreamer-grab-time' },
+      },
+    ]);
+    // and the file with them is still the file: packed, unpacked, version unchanged
+    const back = unpackTrace(packTrace(f, rec.files))!;
+    expect(back.file.pictures).toEqual(f.pictures);
+    expect(back.file.reports[0]!.stamp).toEqual(f.reports[0]!.stamp);
+    expect(back.file.version).toBe(1);
+  });
+
+  it("says which clock the scans ran on: in the meta and in each scan's options, and `mixed` where they differ", () => {
+    const rec = new TraceRecorder(() => 0, {});
+    rec.beginScan({}, 'strips');
+    rec.setClock('pi');
+    rec.beginScan({}, 'strips');
+    rec.setClock('pi');
+    expect(rec.snapshot().meta.clock).toBe('pi');
+    rec.beginScan({}, 'strips', { tempo: 'fast' });
+    rec.setClock('browser');
+    const f = rec.snapshot();
+    expect(f.meta.clock).toBe('mixed');
+    expect(f.scans.map((x) => x.options.clock)).toEqual(['pi', 'pi', 'browser']);
+    // what the scan was begun with stays
+    expect(f.scans[2]!.options.tempo).toBe('fast');
+    // before any scan there is nothing to put it on, and the meta says it all the same
+    const bare = new TraceRecorder(() => 0, {});
+    bare.setClock('browser');
+    expect(bare.snapshot().meta.clock).toBe('browser');
+  });
+
   it('is full at its cap: more pictures are counted and left out, the numbers stay', () => {
     const rec = new TraceRecorder(() => 0, {}, 10);
     expect(

@@ -3294,6 +3294,37 @@ export const en: DictionaryShape = {
     estimateStrips: '{count} strips, about {minutes} min',
     estimateCompare: 'With stops it would be {count} pictures, about {minutes} min.',
     scanningStrips: 'Scanning: strip {done} of {total}, about {minutes} min to go',
+    stripsTooSlow:
+      'With this exposure the run would be slower than {speed} mm/s – stops are faster then. The scan runs with a stop for every picture.',
+    exposure: 'Exposure (ms)',
+    exposureHint:
+      'How long the camera exposes a picture (0 = unknown, then there is no limit). It gives the fastest speed at which a picture is not blurred by more than 0.3 mm.',
+    blur: 'Blur at this speed about {mm} mm',
+    capped: 'Speed limited to {speed} mm/s so that a picture is not blurred by more than 0.3 mm.',
+    tooSlow:
+      'With this exposure the run would be slower than {speed} mm/s – with stops it is faster.',
+    clockFallback:
+      "The Pi's time stamps are not used: {why}. The pictures of the run are placed by the clock of this page.",
+    clockLost:
+      "The Pi's clock went away during the scan: {why}. The run ends here, the rest is scanned with stops.",
+    clockWhy: {
+      relay:
+        "the controller's reports come without a Pi time stamp (not connected through the Pi, or an older companion)",
+      device: 'the camera is not a stream of the Pi (device camera or no address)',
+      stream: 'this page cannot read the camera stream with time stamps',
+      window:
+        "the camera pictures' time stamps are in another clock than the reports' (more than 3 s apart)",
+    },
+    clock: {
+      title: 'Clock of the last scan on the move',
+      pi: 'Pi – reports and camera pictures carry the Pi time stamp ({domain}, {source}).',
+      domains: { mono: 'monotonic clock', wall: 'real-time clock' },
+      browser:
+        'Browser – reports and pictures lie where this page first saw them (later and less even than the time on the Pi).',
+      why: 'Reason: {why}.',
+      lost: "The Pi's clock went away during the scan: {why}.",
+      noise: 'Clock scatter: about {ms} ms.',
+    },
     trace: {
       label: 'Record the scan for analysis',
       hint: "Saves the camera pictures, the times and the controller's reports of the scans in one file (up to about 40 MB). It contains photos of your table. None of it goes anywhere until you hand the file on. While recording, the run is not given up even if the pictures fit badly.",

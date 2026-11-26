@@ -13,14 +13,19 @@ import {
   type Rect,
 } from '../src/lib/photomap';
 import {
+  blurAtSpeed,
+  BLUR_MM,
   estimateStops,
   estimateStrips,
   lagFromCorrections,
+  maxSpeedForBlur,
   moveSeconds,
+  PI_LAG_LIMITS,
   planStrips,
   PositionTrack,
   solveStrip,
   stripPoint,
+  timingNoiseMs,
   type Axis,
   type Strip,
 } from '../src/lib/strips';
@@ -205,6 +210,70 @@ describe('the lag of the pictures, from what registration found', () => {
     // an even number of samples: the middle of the two in the middle
     const even = [0, 0.05, 0.1, 0.15].map((d) => ({ predicted: 0, actual: 50 * d, speed: 50 }));
     expect(lagFromCorrections(0.3, even)).toBeCloseTo(0.3 - 0.075, 9);
+  });
+});
+
+describe("the lag on the Pi's clock", () => {
+  // reports are stamped when the Pi receives them, pictures when they were exposed: 15 ms the other way round
+  const early = Array.from({ length: 6 }, (_, i) => ({
+    predicted: 100 + i * 8,
+    // a picture taken 15 ms later than the line says (lag was 0.015 too large): +0.75 mm at 50 mm/s
+    actual: 100 + i * 8 + 0.75,
+    speed: 50,
+  }));
+
+  it("may be below zero where the browser's may not: the clamp is a parameter, the default stays", () => {
+    // 0.01 − 0.015 = −0.005 s: a negative lag that the browser's limits cut to zero
+    expect(lagFromCorrections(0.01, early)).toBe(0);
+    expect(lagFromCorrections(0.01, early, PI_LAG_LIMITS)!).toBeCloseTo(-0.005, 9);
+    // and still bounded
+    const wild = Array.from({ length: 6 }, () => ({ predicted: 0, actual: 400, speed: 50 }));
+    expect(lagFromCorrections(0.3, wild, PI_LAG_LIMITS)).toBe(PI_LAG_LIMITS.min);
+  });
+
+  it('has noise that no constant takes out: the spread of what each picture implies, in ms', () => {
+    // every picture 0.5 mm off the line in turn: ±10 ms at 50 mm/s, so the spread is 10 ms
+    const jittery = Array.from({ length: 8 }, (_, i) => ({
+      predicted: i * 8,
+      actual: i * 8 + (i % 2 ? 0.5 : -0.5),
+      speed: 50,
+    }));
+    expect(timingNoiseMs(0.1, jittery)!.ms).toBeCloseTo(10, 6);
+    expect(timingNoiseMs(0.1, jittery)!.count).toBe(8);
+    // a constant error is the lag, not noise
+    expect(timingNoiseMs(0.1, early)!.ms).toBeCloseTo(0, 6);
+    // the noise does not depend on the lag the clock was run with (the guess it was predicted with)
+    expect(timingNoiseMs(0.3, jittery)!.ms).toBeCloseTo(timingNoiseMs(0.1, jittery)!.ms, 6);
+    // too few pictures moving fast enough to say
+    expect(timingNoiseMs(0.1, jittery.slice(0, 3))).toBeNull();
+    expect(
+      timingNoiseMs(
+        0.1,
+        jittery.map((s) => ({ ...s, speed: 2 })),
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('the speed the exposure allows', () => {
+  it('is the blur over the exposure: what the table moves under the lens while the shutter is open', () => {
+    // 6 ms of exposure and 0.3 mm of blur: 50 mm/s
+    expect(maxSpeedForBlur(6)).toBeCloseTo(50, 9);
+    expect(maxSpeedForBlur(30)).toBeCloseTo(10, 9);
+    expect(maxSpeedForBlur(30, 0.6)).toBeCloseTo(20, 9);
+    expect(BLUR_MM).toBe(0.3);
+  });
+
+  it('is no cap where the exposure is not known', () => {
+    for (const unknown of [0, -5, NaN, Infinity]) expect(maxSpeedForBlur(unknown)).toBe(Infinity);
+  });
+
+  it('never asks for less than nothing, and is the other way round of blurAtSpeed', () => {
+    expect(maxSpeedForBlur(10, -1)).toBe(0);
+    expect(blurAtSpeed(20, 25)).toBeCloseTo(0.5, 9);
+    expect(blurAtSpeed(20, maxSpeedForBlur(20))).toBeCloseTo(BLUR_MM, 9);
+    expect(blurAtSpeed(-20, 25)).toBe(0);
+    expect(blurAtSpeed(20, -25)).toBe(0);
   });
 });
 
