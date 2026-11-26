@@ -98,7 +98,7 @@ add('scan', 'Bewegungsunschärfe', [
     'Belichtung aus der App einstellen',
     'Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'blur-c',

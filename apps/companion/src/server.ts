@@ -4,6 +4,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import { validateJig, validateMaterial, validateSavedZero, validateTool } from '@lowrider/workshop';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { Auth, type Device } from './auth';
+import { CAMERA_BODY_LIMIT, CAMERA_STATUS, CameraError, type CameraControls } from './camera';
 import type { Store } from './db';
 import {
   DEFAULT_NOTIFY,
@@ -102,6 +103,8 @@ export interface ServerOptions {
   auth?: Auth;
   /** Update from the app; without it the update routes answer 501. */
   updater?: Updater;
+  /** The picture settings of the camera (`/api/camera/controls`); without it the routes answer 501. */
+  camera?: CameraControls;
   /** Delay between the reply of an update and the restart, in ms (default 800). */
   restartDelayMs?: number;
 }
@@ -194,6 +197,8 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     // companion has no such field: the app then keeps the browser's clock for everything). The clock itself is not
     // handed out here – this answer is open to any page, and the Pi's uptime is nothing a page needs.
     stamps: true,
+    // The picture settings of the camera can be read and set here (`/api/camera/controls`): an older companion has no such field
+    cameraControls: Boolean(options.camera),
   }));
 
   // Host power: the app shows feedback by polling /api/health until it stops answering.
@@ -418,6 +423,36 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     updater?.discard();
     return { ok: true };
   });
+
+  // The camera's picture settings (exposure, gain …): open like the relay and the libraries – they change how the
+  // camera makes its picture, nothing of the machine – and limited by the whitelist and the ranges the camera reports.
+  const cameraFailed = (reply: FastifyReply, error: unknown) => {
+    if (!(error instanceof CameraError)) throw error;
+    if (error.code === 'rate-limited') reply.header('Retry-After', '1');
+    return reply
+      .code(CAMERA_STATUS[error.code])
+      .send({ error: error.code, ...(error.detail ? { detail: error.detail } : {}) });
+  };
+  app.get('/api/camera/controls', async (_req, reply) => {
+    if (!options.camera) return reply.code(501).send({ error: 'not-supported' });
+    try {
+      return { controls: await options.camera.list() };
+    } catch (error) {
+      return cameraFailed(reply, error);
+    }
+  });
+  app.put<{ Body: unknown }>(
+    '/api/camera/controls',
+    { bodyLimit: CAMERA_BODY_LIMIT },
+    async (req, reply) => {
+      if (!options.camera) return reply.code(501).send({ error: 'not-supported' });
+      try {
+        return await options.camera.apply(req.body);
+      } catch (error) {
+        return cameraFailed(reply, error);
+      }
+    },
+  );
 
   // Job buffer
   app.get('/api/jobs', async () => store.listJobs());

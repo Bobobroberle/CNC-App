@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Auth } from './auth';
+import { CameraControls, v4l2Runner } from './camera';
 import {
   runBackup,
   runUpdateBackup,
@@ -61,6 +62,8 @@ if (process.argv.includes('--check')) {
  *   and /snapshot). Recordings go to `recordings/` next to the database,
  *   LOWRIDER_DIR (`~/lowrider`: releases/, current, previous – what setup.sh makes) with LOWRIDER_UPDATE=1
  *   to allow the update from the app (LOWRIDER_CONFIRM_MS: how long a new version must run before the trial ends, 30000), LOWRIDER_CODE_FILE (the Pi code, `pi-code.txt` next to the database),
+ *   CAMERA_DEVICE (`/dev/video0`) and LOWRIDER_CAMERA_CONTROLS=0 to switch off the camera's picture settings from the app
+ *   (`/api/camera/controls`, needs `v4l2-ctl`; what was set last is kept in the database and put back at the start),
  *   LOWRIDER_BACKUP=0 to switch the daily backup of the database off, LOWRIDER_BACKUP_DIR
  *   (`backups/` next to the database – put it on a second medium, a USB stick: on the same card it
  *   guards against a damaged database, not against the card dying), LOWRIDER_BACKUP_KEEP (7).
@@ -245,11 +248,24 @@ const updater =
         },
       })
     : undefined;
+// The camera's picture settings: v4l2-ctl on the camera's device (the one ustreamer streams). Not at `--check`, which
+// builds its server without it, and it touches nothing before a request or the re-apply after the start.
+const camera =
+  env.LOWRIDER_CAMERA_CONTROLS === '0'
+    ? undefined
+    : new CameraControls({
+        device: env.CAMERA_DEVICE ?? '/dev/video0',
+        run: v4l2Runner(),
+        load: () => store.getSetting<unknown>('cameraControls', null),
+        save: (values) => store.setSetting('cameraControls', values),
+        log: (message) => app.log.info(message),
+      });
 const app = await buildServer({
   store,
   relay,
   auth,
   updater,
+  camera,
   backup: () => (env.LOWRIDER_BACKUP === '0' ? null : backup),
   sensors,
   staticDir: env.LOWRIDER_APP ? resolve(env.LOWRIDER_APP) : undefined,
@@ -284,6 +300,9 @@ const close = async () => {
 process.on('SIGINT', close);
 process.on('SIGTERM', close);
 await app.listen({ port: Number(env.PORT ?? 8080), host: env.HOST ?? '0.0.0.0' });
+// The camera may have lost its settings (replug, reboot of the Pi): put the last ones back – never awaited, never blocking
+// the start (a version on trial has 30 s to answer).
+void camera?.restoreAtStart((ms) => new Promise((done) => setTimeout(done, ms).unref()));
 // A version that came with an update proves itself by running: after half a minute up, the trial is over
 // (until then `guard.sh` counts its starts and goes back to the previous version if it keeps failing).
 setTimeout(

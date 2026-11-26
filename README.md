@@ -1170,7 +1170,11 @@ Breite, nur _Kamera_ behält das Bild.
   _Kamerahöhe_ (der Maßstab gilt bei dieser Z-Höhe über dem Nullpunkt; _Auf Kamerahöhe fahren_,
   _Aktuelle Höhe übernehmen_) und _Zeitraffer_ (bei jedem Job Bilder aufnehmen, ein Bild alle …
   Sekunden). Das ist die Kalibrierung der Kamera für Fadenkreuz, Antippen und Fotokarte; die
-  Maschine vermessen heißt _Service → Kalibrieren_.
+  Maschine vermessen heißt _Service → Kalibrieren_. Mit einem Companion, der es kann, steht darunter die
+  Karte _Belichtung und Bild_: Belichtungsmodus und -zeit (in ms), Verstärkung, Helligkeit, Weißabgleich und
+  Fokus der USB-Kamera am Pi, so wie die Kamera sie meldet – jeder Wert wird beim Setzen von der Kamera
+  zurückgelesen; im Scan-Feld übernimmt _Aus der Kamera übernehmen_ die feste Belichtungszeit
+  (`docs/companion.md`, Abschnitt _Belichtung und Bild der Kamera aus der App_).
 - _Experte_ (einschalten mit _Expertenfunktionen anzeigen_ unter _Maschine_): _config.yaml ändern_
   (von der Maschine lesen, Original herunterladen; die wichtigsten Werte per Formular –
   `soft_limits`, `max_travel_mm`, `use_line_numbers`, `must_home`; vor dem Schreiben legt die App

@@ -600,7 +600,8 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   the app. A new setting of the machine needs nothing (it is in the settings document – but give a number a range in `insane`); one
   of the device goes into the local lists; a new document is a `Slice` (with `keys`) plus its key at the companion. **Known and
   accepted:** the state, the libraries and the relay need no login and the companion answers CORS `*` (as before this feature – the workshop network is trusted; the login protects only update, power-off and itself), so any
-  page the operator opens could write the state; probe, hole, tag and tool-length results are not in the log yet.
+  page the operator opens could write the state – and, the same way, set the camera's exposure and gain (`/api/camera/controls`: the whitelist of
+  picture controls and the ranges the camera reports are the limit); probe, hole, tag and tool-length results are not in the log yet.
 - **Login and update of the Pi** (`docs/update-konzept.md`; companion `src/auth.ts`, `zip.ts`, `release.ts`, `updater.ts`, `version.ts`,
   `scripts/pi/{setup.sh,lib.sh,guard.sh,update-pi.bat}`; app `store/piLogin.ts`, `store/piUpdate.ts`, `lib/piUpdate.ts`,
   `components/PiAccessCard.tsx`, `PiUpdateCard.tsx`, under Einstellungen → Verbindung). **What the login protects** – and only this:
@@ -637,6 +638,22 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   clear over http: they keep other web pages and guests out, not someone who reads the WLAN; where the service user may `sudo`
   without a password, the Pi code is root on the Pi. `update-pi.bat` is plain ASCII with CRLF (the bundle makes it so), runs
   `scp` + `ssh -t`, and stays the way when the Pi no longer answers.
+- **The camera's picture settings from the app** (Einstellungen → Kamera → "Belichtung und Bild", `CameraControlsCard`, `store/cameraControls.ts`, pure
+  `lib/cameraControls.ts`; companion `src/camera.ts` + `GET/PUT /api/camera/controls`, `cameraControls: true` in `/api/health` – the card shows only
+  where that is said; `docs/companion.md`): the companion runs `v4l2-ctl -d $CAMERA_DEVICE --list-ctrls-menus` / `--set-ctrl name=int` (`execFile`,
+  fixed arguments, no shell, 3 s, one call at a time, ≤ 12 controls and 4 KB per request, one write batch per 500 ms, `access(R|W)` on the device decides
+  `no-device`/`no-permission` – never the message of a set, because uvcvideo answers a set of an inactive control with "Permission denied" =
+  `refused:driver`). **Names, ranges, steps and menus are read from the camera, never wired in**; only the whitelist `ALLOWED_CONTROLS` (both old and
+  new kernel names) may be set, a value is **refused, never clamped** (`refusal`: range, step grid from `min`, menu entries – sparse –, bool 0/1,
+  inactive, read-only), the switches (`MODE_CONTROLS`: auto exposure, auto white balance, autofocus) go first and the list is read again, and the
+  answer is the list read again with a result per control – **the read-back is the truth** and what is kept (`store.setSetting('cameraControls')`,
+  the companion's own table, **not** a `STATE_KEYS` slice) and put back best-effort at the companion's start (`restoreAtStart`, never awaited, retries
+  while the device is missing). The exposure time is shown in ms **only** for `exposure_time_absolute`/`exposure_absolute` (V4L2: 100 µs units);
+  every other control shows the camera's own number. In the scan panel "Aus der Kamera übernehmen" reads the camera **at that tap** and fills the
+  field only for manual exposure with an active time (`takeover`), only where this device's picture is the companion's stream
+  (`streamIsPis`), never silently and never from a typed value. The e2e fake Pi (`installFakeCameraPi` in `e2e/helpers.ts`) runs the companion's own
+  `CameraControls` over `apps/companion/test/cameraRig.ts`. **Not verified:** a real camera, `v4l2-ctl` and the permission case on a Pi (the sample
+  output is written from the format of v4l-utils 1.22, not captured).
 - Rotary axis A: prepared only – the DRO shows A and the jog panel gets A−/A+ (steps in degrees)
   when the machine profile has a rotary axis; nothing else.
 - Connecting (`store/machine.ts` `connect`/`link`, pure `lib/link.ts`): a connection is up only once

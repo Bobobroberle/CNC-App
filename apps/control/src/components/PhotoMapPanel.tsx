@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { t } from '../i18n';
+import { t, tDynamic } from '../i18n';
 import { clockChoiceText, clockLostText, stampSourceText } from '../lib/clockText';
+import { streamIsPis, type Takeover } from '../lib/cameraControls';
 import { formatNumber, parseNumber } from '../lib/format';
 import type { Rect } from '../lib/photomap';
 import { MIN_LAG_SPEED, blurAtSpeed, maxSpeedForBlur } from '../lib/strips';
-import { crosshairPoint, focusError } from '../store/camera';
+import { crosshairPoint, focusError, useCamera } from '../store/camera';
+import { CameraFailureError, useCameraControls } from '../store/cameraControls';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
 import {
@@ -20,6 +22,7 @@ import {
 } from '../store/photomap';
 import { useScanTrace } from '../store/scanTrace';
 import { useWorkshop } from '../store/workshop';
+import { AckMark, useAck } from './Ack';
 import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -106,6 +109,49 @@ export function PhotoMapPanel() {
   // What is being typed, until it is a number again ("12," or "-" on the way to a value).
   const [typing, setTyping] = useState<Partial<Record<keyof Rect, string>>>({});
   const [typingExposure, setTypingExposure] = useState<string | null>(null);
+  // Taking the exposure over from the camera: only where the companion can read it, only on this tap
+  const piCamera = useWorkshop(
+    (s) => s.companionOnline === true && s.companionHealth?.cameraControls === true,
+  );
+  const companionUrl = useWorkshop((s) => s.settings.companionUrl);
+  const streamUrl = useWorkshop((s) => s.settings.camera.streamUrl);
+  const source = useCamera((s) => s.source);
+  const taking = useAck();
+  const [taken, setTaken] = useState<{
+    kind: Takeover['kind'] | 'not-pi' | 'failed';
+    text: string;
+  } | null>(null);
+  const takeFromCamera = () =>
+    taking.run(async () => {
+      setTaken(null);
+      // The companion sets the camera it streams: any other picture has an exposure it does not know
+      if (source !== 'stream' || !streamIsPis(streamUrl, companionUrl)) {
+        setTaken({ kind: 'not-pi', text: t('photomap.takeOver.notPi') });
+        return false;
+      }
+      try {
+        const result = await useCameraControls.getState().takeOver();
+        if (result.kind === 'ms') {
+          setExposure(result.ms);
+          setTypingExposure(null);
+          const now = usePhotoMap.getState().exposureMs;
+          setTaken({
+            kind: 'ms',
+            text: t('photomap.takeOver.done', { ms: formatNumber(now, now % 1 === 0 ? 0 : 1) }),
+          });
+          return true;
+        }
+        setTaken({ kind: result.kind, text: t(`photomap.takeOver.${result.kind}`) });
+        return false;
+      } catch (error) {
+        const why = tDynamic(
+          `cameraControls.errors.${error instanceof CameraFailureError ? error.failure : 'failed'}`,
+          'cameraControls.errors.failed',
+        );
+        setTaken({ kind: 'failed', text: t('photomap.takeOver.failed', { why }) });
+        return false;
+      }
+    });
   // The exposure holds the run back where the blur it allows is below what the tempo asks for
   const capped = exposureMs > 0 && maxSpeedForBlur(exposureMs) < tempoSpeed(tempo);
   const field = (key: keyof Rect, label: Parameters<typeof t>[0]) => (
@@ -215,6 +261,30 @@ export function PhotoMapPanel() {
             onBlur={() => setTypingExposure(null)}
           />
           <p className="text-muted-foreground text-sm">{t('photomap.exposureHint')}</p>
+          {piCamera ? (
+            <>
+              <Button
+                variant="outline"
+                data-testid="exposure-take"
+                disabled={taking.state === 'busy'}
+                onClick={() => void takeFromCamera()}
+              >
+                {t('photomap.takeOver.button')}
+                <AckMark state={taking.state} />
+              </Button>
+              <p className="text-muted-foreground text-sm">{t('photomap.takeOver.hint')}</p>
+              {taken ? (
+                <p
+                  className="text-sm"
+                  role="status"
+                  data-testid="exposure-take-line"
+                  data-kind={taken.kind}
+                >
+                  {taken.text}
+                </p>
+              ) : null}
+            </>
+          ) : null}
           {exposureMs > 0 ? (
             <p className="text-sm tabular-nums" data-testid="blur-line">
               {t('photomap.blur', { mm: formatNumber(blurAtSpeed(exposureMs, speed), 2) })}

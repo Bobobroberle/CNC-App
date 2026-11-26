@@ -1,4 +1,11 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page, type Route } from '@playwright/test';
+import {
+  CAMERA_STATUS,
+  CameraControls,
+  CameraError,
+  type CameraErrorCode,
+} from '../../companion/src/camera';
+import { fakeCamera } from '../../companion/test/cameraRig';
 
 // Helpers shared by the e2e specs: a scripted FluidNC, the way to the stage's controls.
 
@@ -514,4 +521,81 @@ export async function inReach(page: Page, control: Locator, container: Locator) 
     box,
     area,
   };
+}
+
+/**
+ * A companion that answers on the app's own origin and can set the camera: the camera's routes run the companion's own
+ * code (`CameraControls`: the parser, the whitelist, the ranges, the order, the answer) against a camera behind a
+ * `v4l2-ctl` that keeps its values and prints them as the real one does (`apps/companion/test/cameraRig.ts`) – so a
+ * value the camera would refuse is refused here for the same reason, and a switch of the mode makes the exposure time
+ * inactive. The rest of the Pi answers as an empty one (the state and the libraries – a device that syncs must find them).
+ */
+export interface FakeCameraPi {
+  /** The camera behind it: its values (`get(name).value`) can be changed "by another device"; `calls` is what v4l2-ctl was asked */
+  camera: ReturnType<typeof fakeCamera>;
+  /** What the app asked to write, and how often it read */
+  puts: Record<string, number>[];
+  gets: number;
+  /** While set, a read of the camera fails like this */
+  failRead: { error: CameraErrorCode } | null;
+}
+
+export async function installFakeCameraPi(
+  page: Page,
+  options: Parameters<typeof fakeCamera>[0] = {},
+): Promise<FakeCameraPi> {
+  const camera = fakeCamera(options);
+  const stored: { value: unknown } = { value: null };
+  const controls = new CameraControls({
+    device: '/dev/video0',
+    run: camera.run,
+    access: async () => undefined,
+    load: () => stored.value,
+    save: (values) => {
+      stored.value = values;
+    },
+  });
+  const pi: FakeCameraPi = { camera, puts: [], gets: 0, failRead: null };
+  const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, json: body });
+  const failed = (route: Route, error: unknown) => {
+    if (!(error instanceof CameraError)) throw error;
+    return json(route, { error: error.code }, CAMERA_STATUS[error.code]);
+  };
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace(/^\/api/, '');
+    if (path === '/health')
+      return json(route, {
+        ok: true,
+        version: '1.6.0',
+        fluidnc: null,
+        sensors: 'none',
+        // the companion's own host, port 8081: the stream the app adopts as its camera
+        camera: ':8081/stream',
+        state: true,
+        cameraControls: true,
+      });
+    if (path === '/camera/controls') {
+      if (request.method() === 'PUT') {
+        pi.puts.push((request.postDataJSON() as { controls: Record<string, number> }).controls);
+        try {
+          return json(route, await controls.apply(request.postDataJSON()));
+        } catch (error) {
+          return failed(route, error);
+        }
+      }
+      pi.gets += 1;
+      if (pi.failRead) return failed(route, new CameraError(pi.failRead.error));
+      try {
+        return json(route, { controls: await controls.list() });
+      } catch (error) {
+        return failed(route, error);
+      }
+    }
+    if (path === '/state') return json(route, { keys: {} });
+    if (path.startsWith('/state/')) return json(route, { ok: true, rev: 1 });
+    if (path.startsWith('/library/')) return json(route, []);
+    return json(route, { error: 'not-found' }, 404);
+  });
+  return pi;
 }

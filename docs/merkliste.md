@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-22 von 155 erledigt.
+23 von 155 erledigt.
 
 ## Scan & Kamera
 
@@ -22,7 +22,7 @@ _Position und Schärfe der Aufnahmen, Kamera und Licht._
 ### Bewegungsunschärfe
 
 - [ ] **Belichtung von Hand kurz stellen** (kleiner Schritt) – Automatik aus, Belichtung ≤ 2 ms, dafür mehr Licht. Unschärfe = Geschwindigkeit × Belichtungszeit: 50 mm/s und 10 ms sind 0,5 mm, bei 1 ms nur 0,05 mm.
-- [ ] ★ **Belichtung aus der App einstellen** (kleiner Schritt, in Arbeit) – Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH.
+- [x] ★ **Belichtung aus der App einstellen** (kleiner Schritt) – Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH.
 - [x] **Tempo aus der Belichtung ableiten** (kleiner Schritt) – Die größte Scan-Geschwindigkeit folgt aus der erlaubten Unschärfe (v ≤ 0,3 mm / Belichtungszeit): Feld „Belichtung (ms)“ im Scan-Panel, 0 heißt unbekannt; unter 5 mm/s wird in Stopps gescannt.
 - [ ] **Schärfstes Bild wählen** (kleiner Schritt) – Bei mehreren Bildern derselben Stelle das mit dem größten Kontrast nehmen (Varianz des Laplace-Filters).
 - [ ] **Unschärfe herausrechnen** (Forschung) – Richtungs-Entfaltung bei bekannter Fahrtrichtung und Länge. Hilft begrenzt und verstärkt das Rauschen.

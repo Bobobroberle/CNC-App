@@ -3319,6 +3319,89 @@ export const en: DictionaryShape = {
     badFit:
       'Sides and diagonals fit together poorly – probably a measuring error. Better measure again before correcting.',
   },
+  cameraControls: {
+    title: 'Exposure and picture',
+    hint: 'The settings of the USB camera on the Pi – not the device camera of this tablet. They apply at once. The companion remembers the values set last and puts them back at its start when the camera has lost them (unplugged, Pi restarted); they mostly stay when the camera service restarts.',
+    exposureHint:
+      'The exposure time is the time that was set; the camera may limit it by the frame rate. It only applies with manual exposure.',
+    read: 'Read again',
+    reading: 'Reading the camera …',
+    empty: 'The camera reports no settings the app may change.',
+    groups: {
+      exposure: 'Exposure',
+      picture: 'Picture',
+      whiteBalance: 'White balance',
+      focus: 'Focus',
+    },
+    names: {
+      auto_exposure: 'Exposure mode',
+      exposure_auto: 'Exposure mode',
+      exposure_time_absolute: 'Exposure time',
+      exposure_absolute: 'Exposure time',
+      exposure_dynamic_framerate: 'Lower the frame rate if needed',
+      exposure_auto_priority: 'Lower the frame rate if needed',
+      gain: 'Gain',
+      brightness: 'Brightness',
+      contrast: 'Contrast',
+      saturation: 'Saturation',
+      sharpness: 'Sharpness',
+      backlight_compensation: 'Backlight compensation',
+      power_line_frequency: 'Mains frequency (flicker filter)',
+      white_balance_automatic: 'Automatic white balance',
+      white_balance_temperature_auto: 'Automatic white balance',
+      white_balance_temperature: 'Colour temperature',
+      focus_automatic_continuous: 'Autofocus',
+      focus_auto: 'Autofocus',
+      focus_absolute: 'Focus',
+    },
+    menu: {
+      exposureAuto: {
+        '0': 'Automatic',
+        '1': 'Manual',
+        '2': 'Automatic (shutter priority)',
+        '3': 'Automatic (aperture priority)',
+      },
+      powerLine: { '0': 'Off', '1': '50 Hz', '2': '60 Hz', '3': 'Automatic' },
+    },
+    range: 'Range {min} to {max}{unit}',
+    inactive: {
+      exposure: 'No effect while the exposure mode is not "Manual".',
+      whiteBalance: 'No effect while the white balance is automatic.',
+      focus: 'No effect while autofocus is on.',
+      other: 'No effect at the moment: the camera ignores it in its present state.',
+    },
+    readOnly: 'Read only.',
+    notANumber: 'That is not a number – not set.',
+    outOfRange: 'Outside what the camera accepts ({min} to {max}{unit}) – not set.',
+    takenAs: 'The camera made {value}{unit} of it.',
+    refused: {
+      'not-allowed': 'The app may not change this setting.',
+      unknown: 'This camera does not know the setting.',
+      'read-only': 'The camera does not allow a change here.',
+      inactive:
+        'The camera has just switched it off (automatic on) – not set. The display was read again.',
+      range: 'Outside what the camera reports – not set.',
+      step: 'Not on the camera’s grid – not set.',
+      menu: 'Not an entry of this choice – not set.',
+      driver: 'The camera did not accept the value.',
+    },
+    errors: {
+      'no-v4l2':
+        'The Pi has no v4l2-ctl (package v4l-utils). With internet on the Pi: sudo apt-get install v4l-utils.',
+      'no-device':
+        'The companion cannot find the camera. Is it plugged in? Its device is set in /etc/lowrider.env (CAMERA_DEVICE).',
+      'no-permission':
+        'The companion may not open the camera. Once on the Pi: sudo usermod -aG video <user of the service lowrider-companion>, then sudo systemctl restart lowrider-companion.',
+      timeout: 'The camera did not answer in time.',
+      failed: 'v4l2-ctl could not read the camera.',
+      'bad-request': 'The companion did not understand the request.',
+      'rate-limited': 'Too fast in a row – wait a moment and try again.',
+      'not-supported':
+        'The companion has the camera settings switched off (LOWRIDER_CAMERA_CONTROLS=0).',
+      old: 'This companion does not know the camera settings yet – update the Pi (Settings → Connection).',
+      unreachable: 'The companion does not answer.',
+    },
+  },
   photomap: {
     hint: 'Every camera picture is laid down where it was taken. The map grows while you move at camera height – or by a scan.',
     tiles: 'Pictures on the map: {count}',
@@ -3370,6 +3453,16 @@ export const en: DictionaryShape = {
     exposure: 'Exposure (ms)',
     exposureHint:
       'How long the camera exposes a picture (0 = unknown, then there is no limit). It gives the fastest speed at which a picture is not blurred by more than 0.3 mm.',
+    takeOver: {
+      button: 'Take over from the camera',
+      hint: 'Reads the exposure time from the camera on the Pi now and enters it. Nothing is entered by itself.',
+      done: 'Read from the camera just now and entered: {ms} ms.',
+      auto: 'The camera exposes automatically – there is no fixed value, nothing entered. Under Settings → Camera → Exposure and picture set the exposure mode to "Manual".',
+      unavailable: 'The camera reports no fixed exposure time – nothing entered.',
+      notPi:
+        'The picture does not come from the companion’s stream (device camera, simulator or a foreign stream) – the Pi does not know its exposure. Nothing entered.',
+      failed: 'Nothing entered. {why}',
+    },
     blur: 'Blur at this speed about {mm} mm',
     capped: 'Speed limited to {speed} mm/s so that a picture is not blurred by more than 0.3 mm.',
     tooSlow:
@@ -3799,6 +3892,8 @@ export const en: DictionaryShape = {
         'calibrate the camera, scale, offset, pixels per mm, camera offset, camera to cutter, rotation of the camera',
       cameraHeight:
         'camera height, focus, sharp, height of the camera, z for the camera, sharpness',
+      cameraControls:
+        'exposure, exposure time, gain, brightness, contrast, saturation, sharpness, white balance, colour temperature, autofocus, focus, backlight, flicker, camera settings, picture settings, image quality, v4l2, too dark, too bright, blurred, belichtung, verstärkung',
       timelapse: 'timelapse, time lapse, film of the job, recording, video',
       workshop:
         'settings, workshop, options, general, basic settings, keep the screen on, stay awake, preferences',
