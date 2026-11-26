@@ -12,9 +12,14 @@ It answers, from the file alone, what a scan in strips depends on and the app ca
   5. Where the placed pictures really lie: each is set against the pictures at rest (a scan by stops, the anchors)
      that overlap it – the error of the placement, in mm.
   6. Which clock the pictures were put on the time line with (`meta.clock`: the Pi's – the relay stamps the reports and the
-     camera server the pictures – or the browser's) and, for a run on the Pi's, the lag and the timing noise of *both* clocks
-     from the same placed pictures: the page's (when it saw a report or a picture) against the Pi's (its stamp), and which of
-     the two scatters less. A file without stamps (older, or a run on the browser's clock) has only the browser's.
+     camera server the pictures – or the browser's) and, for a run on the Pi's, the lag and the timing noise of *both* time
+     lines from the same placed pictures: the page's arrival times against the Pi's stamps, and which of the two scatters less.
+     **What "the page's" means differs by run.** On a run on the browser's clock a picture is timed when the screen first
+     showed it (the sampling of the screen). On a run on the Pi's clock the page does not look at the screen: a picture's page
+     time is when the page *read the chunk of the stream that completed it*, a report's when the page received it – no raster
+     of the screen, no decode. So the page figure of a Pi-clock file is the arrival of bytes, a little better than what a scan on
+     the browser's clock would have had, and the comparison says what the stamps take out of *arrival* times, not what a whole
+     browser-clock scan would have scattered. A file without stamps (older, or a run on the browser's clock) has only the page's.
 
 Needs numpy and Pillow.   python3 scripts/analyze-scan.py recording.zip [--json out.json]
 """
@@ -308,7 +313,8 @@ def lag_from_solved(trace, run):
 def lag_from_solved_pi(trace, run):
     """The same on the Pi's clock: each picture at the stamp the Pi's camera server gave it, the reports at the stamp the
     relay gave them (the same clock – `mono` or `wall` – the pictures are in). None for a run on the browser's clock, and
-    for a file that has no stamps."""
+    for a file that has no stamps. (`lag_from_solved` above is, on such a run, made from the page's arrival times: the picture's
+    `t` in the file is when the page read the stream chunk that held it – not when the screen showed it.)"""
     sol = run['solved']
     if not sol or sol.get('clock') != 'pi':
         return None
@@ -468,14 +474,25 @@ def summary(report):
     c = report.get('clocks') or {}
     if c.get('meta_clock'):
         lines.append(f"Clock the scans ran on: {c['meta_clock']} ('pi': reports and pictures stamped by the Pi; "
-                     f"'browser': stamped when this page saw them)")
-    lags = [r['lag_from_placed_pictures'] for r in report['runs'] if r.get('lag_from_placed_pictures')]
+                     f"'browser': timed when this page saw them – a picture when the screen first showed it)")
+    on_pi = lambda r: (r.get('summary') or {}).get('clock') == 'pi'
+    # the page's own times: on a run on the browser's clock the moment the screen first showed a picture (the app's own timing
+    # then); on a run on the Pi's clock the moment the page read the stream chunk that held it – two different things
+    lags = [r['lag_from_placed_pictures'] for r in report['runs'] if r.get('lag_from_placed_pictures') and not on_pi(r)]
+    arrival_lags = [r['lag_from_placed_pictures'] for r in report['runs'] if r.get('lag_from_placed_pictures') and on_pi(r)]
     pi_lags = [r['lag_from_placed_pictures_pi'] for r in report['runs'] if r.get('lag_from_placed_pictures_pi')]
     if lags:
         lag = float(np.median([x['lag_ms'] for x in lags]))
         noise = float(np.median([x.get('timing_noise_ms', 0) for x in lags]))
-        lines.append(f"Lag of the camera pictures behind the status reports, browser clock: {lag:.0f} ms (timing noise about "
-                     f"{noise:.0f} ms) – from {len(lags)} run(s); the app's own figure is in meta.stripLagS")
+        lines.append(f"Lag of the camera pictures behind the status reports, browser clock (a picture timed when the screen first "
+                     f"showed it): {lag:.0f} ms (timing noise about {noise:.0f} ms) – from {len(lags)} run(s); the app's own figure "
+                     f"is in meta.stripLagS")
+    if arrival_lags:
+        lag = float(np.median([x['lag_ms'] for x in arrival_lags]))
+        noise = float(np.median([x.get('timing_noise_ms', 0) for x in arrival_lags]))
+        lines.append(f"Lag of the camera pictures behind the status reports, page arrival times on a Pi-clock scan (a picture timed "
+                     f"when the page read the stream chunk that held it, a report when the page received it – not when the screen "
+                     f"showed it): {lag:.0f} ms (timing noise about {noise:.0f} ms) – from {len(arrival_lags)} run(s)")
     if pi_lags:
         lag = float(np.median([x['lag_ms'] for x in pi_lags]))
         noise = float(np.median([x.get('timing_noise_ms', 0) for x in pi_lags]))
@@ -487,22 +504,25 @@ def summary(report):
         if both:
             nb = float(np.median([b.get('timing_noise_ms', 0) for b, _ in both]))
             npi = float(np.median([p.get('timing_noise_ms', 0) for _, p in both]))
-            winner = 'the Pi clock' if npi < nb else ('the browser clock' if nb < npi else 'neither')
+            winner = 'the Pi stamps' if npi < nb else ('the page arrival times' if nb < npi else 'neither')
             # the registration places a picture to about 0.1 mm: over the speed of the run that is the least a noise can show
             speed = float(np.median([r['speed_mm_s'] for r in report['runs'] if r.get('lag_from_placed_pictures_pi')]))
             floor = 100.0 / speed if speed > 0 else 0.0
-            lines.append(f"Timing noise, browser clock {nb:.0f} ms against Pi clock {npi:.0f} ms: {winner} has the lower noise "
-                         f"(the same placed pictures, {len(both)} run(s); the registration itself resolves about 0.1 mm, "
-                         f"which at {speed:.0f} mm/s is {floor:.1f} ms – a figure near that says 'no more than this', not 'exactly this')")
+            lines.append(f"Timing noise, page arrival times {nb:.0f} ms (a report when the page received it, a picture when the page read "
+                         f"the stream chunk that held it) against Pi stamps {npi:.0f} ms: {winner} {'have' if winner == 'the Pi stamps' else 'has'} "
+                         f"the lower noise (the same placed pictures, {len(both)} run(s); this compares arrival of bytes with the Pi's "
+                         f"stamps – a scan on the browser's clock times a picture when the screen first shows it, which is not what is "
+                         f"measured here; the registration itself resolves about 0.1 mm, which at {speed:.0f} mm/s is {floor:.1f} ms – "
+                         f"a figure near that says 'no more than this', not 'exactly this')")
     elif c.get('meta_clock') == 'pi':
         lines.append('A run on the Pi clock, but no run placed enough pictures to work the Pi clock\'s lag out')
     if c.get('reports'):
         r = c['reports']
-        lines.append(f"Reports: the page saw them {r['page_minus_pi_sd_ms']} ms (sd) unevenly against the Pi's stamp "
+        lines.append(f"Reports: the page received them {r['page_minus_pi_sd_ms']} ms (sd) unevenly against the Pi's stamp "
                      f"({r['n_stamped']} stamped)")
     for row in c.get('pictures') or []:
-        lines.append(f"Pictures, scan {row['scan']} ({row['source']}): the page saw them {row['page_minus_pi_sd_ms']} ms (sd) unevenly "
-                     f"against the Pi's stamp ({row['n']} pictures)")
+        lines.append(f"Pictures, scan {row['scan']} ({row['source']}): the page read the stream chunk that held them "
+                     f"{row['page_minus_pi_sd_ms']} ms (sd) unevenly against the Pi's stamp ({row['n']} pictures)")
     ok = [r for r in report['runs'] if r.get('summary')]
     if ok:
         offered = sum(r['summary']['offered'] for r in ok)

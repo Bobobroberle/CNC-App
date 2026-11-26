@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { t } from '../i18n';
 import type { Point } from '../lib/camera';
+import { clockChoiceText, clockLostText } from '../lib/clockText';
 import { formatNumber } from '../lib/format';
 import {
   releaseDrawable,
@@ -60,7 +61,12 @@ import {
   timingNoiseMs,
   type Strip,
 } from '../lib/strips';
-import { isSimulatorAddress, simulatedPi, simulatorFrameSource } from '../sim';
+import {
+  isSimulatorAddress,
+  openSimulatedStreams,
+  simulatedPi,
+  simulatorFrameSource,
+} from '../sim';
 import {
   cameraElement,
   crosshairPoint,
@@ -631,6 +637,8 @@ export const scanStats = () => lastScan;
   trace: () => useScanTrace.getState(),
   /** The relay's stamp of the newest report (null: it came without one) – for the tests of the Pi's clock */
   stamp: () => useMachine.getState().statusStamp,
+  /** How many of the simulated Pi's camera streams are open (a scan lets go of its stream when the runs are over) */
+  streams: () => openSimulatedStreams(),
 };
 
 /** Pictures taken during a strip, every this share of the trusted length along it */
@@ -957,7 +965,7 @@ async function picturesDecode(source: FrameSource): Promise<boolean> {
 
 /**
  * Chooses the clock of a scan, once, and opens what the Pi's clock needs: the stream of stamped pictures (the simulated
- * Pi's, in the simulator), which then stays open for the whole scan. All or nothing: the Pi's clock only where the reports
+ * Pi's, in the simulator), which then stays open for the runs of the scan and is closed when they are over. All or nothing: the Pi's clock only where the reports
  * carry the relay's stamp, the pictures carry the Pi's, and the two are in one clock (`clockFromStream`); anything else is
  * the browser's clock with the reason, and the stream is closed again.
  */
@@ -1075,7 +1083,7 @@ function browserCollector(el: CameraPicture, plan: RunPlan): Collector {
   };
 }
 
-/** What a scan on the Pi's clock holds on to: the clock and the stream of stamped pictures that stays open for the scan */
+/** What a scan on the Pi's clock holds on to: the clock and the stream of stamped pictures, open for the runs only (`closeStream` in `scanArea`) */
 interface PiTiming {
   clock: PiClock;
   source: FrameSource;
@@ -1126,8 +1134,9 @@ async function decodeStamped(
  * stream's – **no sampling of the screen**, so the page's own late and uneven view of the camera is not in it. While the
  * run goes the status is asked for faster (`STRIP_POLL_MS`); the stream keeps bytes and stamps only, and what the run took is
  * chosen from them and decoded afterwards. A report that came without a stamp is left out, never mixed in.
+ * (Exported for `test/stampedPath.test.ts`, which drives it with the real stream, parser and picker.)
  */
-function stampedCollector(timing: PiTiming, el: CameraPicture, plan: RunPlan): Collector {
+export function stampedCollector(timing: PiTiming, el: CameraPicture, plan: RunPlan): Collector {
   const { source, clock } = timing;
   const track = new PositionTrack();
   // the pictures this run asks for, and a clean ring: what an earlier strip left there is not this run's
@@ -1434,15 +1443,22 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       timingNoiseMs: null,
       detail: [],
     };
-    // the scatter of each run that said, put together at the end; the Pi's stamped pictures stay open for the scan
+    // the scatter of each run that said, put together at the end
     const noises: { ms: number; count: number }[] = [];
     let timing: PiTiming | null = null;
+    // The stamped stream serves the runs and nothing else: it is closed as soon as they are over – never left copying
+    // 20 pictures a second (a Pi 4 and its WLAN) through the last solve, the refill by stops or a fallback to stops.
+    // The pictures it kept stay readable and can be decoded after it is closed. Closing twice does nothing.
+    const closeStream = () => {
+      timing?.source.close();
+      timing = null;
+    };
     // whether a clock was chosen for this scan (a scan cancelled while that was going on used none)
     let clockChosen = false;
     // The Pi's clock went away: said once, and the scan goes on by stops – never blamed on the table (`stripsBad`)
     const clockWentAway = (why: ClockReason) => {
       stats.clockLost = why;
-      addLog('info', t('photomap.clockLost', { why: t(`photomap.clockWhy.${why}`) }));
+      addLog('info', t('photomap.clockLost', { why: clockLostText(why) }));
     };
     // One picture at a stop – the way an area is scanned picture by picture, and what fills the gaps of strips.
     const stopAt = async (p: Point) => {
@@ -1484,7 +1500,9 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
             // said once: a Pi is there and its clock was not used – and why
             addLog(
               'info',
-              t('photomap.clockFallback', { why: t(`photomap.clockWhy.${chosen.clock.reason}`) }),
+              t('photomap.clockFallback', {
+                why: clockChoiceText(chosen.clock.reason, chosen.clock.detail),
+              }),
             );
           }
           traceClock(chosen.clock.kind);
@@ -1542,6 +1560,8 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
           }
         }
       }
+      // the probe was the only run there is to be (the clock went away, the table gave too little): the area goes by stops
+      if (!strips) closeStream();
       if (strips && ok) {
         const speed = stripSpeed(get().tempo);
         let work: Promise<StripResult> | null = null;
@@ -1572,6 +1592,9 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
           }
           set({ scan: { done: i + 1, total: strips.length, startedAt, unit: 'strips' } });
         }
+        // The runs are over, whichever way they ended: no more pictures are wanted from the Pi. What the last strip took is
+        // already copied out of the stream (its bytes are the run's own), so it is decoded and solved without it.
+        closeStream();
         await work;
         for (const w of await Promise.all(works)) {
           stats.offered += w.offered;
@@ -1621,8 +1644,8 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
         }
       }
     } finally {
-      // the stamped pictures were kept open for this scan only
-      timing?.source.close();
+      // every way out of the scan ends here (cancel, hold, alarm, lost link, an error): the stream is closed on all of them
+      closeStream();
       const count = get().tiles - tiles0;
       stats.seconds = (Date.now() - startedAt) / 1000;
       stats.lag = stripLag;

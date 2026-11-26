@@ -757,6 +757,27 @@ describe('a stream that stops being one', () => {
     expect(ended.reason).toBe('ended');
   });
 
+  it('lets go of the connection on close – the request is aborted, the reader cancelled – and keeps what it holds, decodable (the scan closes it before the last strip is solved)', async () => {
+    const p = pipe();
+    const bitmap = { width: 4, height: 3, close: vi.fn() } as unknown as ImageBitmap;
+    const { handle, fetchFn } = await opened(p, {
+      createBitmap: async () => bitmap,
+      minSpacingS: 0,
+    });
+    p.push(mjpeg(pictures(3, 5000.04, 0.04), { length: true }));
+    await tick(20);
+    const signal = fetchFn.mock.calls[0]![1]!.signal!;
+    expect(signal.aborted).toBe(false);
+    expect(p.cancelled).toBe(false);
+    handle.close();
+    await tick(10);
+    expect(signal.aborted).toBe(true);
+    expect(p.cancelled).toBe(true);
+    // what it held stays readable (the scan decodes the last strip's pictures after the stream is closed)
+    expect(handle.frames()).toHaveLength(4);
+    expect(await handle.decode(handle.frames()[2]!)).toBe(bitmap);
+  });
+
   it('ignores pieces that are empty or no bytes', async () => {
     const p = pipe();
     const { handle } = await opened(p, { minSpacingS: 0 });

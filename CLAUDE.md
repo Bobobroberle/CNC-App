@@ -567,7 +567,8 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   very next frame only and gives it to the reports that frame holds – the one a line began in, if it is split – as the
   second argument of `status` (`RelayStamp`); the store keeps it as `statusStamp`, set in the same step as `status`, `null`
   for a report without one (simulator, FluidNC direct, an older companion that ignores the parameter). `/api/health` says
-  `stamps: true` and `clock: {mono, wall}`. The strip scan uses the stamps (one clock per scan, see the photo map below); `docs/companion.md`. With a companion relaying,
+  `stamps: true` – and nothing of the Pi's clock (the answer is open to every page; the app compares stamps with the newest
+  report's, never with a time from the health answer). The strip scan uses the stamps (one clock per scan, see the photo map below); `docs/companion.md`. With a companion relaying,
   "Über den Pi verbinden" is the one way in the connection card; HTTP uploads go to FluidNC's own
   host (`fluidncHttpBase`), not the Pi.
 - FluidNC's limits ("Grenzen der Steuerung", `MachineLimitsCard`, `store/limits.ts`, pure
@@ -667,7 +668,11 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   **One clock per scan, the Pi's or the browser's – never a mixture** (`lib/scanClock.ts` pure, `chooseScanClock` in `store/photomap.ts`,
   decided once per scan before the probe run): on **`pi`** the reports are put on the line with the relay's stamp (`statusStamp`, in the
   domain the pictures are stamped in: `mono` for a grab time, `wall` for `X-Timestamp`) and the pictures are the **stamped stream's**
-  (`store/stampedFrames.ts`, opened once per scan, closed in `finally`; `lib/mjpeg.ts`, `lib/frameStamp.ts`) instead of the page's `FrameWatch`
+  (`store/stampedFrames.ts`, opened once per scan and **closed as soon as the runs are over** – `closeStream` in `scanArea`: where the probe ends
+  the strips (the clock went away, the table gave too little) because the area then goes by stops, after the strip loop – before the last strip
+  is solved and before the refill by stops – whichever way the loop ended, and in `finally` for every other way out; between two strips it keeps
+  running, because the clock check before the next strip needs a fresh picture; the pictures it kept stay readable and are decoded after the
+  close; `e2e/strips.spec.ts` looks every 10 ms at how many simulated streams are open, `lowriderMap.streams()`; `lib/mjpeg.ts`, `lib/frameStamp.ts`) instead of the page's `FrameWatch`
   sampling – during the run only bytes and stamps are copied, `pickStripFrames` chooses the pictures after it (those inside the span of the
   `Jog` reports with the lag allowed for, ≥ 3 mm from the start, `MAX_STRIP_PICTURES`) and `decodeStamped` makes pixels of them one at a
   time with `turn()` in between; the status is asked for every `STRIP_POLL_MS` (100 ms) on top of the regular poll (`useMachine.pollStatus`,
@@ -684,23 +689,34 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   a stream that dropped or reports that lost their stamp during the probe are `clockLost`, not `gaveUp`; the refill by stops covers the rest, `stripsBad` is not set).
   **Cancel**: `cancelScan` also closes a stamped stream that is still being opened (`opening`, handed out by `openStampedStream`'s `onCreate`), the
   clock choice then says nothing (no log, no `lastClock`), and neither the probe nor `runStrip` sends the hop of a scan that is cancelled. **It compares the newest
-  kept picture, so that one must be fresh**: a run keeps pictures `every` seconds apart (3.6 s at 5 mm/s – more than the 3 s window), so when
-  the run is over the stream's spacing goes back to `MIN_FRAME_SPACING_S`; a newest picture older than `STALE_PICTURE_MS` is a stopped
+  kept picture, so that one must be fresh**: a run keeps pictures `every` seconds apart (0.3 × field ÷ speed: 5 s at 5 mm/s for a field of 84 mm, the demo's – more than the 3 s window), so when
+  the run is over the stream's spacing goes back to `MIN_FRAME_SPACING_S` (**`evicted`** – pictures pushed out of the 300-picture ring – is a
+  note in the recording, `stamped-pictures`, and refuses nothing: a run keeps ~21 pictures, so it needs a huge frame or a long wait at rest
+  to overflow, and then the solver places what is there and the refill by stops covers the start; untested, the simulator never overflows);
+  a newest picture older than `STALE_PICTURE_MS` is a stopped
   stream (`stream`), not a clock that left (`window`). **The lag is per clock** (`lagClock`): a scan on another clock than the last
   one forgets it and measures again (also on a change of camera source or stream, as before); the Pi's first guess is 0 and its limits
   are `PI_LAG_LIMITS` (−0.5 … 1.5 s) because a report is stamped when the Pi *received* it, a little after FluidNC measured, so the lag
   between the two stamps can be below zero. `ScanStats` says `clock`, `clockReason`, `clockLost`, `stamp`, and `timingNoiseMs` – the spread
   of what the single pictures imply for the lag around its median, which no constant takes out (`timingNoiseMs` in `lib/strips.ts`). **The
-  panel** names the clock of the last scan in strips and why not the Pi's (`lastClock`), and has the exposure of the camera (this device's,
-  kept with mode and tempo under `lowrider-control.scan`, 0 = unknown): `maxSpeedForBlur` caps `stripSpeed` at 0.3 mm of blur, and where
-  that is below 5 mm/s (the lag cannot be learned slower) the scan goes by stops and says so. **The simulator's Pi** is
+  panel** names the clock of the last scan in strips and why not the Pi's (`lastClock`) **in words** (`lib/clockText.ts`: a German sentence for
+  each reason at the choice, other sentences for a clock that went away mid-scan – "not connected through the Pi" is not true then –, the
+  stream's failure code as a cause, `no-decode` as "the pictures cannot be made into pixels", the stamp's header as "capture time of the camera
+  driver" …; the raw code or header is shown only beside it, small; `test/clockText.test.ts` reads `StampedFailure` from the source so a new code
+  needs a sentence), and has the exposure of the camera (this device's, kept with mode and tempo under `lowrider-control.scan`, 0 = unknown):
+  `maxSpeedForBlur` caps `stripSpeed` at 0.3 mm of blur, and where that is below 5 mm/s (the lag cannot be learned slower) the scan goes by
+  stops and says so – **and the panel's estimate is then the by-stops one** (the same test, `stripSpeed(tempo) < MIN_LAG_SPEED`, in `scanArea`
+  and in `PhotoMapPanel`), not "N Streifen" that will not be run. **The simulator's Pi** is
   `window.lowriderPiClock` (`PiClockSetup` in `sim/index.ts`; undefined by default = the simulator as it was): a Pi clock `offsetMs`
   hours ahead of the page's (7.2 million ms in the tests, so any mixing fails loudly), every message of the simulated controller late and
   uneven on its way to the page (`linkMs`, `linkJitterMs`, in order), a `STAMP:` frame before each (`stampLagMs`, `stampNoiseMs` are what
   stays in the stamp), `stamps: false` for a companion that stamps nothing (switchable while a scan runs: the stamps are lost mid-run), `undecodable: true` for pictures this
   browser cannot make pixels of, and `simulatorFrameSource()` – the camera's pictures at the true
   moment (the machine is caught up to it), stamped to the millisecond with `frameStampNoiseMs`, `frameClockOffsetMs` for a driver with its
-  own clock; the camera's browser-side lag (`lowriderCameraLag`) touches neither stamp nor picture (`window.lowriderMap.stamp()` is the newest report's stamp, for the tests to wait for). `e2e/strips.spec.ts` holds the Pi's
+  own clock; the camera's browser-side lag (`lowriderCameraLag`) touches neither stamp nor picture (`window.lowriderMap.stamp()` is the newest report's stamp, for the tests to wait for). `test/stampedPath.test.ts` drives the real chain end to end – a synthetic ustreamer stream with the header names of several versions through
+  `openStampedStream` (fake `fetch` body, the real parser), the real `stampedCollector` (exported for it: its store subscription, the span of
+  `Jog` reports, `pickStripFrames`) and `decode` with a fake `createImageBitmap` and a fake canvas – and says what it does not reach: a real
+  browser's `fetch`/CORS, a real JPEG through a real `createImageBitmap`, the pixels of `readFrame`, the recording branch. `e2e/strips.spec.ts` holds the Pi's
   clock to the plate like a scan by stops, compares it with the browser's on a bad link and camera (numbers in `docs/scan.md`), and
   checks the fallback. **What stays and cannot be tested here:** the jitter of the Jackpot→Pi WLAN hop and FluidNC's own sampling and
   send time (both in the report's stamp), the V4L2 driver's buffer timestamp semantics, ustreamer's 1 ms resolution, a Safari on the iPad
@@ -720,7 +736,7 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   time with `setTimeout(0)` in between; rAF gaps over `GAP_MS` are logged so stalls show up in the file (they are the recorder's own
   footprint too); **while recording, the run is not given up** (`keepGoing`: the give-up gate would empty the file on exactly the table
   it is wanted for – refused pictures stay off the map, holes are still refilled); the meta holds calibration, picture size, speeds, the
-  lag as known, `viaCompanion` – **never an address or a login** (the e2e checks) – and the user agent; the file contains photos of the
+  lag as known, `viaCompanion` – **never an address or a login** (the e2e greps the whole text of `trace.json` – reports, pictures, solved events – and the names in the zip for addresses and login words) – and the user agent; the file contains photos of the
   table and the panel says so. The analyzer reports the rhythm of reports and pictures, stalls, how long a jog takes to start, the
   **lag of the pictures behind the reports from the registered (placed) pictures** – a lag cannot be found from positions that are
   relative within stretches, a steady speed hides it; absolute positions need the anchors, which is what the solver's placements are,
@@ -731,7 +747,9 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   fields optional): `meta.clock` (`pi`, `browser`, `mixed`) and `options.clock` per scan, `stamp` on a report (the relay's mono/wall),
   `pictures` (every picture the stream kept in a run: when the page got it and the Pi's stamp), `stamp` on a `run` picture, and on a
   `solved` event the clock and per picture its stamp and its arrival – so one file gives the analyzer the lag and the timing noise of the
-  page's clock and of the Pi's from the same placed pictures, says which scatters less, and reports how unevenly the page saw reports and
+  page's *arrival* times (a report when the page received it, a picture when the page read the stream chunk that completed it – **not** when
+  `<img>`/the screen first showed it, which is what a scan on the browser's clock uses) and of the Pi's stamps from the same placed pictures,
+  says which scatters less – arrival of bytes against stamps, not a whole browser-clock scan – and reports how unevenly the page got reports and
   pictures against their stamps. An older file, or a run on the browser's clock, has none of it and is read as before.
 - **The accuracy check with a rule and the squaring of the gantry** (`components/AccuracyCheck.tsx`, `AccuracySketch.tsx`,
   `CorrectionPanel.tsx`, pure `lib/squaring.ts`): frame of reference everywhere – the same as the test pattern's labels – origin

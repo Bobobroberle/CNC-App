@@ -215,25 +215,25 @@ der Pi von selbst zur alten Version zurückgekehrt ist. Dasselbe in die andere R
 
 ## Schnittstelle
 
-| Methode und Pfad                                              | Zweck                                                                                                     |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `GET /api/health`                                             | Version, Build, Weiterleitung, Sensorquelle, Kamera-Stream, Anmeldung/Update an, `stamps`/`clock` (s. u.) |
-| `GET /api/state`, `PUT /api/state/:key`                       | Einstellungen der Maschine (Dokumente mit Version, s. oben)                                               |
-| `POST /api/auth/login`, `GET/POST/DELETE /api/auth/…`         | Anmeldung: mit dem Pi-Code anmelden, Geräte, Code anzeigen/erneuern                                       |
-| `GET /api/update`, `POST /api/update/{upload,apply,rollback}` | Update aus der App (mit Anmeldung, s. oben)                                                               |
-| `DELETE /api/update/staged`                                   | Eine hochgeladene Datei verwerfen (sie bleibt sonst 30 Minuten im Speicher des Pi)                        |
-| `POST /api/system/shutdown`                                   | Pi herunterfahren (mit Anmeldung; antwortet erst, fährt dann nach 0,5 s)                                  |
-| `GET/PUT/DELETE /api/library/:sammlung/:id`                   | tools, materials, zeros, jigs, macros, history, learning, profiles …                                      |
-| `POST /api/library/:sammlung`                                 | mehrere Einträge auf einmal (Import)                                                                      |
-| `GET/PUT/DELETE /api/jobs/:name`                              | Job-Puffer (G-Code als Text)                                                                              |
-| `GET/PUT /api/notify`, `POST /api/notify`                     | Benachrichtigung einstellen bzw. senden                                                                   |
-| `GET/POST /api/sensors`                                       | letzter Sensorwert bzw. neuen Wert melden                                                                 |
-| `WS /api/sensors/stream`                                      | Sensorwerte live                                                                                          |
-| `WS /fluidnc`                                                 | Weiterleitung zum Jackpot (`?stamp=1`: mit Zeitstempeln des Pi, s. u.)                                    |
-| `GET /api/recordings`                                         | Aufnahmen, laufende Aufnahme, ffmpeg/Video-Chip vorhanden                                                 |
-| `POST /api/recordings/start`, `/stop`                         | Mitschnitt starten (`mode`, `intervalSeconds`, …) bzw. beenden                                            |
-| `GET /api/recordings/:id/file?kind=…`                         | `video` oder `timelapse` als MP4 (mit Range, für iPad/Safari)                                             |
-| `DELETE /api/recordings/:id`                                  | Aufnahme löschen                                                                                          |
+| Methode und Pfad                                              | Zweck                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `GET /api/health`                                             | Version, Build, Weiterleitung, Sensorquelle, Kamera-Stream, Anmeldung/Update an, `stamps` (s. u.) |
+| `GET /api/state`, `PUT /api/state/:key`                       | Einstellungen der Maschine (Dokumente mit Version, s. oben)                                       |
+| `POST /api/auth/login`, `GET/POST/DELETE /api/auth/…`         | Anmeldung: mit dem Pi-Code anmelden, Geräte, Code anzeigen/erneuern                               |
+| `GET /api/update`, `POST /api/update/{upload,apply,rollback}` | Update aus der App (mit Anmeldung, s. oben)                                                       |
+| `DELETE /api/update/staged`                                   | Eine hochgeladene Datei verwerfen (sie bleibt sonst 30 Minuten im Speicher des Pi)                |
+| `POST /api/system/shutdown`                                   | Pi herunterfahren (mit Anmeldung; antwortet erst, fährt dann nach 0,5 s)                          |
+| `GET/PUT/DELETE /api/library/:sammlung/:id`                   | tools, materials, zeros, jigs, macros, history, learning, profiles …                              |
+| `POST /api/library/:sammlung`                                 | mehrere Einträge auf einmal (Import)                                                              |
+| `GET/PUT/DELETE /api/jobs/:name`                              | Job-Puffer (G-Code als Text)                                                                      |
+| `GET/PUT /api/notify`, `POST /api/notify`                     | Benachrichtigung einstellen bzw. senden                                                           |
+| `GET/POST /api/sensors`                                       | letzter Sensorwert bzw. neuen Wert melden                                                         |
+| `WS /api/sensors/stream`                                      | Sensorwerte live                                                                                  |
+| `WS /fluidnc`                                                 | Weiterleitung zum Jackpot (`?stamp=1`: mit Zeitstempeln des Pi, s. u.)                            |
+| `GET /api/recordings`                                         | Aufnahmen, laufende Aufnahme, ffmpeg/Video-Chip vorhanden                                         |
+| `POST /api/recordings/start`, `/stop`                         | Mitschnitt starten (`mode`, `intervalSeconds`, …) bzw. beenden                                    |
+| `GET /api/recordings/:id/file?kind=…`                         | `video` oder `timelapse` als MP4 (mit Range, für iPad/Safari)                                     |
+| `DELETE /api/recordings/:id`                                  | Aufnahme löschen                                                                                  |
 
 ### Zeitstempel der Weiterleitung (`?stamp=1`)
 
@@ -258,9 +258,10 @@ WLAN, den Pi und wieder das WLAN gelaufen ist. Darum stempelt das Relais auf dem
   dessen Rahmen die Verbindung nicht mehr wartet, geht mit der Verbindung. Im Speicher der App steht er als
   `useMachine.statusStamp` – im selben Schritt wie `status`, und `null` für einen Bericht ohne Stempel (Simulator, FluidNC
   direkt, ein älterer Companion, der den unbekannten Parameter ignoriert).
-- **`GET /api/health`** meldet `stamps: true` (diese Version stempelt auf Wunsch) und `clock: { mono, wall }`, eine
-  Momentaufnahme der Uhr im Augenblick der Anfrage. Ein älterer Companion hat beide Felder nicht; die App bleibt dann bei
-  der Uhr des Browsers. Der Scan prüft die Uhren nicht gegen `clock`, sondern gegen den Stempel des neuesten Berichts (`domainFits`, `docs/scan.md`); `clock` ist die Momentaufnahme, mit der man von Hand nachsehen kann, ob Kamerabild-Stempel und Pi in einer Uhr liegen.
+- **`GET /api/health`** meldet `stamps: true` (diese Version stempelt auf Wunsch). Ein älterer Companion hat das Feld nicht; die App
+  bleibt dann bei der Uhr des Browsers. Die Uhr des Pi selbst steht **nicht** in der Antwort (sie ist ohne Anmeldung für jede Seite
+  lesbar, und die Betriebszeit des Pi braucht keine Seite): der Scan prüft die Uhren gegen den Stempel des neuesten Berichts
+  (`domainFits`, `docs/scan.md`), nicht gegen eine Zeit aus `/api/health`.
 - **Was das nicht kann:** der Stempel sagt, wann der **Pi** die Nachricht bekam. Der Weg Jackpot → Pi (WLAN, jitternd), die
   Zeit, die FluidNC für Messen und Senden braucht, und die Verzögerung der Kamera bleiben unbekannt (die letzte lernt der
   Scan selbst).

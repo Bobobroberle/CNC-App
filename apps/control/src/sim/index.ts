@@ -804,6 +804,10 @@ export interface SimFrame extends SourceFrame {
  * when the page *says* it got it (`arrival`, for the recording). Nothing is drawn while the pictures are taken: a picture
  * is only a place and a stamp until `decode` paints it, as a JPEG is only bytes until it is decoded.
  */
+/** Simulated streams that are open right now – the tests look at it to see that a scan lets go of its stream */
+let openFrameSources = 0;
+export const openSimulatedStreams = () => openFrameSources;
+
 class SimulatedFrames implements FrameSource<SimFrame> {
   ok = true;
   reason: string | undefined;
@@ -814,6 +818,10 @@ class SimulatedFrames implements FrameSource<SimFrame> {
   private lastStampMs = -Infinity;
   private seq = 0;
   private readonly timer = setInterval(() => this.take(), 1000 / SIM_FRAME_FPS);
+
+  constructor() {
+    openFrameSources += 1;
+  }
 
   get domain(): StampDomain | null {
     return piClock()?.frameDomain ?? 'mono';
@@ -883,6 +891,7 @@ class SimulatedFrames implements FrameSource<SimFrame> {
     if (this.ok) {
       this.ok = false;
       this.reason = 'closed';
+      openFrameSources -= 1;
     }
   }
 }

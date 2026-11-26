@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { t } from '../i18n';
+import { clockChoiceText, clockLostText, stampSourceText } from '../lib/clockText';
 import { formatNumber, parseNumber } from '../lib/format';
 import type { Rect } from '../lib/photomap';
 import { MIN_LAG_SPEED, blurAtSpeed, maxSpeedForBlur } from '../lib/strips';
@@ -95,14 +96,17 @@ export function PhotoMapPanel() {
   const points = machineArea ? scanPoints(machineArea) : null;
   // Both ways by the same rules, so the one can be compared with the other
   const estimate = machineArea ? scanEstimate(machineArea, tempo) : null;
-  const onTheMove = mode === 'strips' && !stripsBad && estimate?.strips != null;
+  // The speed of a run: where the exposure holds it below what the lag can be measured at, the scan goes by stops
+  // (`scanArea`, the same test) – and then the by-stops estimate is the headline, not strips that will not be run.
+  const speed = stripSpeed(tempo);
+  const onTheMove =
+    mode === 'strips' && !stripsBad && speed >= MIN_LAG_SPEED && estimate?.strips != null;
   const canScan = idle && !scan && points !== null && (blocker === null || blocker === 'offHeight');
 
   // What is being typed, until it is a number again ("12," or "-" on the way to a value).
   const [typing, setTyping] = useState<Partial<Record<keyof Rect, string>>>({});
   const [typingExposure, setTypingExposure] = useState<string | null>(null);
   // The exposure holds the run back where the blur it allows is below what the tempo asks for
-  const speed = stripSpeed(tempo);
   const capped = exposureMs > 0 && maxSpeedForBlur(exposureMs) < tempoSpeed(tempo);
   const field = (key: keyof Rect, label: Parameters<typeof t>[0]) => (
     <Field>
@@ -262,25 +266,38 @@ export function PhotoMapPanel() {
         >
           <p className="text-foreground font-medium">{t('photomap.clock.title')}</p>
           <p data-testid="scan-clock-line">
-            {lastClock.clock === 'pi' && lastClock.stamp
-              ? t('photomap.clock.pi', {
+            {lastClock.clock === 'pi' && lastClock.stamp ? (
+              <>
+                {t('photomap.clock.pi', {
                   domain: t(`photomap.clock.domains.${lastClock.stamp.domain}`),
-                  source: lastClock.stamp.source,
-                })
-              : t('photomap.clock.browser')}
+                  source: stampSourceText(lastClock.stamp.source),
+                })}{' '}
+                <span className="text-xs" data-testid="scan-clock-header">
+                  {lastClock.stamp.source}
+                </span>
+              </>
+            ) : (
+              t('photomap.clock.browser')
+            )}
           </p>
           {lastClock.clockReason ? (
             <p data-testid="scan-clock-why" data-reason={lastClock.clockReason}>
               {t('photomap.clock.why', {
-                why:
-                  t(`photomap.clockWhy.${lastClock.clockReason}`) +
-                  (lastClock.clockDetail ? ` (${lastClock.clockDetail})` : ''),
+                why: clockChoiceText(lastClock.clockReason, lastClock.clockDetail),
               })}
+              {lastClock.clockDetail ? (
+                <>
+                  {' '}
+                  <span className="text-xs" data-testid="scan-clock-code">
+                    {t('photomap.clock.code', { code: lastClock.clockDetail })}
+                  </span>
+                </>
+              ) : null}
             </p>
           ) : null}
           {lastClock.clockLost ? (
             <p data-testid="scan-clock-lost" data-reason={lastClock.clockLost}>
-              {t('photomap.clock.lost', { why: t(`photomap.clockWhy.${lastClock.clockLost}`) })}
+              {t('photomap.clock.lost', { why: clockLostText(lastClock.clockLost) })}
             </p>
           ) : null}
           {lastClock.timingNoiseMs !== null ? (
@@ -344,7 +361,9 @@ export function PhotoMapPanel() {
               minutes: minutes(
                 scan.done > 0
                   ? ((Date.now() - scan.startedAt) / 1000 / scan.done) * (scan.total - scan.done)
-                  : ((onTheMove ? estimate?.strips?.seconds : estimate?.stops?.seconds) ?? 0),
+                  : ((scan.unit === 'strips'
+                      ? estimate?.strips?.seconds
+                      : estimate?.stops?.seconds) ?? 0),
               ),
             })}
           </p>

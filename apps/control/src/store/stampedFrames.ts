@@ -25,9 +25,15 @@ export type { Drawable, FrameSource, FrameStamp, SourceFrame } from '../lib/fram
  */
 
 /**
- * Most pictures kept: a run of 400 mm at 50 mm/s at the default spacing (20 pictures a second) is 160 – but the slowest
- * ("Sanft", 40 % of that speed) is 400, more than the ring holds. The scan therefore sets the spacing from what it
- * needs (`setMinSpacing`) and reads `evicted` after the run: a run that lost its start is not placed by stamps.
+ * Most pictures kept – a ring, the oldest go first. At the default spacing (20 pictures a second) a run of 400 mm at 50 mm/s
+ * would be 160, the slowest ("Sanft", 40 % of that speed) 400, more than the ring holds; the scan therefore sets the
+ * spacing from what it needs (`setMinSpacing`: a picture every 30 % of the field of view, whatever the speed – about
+ * 400 / (0.3 × field) pictures for a run of 400 mm, 21 for a field of 64 mm), and the ring is only a bound.
+ * **Nothing refuses a run for `evicted`**: if pictures were pushed out (a run that overflows the ring, or a long wait at rest
+ * after the run with the spacing back at 0.05 s and big pictures), the start of the run is the part missing from the
+ * ring – by the solver's design it places what the chain from the end anchor reaches and the refill by stops covers the rest
+ * (untested: the simulator never overflows). The count
+ * goes into the recording's `stamped-pictures` note, so a file shows it.
  */
 export const MAX_FRAMES = 300;
 /** Most bytes kept (a 720p JPEG of a camera is 50–150 kB, a 1080p one a few hundred) */
@@ -107,7 +113,7 @@ export interface StampedStats {
   mixed: number;
   /** A single picture bigger than the ring may hold */
   oversize: number;
-  /** Kept pictures pushed out of the ring by newer ones – a long run loses its start */
+  /** Kept pictures pushed out of the ring by newer ones since the stream began (a run that lost its start shows in the recording) */
   evicted: number;
   heldFrames: number;
   heldBytes: number;
@@ -267,7 +273,7 @@ export class StampedStream implements FrameSource<StampedFrame> {
     this.lastKeptT = -Infinity;
   }
 
-  /** Kept pictures pushed out of the ring by newer ones – a run that has some lost its start */
+  /** Kept pictures pushed out of the ring by newer ones since the stream began (the scan notes it in the recording, nothing more) */
   get evicted(): number {
     return this.counts.evicted;
   }

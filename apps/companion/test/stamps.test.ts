@@ -332,42 +332,24 @@ describe('the relay route and the health report', () => {
     for (const query of ['', '?stamp=0', '?stamp=true', '?stamp=', '?x=1', '?stamp=1&stamp=1']) {
       expect(await read(port, query, 3), `query "${query}"`).toEqual(plain);
     }
-    // an unknown parameter next to it changes nothing
-    // (the health polls in `read` use the same counting clock, so only the form of the stamp is known here)
+    // an unknown parameter next to it changes nothing – and the plain clients before it took no reading of the clock
     expect(await read(port, '?x=1&stamp=1', 3)).toEqual([
       'txt:ROLE:controller',
-      expect.stringMatching(/^txt:STAMP:\d+\.500:\d+$/),
+      'txt:STAMP:1002.500:2001002',
       'txt:CURRENT_ID:0',
     ]);
     fluidnc.close();
   });
 
-  it('says in the health report that it stamps, and what its clock reads now', async () => {
-    const { clock } = countingClock();
+  it('says in the health report that it stamps – and hands out nothing of its clock', async () => {
+    const { clock, readings } = countingClock();
     app = await buildServer({ store: new Store(), clock });
-    const first = (await app.inject('/api/health')).json();
-    const second = (await app.inject('/api/health')).json();
-    expect(first).toMatchObject({ stamps: true, clock: { mono: 1000.5, wall: 2001000 } });
-    // a snapshot at the moment of each request
-    expect(second.clock).toEqual({ mono: 1001.5, wall: 2001001 });
-  });
-
-  it('takes the clock of an injected relay for the health report, and the real one by default', async () => {
-    const { clock } = countingClock();
-    const up = new FakeUpstream();
-    app = await buildServer({
-      store: new Store(),
-      relay: new FluidNCRelay('ws://x:81', () => up, 5000, 10_000, clock),
-    });
-    expect((await app.inject('/api/health')).json().clock).toEqual({
-      mono: 1000.5,
-      wall: 2001000,
-    });
-    await app.close();
-    app = await buildServer({ store: new Store() });
     const health = (await app.inject('/api/health')).json();
     expect(health.stamps).toBe(true);
-    expect(health.clock.mono).toBeGreaterThan(0);
-    expect(Math.abs(health.clock.wall - Date.now())).toBeLessThan(2000);
+    // the Pi's uptime and its real time are no business of any page that asks (the answer is open to every page)
+    expect(health).not.toHaveProperty('clock');
+    expect(JSON.stringify(health)).not.toMatch(/"(mono|wall)"/);
+    // and answering it does not read the clock at all
+    expect(readings()).toBe(0);
   });
 });

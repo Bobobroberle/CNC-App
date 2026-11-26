@@ -36,6 +36,28 @@ Werten einer Standard-LowRider (Jog 50 mm/s, Beschleunigung 200 mm/s²) und eine
 fahren. Ein Vielfaches im Sinn von ×5 bis ×10 gibt dieses Verfahren nicht her; die Streifen liegen so eng wie die Zeilen beim Scan mit
 Halt, damit die Fläche lückenlos ist.
 
+## Belichtung eintragen: wie schnell ein Bild unscharf wird
+
+Bei „In Fahrt“ steht unter dem Tempo das Feld **Belichtung (ms)**. Trag dort ein, **wie lange deine Kamera ein Bild belichtet – wenn du es
+weißt** (aus dem Datenblatt der Kamera oder den Einstellungen ihres Treibers oder Kamera-Servers). Die App rechnet daraus das schnellste
+Tempo, bei dem ein Bild nicht mehr als **0,3 mm** verwischt:
+
+> v ≤ 0,3 mm ÷ Belichtungszeit  (20 ms → 15 mm/s, 55 ms → 5,45 mm/s)
+
+und fährt nie schneller, auch wenn „Normal“ oder „Schnell“ mehr wollten. Darunter steht, wie unscharf ein Bild bei dem Tempo wird („Unschärfe
+bei diesem Tempo etwa 0,30 mm“), und wo die Belichtung das Tempo begrenzt, steht auch das.
+
+- **0 heißt „unbekannt“** und ist die Voreinstellung: dann gibt es keine Begrenzung – so lief es, bevor man die Belichtung eintragen konnte. Eine negative
+  Zahl wird zu 0; mehr als 1000 ms werden auf 1000 ms gekappt.
+- Die Zahl wird **nur auf diesem Gerät** gemerkt (zusammen mit Art und Tempo des Scans) und nicht zum Pi und nicht zu anderen Geräten übertragen: jedes
+  Gerät, mit dem du scannst, hat sein eigenes Feld, die Kamera aber nur eine Belichtung.
+- Käme das Tempo **unter 5 mm/s** (bei mehr als etwa 60 ms Belichtung), lohnt die Fahrt nicht mehr: langsamer lässt sich die Verzögerung der Kamera
+  nicht messen, und mit Halt geht es dann schneller. Der Scan läuft dann **mit Halt für jedes Bild**; das Panel sagt es in der Zeile unter dem Feld, die
+  Zeitschätzung oben zeigt die Zeit mit Halt (nicht „N Streifen“, die nicht gefahren würden), und im Protokoll steht „Bei dieser Belichtung wäre die
+  Fahrt langsamer als 5 mm/s …“.
+- Weiß man die Belichtung nicht, bleibt das Feld bei 0. Die Aufzeichnung (übernächster Abschnitt) zeigt in der Auswertung die Schärfe der Bilder je Tempo
+  (`Sharpness by speed`) – sie hängt vom Tisch ab und ist ein Hinweis, kein Messwert der Belichtung.
+
 ## So prüfst du es an der Maschine (einmal, mit deiner Kamera)
 
 Der Simulator kann eine verspätete Kamera nachmachen, aber nicht deine: Verzögerung, Rolling Shutter und Belichtungszeit deiner
@@ -76,11 +98,15 @@ python3 scripts/analyze-scan.py lowrider-scan-….zip
 
 Die Auswertung (Python mit numpy und Pillow) nennt die Verzögerung der Bilder hinter den Meldungen der Steuerung und ihr Zeitrauschen, den
 Takt der Bilder und der Meldungen, Aussetzer der Seite, wie viele Bilder der Fahrt sich einpassen ließen und wie weit die eingepassten Bilder
-von den Bildern im Stillstand abweichen. Lief ein Scan auf der **Uhr des Pi**, enthält die Datei **beide** Zeiten jeder Meldung (wann die
-Seite sie sah, und der Stempel des Relais) und jedes Bildes (wann die Seite es bekam, und der Stempel des Kamera-Servers); die Auswertung
-rechnet dann Verzögerung und Zeitrauschen für **beide Uhren** aus denselben eingepassten Bildern, sagt, welche weniger streut, und nennt, wie
-ungleichmäßig die Seite Meldungen und Bilder gegenüber ihren Stempeln sah (die Streuung der Differenz – das ist das Schwanken auf dem Weg zur
-Seite, das im Stempel nicht steckt). Dateien ohne Stempel (ältere, oder ein Scan auf der Uhr des Browsers) wertet sie wie bisher aus.
+von den Bildern im Stillstand abweichen. Lief ein Scan auf der **Uhr des Pi**, enthält die Datei zu jeder Meldung **zwei Zeiten**, die der Seite und
+den Stempel des Relais, und zu jedem Bild ebenso zwei: die Seite hat auf dieser Uhr nicht auf den Bildschirm geschaut, ihre Zeit für ein Bild ist
+also, **wann sie das Stück des Stroms las, das es abschloss** (die Ankunft der Bytes; ohne `Content-Length` im Kopf erst mit der nächsten Trennzeile) – nicht, wann der Bildschirm es zuerst zeigte, was ein Scan auf der
+Uhr des Browsers dafür nimmt –, und für eine Meldung, wann sie bei ihr ankam. Die Auswertung rechnet Verzögerung und Zeitrauschen einmal aus diesen
+**Ankunftszeiten der Seite** und einmal aus den **Stempeln des Pi**, aus denselben eingepassten Bildern, und sagt, welche von beiden weniger streut. Die
+Zeile vergleicht also **Ankunft von Bytes mit Stempeln** – nicht die Uhr eines ganzen Scans im Browser: deren Bildzeiten kämen vom Bildschirm (Raster, Dekodieren),
+und das steckt in der Zahl nicht. Dazu nennt sie, wie ungleichmäßig die Seite Meldungen und Bilder gegenüber ihren Stempeln bekam (die Streuung der
+Differenz – das Schwanken auf dem Weg zur Seite, das im Stempel nicht steckt). Dateien ohne Stempel (ältere, oder ein Scan auf der Uhr des Browsers) wertet sie
+wie bisher aus; dort sind die Bildzeiten die des Bildschirms, und die Zeilen heißen „browser clock“.
 `meta.clock` in der Datei sagt, auf welcher Uhr die Scans liefen (`pi`, `browser`, `mixed`). Die Seite selbst kostet beim Aufzeichnen etwas Zeit (Aussetzer von 30–50 ms stehen in der Auswertung);
 das ist bei der Deutung zu berücksichtigen.
 
@@ -100,13 +126,16 @@ wäre um den Unterschied der Uhren daneben: Stunden oder Jahrzehnte):
   unbekannte und schwankende Zeit; der gleichbleibende Teil wird gelernt (der Probelauf), das Schwanken bleibt.
 
 Die App nimmt die Uhr des Pi nur, wenn **alle** vier Bedingungen stimmen – sonst die des Browsers, und sie sagt, warum (im Panel unter „Uhr des
-letzten Scans in Fahrt“, im Protokoll und in der Aufzeichnung):
+letzten Scans in Fahrt“, im Protokoll und in der Aufzeichnung). Im Panel steht der Grund **in Worten** – beim Stream auch die Ursache, z. B. „dieser Browser liest einen
+Datenstrom nicht stückweise“ –, der Code (`stream`, der Fehlercode) nur klein dahinter; die Kopfzeile, aus der die Stempel kommen, heißt „Aufnahmezeit des Kameratreibers“
+o. ä., mit dem Namen der Kopfzeile klein dahinter. Fällt die Uhr erst mitten im Scan weg, sind es andere Sätze als vor dem Start („die Meldungen kommen nicht
+mehr mit dem Zeitstempel des Pi“, nicht „nicht über den Pi verbunden“):
 
 | Grund | heißt |
 | --- | --- |
 | *die Meldungen kommen ohne Zeitstempel des Pi* | die Steuerung ist nicht über den Pi verbunden, oder der Companion ist älter und stempelt nicht (`relay`) |
 | *die Kamera ist kein Stream des Pi* | Gerätekamera, oder keine Stream-Adresse eingestellt (`device`) |
-| *der Stream lässt sich nicht mit Zeitstempeln lesen* | der Server antwortet nicht, lässt die Seite nicht lesen (CORS), liefert nichts oder nichts mit Stempel, dieser Browser liest keinen Datenstrom, oder er kann aus den Bildern keine Pixel machen (`stream`, dahinter der Fehlercode, bei Letzterem `no-decode`) |
+| *der Stream lässt sich nicht mit Zeitstempeln lesen* | der Server antwortet nicht, lässt die Seite nicht lesen (CORS), liefert nichts oder nichts mit Stempel, dieser Browser liest keinen Datenstrom, oder er kann aus den Bildern keine Pixel machen (`stream`, dahinter der Fehlercode, bei Letzterem `no-decode` – das Panel sagt dann „die Bilder … lassen sich in diesem Browser nicht in Pixel verwandeln“) |
 | *die Stempel der Bilder liegen in einer anderen Uhr* | der Stempel des Bildes liegt mehr als 3 s neben dem der letzten Meldung in derselben Uhr, z. B. weil der Kameratreiber mit einer anderen Uhr stempelt (`window`) |
 
 Wo gar kein Pi zur Verbindung gehört (Steuerung direkt, kein Companion eingestellt), steht kein Grund da: es gibt nichts zu erklären. Fällt die Uhr
@@ -126,10 +155,19 @@ wählt aus den Köpfen den Zeitstempel und prüft ihn gegen den der Positionsmel
 `lib/scanClock.ts` entscheidet die Uhr und wählt die Bilder eines Streifens, `store/photomap.ts` fährt. **Während der Fahrt werden nur Bytes
 und Stempel kopiert** – in einen Ring mit festen Grenzen (höchstens 300 Bilder und 64 MB; der Scan setzt den Abstand der Bilder auf den, den der Löser
 braucht – etwa alle 30 % des Sichtfelds –, und nimmt nur Bilder, die zwischen dem ersten und dem letzten „Jog“-Bericht aufgenommen wurden und mindestens 3 mm vom
-Start liegen); dasselbe Bild zweimal wird nur einmal behalten. Dekodiert wird erst nach der Fahrt, ein Bild nach dem anderen, mit Luft für
+Start liegen); dasselbe Bild zweimal wird nur einmal behalten. Bei diesen Abständen bleibt ein Streifen weit unter dem Ring (400 mm sind etwa
+400 ÷ (0,3 × Sichtfeld) Bilder, bei 64 mm Sichtfeld 21). Würde er doch voll – sehr große Bilder, oder ein langes Warten im Stillstand nach der Fahrt –,
+gehen die **ältesten** Bilder zuerst, also der Anfang des Streifens: die App gibt den Streifen dann nicht auf und legt ihn nicht anders ab, der Löser
+passt die Bilder ein, die da sind (so ist er gebaut: von beiden Ankern aus, hier bleibt der am Ende), und was fehlt, wird mit Halt nachgeholt –
+getestet ist das nicht, weil der Fall im Simulator nicht vorkommt. Die Zahl der verdrängten Bilder steht in der
+Aufzeichnung (`stamped-pictures`, `evicted`). Dekodiert wird erst nach der Fahrt, ein Bild nach dem anderen, mit Luft für
 Bedienung und PAUSE dazwischen. Auf der Uhr des Pi fragt die App den Status während des Streifens alle 100 ms ab (zusätzlich zur Abfrage alle
-200 ms), nur während der Fahrt; danach ist es wieder wie vorher. Alles Weitere – Anker im Stillstand, Einpassen der Bilder an ihrer Überlappung,
-Aufgeben, Nachholen mit Halt – ist unverändert.
+200 ms), nur während der Fahrt; danach ist es wieder wie vorher. **Der Strom bleibt nur für die Fahrten offen**: zwischen zwei Streifen läuft er weiter
+(die nächste Prüfung der Uhr braucht ein frisches Bild), und sobald der letzte Streifen gefahren ist – und wo die Fahrt aufgegeben wird oder die Uhr
+wegfällt, sobald klar ist, dass es mit Halt weitergeht – wird er geschlossen, vor dem Auswerten des letzten Streifens, vor dem Nachholen mit Halt, und
+bei jedem Ende des Scans (Abbruch, Halt, Alarm, Verbindung weg). Die Bilder, die er geholt hat, bleiben lesbar und werden danach noch dekodiert. Sonst
+kopierte er bis zu 20 Bilder in der Sekunde in den Speicher und über das WLAN, während die Maschine nur noch Bilder mit Halt aufnimmt. Alles Weitere –
+Anker im Stillstand, Einpassen der Bilder an ihrer Überlappung, Aufgeben, Nachholen mit Halt – ist unverändert.
 
 **Was ustreamer pro Bild schickt** – gelesen in `server.c` von v4.13, v5.0, v5.41, v6.0, v6.20 und des Master-Zweigs (Stand 2026-11), nicht
 ausprobiert. Jedes Bild beginnt mit `--boundarydonotcross`, hat Kopfzeilen, dann die JPEG-Bytes, dann `CRLF --boundarydonotcross CRLF`:
@@ -191,45 +229,67 @@ Worauf du achtest:
 Die Zahlen unten stammen aus `e2e/strips.spec.ts` auf dem Simulator (Demo, Referenztafel), nicht von einer echten Maschine. Der Simulator hat einen
 nachgemachten Pi: seine Uhr geht **zwei Stunden** vor der der Seite (damit jede Vermischung der beiden Uhren laut scheitert), jede Meldung der
 Steuerung kommt auf einem Weg an, der spät und ungleichmäßig ist, der Pi stempelt jede Meldung 12 ms nach dem Messen (± 4 ms) und jedes Kamerabild auf
-die Millisekunde (± 2 ms), und die Kamera zeigt der Seite ihr Bild 0,3 s ± 40 ms zu spät – was **nicht** im Stempel steckt. Die Zahlen sind also nur so
+die Millisekunde (± 2 ms), und die Kamera zeigt der Seite ihr Bild 0,30 bis 0,34 s zu spät (300 ms plus 0–40 ms, ungleichmäßig) – was **nicht** im Stempel steckt. Die Zahlen sind also nur so
 gut wie diese Annahmen: das Schwanken, das der Stempel wegnimmt, ist genau das, das der Simulator auf dem Weg zur Seite hineingelegt hat; was er
 im Stempel lässt, haben wir selbst festgelegt.
 
-**Der Vergleich**, Tempo „Normal“ (40 mm/s), Weg vom Pi zur Seite 60–180 ms ungleichmäßig, Kamera 0,3 s ± 40 ms, dieselbe Fläche, einmal auf der Uhr des
-Browsers (der Pi stempelt nichts) und einmal auf der des Pi. „Zeitrauschen“ ist die Streuung dessen, was die einzelnen Bilder der Fahrt für die
-Verzögerung ergeben (`ScanStats.timingNoiseMs`: nach dem Einpassen gegen die Uhr gemessen), also das, was keine gelernte Konstante wegnimmt. Sieben Läufe
-mit dem Stand dieser Version (die ganze Datei auf „desktop“ und auf „tablet“, dreimal `--repeat-each=3`, einmal beide Fälle nach einer Änderung am Test), auf einem
-Rechner, auf dem zeitweise noch ein anderer Testlauf rechnete:
+**Der Vergleich**, Tempo „Normal“ (40 mm/s), Weg vom Pi zur Seite 60–180 ms ungleichmäßig (im Mittel 120 ms), Kamera 0,30–0,34 s zu spät, dieselbe Fläche, einmal auf
+der Uhr des Browsers (der Pi stempelt nichts) und einmal auf der des Pi. „Zeitrauschen“ ist die Streuung dessen, was die einzelnen Bilder der Fahrt für die
+Verzögerung ergeben (`ScanStats.timingNoiseMs`: nach dem Einpassen gegen die Uhr gemessen), also das, was keine gelernte Konstante wegnimmt. Die Läufe 1 bis 7 sind
+die der ersten Fassung dieser Arbeit (wo das Projekt notiert wurde, steht es dabei), auf einem Rechner, auf dem zeitweise noch ein anderer Testlauf rechnete; Lauf 8
+ist der nach der Überarbeitung (Projekt „desktop“, ebenfalls neben einem anderen Testlauf). Die Spalte „Pi ÷ Browser“ ist die zweite durch die erste, gerundet:
 
-| Lauf | Zeitrauschen Browser-Uhr | Zeitrauschen Pi-Uhr | Verzögerung Pi-Uhr |
-| --- | --- | --- | --- |
-| 1 (desktop) | 25,5 ms | 1,7 ms | −12 ms |
-| 2 (tablet) | 19,7 ms | 1,5 ms | −12 ms |
-| 3 | 25,2 ms | 1,9 ms | −12 ms |
-| 4 | 11,1 ms | 1,4 ms | −12 ms |
-| 5 | 33,1 ms | 1,6 ms | −13 ms |
-| 6 (desktop) | 17,6 ms | 1,8 ms | −13 ms |
-| 7 (tablet) | 20,4 ms | 2,4 ms | −13 ms |
+| Lauf | Zeitrauschen Browser-Uhr | Zeitrauschen Pi-Uhr | Pi ÷ Browser | Verzögerung Pi-Uhr |
+| --- | --- | --- | --- | --- |
+| 1 (desktop) | 25,5 ms | 1,7 ms | 0,07 | −12 ms |
+| 2 (tablet) | 19,7 ms | 1,5 ms | 0,08 | −12 ms |
+| 3 | 25,2 ms | 1,9 ms | 0,08 | −12 ms |
+| 4 | 11,1 ms | 1,4 ms | 0,13 | −12 ms |
+| 5 | 33,1 ms | 1,6 ms | 0,05 | −13 ms |
+| 6 (desktop) | 17,6 ms | 1,8 ms | 0,10 | −13 ms |
+| 7 (tablet) | 20,4 ms | 2,4 ms | 0,12 | −13 ms |
+| 8 (desktop) | 21,6 ms | 1,7 ms | 0,08 | −12 ms |
 
-- Die **Uhr ist messbar enger**: 11–33 ms gegen 1,4–2,4 ms, in jedem Lauf höchstens ein Achtel (der Test verlangt weniger als 0,4).
-- **Die fertige Karte ist nicht enger.** In allen sieben Läufen lagen beide Karten gleich nah an der Karte eines Scans mit Halt (Punkte der Tafel: im Mittel
-  0,02–0,04 mm daneben, schlimmstenfalls 0,11 mm; alle Bilder der Fahrt eingepasst). Die Bilder werden an ihrer Überlappung eingepasst; die Uhr gibt nur den
-  Startwert und das Suchfenster. Solange der Fehler der Uhr (hier ± 2 mm bei 40 mm/s) darin bleibt, ist das Ergebnis dasselbe.
-- Wo die Uhr zählt, ist **ein Weg, der so ungleichmäßig ist, dass das Suchfenster nicht mehr reicht**: Tempo „Schnell“ (56 mm/s), Weg 100–500 ms. In drei Läufen
-  (desktop, desktop, tablet) hatte die Browser-Uhr 78, 123 und 79 ms Zeitrauschen: einmal gab die App die Fahrt auf (5 von 12 Bildern eingepasst, der Rest mit Halt nachgeholt),
-  zweimal passte sie 16 von 17 Bildern ein, die schlechtesten Punkte lagen bis 0,16 mm daneben. Die Pi-Uhr hatte in allen drei Läufen 2 ms, 18 von 18 Bildern eingepasst, Punkte bis
-  0,08 mm daneben. (Ein vierter Lauf auf „tablet“ vor einer Änderung am Test: die Browser-Uhr gab auf, 136 ms.) Das sind wenige Läufe; sie zeigen die Richtung, keine Zahl, auf die man sich stützt.
-- Die **Verzögerung** auf der Uhr des Pi ist klein und **negativ** (−12 ms – genau die 12 ms, die der Simulator dem Stempel der Meldung zugibt), auf der Uhr des
-  Browsers etwa 0,2–0,35 s. Deshalb darf sie auf der Uhr des Pi unter null gelernt werden (`PI_LAG_LIMITS`).
-- Die Auswertung (`scripts/analyze-scan.py`) einer aufgezeichneten Fahrt auf der Uhr des Pi sagt dasselbe aus der Datei: Verzögerung Browser-Uhr 200 ms (Zeitrauschen 25 ms),
-  Pi-Uhr −12 ms (2 ms); die Seite sah die Meldungen 34 ms (Streuung) ungleichmäßig gegenüber ihrem Stempel, die Kamerabilder 14 ms.
-- Eine **langsame** Fahrt (Belichtung 55 ms: 5,45 mm/s, ein Bild alle 3,6 s – mehr als das Fenster von 3 s zwischen den Stempeln) wird auf der Uhr des Pi nicht für eine
-  weggefallene Uhr gehalten (`e2e`: ein Lauf, beide Streifen gefahren). Das Fenster wird mit dem neuesten Bild geprüft; die App hält den Abstand der Bilder zwischen
-  den Fahrten kurz, damit das neueste frisch ist.
+- Die **Uhr ist messbar enger**: in den acht Läufen 11–33 ms gegen 1,4–2,4 ms. Das Verhältnis liegt zwischen 0,05 (Lauf 5) und 0,13 (Lauf 4): in sieben von acht Läufen
+  unter einem Achtel (0,125), in Lauf 4 knapp darüber, in allen unter einem Siebtel (0,14). Der Test verlangt nur weniger als 0,4. Bei 40 mm/s sind das für die
+  Browser-Uhr 0,4–1,3 mm Streuung, für die Pi-Uhr 0,06–0,10 mm.
+- **Die fertige Karte ist bei diesem Weg nicht messbar enger.** Die Bilder werden an ihrer Überlappung eingepasst; die Uhr gibt nur den Startwert und das
+  Suchfenster (±(2 + 0,06 · Tempo) mm entlang des Streifens, bei 40 mm/s ±4,4 mm). Solange der Fehler der Uhr darin bleibt – hier die Streuung der Browser-Uhr von 0,4–1,3 mm –,
+  ist das Ergebnis dasselbe. Belegt ist das mit Lauf 8, den einzigen Zahlen dazu, die hier stehen: beide Karten fanden alle Punkte der Tafel wieder, eingepasst wurden
+  17 von 17 (Browser-Uhr) und 18 von 18 Bildern (Pi-Uhr), nichts musste nachgeholt werden. Gegen die Karte eines Scans mit Halt lagen die Punkte der Browser-Karte im
+  Mittel 0,033 mm daneben, schlimmstenfalls 0,093 mm, die der Pi-Karte 0,020 und 0,051 mm. Der Unterschied (0,013 mm im Mittel, 0,042 mm im schlechtesten Punkt)
+  liegt unter dem, was die Einpassung auflöst (etwa 0,1 mm), und ist aus einem Lauf kein Beleg für eine genauere Pi-Karte. Für die Läufe 1 bis 7 steht in den
+  Protokollen von damals, beide Karten lagen gleich nah (im Mittel 0,02–0,04 mm, schlimmstenfalls 0,11 mm); diese Zahlen sind nicht in der Tabelle und nicht
+  noch einmal nachgeprüft. Der Test verlangt für beide Uhren: mindestens 90 % der Punkte wiedergefunden, schlimmstenfalls unter 0,5 mm, im Mittel unter 0,2 mm, mindestens
+  75 % der Bilder eingepasst – er prüft nicht, dass die Pi-Karte besser wäre.
+- Wo die Uhr zählt, ist **ein Weg, der so ungleichmäßig ist, dass das Suchfenster nicht mehr reicht**: Tempo „Schnell“ (56 mm/s), Weg 100–500 ms – 400 ms
+  Unterschied sind bei dem Tempo bis zu 22 mm, das Fenster ist ±5,4 mm. Der Lauf dieser Überarbeitung (einer): Browser-Uhr 73 ms Zeitrauschen, 16 von 17 Bildern eingepasst, nicht aufgegeben,
+  schlechtester Punkt 0,108 mm; Pi-Uhr 2,2 ms, 18 von 18 eingepasst, schlechtester Punkt 0,069 mm. In den früheren Läufen (nach den Protokollen von damals, nicht
+  noch einmal nachgeprüft) hatte die Browser-Uhr in drei Läufen 78, 123 und 79 ms Zeitrauschen und gab einmal die Fahrt auf (5 von 12 Bildern eingepasst, der Rest
+  mit Halt nachgeholt), die Pi-Uhr 2 ms mit 18 von 18 Bildern; ein vierter früher Lauf („tablet“, vor einer Änderung am Test): die Browser-Uhr gab auf, 136 ms. Das sind
+  wenige Läufe; sie zeigen die Richtung – die Browser-Uhr streut hier 73–136 ms, die Pi-Uhr etwa 2 ms –, keine Zahl, auf die man sich stützt.
+- Die **Verzögerung** auf der Uhr des Pi ist klein und **negativ**: −12 bis −13 ms in der Tabelle. Das sind die 12 ms, die der Simulator der Meldung zwischen Messen und
+  Stempel zugibt (± 4 ms Rauschen), plus höchstens 1 ms. Auf der Uhr des Browsers ist sie keine feste Zahl, sie hängt vom Weg ab: 213 ms bei dem Weg von 60–180 ms
+  (Lauf 8, „Normal“) und 30 ms bei dem Weg von 100–500 ms (der Lauf dieser Überarbeitung im Test darüber, „Schnell“) – die Kamera ist 0,30–0,34 s zu spät, und der Weg der Meldungen (im Mittel
+  120 bzw. 300 ms) zieht das ab. Auf der Uhr des Pi steckt weder das eine noch das andere darin. Deshalb darf die Verzögerung auf der Uhr des Pi unter null gelernt
+  werden (`PI_LAG_LIMITS`).
+- Die Auswertung (`scripts/analyze-scan.py`) einer bei dieser Überarbeitung aufgezeichneten Fahrt auf der Uhr des Pi (Weg 60–180 ms, „Normal“; drei Läufe in der Datei: der Probelauf mit 12 mm/s und zwei Streifen) sagt aus der Datei: Verzögerung aus den
+  **Ankunftszeiten der Seite** (eine Meldung, wenn sie ankam; ein Bild, wenn die Seite das Stück des Stroms las, das es abschloss – nicht, wenn der Bildschirm es zeigte)
+  188 ms mit Zeitrauschen 28 ms, aus den **Stempeln des Pi** −12 ms mit 2 ms; die Seite bekam die Meldungen 33,6 ms (Streuung) ungleichmäßig gegenüber ihrem
+  Stempel, die Bilder 14,2 ms. Die Zeile „welche weniger streut“ vergleicht also Ankunft von Bytes mit Stempeln, nicht die Browser-Uhr eines ganzen Scans: die 21,6 ms
+  der Tabelle (Lauf 8) kommen aus einem Scan auf der Browser-Uhr, mit den Bildzeiten des Bildschirms.
+- Eine **langsame** Fahrt (Belichtung 55 ms: 5,45 mm/s; ein Bild alle 4,6 s = 0,3 × 84 mm Sichtfeld ÷ 5,45 mm/s – mehr als das Fenster von 3 s zwischen den Stempeln)
+  wird auf der Uhr des Pi nicht für eine weggefallene Uhr gehalten (`e2e`: ein Lauf, beide Streifen gefahren). Das Fenster wird mit dem neuesten Bild geprüft; die App
+  hält den Abstand der Bilder zwischen den Fahrten kurz, damit das neueste frisch ist.
+- **Der Strom wird nach den Fahrten geschlossen** (`e2e`, ein Scan mit zwei Streifen auf der Uhr des Pi): die Seite sah im Test alle 10 ms nach, ob der Strom des simulierten Pi offen ist.
+  Er war offen, solange Streifen zu fahren waren (2606 von 2606 Blicken), und in den 31 Blicken danach – letzte Auswertung und Nachholen – geschlossen; wo die Uhr
+  im ersten Lauf wegfiel und der ganze Bereich mit Halt ging, war er in allen 733 Blicken während der Bilder mit Halt geschlossen.
 
 **Was damit nicht gezeigt ist.** Das Versprechen, die Uhr des Pi bringe die Bilder auf „wenige Millisekunden“ genau, ist nicht gemessen und wird hier nicht
-gemacht: gemessen ist nur, dass der Weg zur Seite, die Verzögerung der Kamera in der Seite und das Raster des Bildschirms (16 ms = 0,8 mm bei 50 mm/s) aus der
-Zeit herausfallen – im Simulator, mit angenommenen Zahlen. Auf einer echten Maschine bleibt stehen, **was im Stempel selbst steckt**:
+gemacht: gemessen ist nur, dass das Zeitrauschen auf der Uhr des Pi (1,4–2,4 ms) bei einem Weg zur Seite von 60–180 ms und einer Kamera, die 0,30–0,34 s zu spät
+zeigt, um das 8- bis 21-Fache unter dem der Browser-Uhr liegt (11–33 ms) – im Simulator, mit angenommenen Zahlen, und weil der Simulator genau diese Anteile in die Zeit
+der Seite gelegt und aus dem Stempel herausgehalten hat; das Raster des Bildschirms (16 ms = 0,8 mm bei 50 mm/s) liegt auf der Uhr des Pi nicht mehr in der Zeit
+(so ist es gebaut), ist aber nicht einzeln gemessen. Auf einer echten Maschine bleibt stehen, **was im Stempel selbst steckt**:
 
 - das Schwanken des Wegs **von der Steuerung (Jackpot) zum Pi** (WLAN) – die Meldung wird gestempelt, wenn der Pi sie bekommt;
 - FluidNCs eigenes Abtasten und die Zeit, bis die Meldung losgeschickt wird (nicht bekannt);

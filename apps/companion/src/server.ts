@@ -78,7 +78,7 @@ export interface ServerOptions {
    */
   cameraUrl?: string;
   relay?: FluidNCRelay;
-  /** The Pi's clock for the stamps of the relay and the health report (the tests set their own) */
+  /** The Pi's clock for the stamps the relay puts on the reports of FluidNC (the tests set their own) */
   clock?: Clock;
   sensors?: SensorHub;
   fetch?: typeof fetch;
@@ -126,7 +126,7 @@ export function parseRange(header: string | undefined, size: number): [number, n
 export async function buildServer(options: ServerOptions): Promise<FastifyInstance> {
   const { store } = options;
   const sensors = options.sensors ?? new SensorHub();
-  const clock = options.clock ?? options.relay?.clock ?? systemClock;
+  const clock = options.clock ?? systemClock;
   const relay =
     options.relay ??
     (options.fluidncUrl
@@ -190,12 +190,10 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
     backup: options.backup?.() ?? null,
     // The state documents (`/api/state`): an older companion has none, the app then keeps its state here only.
     state: true,
-    // The relay stamps what FluidNC says with this clock for a client that connects with `?stamp=1` (an older
-    // companion has neither field: the app then keeps the browser's clock for everything).
+    // The relay stamps what FluidNC says with the Pi's clock for a client that connects with `?stamp=1` (an older
+    // companion has no such field: the app then keeps the browser's clock for everything). The clock itself is not
+    // handed out here – this answer is open to any page, and the Pi's uptime is nothing a page needs.
     stamps: true,
-    // A snapshot of the clock at the moment of this request: the app compares it with the camera's stamps,
-    // which tells it whether both are in one domain
-    clock: clock(),
   }));
 
   // Host power: the app shows feedback by polling /api/health until it stops answering.

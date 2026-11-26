@@ -147,10 +147,11 @@ export type Drawable = ImageBitmap | HTMLCanvasElement | OffscreenCanvas;
  *   opened); `reason` then says why, as a stable code. What was kept stays readable.
  * - `domain` is the clock all frames are in, once known (null before the first stamp).
  * - During a run only stamps and bytes are copied; pixels exist only after `decode`.
- * - The source holds a bounded number of pictures and lets the oldest go first, which would cut off the start of a long
- *   slow strip. The scan therefore says how closely it wants the pictures (`setMinSpacing`, from the distance between the
- *   pictures it takes and the speed of the run) and looks at `evicted` after the run: more than zero means the start is
- *   gone and the run cannot be placed by stamps.
+ * - The source holds a bounded number of pictures and lets the oldest go first, which would cut off the start of a run
+ *   that overflows it. The scan therefore says how closely it wants the pictures (`setMinSpacing`, from the distance
+ *   between the pictures it takes and the speed of the run), which keeps a run far below the bound. `evicted` counts what
+ *   was pushed out; the scan puts it into the recording (`stamped-pictures`) and does nothing else with it – the solver
+ *   places the pictures that are there, and what a run left out is scanned by stops afterwards.
  */
 export interface FrameSource<F extends SourceFrame = SourceFrame> {
   readonly ok: boolean;
