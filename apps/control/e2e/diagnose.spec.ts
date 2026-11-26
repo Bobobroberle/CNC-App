@@ -5,28 +5,35 @@ import { connect, goTo, installFakeFluidNC, openApp } from './helpers';
 const sent = (page: import('@playwright/test').Page) =>
   page.evaluate(() => (window as unknown as { __sent: string[] }).__sent.slice());
 
+type Page = import('@playwright/test').Page;
+
+/** The fake machine answers every `$SD/List` with `error:<code>`; the app is open, connected, and has asked. */
+async function start(page: Page, code: number) {
+  await installFakeFluidNC(page);
+  await page.addInitScript((sdError) => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__sdError = sdError;
+    // A device that is logged in at the Pi: its token must never stand in a report
+    localStorage.setItem(
+      'lowrider-control.piLogin',
+      JSON.stringify({
+        base: 'http://192.168.0.198:8080',
+        token: 'tok-e2e-geheim-123456',
+        name: 'Tablet',
+      }),
+    );
+  }, code);
+  await openApp(page);
+  await connect(page);
+  // The SD card card of the Job (no program loaded) lists the card as soon as it shows and the machine is there
+  await goTo(page, 'Job');
+  await expect.poll(() => sent(page)).toContain('$SD/List');
+}
+
 test.describe('the SD card failing, and the diagnostic report', () => {
   test.beforeEach(async ({ page }) => {
-    await installFakeFluidNC(page);
-    await page.addInitScript(() => {
-      const w = window as unknown as Record<string, unknown>;
-      // The card cannot be mounted: FluidNC answers every `$SD/List` with error:60
-      w.__sdError = 60;
-      // A device that is logged in at the Pi: its token must never stand in a report
-      localStorage.setItem(
-        'lowrider-control.piLogin',
-        JSON.stringify({
-          base: 'http://192.168.0.198:8080',
-          token: 'tok-e2e-geheim-123456',
-          name: 'Tablet',
-        }),
-      );
-    });
-    await openApp(page);
-    await connect(page);
-    // The SD card card of the Job (no program loaded) lists the card as soon as it shows and the machine is there
-    await goTo(page, 'Job');
-    await expect.poll(() => sent(page)).toContain('$SD/List');
+    // The card cannot be mounted: FluidNC answers `$SD/List` with error:60
+    await start(page, 60);
   });
 
   test('is told as the card – not as a bad line – with its cause, effect and next step', async ({
@@ -38,6 +45,10 @@ test.describe('the SD card failing, and the diagnostic report', () => {
       .getByTestId('message')
       .filter({ hasText: 'SD-Karte der Steuerung: Zugriff fehlgeschlagen' });
     await expect(card).toHaveCount(1);
+    // one event, one warning: the one that says it is the card – not also "SD-Karte konnte nicht gelesen werden"
+    await expect(
+      history.getByTestId('message').filter({ hasText: 'konnte nicht gelesen werden' }),
+    ).toHaveCount(0);
     await expect(card).toContainText('error:60');
     await expect(card).toContainText('nicht einbinden');
     await expect(card).toContainText('Jobs von der SD-Karte starten nicht');
@@ -86,4 +97,19 @@ test.describe('the SD card failing, and the diagnostic report', () => {
     );
     expect(await sent(page)).toEqual(before);
   });
+});
+
+test('a file error that names no card keeps the warning that the list failed, beside its own', async ({
+  page,
+}) => {
+  // error:65 happens to one file: it does not say the list of the card failed – the second warning does
+  await start(page, 65);
+  await goTo(page, 'Service & Diagnose', 'Meldungen');
+  const history = page.getByTestId('message-history');
+  await expect(
+    history.getByTestId('message').filter({ hasText: 'Dateizugriff der Steuerung fehlgeschlagen' }),
+  ).toHaveCount(1);
+  await expect(
+    history.getByTestId('message').filter({ hasText: 'SD-Karte konnte nicht gelesen werden' }),
+  ).toHaveCount(1);
 });

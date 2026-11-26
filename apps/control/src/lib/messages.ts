@@ -137,6 +137,17 @@ export const ALARM_LOG_KEY = 'alarm.title';
 export const ERROR_LOG_KEY = 'error.title';
 
 /**
+ * Whether a failed listing of the SD card needs a warning of its own. Where the controller said it cannot mount the
+ * card, the warning made from that answer is about the card already and says so – a second one for the same event
+ * would only repeat it. Where there was no answer, or the answer names no card (a file error, a line it rejects),
+ * only this one says which list failed. `code`: the controller's `error:n`, null where it did not answer (the
+ * command ended after its time limit or with the link) – a refusal on this side that sent nothing is not asked.
+ */
+export function sdListNeedsWarning(code: number | null): boolean {
+  return code === null || errorClass(code) !== 'card';
+}
+
+/**
  * What a rejected command (`error:n`) is about: the line that was sent, the SD card (it cannot be mounted or
  * opened), or one file of the controller's file system. Each has its own effect and next step.
  */

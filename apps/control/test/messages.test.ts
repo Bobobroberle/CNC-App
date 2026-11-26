@@ -18,6 +18,7 @@ import {
   withMessage,
   type Level,
   errorClass,
+  sdListNeedsWarning,
   validContext,
   type Message,
   type MessageGroup,
@@ -196,6 +197,20 @@ describe('what a rejected command is about', () => {
     for (const part of ['title', 'effect', 'action']) {
       expect(hasKey(`messages.rejectedSd.${part}`), part).toBe(true);
       expect(hasKey(`messages.rejectedFile.${part}`), part).toBe(true);
+    }
+  });
+});
+
+describe('a failed listing of the SD card', () => {
+  it('has no warning of its own where the controller said the card cannot be mounted – that one says it', () => {
+    expect(sdListNeedsWarning(60)).toBe(false);
+  });
+
+  it('has one where there was no answer, or the answer names no card', () => {
+    expect(sdListNeedsWarning(null)).toBe(true);
+    // a file error does not say the list failed, a rejected line even less
+    for (const code of [61, 62, 63, 65, 66, 67, 70, 82, 83, 9, 20, 8]) {
+      expect(sdListNeedsWarning(code), String(code)).toBe(true);
     }
   });
 });

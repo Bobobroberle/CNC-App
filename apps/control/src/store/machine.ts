@@ -52,6 +52,7 @@ import {
   type LinkFailure,
 } from '../lib/link';
 import { macroLines, type Macro } from '../lib/macros';
+import { sdListNeedsWarning } from '../lib/messages';
 import { browserStorage } from '../lib/persist';
 import {
   continuousJogTarget,
@@ -840,8 +841,17 @@ export const useMachine = create<MachineStore>((set, get) => ({
     if (!connection) return;
     try {
       set({ sdFiles: parseFileList(await connection.command('$SD/List')) });
-    } catch {
-      get().addLog('error', t('files.listFailed'), 'files.listFailed');
+    } catch (error) {
+      // Only the controller's answer – or its silence (the command ended after its time limit, or with the link) –
+      // says the list failed. A refusal on this side (a device that only watches, a job that runs) sent nothing:
+      // it is no word about the card, and what was read before stays.
+      if (error instanceof CommandError) {
+        // The list read before is no longer what the card holds: a stale one would show files that cannot start
+        set({ sdFiles: null });
+        if (sdListNeedsWarning(error.code >= 0 ? error.code : null)) {
+          get().addLog('error', t('files.listFailed'), 'files.listFailed');
+        }
+      }
     }
   },
 

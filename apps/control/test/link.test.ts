@@ -76,6 +76,8 @@ type Script = 'answer' | 'refuse' | 'relay-down' | 'silent';
 
 class ScriptedSocket {
   static scripts: Script[] = [];
+  /** What the machine answers to a command line, as FluidNC does it – in a binary frame: a line, or null for none */
+  static replies: Record<string, string | null> = {};
   static opened: ScriptedSocket[] = [];
   static last: ScriptedSocket | null = null;
   binaryType = 'blob';
@@ -105,7 +107,16 @@ class ScriptedSocket {
   send(data: string | Uint8Array) {
     const text = typeof data === 'string' ? data : '';
     this.sent.push(text);
-    if (text === '?' && this.readyState === 1 && !this.silent)
+    const reply = ScriptedSocket.replies[text.trim()];
+    if (reply !== undefined && text.endsWith('\n')) {
+      // (a text frame starting with "error:" would be taken for a WebUI meta message and dropped)
+      // after the line has been sent, as a socket does it (the app logs "sent" when send() has returned)
+      if (reply !== null) {
+        queueMicrotask(() =>
+          this.onmessage?.({ data: new TextEncoder().encode(`${reply}\n`).buffer }),
+        );
+      }
+    } else if (text === '?' && this.readyState === 1 && !this.silent)
       this.onmessage?.({ data: '<Idle|MPos:0.000,0.000,0.000|FS:0,0>\n' });
     else if (text.endsWith('\n')) this.onmessage?.({ data: 'ok\n' });
   }
@@ -128,6 +139,7 @@ describe('coming back by itself', () => {
     vi.useFakeTimers();
     (globalThis as { WebSocket?: unknown }).WebSocket = ScriptedSocket;
     ScriptedSocket.scripts = [];
+    ScriptedSocket.replies = {};
     ScriptedSocket.opened = [];
     useMachine.getState().disconnect();
     useMachine.setState({
@@ -236,6 +248,90 @@ describe('coming back by itself', () => {
       expect(m.context!.facts).toContain('Verbindungsversuch: waiting, fehlt: pi, Versuch 1');
       expect(m.context!.facts).toContain('Weg: Pi 192.168.0.198:8080 → Jackpot ?');
       expect(m.context!.facts.join('\n')).not.toContain('connecting');
+    });
+
+    describe('listing the SD card', () => {
+      const listed = async (reply: string | null) => {
+        useMachine.getState().setUrl('ws://192.168.0.198:8080/fluidnc');
+        ScriptedSocket.scripts = ['answer'];
+        await useMachine.getState().connect();
+        // what the connection asks for by itself ($I, $G, $#) is answered first: one command at a time, as at the machine
+        await vi.advanceTimersByTimeAsync(200);
+        ScriptedSocket.replies['$SD/List'] = reply;
+        useMessages.setState({ messages: [] });
+        useMachine.setState({ log: [] });
+        const listing = useMachine.getState().refreshSdFiles();
+        // no answer at all: the command ends after its time limit
+        await vi.advanceTimersByTimeAsync(11_000);
+        await listing;
+        const warnings = useMessages.getState().messages.filter((m) => m.level === 'warning');
+        const log = useMachine.getState().log.filter((l) => l.kind === 'error');
+        return { warnings, log };
+      };
+
+      it('says one warning – the card – where the controller cannot mount it (error:60)', async () => {
+        const { warnings, log } = await listed('error:60');
+        expect(warnings.map((m) => m.title)).toEqual([
+          'SD-Karte der Steuerung: Zugriff fehlgeschlagen',
+        ]);
+        expect(log.map((l) => l.key)).toEqual(['error.title']);
+        // the controller's answer is in the warning, with the command that was sent
+        expect(warnings[0]!.context!.recent.join('\n')).toContain('> $SD/List');
+      });
+
+      it('says the list failed where the controller did not answer at all', async () => {
+        const { warnings, log } = await listed(null);
+        expect(warnings.map((m) => m.title)).toEqual(['SD-Karte konnte nicht gelesen werden.']);
+        expect(log.map((l) => l.key)).toEqual(['files.listFailed']);
+      });
+
+      it('says both where the controller names no card: a file error, or a line it rejects', async () => {
+        // an error that happens to one file does not say the list failed – this does
+        const file = await listed('error:65');
+        expect(file.log.map((l) => l.key).sort()).toEqual(['error.title', 'files.listFailed']);
+        expect(file.warnings).toHaveLength(2);
+        const line = await listed('error:9');
+        expect(line.log.map((l) => l.key).sort()).toEqual(['error.title', 'files.listFailed']);
+      });
+
+      it('forgets the list it had where the listing fails – a stale one shows files that cannot start', async () => {
+        await listed('[FILE: rahmen.nc|SIZE:1200]\nok');
+        expect(useMachine.getState().sdFiles).toEqual([{ name: 'rahmen.nc', size: 1200 }]);
+        ScriptedSocket.replies['$SD/List'] = 'error:60';
+        await useMachine.getState().refreshSdFiles();
+        expect(useMachine.getState().sdFiles).toBeNull();
+        // the same where the controller does not answer
+        ScriptedSocket.replies['$SD/List'] = '[FILE: a.nc|SIZE:1]\nok';
+        await useMachine.getState().refreshSdFiles();
+        expect(useMachine.getState().sdFiles).toHaveLength(1);
+        ScriptedSocket.replies['$SD/List'] = null;
+        const silent = useMachine.getState().refreshSdFiles();
+        await vi.advanceTimersByTimeAsync(11_000);
+        await silent;
+        expect(useMachine.getState().sdFiles).toBeNull();
+      });
+
+      it('says nothing of the card where this device only watches: nothing was sent, what was read stays', async () => {
+        await listed('[FILE: rahmen.nc|SIZE:1200]\nok');
+        // the Pi says another device controls
+        ScriptedSocket.last!.onmessage?.({ data: 'ROLE:viewer' });
+        expect(useMachine.getState().viewer).toBe(true);
+        useMessages.setState({ messages: [] });
+        useMachine.setState({ log: [] });
+        const sentBefore = ScriptedSocket.last!.sent.length;
+        await useMachine.getState().refreshSdFiles();
+        expect(ScriptedSocket.last!.sent.slice(sentBefore).join('')).not.toContain('$SD/List');
+        expect(useMachine.getState().log.filter((l) => l.kind === 'error')).toEqual([]);
+        expect(useMessages.getState().messages).toEqual([]);
+        expect(useMachine.getState().sdFiles).toEqual([{ name: 'rahmen.nc', size: 1200 }]);
+      });
+
+      it('does not warn where the list is read', async () => {
+        const { warnings, log } = await listed('[FILE: rahmen.nc|SIZE:1200]\nok');
+        expect(warnings).toEqual([]);
+        expect(log).toEqual([]);
+        expect(useMachine.getState().sdFiles).toEqual([{ name: 'rahmen.nc', size: 1200 }]);
+      });
     });
 
     it('says the connection gone for the Pi that is lost after it was up, too – and names the Pi', async () => {

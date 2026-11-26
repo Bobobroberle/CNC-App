@@ -430,7 +430,15 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   `isFileSystemError`; `errorClass` in `lib/messages.ts` says `card` for 60 – listing the card fails at mounting it – and `file` for the rest (62 is
   raised when a directory is made; the others happen to one file, also in the controller's flash through `$LocalFS/…`)) is not told as a bad line:
   the card has its own effect and next step (`messages.rejectedSd.*`: jobs from the SD card do not start, streaming goes on; FAT32, not exFAT /
-  reseat / config.yaml `sdcard`), a file the neutral `messages.rejectedFile.*`. The error table `ERROR_CODES` follows FluidNC's `Error.h`
+  reseat / config.yaml `sdcard`), a file the neutral `messages.rejectedFile.*`. **A failed listing of the card is one warning, not two**:
+  the warning made from `error:60` is about the card already, so `refreshSdFiles` adds `files.listFailed` only where
+  `sdListNeedsWarning` says so (no answer at all, or an error that names no card – a file error, a rejected line). `FluidNCConnection`
+  takes a **text** frame that starts with `error:` for a WebUI meta message and drops it – the controller's output comes in binary frames
+  (the e2e fake and the scripted socket's `replies` in `test/link.test.ts` do the same); only the controller's answer or its silence counts – a
+  refusal on this side (a device that only watches, a job that runs) sent nothing and says nothing of the card, and keeps the list that was read
+  before, while a failed listing **forgets** it (`sdFiles` null: a stale list would show files that cannot start, and the upload check would
+  trust it). A card-less Jackpot still warns **once per listing** – every time the SD card card shows (it lists on every mount: opening Job
+  or Fräsen, "Aktualisieren", after an upload), not once per connect; messages are not deduplicated. The error table `ERROR_CODES` follows FluidNC's `Error.h`
   (read from its main branch on 2026-11-25: no 71, 81 is a setting string, 82/83 are file system). A move that was not carried out
   (`photomap.scanFailed`, `calibration.moveFailed`) is group `motion`, not `camera` (`calibration.noRoom` and `.outside` are the reasons themselves and
   stay with the measuring). The message about a failed link is made _after_ the link state is set, and the connection is set to `disconnected` in

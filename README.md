@@ -970,7 +970,7 @@ _Kalibrieren_ behält das Bild.
   nichts an den Pi, funktioniert auch während eines Jobs und ohne Pi und enthält keine Zugangsdaten
   (Passwörter – bei WLAN-Einstellungen die ganze Zeile hinter dem `=` –, Tokens und Adressen mit
   Benutzer werden geschwärzt). Lässt sich die SD-Karte nicht einbinden (`error:60`),
-  steht das als Kartenfehler da – mit dem, was es für Jobs von der SD-Karte bedeutet; die übrigen
+  steht das – als eine Warnung, nicht zwei – als Kartenfehler da – mit dem, was es für Jobs von der SD-Karte bedeutet; die übrigen
   Dateifehler der Steuerung (`error:61` bis `70`, `82`, `83`) als Dateizugriff, ohne die Karte zu
   beschuldigen.
 - _Historie:_ die _Laufzeit_ der aufgezeichneten Jobs (die Steuerung zählt keine Spindelstunden – es
