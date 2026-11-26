@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-13 von 140 erledigt.
+16 von 141 erledigt.
 
 ## Scan & Kamera
 
@@ -85,14 +85,15 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 
 ### Haltestege
 
-- [ ] **Haltestege je Teil einstellen** (kleiner Schritt, in Arbeit) – Anzahl, Breite und Höhe für jedes Teil einzeln (statt einer globalen Einstellung).
-- [ ] **Automatisch verteilen oder von Hand setzen** (kleiner Schritt, in Arbeit) – Gleichmäßig verteilen oder Stege per Tipp setzen, verschieben und löschen.
-- [ ] **Stege auf dem Tisch anzeigen** (kleiner Schritt, in Arbeit) – Markierungen in echter Breite an der Stelle, wo der Steg stehen bleibt.
+- [x] **Haltestege je Teil einstellen** (kleiner Schritt) – Anzahl, Breite und Höhe für jedes Teil einzeln (statt einer globalen Einstellung).
+- [x] **Automatisch verteilen oder von Hand setzen** (kleiner Schritt) – Gleichmäßig verteilen oder Stege per Tipp setzen, verschieben und löschen.
+- [x] **Stege auf dem Tisch anzeigen** (kleiner Schritt) – Markierungen in echter Breite an der Stelle, wo der Steg stehen bleibt.
 - [ ] **Stege meiden Ecken** (kleiner Schritt) – Beim automatischen Verteilen wandern Stege in die Mitte gerader Stücke und nie auf eine Ecke.
 - [ ] **Verteilen nach Abstand** (kleiner Schritt) – Ein Steg alle X mm statt einer festen Anzahl.
 - [ ] **Keilförmige Stege** (kleiner Schritt) – Dreieckige Stege, die sich leichter abschneiden lassen und weniger Reststeg lassen.
 - [ ] **Stege nachträglich entfernen** (größeres Projekt) – Ein kleines Programm, das die Stege nach dem Herauslösen glatt fräst.
 - [ ] **Steg-Vorlagen merken** (kleiner Schritt) – Zuletzt benutzte Steg-Maße je Material und Werkzeug vorschlagen.
+- [ ] **Angehobene Strecken im Werkzeugweg zeigen** (kleiner Schritt) – In der Vorschau des Werkzeugwegs (Tisch und 3D) die Strecken anders zeichnen, auf denen der Fräser über einem Steg angehoben ist. Bisher zeigt nur die Zeichnung die Stege.
 
 ### Bahnen & Strategien
 

@@ -363,21 +363,21 @@ add('cam', 'Haltestege', [
     'Haltestege je Teil einstellen',
     'Anzahl, Breite und Höhe für jedes Teil einzeln (statt einer globalen Einstellung).',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'cam-tab2',
     'Automatisch verteilen oder von Hand setzen',
     'Gleichmäßig verteilen oder Stege per Tipp setzen, verschieben und löschen.',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'cam-tab3',
     'Stege auf dem Tisch anzeigen',
     'Markierungen in echter Breite an der Stelle, wo der Steg stehen bleibt.',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'cam-tab4',
@@ -905,6 +905,15 @@ add('test', 'An der Maschine', [
     'Messprotokoll der Kamera ausfüllen',
     'docs/messprotokoll-kamera.md: Maßstab, Wiederholbarkeit, Versatz.',
     'aufgabe',
+  ],
+]);
+
+add('cam', 'Haltestege', [
+  [
+    'cam-tab9',
+    'Angehobene Strecken im Werkzeugweg zeigen',
+    'In der Vorschau des Werkzeugwegs (Tisch und 3D) die Strecken anders zeichnen, auf denen der Fräser über einem Steg angehoben ist. Bisher zeigt nur die Zeichnung die Stege.',
+    'klein',
   ],
 ]);
 
