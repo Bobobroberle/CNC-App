@@ -3197,8 +3197,70 @@ export const de = {
     },
   },
   accuracy: {
-    afterApply:
-      'Korrektur geschrieben. Steuerung neu starten, referenzieren und das Prüfmuster zur Kontrolle noch einmal fräsen.',
+    step1Again: 'Prüfmuster noch einmal fräsen',
+    step2Again: 'Neu messen und eintragen',
+    blocked:
+      'Korrektur geschrieben. Jetzt die Steuerung neu starten und referenzieren – erst danach das Prüfmuster noch einmal fräsen. Ein Muster aus der Zeit davor zeigt noch den alten Fehler, und eine zweite Korrektur darauf würde doppelt wirken.',
+    nowControl:
+      'Die Maschine wurde neu referenziert. Jetzt das Prüfmuster noch einmal fräsen, neu messen und eintragen – dann stehen Vorher und Nachher nebeneinander.',
+    discardBefore: 'Neue Prüfung beginnen (Vorher verwerfen)',
+    steps: {
+      title: 'Ablauf',
+      cut: 'Prüfmuster fräsen',
+      measure: 'Messen und eintragen',
+      evaluate: 'Auswerten',
+      write: 'Korrektur schreiben',
+      restart: 'Steuerung neu starten und referenzieren',
+      cut2: 'Prüfmuster noch einmal fräsen',
+      measure2: 'Neu messen und eintragen',
+      evaluate2: 'Auswerten – Vorher und Nachher',
+      now: 'jetzt',
+    },
+    sketch: {
+      label: 'Prüfmuster von oben: die Marken A bis D und die sechs Strecken, die gemessen werden',
+      front: 'vorne (Bediener)',
+      back: 'hinten',
+      selfCheck:
+        'Gegenprobe: In der Jog-Anzeige läuft +X von A nach B (nach rechts) und +Y von A nach D (nach hinten). A ist vorne links, dort steht der Nullpunkt.',
+    },
+    compare: {
+      title: 'Vorher und Nachher',
+      before: 'Vorher',
+      after: 'Nachher',
+      lean: 'Rechtwinkligkeit (mm auf 1 m Y)',
+    },
+    verdict: {
+      good: 'Fertig: Die Maschine ist innerhalb der Messgenauigkeit des Lineals rechtwinklig (etwa 0,3 mm auf einen Meter). Nichts mehr zu korrigieren.',
+      better:
+        'Besser: Der Fehler ist deutlich kleiner geworden. Wenn nötig, mit diesen neuen Messwerten einmal nachkorrigieren.',
+      unchanged:
+        'Fast unverändert: Die Korrektur hat nicht gewirkt. Wurde die Steuerung neu gestartet und referenziert, und das Prüfmuster erst danach gefräst?',
+      doubled:
+        'Etwa doppelt so groß, auf derselben Seite: Die Korrektur ging in die falsche Richtung. Y-Motor 1 sitzt auf der anderen Seite – Seite umstellen und mit diesen Werten erneut korrigieren.',
+      overshot:
+        'Zu viel korrigiert: Der Fehler steht jetzt auf der anderen Seite. Prüfen, ob der Schienenabstand zu groß eingetragen ist, und noch einmal korrigieren.',
+    },
+    gantry: {
+      label:
+        'Die Maschine von oben: die zwei Y-Schienen, das Portal dazwischen, der Schienenabstand und die Seite von Y-Motor 1',
+      distance: 'Abstand der Y-Schienen',
+      railLeft: 'Schiene links',
+      railRight: 'Schiene rechts',
+      gantry: 'Portal',
+      help: 'Von Mitte Schiene links bis Mitte Schiene rechts gemessen, dort, wo die Motoren das Portal schieben. Ein Fehler von 1 % hier ist ein Fehler von 1 % der Korrektur.',
+      motorHelp:
+        'Welche Seite hängt an Y-Motor 1 (Anschluss A am Jackpot)? Von vorn gesehen, Blick nach hinten (+Y): links ist X−, rechts ist X+. Im Bild ist Motor 1 ausgefüllt und mit „1“ beschriftet, der andere trägt die „2“.',
+    },
+    story: {
+      lean: 'Das Portal steht schief: Die Seite {side} steht um {mm} mm weiter hinten (+Y) als die andere Seite – bei {width} mm Schienenabstand. Auf einen Meter Y sind das {per} mm.',
+      leanNoWidth:
+        'Das Portal steht schief: Die Seite {side} steht weiter hinten (+Y) als die andere Seite – auf einen Meter Y sind das {per} mm. Für die Korrektur den Schienenabstand angeben.',
+      moveFront:
+        'Die Korrektur setzt beim nächsten Referenzieren die Seite X+ um {mm} mm nach vorne (−Y) gegenüber X− – auf beide Motoren verteilt, je zur Hälfte.',
+      moveBack:
+        'Die Korrektur setzt beim nächsten Referenzieren die Seite X+ um {mm} mm nach hinten (+Y) gegenüber X− – auf beide Motoren verteilt, je zur Hälfte.',
+      side: { xMin: 'links (X−)', xMax: 'rechts (X+)' },
+    },
     title: 'Genauigkeits-Check mit Lineal',
     intro:
       'Die Maschine fräst vier Markierungen in ein Rechteck, du misst Seiten und Diagonalen mit Stahllineal, Maßband oder Messschieber. Daraus rechnet die App Maßstab X/Y und Rechtwinkligkeit. Nachmessen mit der eigenen Kamera ginge nicht: Die Markierungen tragen die Fehler der Maschine schon in sich.',
@@ -3643,7 +3705,7 @@ export const de = {
       measurements:
         'messprotokoll, messwerte, gemessen, protokoll, kalibrierwerte, messungen, verlauf der messungen, was wurde gemessen, korrektur geschrieben, versatz der kamera, werte wiederfinden, measurements, log',
       accuracy:
-        'genauigkeit, lineal, maßhaltigkeit, stimmt das maß, schritte pro mm, steps per mm, nachmessen, accuracy, zu kurz gefahren, zu weit gefahren',
+        'genauigkeit, lineal, maßhaltigkeit, stimmt das maß, schritte pro mm, steps per mm, nachmessen, accuracy, zu kurz gefahren, zu weit gefahren, rechtwinklig, rechtwinkligkeit, schief, portal, diagonale, endschalter, schraube, pulloff, rückzug, motor 1, vier punkte, rechteck bohren',
       calibration:
         'maschine vermessen, kalibrieren, kalibrierung, punktplatte, rechtwinkligkeit, winkel, squareness, schritte pro mm, mit kamera messen, kalibriertafel, rastermaß, punktabstand, punktdurchmesser, punkte je seite, gedruckte platte, 3d-druck, ausdruck, präzisionsplatte',
       cameraSetup:

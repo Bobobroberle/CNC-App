@@ -240,6 +240,18 @@ const TRAVEL = {
 
 const RAPID = 3000;
 
+/**
+ * The simulated gantry, as far as squaring it goes: the distance of the two Y rails, the side motor 1 sits on and the
+ * way Y homes. What the operator is asked for in the accuracy check is true here. After every homing of Y the lean of
+ * the axes is the machine's own (`SIM_ERRORS.gamma`: the switches are not quite level) plus what the two pull-offs make
+ * of the gantry – so a correction written to config.yaml acts after the next homing, and a wrong side makes it worse.
+ */
+export const SIM_GANTRY = {
+  width: 1400,
+  motor1Side: 'xMax' as 'xMin' | 'xMax',
+  homingPositive: false,
+};
+
 /** Config items the simulator keeps (`$/axes/x/max_rate_mm_per_min=…`) */
 const SETTING_KEYS: Record<string, string> = {
   'axes/x/steps_per_mm': 'stepsX',
@@ -350,6 +362,8 @@ export class Simulator {
   speed = 1;
   /** Direction of the last X move (for the play) */
   private lastX = 1;
+  /** Lean of the axes in degrees (+ = the X+ end of the gantry ahead towards +Y): set by every homing of Y */
+  private lean = SIM_ERRORS.gamma;
   private queue: Move[] = [];
   private moveStart: Vec3 | null = null;
   private moveElapsed = 0;
@@ -380,7 +394,7 @@ export class Simulator {
 
   /** Where the tool physically is, with the machine's errors. */
   physical(p: Vec3 = this.mpos): Vec3 {
-    const g = (SIM_ERRORS.gamma * Math.PI) / 180;
+    const g = (this.lean * Math.PI) / 180;
     return {
       x:
         SIM_ERRORS.kx * p.x +
@@ -394,7 +408,7 @@ export class Simulator {
 
   /** Commanded machine XY that brings the tool physically to `p` at height `z` (inverse of `physical`). */
   commandedFor(p: { x: number; y: number }, z: number): { x: number; y: number } {
-    const g = (SIM_ERRORS.gamma * Math.PI) / 180;
+    const g = (this.lean * Math.PI) / 180;
     const y = p.y / (SIM_ERRORS.ky * Math.cos(g));
     const play = this.lastX < 0 ? SIM_ERRORS.playX : 0;
     const x = (p.x - SIM_ERRORS.ky * Math.sin(g) * y + play - SIM_ERRORS.tiltZ * z) / SIM_ERRORS.kx;
@@ -998,13 +1012,31 @@ export class Simulator {
     return ['ok'];
   }
 
+  /**
+   * The lean after homing Y: each end of the gantry stops at its own switch and the pull-off leaves it that far from it –
+   * further +Y when homing towards −Y. The X+ end ahead of the X− end by Δ is a lean of atan(Δ / rail distance).
+   */
+  private leanAfterHoming(): number {
+    const p0 = Number(this.config.pulloff0);
+    const p1 = Number(this.config.pulloff1);
+    const plus = SIM_GANTRY.motor1Side === 'xMax' ? p1 : p0;
+    const minus = SIM_GANTRY.motor1Side === 'xMax' ? p0 : p1;
+    const along = (p: number) => (SIM_GANTRY.homingPositive ? -p : p);
+    // both pull-offs 4 mm: the gantry is as the switches make it (that is `SIM_ERRORS.gamma`)
+    const ahead = along(plus) - along(minus);
+    return SIM_ERRORS.gamma + (Math.atan(ahead / SIM_GANTRY.width) * 180) / Math.PI;
+  }
+
   private home(axes: string): string[] {
     const home = this.planned();
     if (axes.includes('Z')) home.z = TRAVEL.z.max;
     // Z first, then X and Y, like the homing cycles.
     if (axes.includes('Z')) this.push({ to: { ...this.mpos, z: home.z }, feed: 1200, jog: false });
     if (axes.includes('X')) home.x = TRAVEL.x.min;
-    if (axes.includes('Y')) home.y = TRAVEL.y.min;
+    if (axes.includes('Y')) {
+      home.y = TRAVEL.y.min;
+      this.lean = this.leanAfterHoming();
+    }
     this.push({ to: home, feed: 2500, jog: false, after: [`[MSG:Homed:${axes}]`] });
     this.state = 'Home';
     this.waiting.push({ until: 'idle', lines: ['ok'] });

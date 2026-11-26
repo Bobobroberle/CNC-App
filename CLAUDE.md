@@ -676,6 +676,29 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   where the placed pictures really lie against the pictures at rest. `e2e/strips.spec.ts` records a stops and a strip scan with a lag
   of 0.3 s ± 40 ms and the pair was proven on it: lag found 342 ms (0.3 s + the mean of the jitter + the frame), timing noise 21 ms,
   placement against rest 0.03 mm mean, 0.12 mm worst.
+- **The accuracy check with a rule and the squaring of the gantry** (`components/AccuracyCheck.tsx`, `AccuracySketch.tsx`,
+  `CorrectionPanel.tsx`, pure `lib/squaring.ts`): frame of reference everywhere – the same as the test pattern's labels – origin
+  at the **front left**, X to the right, Y to the back (Y is the long axis, rails left and right), the gantry's ends **X− and X+**,
+  "vorne" is where the operator stands. The correction is **electronic**: the pull-off (`pulloff_mm`) of the two Y motors, the
+  same as moving a limit switch (`squaringPulloff` in the workshop library: the X+ end runs ahead by W·tan γ, a larger pull-off
+  leaves a motor further +Y when homing towards −Y). **Where the direction is decided is `proposeCorrections` – the words are
+  made from its `squareness` and `shift` (`squaringStory`), never from a second calculation**, and `test/squaring.test.ts` holds
+  the sentence to the geometry (marks laid with the X+ end ahead by a known angle, measured, corrected: both motor sides ×
+  both homing directions × both signs; a swapped motor side doubles the error). **What can go wrong is after the write**:
+  the six values and the result are cleared when the correction is written (a second "Auswerten" on them would correct the
+  corrected config again); the first measurement is kept as `before` in `lowrider-control.accuracy` (a restart, a homing and a
+  whole job lie between the write and its control) and survives a reload; **steps tick only from what is seen** – "restart
+  and homing" from a homing run (`Home`) or a dropped link followed by a homed machine, watched at module level because homing is
+  done from the jog panel which covers the card; before that a pattern's values may be entered, but the correction is **blocked**
+  (it would show the old error); the control measurement is judged per metre (`compareSquaring`: good within the ruler's 0.3 mm/m ·
+  better · unchanged – did not act · **doubled – the side of motor 1 is the other** · overshot – the rail distance too large).
+  Drawings: lines are told apart by **number and line style**, the one being typed is thick as well as blue, every field has a
+  small drawing of its own line beside it (so the reference is in view with the number pad open at 800 × 600), motor 1 is filled
+  and numbered. The simulator's gantry answers to the pull-offs (`SIM_GANTRY`: rails 1400 mm apart, motor 1 on the right,
+  homing −Y; the lean after every homing of Y is its own `SIM_ERRORS.gamma` plus atan(Δpull-off / width)), so
+  `e2e/squaring.spec.ts` runs write → homing → control measurement and the wrong-side case on it. **Not covered:** the real
+  machine's mechanics (which side motor 1 is on is the operator's answer, the drawing and the doubling verdict are the
+  safeguards), and that the simulator does not change its scale when `steps_per_mm` is written (only the lean follows).
 - After a measuring move, read the position and take pictures only after `settled()`
   (`store/settle.ts`): the status report in the store may be older than the move.
 - No safety function lives in the browser; the app triggers and displays, FluidNC enforces.

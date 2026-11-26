@@ -993,6 +993,19 @@ Maschine zu vermessen und zu korrigieren; Anleitung: [`docs/kalibrierung.md`](do
   Riemen ist anders gespannt – dann zuerst mechanisch prüfen; passen die Messungen schlecht
   zusammen, ist es vermutlich ein Messfehler. Mit der eigenen Kamera nachmessen ginge nicht: Die
   Markierungen tragen die Fehler der Maschine schon in sich.
+  Die Karte führt in acht Schritten, die nur nach dem abgehakt werden, was zu sehen ist: Prüfmuster fräsen,
+  messen und eintragen, auswerten, Korrektur schreiben, Steuerung neu starten und **referenzieren** (erkennt die
+  App am Referenzlauf), Prüfmuster noch einmal fräsen, neu messen, auswerten – dann stehen **Vorher und
+  Nachher** nebeneinander mit einem Urteil (fertig · besser · unverändert · doppelt so groß = Motor 1 auf der
+  anderen Seite · zu viel korrigiert). Eine Skizze nummeriert die sechs Strecken (Nummer und Linienstil, die
+  gerade getippte ist dick), neben jedem Feld steht ein kleines Bild seiner Strecke; „vorne“ ist beim
+  Bediener, Nullpunkt vorne links, +X nach rechts, +Y nach hinten. Eine zweite Skizze zeigt die Maschine von
+  oben mit den zwei Y-Schienen, dem Schienenabstand (Mitte bis Mitte, dort, wo die Motoren schieben) und der
+  Seite von Y-Motor 1. Das Ergebnis steht in Worten („Seite rechts (X+) steht um … mm weiter hinten (+Y) …
+  die Korrektur setzt X+ um … mm nach vorne“). Die Korrektur verstellt den Rückzugsweg (`pulloff_mm`) der
+  beiden Y-Motoren – dasselbe, was ein verstellter Endschalter bewirkt, ohne an der Schraube zu drehen. Das
+  Vorher bleibt über einen Neustart der Seite erhalten; vor der Referenzfahrt ist eine zweite Korrektur
+  gesperrt (das Muster davor zeigt den alten Fehler noch).
 - _Maschine vermessen (Kamera)_: Die Kamera am Fräskopf dient als Zielfernrohr – die App fährt jede
   Marke einer Punktetafel genau ins Bildzentrum und misst dabei, wie weit die Maschine wirklich
   fährt: **Maßstab X/Y**, **Rechtwinkligkeit** (Winkel X zu Y), **Umkehrspiel** und **Z-Schiefe**.

@@ -3150,8 +3150,70 @@ export const en: DictionaryShape = {
     },
   },
   accuracy: {
-    afterApply:
-      'Correction written. Restart the controller, home, and cut the test pattern again to check.',
+    step1Again: 'Cut the test pattern again',
+    step2Again: 'Measure again and enter',
+    blocked:
+      'Correction written. Now restart the controller and home – only then cut the test pattern again. A pattern from before still shows the old error, and a second correction on it would act twice.',
+    nowControl:
+      'The machine has been homed again. Now cut the test pattern once more, measure and enter – then before and after stand side by side.',
+    discardBefore: 'Start a new check (discard "before")',
+    steps: {
+      title: 'Steps',
+      cut: 'Cut the test pattern',
+      measure: 'Measure and enter',
+      evaluate: 'Evaluate',
+      write: 'Write the correction',
+      restart: 'Restart the controller and home',
+      cut2: 'Cut the test pattern again',
+      measure2: 'Measure again and enter',
+      evaluate2: 'Evaluate – before and after',
+      now: 'now',
+    },
+    sketch: {
+      label: 'Test pattern from above: marks A to D and the six distances that are measured',
+      front: 'front (operator)',
+      back: 'back',
+      selfCheck:
+        'Check: in the jog display +X runs from A to B (to the right) and +Y from A to D (to the back). A is at the front left, where the zero is.',
+    },
+    compare: {
+      title: 'Before and after',
+      before: 'Before',
+      after: 'After',
+      lean: 'Squareness (mm over 1 m of Y)',
+    },
+    verdict: {
+      good: 'Done: the machine is square within what the ruler can show (about 0.3 mm over a metre). Nothing left to correct.',
+      better:
+        'Better: the error has become clearly smaller. If needed, correct once more with these new measurements.',
+      unchanged:
+        'Almost unchanged: the correction did not act. Was the controller restarted and homed, and the pattern cut only after that?',
+      doubled:
+        'About twice as large, on the same side: the correction went the wrong way. Y motor 1 sits on the other side – switch the side and correct again with these values.',
+      overshot:
+        'Too much corrected: the error is now on the other side. Check whether the rail distance is entered too large, and correct once more.',
+    },
+    gantry: {
+      label:
+        'The machine from above: the two Y rails, the gantry between them, the rail distance and the side of Y motor 1',
+      distance: 'Distance of the Y rails',
+      railLeft: 'rail left',
+      railRight: 'rail right',
+      gantry: 'gantry',
+      help: 'Measured from the middle of the left rail to the middle of the right rail, where the motors push the gantry. An error of 1 % here is an error of 1 % of the correction.',
+      motorHelp:
+        'Which side is Y motor 1 on (port A of the Jackpot)? Seen from the front, looking to the back (+Y): left is X−, right is X+. In the drawing motor 1 is filled and marked "1", the other one is "2".',
+    },
+    story: {
+      lean: 'The gantry stands askew: the {side} side stands {mm} mm further back (+Y) than the other side – at a rail distance of {width} mm. Over a metre of Y that is {per} mm.',
+      leanNoWidth:
+        'The gantry stands askew: the {side} side stands further back (+Y) than the other side – over a metre of Y that is {per} mm. Enter the rail distance for the correction.',
+      moveFront:
+        'At the next homing the correction sets the X+ side {mm} mm towards the front (−Y) against X− – shared between the two motors, half each.',
+      moveBack:
+        'At the next homing the correction sets the X+ side {mm} mm towards the back (+Y) against X− – shared between the two motors, half each.',
+      side: { xMin: 'left (X−)', xMax: 'right (X+)' },
+    },
     title: 'Accuracy check with a rule',
     intro:
       "The machine cuts four marks in a rectangle, you measure sides and diagonals with a steel rule, tape or caliper. The app turns that into X/Y scale and squareness. Measuring with the machine's own camera would not work: the marks already carry the machine's errors.",
@@ -3568,7 +3630,7 @@ export const en: DictionaryShape = {
       measurements:
         'measurement log, measurements, measured values, log, calibration values, what was measured, correction written, camera offset, find values again, protocol',
       accuracy:
-        'accuracy, ruler, dimension check, is the size right, steps per mm, measure again, travelled too short, travelled too far',
+        'accuracy, ruler, dimension check, is the size right, steps per mm, measure again, travelled too short, travelled too far, squareness, square, skew, gantry, limit switch, screw, pull-off, motor 1, four points, drill rectangle',
       calibration:
         'measure the machine, calibrate, calibration, dot plate, squareness, angle, steps per mm, measure with the camera, calibration target, pitch, dot spacing, dot diameter, dots per side, printed plate, 3d print, precision plate',
       cameraSetup:

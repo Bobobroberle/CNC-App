@@ -798,16 +798,35 @@
   align-self: center;
 }
 
-.sketch-side {
-  fill: none;
-  stroke: var(--stage-line);
+.sketch-line {
+  stroke: var(--muted-foreground);
   stroke-width: 2;
 }
 
-.sketch-diag {
+/* the line being typed: thicker as well as in the accent colour – colour alone says nothing in black and white */
+.sketch-line-on {
+  stroke: var(--primary);
+  stroke-width: 5;
+}
+
+.sketch-badge circle {
+  fill: var(--background);
   stroke: var(--muted-foreground);
   stroke-width: 1.5;
-  stroke-dasharray: 6 5;
+}
+
+.sketch-badge text {
+  fill: var(--foreground);
+  font: 700 12px var(--font-sans);
+}
+
+.sketch-badge-on circle {
+  fill: var(--primary);
+  stroke: var(--primary);
+}
+
+.sketch-badge-on text {
+  fill: var(--primary-foreground);
 }
 
 .sketch-mark {
@@ -819,11 +838,145 @@
 .sketch-label,
 .sketch-axis {
   fill: var(--foreground);
-  font: 600 16px var(--font-sans);
+  font: 600 14px var(--font-sans);
 }
 
 .sketch-axis {
   fill: var(--muted-foreground);
+}
+
+.sketch-small {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.sketch-arrow {
+  fill: none;
+  stroke: var(--muted-foreground);
+  stroke-width: 1.5;
+}
+
+.sketch-tick {
+  stroke: var(--muted-foreground);
+  stroke-width: 1.5;
+}
+
+.sketch-table {
+  fill: none;
+  stroke: var(--stage-line);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+}
+
+.sketch-rail {
+  stroke: var(--stage-line);
+  stroke-width: 6;
+}
+
+.sketch-gantry {
+  stroke: var(--foreground);
+  stroke-width: 4;
+}
+
+.sketch-motor rect {
+  fill: var(--background);
+  stroke: var(--foreground);
+  stroke-width: 2;
+}
+
+.sketch-motor text {
+  fill: var(--foreground);
+  font: 700 14px var(--font-sans);
+}
+
+/* motor 1 – the side the correction is told for – is filled, and a number says so as well */
+.sketch-motor-one rect {
+  fill: var(--primary);
+  stroke: var(--primary);
+}
+
+.sketch-motor-one text {
+  fill: var(--primary-foreground);
+}
+
+.accuracy-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accuracy-steps li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  font-size: 0.9375rem;
+}
+
+/* a mark and a word for every state: ✓ done, bold and "jetzt" for the one at hand, grey for the rest */
+.accuracy-steps .step-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border: 1.5px solid var(--muted-foreground);
+  border-radius: 50%;
+  font: 600 0.8125rem var(--font-sans);
+}
+
+.accuracy-steps [data-state='done'] {
+  color: var(--muted-foreground);
+}
+
+.accuracy-steps [data-state='done'] .step-mark {
+  background: var(--muted-foreground);
+  border-color: var(--muted-foreground);
+  color: var(--background);
+}
+
+.accuracy-steps [data-state='current'] {
+  font-weight: 600;
+}
+
+.accuracy-steps [data-state='current'] .step-mark {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.accuracy-steps [data-state='todo'] {
+  color: var(--muted-foreground);
+}
+
+.field-number {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border: 1.5px solid var(--muted-foreground);
+  border-radius: 50%;
+  font: 700 0.75rem var(--font-sans);
+}
+
+.line-glyph {
+  inline-size: 36px;
+  block-size: 26px;
+  flex: none;
+}
+
+.glyph-frame {
+  fill: none;
+  stroke: var(--stage-line);
+  stroke-width: 1;
+}
+
+.glyph-line {
+  stroke: var(--primary);
+  stroke-width: 3;
 }
 
 /* ---------- input pins ---------- */

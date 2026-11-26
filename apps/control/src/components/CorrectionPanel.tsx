@@ -1,11 +1,13 @@
 import type { AxisErrors } from '@lowrider/workshop';
 import { useEffect, useState } from 'react';
-import { t } from '../i18n';
+import { t, type MessageKey } from '../i18n';
 import { formatNumber, parseNumber } from '../lib/format';
 import { PLACE } from '../lib/stateSync';
+import { squaringStory } from '../lib/squaring';
 import { proposeCorrections, useCalibration, type Correction } from '../store/calibration';
 import { useMachine } from '../store/machine';
 import { useWorkshop, type CalibrationSettings } from '../store/workshop';
+import { GantrySketch } from './AccuracySketch';
 import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
 import { Field, FieldLabel } from '../ui/field';
@@ -75,14 +77,17 @@ export function CorrectionPanel({
   first,
   turned,
   precise,
+  blocked = false,
   onApplied,
 }: {
   first: AxisErrors;
   turned: AxisErrors | null;
   /** The reference is trustworthy for scale and angle without turning it */
   precise: boolean;
-  /** After the corrections were written; the measurement no longer fits the machine */
-  onApplied: () => void;
+  /** The corrections must not be written now (what they are based on is out of date) */
+  blocked?: boolean;
+  /** After the corrections were written (and which); the measurement no longer fits the machine */
+  onApplied: (corrections: Correction[]) => void;
 }) {
   const s = useWorkshop((w) => w.settings.calibration);
   const { setSettings } = useWorkshop.getState();
@@ -100,9 +105,12 @@ export function CorrectionPanel({
   }, [first, connected, readConfig]);
 
   const proposal = proposeCorrections(first, turned, { ...s, precise }, cal.config);
+  // In words, from the one place that decides the direction: what stands askew and what the correction does about it
+  const story = squaringStory(proposal.squareness, proposal.shift);
   return (
     <>
       <h3 className="font-medium text-muted-foreground text-sm">{t('calibration.correct')}</h3>
+      <GantrySketch motor1Side={s.motor1Side ?? null} />
       <div className="grid grid-cols-2 gap-2">
         <NumberField
           label={t('calibration.gantryWidth')}
@@ -111,6 +119,10 @@ export function CorrectionPanel({
           onChange={(gantryWidth) => save({ gantryWidth })}
         />
       </div>
+      <p className="text-muted-foreground text-sm" data-testid="gantry-help">
+        {t('accuracy.gantry.help')}
+      </p>
+      <p className="text-muted-foreground text-sm">{t('accuracy.gantry.motorHelp')}</p>
       <SegmentedControl
         className="w-full flex-wrap *:flex-auto"
         role="group"
@@ -131,6 +143,35 @@ export function CorrectionPanel({
           {t(`calibration.missing.${m}`)}
         </p>
       ))}
+      {story.kind === 'lean' ? (
+        <div className="flex flex-col gap-2" data-testid="squaring-story" data-ahead={story.ahead}>
+          <p className="text-sm">
+            {story.leanMm !== undefined
+              ? t('accuracy.story.lean', {
+                  side: t(`accuracy.story.side.${story.ahead!}` as MessageKey),
+                  mm: formatNumber(story.leanMm, 2),
+                  width: formatNumber(s.gantryWidth ?? 0, 0),
+                  per: formatNumber(Math.abs(story.perMetre ?? 0), 2),
+                })
+              : t('accuracy.story.leanNoWidth', {
+                  side: t(`accuracy.story.side.${story.ahead!}` as MessageKey),
+                  per: formatNumber(Math.abs(story.perMetre ?? 0), 2),
+                })}
+          </p>
+          {story.move ? (
+            <p className="text-sm">
+              {t(
+                story.move.towards === 'front'
+                  ? 'accuracy.story.moveFront'
+                  : 'accuracy.story.moveBack',
+                {
+                  mm: formatNumber(story.move.mm, 2),
+                },
+              )}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {proposal.corrections.length > 0 ? (
         <table className="table-list" data-testid="calibration-corrections">
           <tbody>
@@ -149,10 +190,18 @@ export function CorrectionPanel({
       ) : proposal.missing.length === 0 ? (
         <Alert variant="success">{t('calibration.nothingToDo')}</Alert>
       ) : null}
+      {blocked ? (
+        <Alert variant="warning" data-testid="correction-blocked">
+          {t('accuracy.blocked')}
+        </Alert>
+      ) : null}
       <HoldButton
         variant="accent"
-        disabled={!idle || busy || proposal.corrections.length === 0}
-        onConfirm={() => void cal.apply(proposal.corrections).then((ok) => ok && onApplied())}
+        disabled={!idle || busy || blocked || proposal.corrections.length === 0}
+        onConfirm={() => {
+          const written = proposal.corrections;
+          void cal.apply(written).then((ok) => ok && onApplied(written));
+        }}
       >
         {t('calibration.apply')}
       </HoldButton>
