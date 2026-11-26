@@ -426,11 +426,12 @@ export const COMMANDS: readonly Command[] = [
     'camera',
   ),
   settings('cameraHeight', 'camera.focusTitle', 'camera', 'camera-height', undefined, 'camera'),
+  // Without a companion that can set the camera the card is not there: the search then lands on the camera's own settings
   settings(
     'cameraControls',
     'cameraControls.title',
     'camera',
-    'camera-controls',
+    ['camera-controls', 'camera-setup'],
     undefined,
     'camera',
   ),

@@ -35,6 +35,18 @@ export function formatNumber(value: number, decimals = 0): string {
   });
 }
 
+/**
+ * A number as it stands in a field the operator edits: the decimal sign of the language, but no grouping of thousands –
+ * `parseNumber` reads "4.600" as 4.6, so a field that shows it that way could not be left alone without changing it.
+ */
+export function formatField(value: number, max = 2): string {
+  return value.toLocaleString(locale, {
+    useGrouping: false,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: max,
+  });
+}
+
 /** A number as it was typed: no decimals that are zero ("180", "12,5", "3,2"), at most `max` ("3,33"). */
 export function formatPlain(value: number, max = 2): string {
   return value.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: max });

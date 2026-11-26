@@ -3,6 +3,7 @@ import {
   formatCoordinate,
   formatDuration,
   formatNumber,
+  formatField,
   formatPlain,
   formatSigned,
   parseNumber,
@@ -24,6 +25,13 @@ describe('format', () => {
     expect(formatPlain(12.5)).toBe('12,5');
     expect(formatPlain(3.2)).toBe('3,2');
     expect(formatPlain(3.333)).toBe('3,33');
+    // in a field, a number of four digits is not grouped: parseNumber would read "4.600" as 4.6
+    expect(formatField(4600)).toBe('4600');
+    expect(formatField(12345.5)).toBe('12345,5');
+    expect(formatField(15.7, 1)).toBe('15,7');
+    expect(formatField(3.333)).toBe('3,33');
+    expect(parseNumber(formatField(4600))).toBe(4600);
+    expect(parseNumber(formatPlain(4600))).toBe(4.6);
     expect(formatPlain(3.333, 1)).toBe('3,3');
     expect(formatPlain(0)).toBe('0');
     expect(formatPlain(1000)).toBe('1.000');

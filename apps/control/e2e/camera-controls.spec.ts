@@ -154,9 +154,23 @@ test('a switch and a choice: the white balance by hand, the focus', async ({ pag
   await control(page, 'white_balance_automatic').getByRole('checkbox').click();
   await expect(temperature).toBeEnabled();
   await expect.poll(() => pi.camera.get('white_balance_automatic').value).toBe(0);
+  // four digits stand in the field as typed back – not grouped, or leaving the field would change the number
+  await expect(temperature).toHaveValue('4600');
+  const writes = pi.puts.length;
+  await temperature.focus();
+  await temperature.blur();
+  await expect(control(page, 'white_balance_temperature').getByTestId('control-note')).toHaveCount(
+    0,
+  );
+  await expect(temperature).toHaveValue('4600');
+  expect(pi.puts).toHaveLength(writes);
   await temperature.fill('5200');
   await temperature.press('Enter');
   await expect.poll(() => pi.camera.get('white_balance_temperature').value).toBe(5200);
+  await expect(temperature).toHaveValue('5200');
+  await expect(control(page, 'white_balance_temperature').getByTestId('control-note')).toHaveCount(
+    0,
+  );
   // the camera takes a focus only on a grid of five
   await control(page, 'focus_automatic_continuous').getByRole('checkbox').click();
   const focus = field(page, 'Fokus');

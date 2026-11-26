@@ -10,7 +10,7 @@ import {
   unitOf,
 } from '../lib/cameraControls';
 import type { CameraControl } from '../lib/companion';
-import { formatPlain, parseNumber } from '../lib/format';
+import { formatField, formatPlain, parseNumber } from '../lib/format';
 import { CameraFailureError, useCameraControls } from '../store/cameraControls';
 import { useWorkshop } from '../store/workshop';
 import { AckMark, useAck } from './Ack';
@@ -39,8 +39,13 @@ function menuLabel(control: CameraControl, value: number, own: string): string {
 }
 
 const unitText = (control: CameraControl) => (unitOf(control) === 'ms' ? ' ms' : '');
+const decimals = (control: CameraControl) => (unitOf(control) === 'ms' ? 1 : 0);
+/** A number as shown in a sentence or a range: grouped for reading ("4.600") */
 const numberText = (control: CameraControl, raw: number) =>
-  formatPlain(shownValue(control, raw), unitOf(control) === 'ms' ? 1 : 0);
+  formatPlain(shownValue(control, raw), decimals(control));
+/** The same number as it stands in the field: never grouped, or leaving the field would read it as another number */
+const fieldText = (control: CameraControl, raw: number) =>
+  formatField(shownValue(control, raw), decimals(control));
 
 /** Why a setting has no effect now: said of the switch it hangs on. */
 function inactiveText(control: CameraControl): string {
@@ -54,10 +59,10 @@ function inactiveText(control: CameraControl): string {
 /** One setting of the camera, as the camera reports it: a number with ± and the range, a choice, or a switch. */
 function ControlRow({ control }: { control: CameraControl }) {
   const ack = useAck();
-  const [text, setText] = useState(() => numberText(control, control.value));
+  const [text, setText] = useState(() => fieldText(control, control.value));
   const [note, setNote] = useState<string | null>(null);
   // The value shown is what the camera reports: a read or a write that answers shows it anew
-  useEffect(() => setText(numberText(control, control.value)), [control.value]);
+  useEffect(() => setText(fieldText(control, control.value)), [control.value]);
   const locked = control.inactive || control.readOnly;
   const label = tDynamic(`cameraControls.names.${control.name}`, 'cameraControls.errors.failed');
   const unit = unitText(control);
@@ -70,7 +75,7 @@ function ControlRow({ control }: { control: CameraControl }) {
   /** The row shows what the camera reports: after a write, whatever came of it. */
   const resync = () => {
     const now = useCameraControls.getState().controls?.find((c) => c.name === control.name);
-    if (now) setText(numberText(now, now.value));
+    if (now) setText(fieldText(now, now.value));
   };
 
   /** Sends one change; the answer's read-back is what the row shows afterwards. */
@@ -103,7 +108,7 @@ function ControlRow({ control }: { control: CameraControl }) {
     const typed = parseNumber(text);
     if (text.trim() === '' || !Number.isFinite(typed)) {
       setNote(t('cameraControls.notANumber'));
-      setText(numberText(control, control.value));
+      setText(fieldText(control, control.value));
       return;
     }
     const target = rawOfTyped(control, typed);
@@ -115,10 +120,10 @@ function ControlRow({ control }: { control: CameraControl }) {
           unit,
         }),
       );
-      setText(numberText(control, control.value));
+      setText(fieldText(control, control.value));
       return;
     }
-    setText(numberText(control, target.raw));
+    setText(fieldText(control, target.raw));
     if (target.raw !== control.value) void send(target.raw);
   };
 
@@ -187,7 +192,8 @@ function ControlRow({ control }: { control: CameraControl }) {
               inputMode="decimal"
               className="tabular-nums"
               value={text}
-              disabled={locked || ack.state === 'busy'}
+              // not disabled while a write is on its way: that would take the focus – and the number pad – away
+              disabled={locked}
               onChange={(e) => setText(e.target.value)}
               onBlur={commit}
               onKeyDown={(e) => {

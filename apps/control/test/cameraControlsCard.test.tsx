@@ -308,6 +308,36 @@ describe('setting a number', () => {
   });
 });
 
+describe('a number of four digits', () => {
+  it('stands in the field as it is read back – never grouped – so that leaving the field changes nothing', async () => {
+    pi.list = camera().map((c) =>
+      c.name === 'white_balance_automatic'
+        ? { ...c, value: 0 }
+        : c.name === 'white_balance_temperature'
+          ? { ...c, inactive: false }
+          : c,
+    );
+    await open();
+    const temperature = within(row('white_balance_temperature')).getByLabelText('Farbtemperatur');
+    // the range is read, so it is grouped; the number in the field is typed back as it stands
+    expect(val(temperature)).toBe('4600');
+    expect(textOf(row('white_balance_temperature'))).toContain('Bereich 2.800 bis 6.500');
+    // into the field and out of it again, nothing changed: nothing is said and nothing is sent
+    fireEvent.focus(temperature);
+    fireEvent.blur(temperature);
+    await settle();
+    await settle();
+    expect(pi.puts).toEqual([]);
+    expect(within(row('white_balance_temperature')).queryByTestId('control-note')).toBeNull();
+    expect(val(temperature)).toBe('4600');
+    // one digit edited
+    await typeInto(temperature, '5200');
+    expect(pi.puts).toEqual([{ white_balance_temperature: 5200 }]);
+    expect(val(temperature)).toBe('5200');
+    expect(within(row('white_balance_temperature')).queryByTestId('control-note')).toBeNull();
+  });
+});
+
 describe('choices and switches', () => {
   it('sends the number of the entry chosen, and 0 or 1 for a switch', async () => {
     await open();

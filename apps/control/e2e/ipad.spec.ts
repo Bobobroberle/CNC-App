@@ -5,6 +5,7 @@ import {
   connect,
   drawShape,
   goTo,
+  installFakeCameraPi,
   installFakeFluidNC,
   numberIn,
   onStage,
@@ -1020,6 +1021,79 @@ test("a number field under a finger gets the app's own number pad; a keyboard st
   await page.mouse.click(spot.x + spot.width / 2, spot.y + spot.height / 2);
   await expect(field).toBeFocused();
   await expect(pad).toHaveCount(0);
+});
+
+test('the camera\'s picture settings on a finger: the number pad types, "Übernehmen" sends – also a number of four digits', async ({
+  page,
+}) => {
+  const pi = await installFakeCameraPi(page);
+  await page.goto('/');
+  await goTo(page, 'Einstellungen', 'Kamera');
+  const card = page.getByTestId('camera-controls');
+  const field = (name: string) => card.getByRole('textbox', { name, exact: true });
+  const note = (name: string) =>
+    card.getByTestId(`camera-control-${name}`).getByTestId('control-note');
+  const pad = page.locator('[data-slot="numpad"]');
+  const key = (name: string) => pad.locator(`[data-key="${name}"]`);
+  // The pad takes no key for a moment after the finger that opened it has lifted (that tap may end on one): wait it out
+  const openPad = async (field: Locator) => {
+    await field.tap();
+    await expect(pad).toBeVisible();
+    await expect(field).toBeFocused();
+    await page.waitForTimeout(150);
+  };
+  await card
+    .getByTestId('camera-control-auto_exposure')
+    .getByRole('combobox')
+    .selectOption({ label: 'Manuell' });
+  const time = field('Belichtungszeit (ms)');
+  await expect(time).toBeEnabled();
+  await expect(time).toHaveValue('15,7');
+
+  // the pad comes up for the field, in its unit; nothing is sent while keys are pressed
+  const writes = pi.puts.length;
+  await openPad(time);
+  await expect(pad.locator('[data-slot="numpad-label"]')).toHaveText('Belichtungszeit (ms)');
+  await expect(pad).toContainText('ms');
+  await key('clear').tap();
+  for (const k of ['1', '2', 'separator', '3']) await key(k).tap();
+  await expect(time).toHaveValue('12,3');
+  expect(pi.puts).toHaveLength(writes);
+  // "Übernehmen" lets go of the field: that is what commits
+  await pad.locator('[data-slot="numpad-done"]').tap();
+  await expect(pad).toHaveCount(0);
+  await expect.poll(() => pi.camera.get('exposure_time_absolute').value).toBe(123);
+  await expect(time).toHaveValue('12,3');
+  await expect(note('exposure_time_absolute')).toHaveCount(0);
+
+  // four digits: the white balance by hand, the pad opened and closed without a key changes nothing
+  await card.getByTestId('camera-control-white_balance_automatic').getByRole('checkbox').tap();
+  const temperature = field('Farbtemperatur');
+  await expect(temperature).toBeEnabled();
+  await expect(temperature).toHaveValue('4600');
+  const before = pi.puts.length;
+  await openPad(temperature);
+  await pad.locator('[data-slot="numpad-done"]').tap();
+  await expect(pad).toHaveCount(0);
+  await expect(temperature).toHaveValue('4600');
+  await expect(note('white_balance_temperature')).toHaveCount(0);
+  expect(pi.puts).toHaveLength(before);
+  await openPad(temperature);
+  await key('clear').tap();
+  for (const k of ['5', '2', '0', '0']) await key(k).tap();
+  await pad.locator('[data-slot="numpad-done"]').tap();
+  await expect.poll(() => pi.camera.get('white_balance_temperature').value).toBe(5200);
+  await expect(temperature).toHaveValue('5200');
+  await expect(note('white_balance_temperature')).toHaveCount(0);
+
+  // tapping elsewhere instead of "Übernehmen" lets go of the field as well – and commits
+  await openPad(time);
+  await key('clear').tap();
+  for (const k of ['8', 'separator', '5']) await key(k).tap();
+  await card.getByRole('heading', { name: 'Belichtung und Bild' }).tap();
+  await expect(pad).toHaveCount(0);
+  await expect.poll(() => pi.camera.get('exposure_time_absolute').value).toBe(85);
+  await expect(time).toHaveValue('8,5');
 });
 
 test.describe('Safari on the iPad, not yet on the home screen', () => {
