@@ -18,6 +18,13 @@ export const GAP_MS = 30;
 
 export type TraceFrameKind = 'rest' | 'anchor' | 'run' | 'dense';
 
+/** The stamp the Pi put on a camera picture: its clock, the time in seconds in it, and the header it was read from */
+export interface TraceStamp {
+  domain: 'mono' | 'wall';
+  t: number;
+  source: string;
+}
+
 export interface TraceFrame {
   /** Name of the file in the zip */
   file: string;
@@ -36,6 +43,8 @@ export interface TraceFrame {
   spindle?: { x: number; y: number };
   /** Which strip of the scan */
   strip?: number;
+  /** The Pi's stamp of a picture of a run taken from the camera's own stream (its `t` is then when the page got it) */
+  stamp?: TraceStamp;
 }
 
 export interface TraceEvent {
@@ -49,6 +58,8 @@ export interface TraceReport {
   t: number;
   state: string;
   mpos: [number, number, number];
+  /** The Pi's clock when its relay received this report (ms) – there only where the relay stamps; older files have none */
+  stamp?: { mono: number; wall: number };
 }
 
 export interface TraceFile {
@@ -65,6 +76,11 @@ export interface TraceFile {
   stamps: { t: number; scan: number }[];
   /** Pictures of the screen that came later than `GAP_MS` after the one before: [t, ms] */
   gaps: [number, number][];
+  /**
+   * Every picture kept from the camera server's own stream during a run: when the page got it (`t`, ms) and the Pi's
+   * stamp. Both clocks of one picture, so that the lag and the scatter of each can be worked out. Absent in older files.
+   */
+  pictures?: { t: number; scan: number; stamp: TraceStamp }[];
   frames: TraceFrame[];
   /** Pictures left out for the size */
   dropped: number;
@@ -95,6 +111,7 @@ export class TraceRecorder {
       reports: [],
       stamps: [],
       gaps: [],
+      pictures: [],
       frames: [],
       dropped: 0,
     };
@@ -103,6 +120,22 @@ export class TraceRecorder {
   /** ms since the recording began */
   t(): number {
     return this.now() - this.started;
+  }
+
+  /** The recording's time of a moment on the page's clock (`performance.now()`, ms) */
+  at(pageMs: number): number {
+    return pageMs - this.started;
+  }
+
+  /**
+   * Which clock the scans of the recording ran on (`meta.clock`): the first scan's, or `mixed` where a later one ran on
+   * another – each scan names its own in its options as well.
+   */
+  setClock(kind: string) {
+    const known = this.file.meta.clock;
+    this.file.meta.clock = known === undefined || known === kind ? kind : 'mixed';
+    const scan = this.file.scans[this.file.scans.length - 1];
+    if (scan) scan.options = { ...scan.options, clock: kind };
   }
 
   get scans(): number {
@@ -123,12 +156,19 @@ export class TraceRecorder {
     this.file.events.push({ ...data, t: this.t(), scan: this.scan, kind });
   }
 
-  report(state: string, mpos: readonly number[]) {
+  report(state: string, mpos: readonly number[], stamp?: { mono: number; wall: number } | null) {
     this.file.reports.push({
       t: this.t(),
       state,
       mpos: [mpos[0] ?? 0, mpos[1] ?? 0, mpos[2] ?? 0],
+      ...(stamp ? { stamp: { mono: stamp.mono, wall: stamp.wall } } : {}),
     });
+  }
+
+  /** A picture of the camera server's stream with the stamp the Pi gave it, and when the page (`pageMs`) got it. */
+  picture(pageMs: number, stamp: TraceStamp) {
+    this.file.pictures ??= [];
+    this.file.pictures.push({ t: this.at(pageMs), scan: this.scan, stamp: { ...stamp } });
   }
 
   stamp() {

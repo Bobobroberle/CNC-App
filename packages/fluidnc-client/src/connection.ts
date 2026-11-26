@@ -20,6 +20,21 @@ export type WebSocketFactory = (url: string) => WebSocketLike;
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected';
 
+/**
+ * The companion relay's clock at the moment it received a message from FluidNC (`STAMP:<mono>:<wall>`,
+ * sent only to a client that asked for it with `?stamp=1`). `mono` is CLOCK_MONOTONIC in ms (the clock
+ * ustreamer's own times are in; its grab time is the V4L2 driver's), `wall` the Pi's real time in ms since 1970.
+ */
+export interface RelayStamp {
+  mono: number;
+  wall: number;
+}
+
+/** What an event passes as its second argument: a status report carries the relay's stamp (null: none came). */
+export interface ConnectionExtras {
+  status: RelayStamp | null;
+}
+
 export interface ConnectionEvents {
   state: ConnectionState;
   /** Every complete line received from the controller */
@@ -125,7 +140,9 @@ export interface CommandOptions {
 
 const WS_OPEN = 1;
 // WebUI v2 sends CURRENT_ID/ACTIVE_ID, newer builds currentID/activeID.
-const META = /^(CURRENT_?ID|ACTIVE_?ID|PING|DHT|ERROR|ROLE):/i;
+const META = /^(CURRENT_?ID|ACTIVE_?ID|PING|DHT|ERROR|ROLE|STAMP):/i;
+/** The relay's stamp, strictly: a non-negative decimal for the monotonic ms, a whole number for the wall ms. */
+const STAMP = /^STAMP:(\d{1,15}(?:\.\d{1,6})?):(\d{1,16})$/;
 
 /** What a watching connection may still send: a status query, a feed hold, a soft reset. */
 const WATCHING_MAY_SEND: number[] = [Realtime.StatusReport, Realtime.FeedHold, Realtime.SoftReset];
@@ -140,7 +157,7 @@ function defaultFactory(url: string): WebSocketLike {
  * Connection to FluidNC over its WebSocket (port 81 with WebUI v2).
  * Controller output arrives as binary frames, meta information as text frames.
  */
-export class FluidNCConnection extends Emitter<ConnectionEvents> {
+export class FluidNCConnection extends Emitter<ConnectionEvents, ConnectionExtras> {
   readonly tracker = new StatusTracker();
   private socket: WebSocketLike | null = null;
   private connectionState: ConnectionState = 'disconnected';
@@ -148,6 +165,10 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
     createSocket: WebSocketFactory;
   };
   private partial = '';
+  /** The stamp of the frame the unfinished line in `partial` began in */
+  private partialStamp: RelayStamp | null = null;
+  /** A stamp frame came: it belongs to the very next frame, whatever that is */
+  private pendingStamp: RelayStamp | null = null;
   private readonly decoder = new TextDecoder();
   private pending: PendingCommand[] = [];
   private streamer: CharacterCountingStreamer | null = null;
@@ -379,6 +400,8 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
     }
     this.socket = null;
     this.partial = '';
+    this.partialStamp = null;
+    this.pendingStamp = null;
     this.viewer = false;
     // Told before the streamer is aborted: a listener that asks "was a stream still running?"
     // (the app's critical "lost in a job" message) must see it running.
@@ -397,6 +420,16 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
   }
 
   private receive(data: unknown) {
+    // The relay stamps the frame that follows (only for a client that asked): it is no answer and no
+    // text of the controller. A malformed one is dropped as meta below.
+    const stamp = typeof data === 'string' ? STAMP.exec(data) : null;
+    if (stamp) {
+      this.pendingStamp = { mono: Number(stamp[1]), wall: Number(stamp[2]) };
+      return;
+    }
+    // Whatever comes next consumes the stamp, meta or data – a stamp never waits for a later frame
+    const frameStamp = this.pendingStamp;
+    this.pendingStamp = null;
     if (this.answered) {
       // The first word from FluidNC (a line or its WebSocket greeting): now it is a connection.
       // Data only comes once the socket is open, and opening set the timer.
@@ -417,26 +450,30 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
         this.emit('meta', data);
         return;
       }
-      this.receiveText(data);
+      this.receiveText(data, frameStamp);
     } else if (data instanceof ArrayBuffer) {
-      this.receiveText(this.decoder.decode(data, { stream: true }));
+      this.receiveText(this.decoder.decode(data, { stream: true }), frameStamp);
     } else if (ArrayBuffer.isView(data)) {
-      this.receiveText(this.decoder.decode(data, { stream: true }));
+      this.receiveText(this.decoder.decode(data, { stream: true }), frameStamp);
     }
   }
 
-  private receiveText(text: string) {
+  private receiveText(text: string, stamp: RelayStamp | null) {
+    // A line carries the stamp of the frame its first byte came in (a report may be split across frames)
+    let lineStamp = this.partial === '' ? stamp : this.partialStamp;
     this.partial += text;
     let newline = this.partial.indexOf('\n');
     while (newline >= 0) {
       const line = this.partial.slice(0, newline).replace(/\r$/, '');
       this.partial = this.partial.slice(newline + 1);
-      if (line.trim() !== '') this.handleLine(line);
+      if (line.trim() !== '') this.handleLine(line, lineStamp);
+      lineStamp = stamp;
       newline = this.partial.indexOf('\n');
     }
+    this.partialStamp = lineStamp;
   }
 
-  private handleLine(line: string) {
+  private handleLine(line: string, stamp: RelayStamp | null) {
     this.emit('line', line);
     const message = parseMessage(line);
     this.emit('message', message);
@@ -455,7 +492,7 @@ export class FluidNCConnection extends Emitter<ConnectionEvents> {
         break;
       }
       case 'status':
-        this.emit('status', this.tracker.update(message.report));
+        this.emit('status', this.tracker.update(message.report), stamp);
         break;
       case 'alarm':
         this.streamer?.abort();

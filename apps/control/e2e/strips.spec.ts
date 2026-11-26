@@ -33,6 +33,26 @@ interface Stats {
   lag: number;
   seconds: number;
   gaveUp: boolean;
+  clock: 'pi' | 'browser';
+  clockReason: 'relay' | 'device' | 'stream' | 'window' | null;
+  clockDetail: string | null;
+  clockLost: string | null;
+  stamp: { domain: 'mono' | 'wall'; source: string } | null;
+  timingNoiseMs: number | null;
+}
+
+/** A simulated Pi between the controller and the page (`PiClockSetup` in `sim/index.ts`) */
+interface PiSetup {
+  offsetMs: number;
+  linkMs: number;
+  linkJitterMs: number;
+  stampNoiseMs: number;
+  frameStampNoiseMs: number;
+  stampLagMs?: number;
+  stamps?: boolean;
+  frameClockOffsetMs?: number;
+  frameDomain?: 'mono' | 'wall';
+  undecodable?: boolean;
 }
 
 type Handle = {
@@ -52,8 +72,12 @@ type Handle = {
       scanArea(area: Area, options?: { precise?: boolean }): Promise<boolean>;
       cancelScan(): void;
       setMode(mode: 'strips' | 'stops'): void;
+      setTempo(tempo: 'gentle' | 'normal' | 'fast'): void;
+      setExposure(ms: number): void;
       mode: 'strips' | 'stops';
       scan: unknown;
+      stripsBad: boolean;
+      lastClock: unknown;
     };
     trace(): {
       setRecording(on: boolean): void;
@@ -61,9 +85,13 @@ type Handle = {
       scans: number;
       pending: number;
     };
+    stamp(): { mono: number; wall: number } | null;
+    /** The simulated Pi's camera streams that are open right now */
+    streams(): number;
   };
+  lowriderPiClock?: PiSetup;
   lowriderCameraLag: { ms: number; jitterMs: number; blurPx: number };
-  lowriderSimulator: { state: string };
+  lowriderSimulator: { state: string; mpos: { x: number; y: number; z: number } };
 };
 
 const scan = (page: Page, area: Area, precise: boolean) =>
@@ -125,6 +153,127 @@ async function dots(page: Page, area: Area) {
   );
 }
 
+/** The simulated Pi's clocks run two hours ahead of the page's: any mixing of the two fails loudly, not by a few ms */
+const HUGE_OFFSET_MS = 7_200_000;
+
+/** Sets up the simulated Pi (null: none – the simulator as it always was) */
+const setPi = (page: Page, setup: PiSetup | null) =>
+  page.evaluate((s) => {
+    (window as unknown as Handle).lowriderPiClock = s ?? undefined;
+  }, setup);
+
+/** The relay's stamps arrive with the reports once a Pi is set up (the next poll, within 200 ms) */
+const stampsArrive = (page: Page) =>
+  expect
+    .poll(() => page.evaluate(() => (window as unknown as Handle).lowriderMap.stamp() !== null))
+    .toBe(true);
+
+/** How far the dots of a scan lie from where the reference scan (a stop for every picture) has them, mm */
+function against(reference: { id: string; x: number; y: number }[], found: typeof reference) {
+  const byId = new Map(reference.map((d) => [d.id, d]));
+  const both = found.filter((d) => byId.has(d.id));
+  const errors = both.map((d) => Math.hypot(d.x - byId.get(d.id)!.x, d.y - byId.get(d.id)!.y));
+  return {
+    share: both.length / reference.length,
+    max: errors.length ? Math.max(...errors) : Infinity,
+    mean: errors.length ? errors.reduce((a, b) => a + b, 0) / errors.length : Infinity,
+  };
+}
+
+const stats = (page: Page) =>
+  page.evaluate(() => (window as unknown as Handle).lowriderMap.stats()!);
+
+/** What the scan was doing, and how many camera streams of the simulated Pi were open, at one moment */
+interface Sample {
+  unit: 'strips' | 'pictures' | null;
+  done: number;
+  total: number;
+  open: number;
+}
+
+/**
+ * Looks at the scan every 10 ms from inside the page (a round trip per look would miss the short parts): `stop` gives what it saw.
+ * A scan that is under way has `scan` set; one that is over has not.
+ */
+async function watchScan(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as Handle & {
+      __seen?: Sample[];
+      __stopSeeing?: () => void;
+    };
+    w.__seen = [];
+    const timer = setInterval(() => {
+      const sc = w.lowriderMap.store().scan as {
+        unit: 'strips' | 'pictures';
+        done: number;
+        total: number;
+      } | null;
+      w.__seen!.push({
+        unit: sc?.unit ?? null,
+        done: sc?.done ?? 0,
+        total: sc?.total ?? 0,
+        open: w.lowriderMap.streams(),
+      });
+    }, 10);
+    w.__stopSeeing = () => clearInterval(timer);
+  });
+  return {
+    stop: () =>
+      page.evaluate(() => {
+        const w = window as unknown as { __seen: Sample[]; __stopSeeing: () => void };
+        w.__stopSeeing();
+        return w.__seen;
+      }),
+  };
+}
+
+/** Opens the panel of the scan under Einrichten → Kamera */
+async function openScanPanel(page: Page) {
+  await goTo(page, 'Einrichten');
+  await page
+    .getByRole('group', { name: 'Bereich' })
+    .getByRole('button', { name: 'Kamera' })
+    .click();
+  const section = page
+    .locator('.section[data-fold]')
+    .filter({ has: page.getByRole('heading', { name: 'Fläche scannen', exact: true }) });
+  if ((await section.getAttribute('data-open')) === null) {
+    await section.locator('[data-fold-trigger]').first().click();
+  }
+  const panel = page.getByTestId('photo-map-panel');
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+/**
+ * A recording holds no address (an IP, a host with a scheme, a port) and no login (a token, a password, an authorization) – not in
+ * `meta`, not in the reports, the pictures' stamps or the solved events (the whole text of `trace.json`), and not in the names of
+ * the files of the zip. The user agent is the one thing with dotted numbers in it (a browser version) and is taken out first.
+ */
+function expectNoAddressOrLogin(zip: Record<string, Uint8Array>, userAgent: string) {
+  const text = strFromU8(zip['trace.json']!).split(JSON.stringify(userAgent)).join('""');
+  // the user agent really was in the file (so the test would have noticed an address of the same kind)
+  expect(text.length).toBeLessThan(strFromU8(zip['trace.json']!).length);
+  const found =
+    /\d+\.\d+\.\d+\.\d+|https?:|wss?:|:\/\/|localhost|@|token|password|passwort|authorization|bearer|login/i;
+  expect(found.exec(text)?.[0] ?? null, 'trace.json').toBeNull();
+  // the files: the trace and numbered pictures in a folder per kind (`run/00012.jpg`), nothing named after a host or a person
+  const names = Object.keys(zip);
+  expect(names).toContain('trace.json');
+  expect(names.length).toBeGreaterThan(10);
+  expect(
+    names.filter((n) => !/^(trace\.json|(rest|anchor|run|dense)\/\d{5}\.jpg)$/.test(n)),
+  ).toEqual([]);
+}
+
+/** A camera that shows the table 0.3 s late, give or take 40 ms – unseen by the app */
+const lateCamera = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as Handle;
+    w.lowriderCameraLag.ms = 300;
+    w.lowriderCameraLag.jitterMs = 40;
+  });
+
 test('a strip scan with a camera that is late puts the plate where a scan with stops does', async ({
   page,
 }) => {
@@ -177,6 +326,517 @@ test('a strip scan with a camera that is late puts the plate where a scan with s
   const upper = both.filter((d) => d.y >= 150);
   expect(lower.length).toBeGreaterThan(5);
   expect(upper.length).toBeGreaterThan(5);
+});
+
+test("a strip scan on the Pi's clock – two hours ahead of the page's – puts the plate where a scan with stops does", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    (window as unknown as Handle).lowriderMap.store().clear();
+    (window as unknown as Handle).lowriderMap.store().setMode('strips');
+  });
+  expect(await scan(page, AREA, true)).toBe(true);
+  const reference = await dots(page, AREA);
+  expect(reference.length).toBeGreaterThan(30);
+
+  // the camera is late in the page by 0.3 s and the link is slow and uneven – none of it is in the Pi's stamps
+  await lateCamera(page);
+  await setPi(page, {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 40,
+    linkJitterMs: 60,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+  });
+  await stampsArrive(page);
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().clear());
+  const watching = await watchScan(page);
+  expect(await scan(page, AREA, false)).toBe(true);
+  const seen = await watching.stop();
+  const run = await stats(page);
+  const found = await dots(page, AREA);
+
+  // The camera stream is the runs' and no one else's: open while there are strips to run, closed the moment the last one is
+  // over – through its last solve and the refill by stops, not only when the scan ends – and never left open after it
+  const running = seen.filter((x) => x.unit === 'strips' && x.done < x.total);
+  const after = seen.filter(
+    (x) => (x.unit === 'strips' && x.done === x.total) || x.unit === 'pictures',
+  );
+  console.log(
+    `camera stream, ${seen.length} looks: open ${running.filter((x) => x.open === 1).length} of ${running.length} while strips remained, ` +
+      `${after.length} looks after the last strip (open: ${after.filter((x) => x.open > 0).length})`,
+  );
+  // (it opens once, when the clock is chosen, and stays: never open, closed, open again)
+  const opens = running.map((x) => x.open);
+  expect(opens.filter((o) => o === 1).length).toBeGreaterThan(5);
+  expect(opens).toEqual([...opens].sort());
+  expect(after.length).toBeGreaterThan(0);
+  expect(after.every((x) => x.open === 0)).toBe(true);
+  expect(seen.filter((x) => x.unit === null).every((x) => x.open === 0)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as Handle).lowriderMap.streams())).toBe(0);
+
+  // the Pi's clock was chosen once for the scan: the stamps of the pictures are the grab time, in the clock of the reports
+  expect(run).toMatchObject({
+    mode: 'strips',
+    clock: 'pi',
+    clockReason: null,
+    clockLost: null,
+    gaveUp: false,
+    strips: 2,
+    stamp: { domain: 'mono', source: 'x-ustreamer-grab-time' },
+  });
+  expect(run.offered).toBeGreaterThan(10);
+  expect(run.placed).toBeGreaterThanOrEqual(run.offered * 0.75);
+  expect(run.refilled).toBeLessThanOrEqual(3);
+  // what is left between the two stamps is tens of milliseconds, not the 0.3 s the page sees the camera late by
+  expect(Math.abs(run.lag)).toBeLessThan(0.1);
+
+  const quality = against(reference, found);
+  expect(quality.share).toBeGreaterThanOrEqual(0.9);
+  expect(quality.max).toBeLessThan(0.5);
+  expect(quality.mean).toBeLessThan(0.2);
+  // both strips, so both directions
+  expect(found.filter((d) => d.y < 150).length).toBeGreaterThan(5);
+  expect(found.filter((d) => d.y >= 150).length).toBeGreaterThan(5);
+
+  // the panel says which clock the scan ran on in words: the header the stamps come from is named, its own name is small beside it
+  const panel = await openScanPanel(page);
+  await expect(panel.getByTestId('scan-clock')).toHaveAttribute('data-clock', 'pi');
+  await expect(panel.getByTestId('scan-clock-line')).toContainText(
+    'Aufnahmezeit des Kameratreibers',
+  );
+  await expect(panel.getByTestId('scan-clock-line')).toContainText('Monotonuhr');
+  await expect(panel.getByTestId('scan-clock-header')).toHaveText('x-ustreamer-grab-time');
+  await expect(panel.getByTestId('scan-clock-why')).toHaveCount(0);
+});
+
+test("with a jittery link and a jittery camera the run on the Pi's clock puts its pictures tighter than the run on the browser's", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(500_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    (window as unknown as Handle).lowriderMap.store().clear();
+    (window as unknown as Handle).lowriderMap.store().setMode('strips');
+  });
+  expect(await scan(page, AREA, true)).toBe(true);
+  const reference = await dots(page, AREA);
+  expect(reference.length).toBeGreaterThan(30);
+
+  // A bad day: the camera is late by 0.3 s ± 40 ms in the page, and the link from the Pi to the page 60–180 ms, uneven
+  await lateCamera(page);
+  const link: PiSetup = {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 60,
+    linkJitterMs: 120,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+  };
+  const clear = () =>
+    page.evaluate(() => (window as unknown as Handle).lowriderMap.store().clear());
+
+  // On the browser's clock: the link is as bad, the Pi stamps nothing (an older companion)
+  await setPi(page, { ...link, stamps: false });
+  await page.waitForTimeout(600);
+  await clear();
+  expect(await scan(page, AREA, false)).toBe(true);
+  const browser = await stats(page);
+  const browserQuality = against(reference, await dots(page, AREA));
+
+  // On the Pi's clock: the same link, the same camera, with the stamps. (A run on the browser's clock that was given up on this
+  // table makes the next scan go by stops until "In Fahrt" is chosen again – as the operator would.)
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().setMode('strips'));
+  await setPi(page, link);
+  await stampsArrive(page);
+  await clear();
+  expect(await scan(page, AREA, false)).toBe(true);
+  const pi = await stats(page);
+  const piQuality = against(reference, await dots(page, AREA));
+
+  expect(browser).toMatchObject({ mode: 'strips', clock: 'browser', clockReason: 'relay' });
+  expect(pi).toMatchObject({ mode: 'strips', clock: 'pi', clockReason: null, gaveUp: false });
+
+  // the numbers, for docs/scan.md and for whoever tunes the margin
+  const line = (name: string, st: Stats, q: ReturnType<typeof against>) =>
+    `${name}: clock scatter ${st.timingNoiseMs?.toFixed(1)} ms, placed ${st.placed}/${st.offered}, refilled ${st.refilled}, ` +
+    `lag ${(st.lag * 1000).toFixed(0)} ms, dots ${(q.share * 100).toFixed(0)} % found, error mean ${q.mean.toFixed(3)} mm, worst ${q.max.toFixed(3)} mm, ${st.seconds.toFixed(0)} s`;
+  const report = [line('browser clock', browser, browserQuality), line('Pi clock', pi, piQuality)];
+  for (const text of report) console.log(text);
+  testInfo.annotations.push({ type: 'jitter comparison', description: report.join(' | ') });
+
+  expect(browser.timingNoiseMs).not.toBeNull();
+  expect(pi.timingNoiseMs).not.toBeNull();
+  // the clock itself is measurably tighter: the pictures land nearer the line the reports say
+  expect(pi.timingNoiseMs!).toBeLessThan(browser.timingNoiseMs! * 0.4);
+  // and the map made on it is as good as a scan with stops
+  expect(piQuality.share).toBeGreaterThanOrEqual(0.9);
+  expect(piQuality.max).toBeLessThan(0.5);
+  expect(piQuality.mean).toBeLessThan(0.2);
+  expect(pi.placed).toBeGreaterThanOrEqual(pi.offered * 0.75);
+});
+
+test("on a link so uneven that the browser's clock loses pictures at speed, the Pi's clock does not", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(500_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    const store = (window as unknown as Handle).lowriderMap.store();
+    store.clear();
+    store.setMode('strips');
+    store.setTempo('fast');
+  });
+  expect(await scan(page, AREA, true)).toBe(true);
+  const reference = await dots(page, AREA);
+  expect(reference.length).toBeGreaterThan(30);
+
+  // A very bad link: 100–500 ms from the Pi to the page, at 56 mm/s that is up to 22 mm of difference between two reports'
+  // delays – more than the search of the solver allows for the clock's error
+  await lateCamera(page);
+  const link: PiSetup = {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 100,
+    linkJitterMs: 400,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+  };
+  const clear = () =>
+    page.evaluate(() => (window as unknown as Handle).lowriderMap.store().clear());
+  await setPi(page, { ...link, stamps: false });
+  await page.waitForTimeout(600);
+  await clear();
+  expect(await scan(page, AREA, false)).toBe(true);
+  const browser = await stats(page);
+  const browserQuality = against(reference, await dots(page, AREA));
+
+  // a run on the browser's clock that was given up makes the next scan go by stops until "In Fahrt" is chosen again
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().setMode('strips'));
+  await setPi(page, link);
+  await stampsArrive(page);
+  await clear();
+  expect(await scan(page, AREA, false)).toBe(true);
+  const pi = await stats(page);
+  const piQuality = against(reference, await dots(page, AREA));
+
+  const line = (name: string, st: Stats, q: ReturnType<typeof against>) =>
+    `${name}: gave up ${st.gaveUp}, clock scatter ${st.timingNoiseMs?.toFixed(1)} ms, placed ${st.placed}/${st.offered}, refilled ${st.refilled}, ` +
+    `lag ${(st.lag * 1000).toFixed(0)} ms, dots ${(q.share * 100).toFixed(0)} % found, error mean ${q.mean.toFixed(3)} mm, worst ${q.max.toFixed(3)} mm, ${st.seconds.toFixed(0)} s`;
+  const report = [line('browser clock', browser, browserQuality), line('Pi clock', pi, piQuality)];
+  for (const text of report) console.log(`very bad link, fast: ${text}`);
+  testInfo.annotations.push({ type: 'bad link comparison', description: report.join(' | ') });
+
+  expect(browser).toMatchObject({ clock: 'browser', clockReason: 'relay' });
+  expect(pi).toMatchObject({ clock: 'pi', gaveUp: false });
+  // the Pi's clock is not touched by the link: the run is placed and the map is as good as a scan with stops
+  expect(pi.placed).toBeGreaterThanOrEqual(pi.offered * 0.75);
+  expect(pi.refilled).toBeLessThanOrEqual(3);
+  expect(piQuality.share).toBeGreaterThanOrEqual(0.9);
+  expect(piQuality.max).toBeLessThan(0.5);
+});
+
+test("a slow run on the Pi's clock – the exposure holds it to about 5 mm/s, a picture every 4.6 s – is not taken for a clock that went away", async ({
+  page,
+}) => {
+  test.setTimeout(500_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    const store = (window as unknown as Handle).lowriderMap.store();
+    store.clear();
+    store.setMode('strips');
+    // 55 ms of exposure: 0.3 mm of blur at 5.45 mm/s – where the pictures of a run lie 4.6 s apart (0.3 × the 84 mm field ÷ 5.45 mm/s), more than the 3 s window
+    // the stamps of the pictures and of the reports may differ by
+    store.setExposure(55);
+  });
+  await setPi(page, {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 40,
+    linkJitterMs: 60,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+  });
+  await stampsArrive(page);
+  expect(await scan(page, AREA, false)).toBe(true);
+  const run = await stats(page);
+  // both strips were run on the Pi's clock: the check between them found a clock that holds
+  expect(run).toMatchObject({
+    mode: 'strips',
+    clock: 'pi',
+    clockLost: null,
+    gaveUp: false,
+    strips: 2,
+  });
+  expect(run.offered).toBeGreaterThan(8);
+  expect(run.placed).toBeGreaterThanOrEqual(run.offered * 0.75);
+  expect(run.refilled).toBeLessThanOrEqual(3);
+});
+
+test("pictures stamped in another clock than the reports: the scan keeps to the browser's clock, says why, and still places the plate", async ({
+  page,
+}) => {
+  test.setTimeout(400_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    (window as unknown as Handle).lowriderMap.store().clear();
+    (window as unknown as Handle).lowriderMap.store().setMode('strips');
+  });
+  expect(await scan(page, AREA, true)).toBe(true);
+  const reference = await dots(page, AREA);
+
+  await lateCamera(page);
+  // a driver that stamps its buffers with a clock an hour away from the reports'
+  await setPi(page, {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 40,
+    linkJitterMs: 60,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+    frameClockOffsetMs: 3_600_000,
+  });
+  await stampsArrive(page);
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().clear());
+  expect(await scan(page, AREA, false)).toBe(true);
+  const run = await stats(page);
+  // never a mixture: the whole scan went by the browser's clock, and the browser's path is what it always was
+  expect(run).toMatchObject({
+    mode: 'strips',
+    clock: 'browser',
+    clockReason: 'window',
+    stamp: null,
+    gaveUp: false,
+  });
+  expect(run.lag).toBeGreaterThan(0.1);
+  expect(run.placed).toBeGreaterThanOrEqual(run.offered * 0.75);
+  const quality = against(reference, await dots(page, AREA));
+  expect(quality.share).toBeGreaterThanOrEqual(0.9);
+  expect(quality.max).toBeLessThan(0.5);
+
+  // the panel says which clock the last scan used, and why not the Pi's
+  const panel = await openScanPanel(page);
+  await expect(panel.getByTestId('scan-clock')).toHaveAttribute('data-clock', 'browser');
+  await expect(panel.getByTestId('scan-clock-line')).toContainText('Browser');
+  await expect(panel.getByTestId('scan-clock-why')).toHaveAttribute('data-reason', 'window');
+  await expect(panel.getByTestId('scan-clock-why')).toContainText('anderen Uhr');
+  // nothing to say of a code where there is none
+  await expect(panel.getByTestId('scan-clock-code')).toHaveCount(0);
+});
+
+test('"Scan abbrechen" while the scan is still choosing its clock: nothing is sent to the machine, and the clock is not talked about', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    (window as unknown as Handle).lowriderMap.store().clear();
+    (window as unknown as Handle).lowriderMap.store().setMode('strips');
+  });
+  await setPi(page, {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 40,
+    linkJitterMs: 60,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+  });
+  await stampsArrive(page);
+  const before = await page.evaluate(() => ({
+    ...(window as unknown as Handle).lowriderSimulator.mpos,
+  }));
+
+  // cancelled in the same breath: the scan is still waiting for the first picture of the stamped stream
+  const cancelled = await page.evaluate((area) => {
+    const store = (window as unknown as Handle).lowriderMap.store();
+    const done = store.scanArea(area);
+    store.cancelScan();
+    return done;
+  }, AREA);
+  expect(cancelled).toBe(false);
+  // the hop to the first strip is the first thing a strip sends: it did not go (the machine stands where it stood)
+  const after = await page.evaluate(() => ({
+    ...(window as unknown as Handle).lowriderSimulator.mpos,
+  }));
+  console.log(
+    `cancel while choosing the clock: before ${JSON.stringify(before)}, after ${JSON.stringify(after)}`,
+  );
+  expect(after).toEqual(before);
+  expect(await page.evaluate(() => (window as unknown as Handle).lowriderSimulator.state)).toBe(
+    'Idle',
+  );
+  // no clock was used and none is told of: not "stream closed", and the last scan's record is not overwritten
+  const run = await stats(page);
+  expect(run).toMatchObject({
+    mode: 'strips',
+    clock: 'browser',
+    clockReason: null,
+    clockLost: null,
+  });
+  expect(run.offered).toBe(0);
+  expect(
+    await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().lastClock),
+  ).toBeNull();
+  expect(
+    await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().scan),
+  ).toBeNull();
+});
+
+test("the Pi's clock lost during the first run is not blamed on the table (stripsBad stays false): the area goes by stops – with the camera stream let go of at once, not kept open through them", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    (window as unknown as Handle).lowriderMap.store().clear();
+    (window as unknown as Handle).lowriderMap.store().setMode('strips');
+  });
+  await setPi(page, {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 40,
+    linkJitterMs: 60,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+  });
+  await stampsArrive(page);
+  const small: Area = { minX: 100, minY: 100, maxX: 340, maxY: 130 };
+  const watching = await watchScan(page);
+  const done = scan(page, small, false);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as Handle).lowriderSimulator.state), {
+      timeout: 60_000,
+    })
+    .toBe('Jog');
+  // the relay stops stamping while the first run is on (restarted without, an older companion took over): the reports come on
+  await page.evaluate(() => {
+    (window as unknown as Handle).lowriderPiClock!.stamps = false;
+  });
+  expect(await done).toBe(true);
+  const seen = await watching.stop();
+  const run = await stats(page);
+  // the stream was open for the run that was on – and was let go of before the whole area went by stops (the pictures one by one
+  // with a stop each, seconds apart: if the stream were kept it would copy 20 pictures a second all that time)
+  const stops = seen.filter((x) => x.unit === 'pictures');
+  console.log(
+    `lost clock: ${seen.length} looks, ${stops.length} during the stops (open: ${stops.filter((x) => x.open > 0).length}), ` +
+      `${seen.filter((x) => x.open === 1).length} with the stream open`,
+  );
+  expect(seen.some((x) => x.open === 1)).toBe(true);
+  expect(stops.length).toBeGreaterThan(20);
+  expect(stops.every((x) => x.open === 0)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as Handle).lowriderMap.streams())).toBe(0);
+  console.log(
+    `clock lost during the probe: clock ${run.clock}, lost ${run.clockLost}, gave up ${run.gaveUp}, offered ${run.offered}, refilled ${run.refilled}`,
+  );
+  expect(run).toMatchObject({ mode: 'strips', clock: 'pi', clockLost: 'relay', gaveUp: false });
+  // not the table's fault: strips are not skipped at the next scan
+  expect(
+    await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().stripsBad),
+  ).toBe(false);
+  expect(
+    await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().lastClock),
+  ).toMatchObject({
+    clock: 'pi',
+    clockLost: 'relay',
+  });
+  // said in words that fit a clock that went away mid-scan – not "not connected through the Pi", which was not so
+  const panel = await openScanPanel(page);
+  await expect(panel.getByTestId('scan-clock-lost')).toContainText(
+    'kommen nicht mehr mit dem Zeitstempel des Pi',
+  );
+  await expect(panel.getByTestId('scan-clock-lost')).not.toContainText(
+    'nicht über den Pi verbunden',
+  );
+});
+
+test("pictures the browser cannot make pixels of: the scan keeps to the browser's clock before anything moves, says why, and does not blame the table", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    (window as unknown as Handle).lowriderMap.store().clear();
+    (window as unknown as Handle).lowriderMap.store().setMode('strips');
+  });
+  await lateCamera(page);
+  // the stamps are fine – the Pi's clock would hold – but a picture of the stream cannot be decoded here
+  await setPi(page, {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 40,
+    linkJitterMs: 60,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+    undecodable: true,
+  });
+  await stampsArrive(page);
+  const small: Area = { minX: 100, minY: 100, maxX: 340, maxY: 130 };
+  expect(await scan(page, small, false)).toBe(true);
+  const run = await stats(page);
+  console.log(
+    `undecodable stream: clock ${run.clock}, reason ${run.clockReason} (${run.clockDetail}), gave up ${run.gaveUp}, placed ${run.placed}/${run.offered}`,
+  );
+  expect(run).toMatchObject({
+    mode: 'strips',
+    clock: 'browser',
+    clockReason: 'stream',
+    clockDetail: 'no-decode',
+    stamp: null,
+    gaveUp: false,
+  });
+  // the browser's path is what it always was: it places its pictures
+  expect(run.offered).toBeGreaterThan(5);
+  expect(run.placed).toBeGreaterThanOrEqual(run.offered * 0.75);
+  expect(
+    await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().stripsBad),
+  ).toBe(false);
+  // the panel says what is wrong in words – the stamps were fine, the pictures cannot be made into pixels – with the code small beside it
+  const panel = await openScanPanel(page);
+  await expect(panel.getByTestId('scan-clock-why')).toContainText('nicht in Pixel verwandeln');
+  await expect(panel.getByTestId('scan-clock-why')).not.toContainText('Zeitstempeln lesen');
+  await expect(panel.getByTestId('scan-clock-code')).toHaveText('Code: no-decode');
+});
+
+test('the exposure caps the speed of a run, is kept on this device, and the panel says how blurred a picture is', async ({
+  page,
+}) => {
+  await openDemo(page);
+  await goTo(page, 'Einrichten');
+  await page
+    .getByRole('group', { name: 'Bereich' })
+    .getByRole('button', { name: 'Kamera' })
+    .click();
+  const section = page
+    .locator('.section[data-fold]')
+    .filter({ has: page.getByRole('heading', { name: 'Fläche scannen', exact: true }) });
+  if ((await section.getAttribute('data-open')) === null) {
+    await section.locator('[data-fold-trigger]').first().click();
+  }
+  const panel = page.getByTestId('photo-map-panel');
+  await panel
+    .getByRole('group', { name: 'Art des Scans' })
+    .getByRole('button', { name: 'In Fahrt (schnell)' })
+    .click();
+  const field = panel.getByLabel('Belichtung (ms)');
+  // unknown (0): no cap, no figure
+  await expect(field).toHaveValue('0');
+  await expect(panel.getByTestId('blur-line')).toHaveCount(0);
+  await expect(panel.getByTestId('speed-capped')).toHaveCount(0);
+
+  // 20 ms: at most 15 mm/s keeps the blur at 0.3 mm – below the 40 mm/s "Normal" asks for here
+  await field.fill('20');
+  await expect(panel.getByTestId('speed-capped')).toContainText('15 mm/s');
+  await expect(panel.getByTestId('blur-line')).toContainText('0,30 mm');
+  // kept with the mode and the tempo, on this device
+  const kept = await page.evaluate(() => localStorage.getItem('lowrider-control.scan'));
+  expect(JSON.parse(kept!)).toMatchObject({ mode: 'strips', exposureMs: 20 });
+  // a longer exposure runs slower than a run is worth: the panel says stops are faster
+  await field.fill('100');
+  await expect(panel.getByTestId('speed-capped')).toContainText('langsamer als 5 mm/s');
+  // a short one does not hold a run back: the figure shows, the cap does not
+  await field.fill('2');
+  await expect(panel.getByTestId('speed-capped')).toHaveCount(0);
+  await expect(panel.getByTestId('blur-line')).toBeVisible();
+  // nonsense is no exposure
+  await field.fill('-5');
+  await field.blur();
+  await expect(field).toHaveValue('0');
 });
 
 test('ending a strip scan: "Scan abbrechen" stops the run cleanly, PAUSE ends it with its reason', async ({
@@ -268,6 +928,24 @@ test('the panel offers both ways with their times side by side, and keeps the ch
   expect(await minutesOf('scan-estimate')).toBeLessThanOrEqual(normal);
   await tempo.getByRole('button', { name: 'Sanft' }).click();
   expect(await minutesOf('scan-estimate')).toBeGreaterThanOrEqual(normal);
+
+  // An exposure that holds the run below 5 mm/s (100 ms: 3 mm/s): the scan goes by stops then, so what the panel promises is the
+  // by-stops estimate – not "N Streifen" that will not be run, and no comparison with itself
+  const exposure = panel.getByLabel('Belichtung (ms)');
+  await exposure.fill('100');
+  await expect(panel.getByTestId('speed-capped')).toContainText('langsamer als 5 mm/s');
+  await expect(page.getByTestId('scan-estimate')).toContainText('Bilder, etwa');
+  await expect(page.getByTestId('scan-estimate')).not.toContainText('Streifen');
+  await expect(page.getByTestId('scan-estimate-compare')).toHaveCount(0);
+  // the same at the other tempos (the exposure is the cap at all of them)
+  await tempo.getByRole('button', { name: 'Schnell' }).click();
+  await expect(page.getByTestId('scan-estimate')).toContainText('Bilder, etwa');
+  await expect(page.getByTestId('scan-estimate-compare')).toHaveCount(0);
+  // unknown again: the strips are back
+  await exposure.fill('0');
+  await expect(page.getByTestId('scan-estimate')).toContainText('Streifen, etwa');
+  await expect(page.getByTestId('scan-estimate-compare')).toContainText('Mit Halt wären es');
+  await tempo.getByRole('button', { name: 'Sanft' }).click();
 
   // With stops: the pictures and minutes as before, no second line, no tempo
   await panel
@@ -396,10 +1074,105 @@ test('a recording of a stops scan and a strip scan with a late camera: one file 
       kind,
     ).toBe(true);
   }
-  // what the scans were made with – and no address of the Pi or of the controller
+  // what the scans were made with
   expect(trace.meta).toMatchObject({ camera: { pxPerMm: 10 }, lagKnown: expect.any(Boolean) });
-  const { userAgent, ...setup } = trace.meta;
-  expect(typeof userAgent).toBe('string');
-  expect(JSON.stringify(setup)).not.toMatch(/\d+\.\d+\.\d+\.\d+|http|ws:/);
+  expect(typeof trace.meta.userAgent).toBe('string');
+  // …and no address of the Pi or of the controller, no login, anywhere in the file
+  expectNoAddressOrLogin(zip, trace.meta.userAgent as string);
+  expect(trace.dropped).toBe(0);
+});
+
+test("a recording of a scan on the Pi's clock: both clocks of every report and picture in one file", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(400_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    const w = window as unknown as Handle;
+    w.lowriderMap.store().clear();
+    w.lowriderMap.store().setMode('strips');
+    w.lowriderMap.trace().setRecording(true);
+  });
+  await lateCamera(page);
+  await setPi(page, {
+    offsetMs: HUGE_OFFSET_MS,
+    linkMs: 60,
+    linkJitterMs: 120,
+    stampNoiseMs: 4,
+    frameStampNoiseMs: 2,
+  });
+  await stampsArrive(page);
+  // by stops first: the pictures at rest are the ground truth of the strip scan that follows
+  expect(await scan(page, AREA, true)).toBe(true);
+  expect(await scan(page, AREA, false)).toBe(true);
+  expect((await stats(page)).clock).toBe('pi');
+  const downloading = page.waitForEvent('download');
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.trace().save());
+  const download = await downloading;
+  const out = process.env.TRACE_OUT_PI ?? testInfo.outputPath('scan-pi.zip');
+  await download.saveAs(out);
+
+  const zip = unzipSync(new Uint8Array(readFileSync(out)));
+  interface Stamp {
+    domain: 'mono' | 'wall';
+    t: number;
+    source: string;
+  }
+  const trace = JSON.parse(strFromU8(zip['trace.json']!)) as {
+    version: number;
+    scans: { n: number; mode: string; options: { clock?: string } }[];
+    reports: { t: number; state: string; stamp?: { mono: number; wall: number } }[];
+    pictures: { t: number; scan: number; stamp: Stamp }[];
+    frames: { file: string; kind: string; codec: string; stamp?: Stamp }[];
+    events: {
+      kind: string;
+      clock?: string;
+      frames?: { file: string; arrival?: number; stamp?: Stamp }[];
+    }[];
+    meta: Record<string, unknown>;
+    dropped: number;
+  };
+  expect(trace.version).toBe(1);
+  // which clock the scans ran on: the stops scan used none, the strip scan the Pi's
+  expect(trace.meta.clock).toBe('pi');
+  expect(trace.scans.map((x) => x.options.clock)).toEqual([undefined, 'pi']);
+  expect(trace.events.filter((e) => e.kind === 'clock')).toMatchObject([
+    { clock: 'pi', domain: 'mono', source: 'x-ustreamer-grab-time', reason: null },
+  ]);
+  // both clocks of every report: when the page got it, and the Pi's stamp – hours apart, as the simulated Pi's clock is
+  const stamped = trace.reports.filter((r) => r.stamp);
+  expect(stamped.length).toBeGreaterThan(40);
+  // the link keeps the order, and so do the stamps: never a report older than the one before it
+  stamped
+    .slice(1)
+    .forEach((r, i) => expect(r.stamp!.mono).toBeGreaterThan(stamped[i]!.stamp!.mono));
+  for (const r of stamped.slice(0, 20)) {
+    expect(r.stamp!.mono - r.t).toBeGreaterThan(HUGE_OFFSET_MS - 1000);
+    expect(r.stamp!.wall).toBeGreaterThan(1.7e12);
+  }
+  // every picture the stream kept in a run: when the page got it and the stamp the Pi gave it
+  expect(trace.pictures.length).toBeGreaterThan(10);
+  for (const p of trace.pictures) {
+    expect(p.stamp.domain).toBe('mono');
+    expect(p.stamp.t * 1000 - p.t).toBeGreaterThan(HUGE_OFFSET_MS - 1000);
+  }
+  // the pictures of the run carry their stamp, and are in the file
+  const run = trace.frames.filter((f) => f.kind === 'run');
+  expect(run.length).toBeGreaterThan(8);
+  expect(run.every((f) => f.stamp && f.codec === 'jpeg' && zip[f.file] !== undefined)).toBe(true);
+  // what the solver was given and answered: on the Pi's clock, each picture with the stamp and when the page got it
+  const solved = trace.events.filter((e) => e.kind === 'solved');
+  expect(solved.length).toBeGreaterThanOrEqual(1);
+  for (const e of solved) {
+    expect(e.clock).toBe('pi');
+    for (const f of e.frames!) {
+      expect(zip[f.file]).toBeDefined();
+      expect(f.stamp?.source).toBe('x-ustreamer-grab-time');
+      expect(typeof f.arrival).toBe('number');
+    }
+  }
+  // no address of the Pi or of the controller, no login, anywhere in the file: the reports, the pictures, the solved events too
+  expect(typeof trace.meta.userAgent).toBe('string');
+  expectNoAddressOrLogin(zip, trace.meta.userAgent as string);
   expect(trace.dropped).toBe(0);
 });

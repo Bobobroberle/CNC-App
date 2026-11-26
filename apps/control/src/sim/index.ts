@@ -1,5 +1,6 @@
 import type { WebSocketLike } from '@lowrider/fluidnc-client';
 import { tagCells, tagPaper, TAG_MODULES } from '@lowrider/workshop';
+import type { Drawable, FrameSource, SourceFrame, StampDomain } from '../lib/frameStamp';
 import {
   SIM_BLANKS,
   SIM_BOARD,
@@ -46,6 +47,82 @@ export function resetSimulator() {
 
 const encoder = new TextEncoder();
 
+/**
+ * A Pi between the controller and the page, for the tests of a scan that runs on the Pi's clock. Set as
+ * `window.lowriderPiClock`; **undefined – the default – is no Pi at all** and the socket and the camera behave as they always did.
+ * With it, every message of the simulated controller goes to the page over a link that is late and uneven (in order, like
+ * one TCP stream), and – unless `stamps` is false – the Pi puts the clock it has on each message, as the companion's relay
+ * does (`STAMP:<mono ms>:<wall ms>` right before it), and `simulatorFrameSource()` gives the camera's pictures with the
+ * stamp ustreamer would put on them. The Pi's clocks run `offsetMs` ahead of the page's `performance.now()` – a huge number
+ * on purpose, so that any mixing of the two fails loudly instead of being a few milliseconds off.
+ *
+ * Which knob sits on which side of the stamp: `linkMs` and `linkJitterMs` are the time a message needs from the Pi to the page,
+ * *after* it was stamped – the clock of the page sees them, the stamp does not. `stampLagMs` and `stampNoiseMs` are what is
+ * left in the stamp: the time between the controller measuring a position and the Pi receiving it, and how much that wobbles.
+ * The camera's own lag in the page (`lowriderCameraLag`) has no part in a picture's stamp or in what it shows.
+ */
+export interface PiClockSetup {
+  /** The Pi's clocks minus the page's `performance.now()`, ms */
+  offsetMs: number;
+  /** Time a message needs from the Pi to the page, ms, and how much that varies (0 … this much more, uneven) */
+  linkMs: number;
+  linkJitterMs: number;
+  /** The stamp of a report is off the moment it was measured by up to this much either way, ms */
+  stampNoiseMs: number;
+  /** The same for the stamp of a picture (which is whole milliseconds, like ustreamer's) */
+  frameStampNoiseMs: number;
+  /** Fixed ms between the controller measuring a position and the Pi stamping it (default 12) */
+  stampLagMs?: number;
+  /** false: an older companion – the link is as late and uneven, but nothing is stamped (default true) */
+  stamps?: boolean;
+  /** The pictures are stamped in another clock than the reports by this much, ms – a driver with its own clock (default 0) */
+  frameClockOffsetMs?: number;
+  /** `mono` (a grab time: `X-UStreamer-Grab-Time`, the default) or `wall` (the time of sending: `X-Timestamp`) */
+  frameDomain?: StampDomain;
+  /** true: this browser cannot make pixels of the pictures (a JPEG it cannot decode, no `createImageBitmap`) – the stamps are fine (default false) */
+  undecodable?: boolean;
+}
+
+export function piClock(): PiClockSetup | undefined {
+  return (globalThis as { lowriderPiClock?: PiClockSetup }).lowriderPiClock;
+}
+
+/** Whether a simulated Pi is set up (the app takes it for a companion that relays) */
+export const simulatedPi = (): boolean => piClock() !== undefined;
+
+/** The same noise on every page load: a test that fails must fail the same way again */
+function noise(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const linkNoise = noise(0x1a2b3c);
+const stampNoise = noise(0x4d5e6f);
+const frameNoise = noise(0x708192);
+
+/** What the Pi's real time was when the page's clock began (the wall clock of the Pi is that plus the offset) */
+let wallBase: number | null = null;
+const wallOf = (pageMs: number) => (wallBase ??= Date.now() - performance.now()) + pageMs;
+
+/** The stamps of the Pi never go back (the relay's clock is the system's) */
+let lastStampMs = -Infinity;
+
+/** The text frame the relay puts before a message of the controller: the Pi's clocks when it came. */
+function stampFrameFor(sampleMs: number, pi: PiClockSetup): string {
+  const wobble = (stampNoise() * 2 - 1) * pi.stampNoiseMs;
+  const at = Math.max(lastStampMs + 0.001, sampleMs + (pi.stampLagMs ?? 12) + wobble);
+  lastStampMs = at;
+  return `STAMP:${(at + pi.offsetMs).toFixed(3)}:${Math.round(wallOf(at) + pi.offsetMs)}`;
+}
+
+/** The socket that carries the machine's answers (the camera's frames catch the machine up to the moment they were taken) */
+let liveSocket: SimulatorSocket | null = null;
+
 /** A WebSocket that talks to the simulator, for FluidNCConnection's `createSocket`. */
 export class SimulatorSocket implements WebSocketLike {
   binaryType = 'arraybuffer';
@@ -56,20 +133,33 @@ export class SimulatorSocket implements WebSocketLike {
   onmessage: ((event: { data: unknown }) => void) | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private last = 0;
+  /** When the last message is due at the page: the link keeps the order */
+  private lastDue = 0;
+  /** What is on its way over the link, in the order it was sent – delivered by one timer, so a stall of the page cannot swap two */
+  private onTheWay: { due: number; frames: unknown[] }[] = [];
+  private arrival: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     setTimeout(() => {
       this.readyState = 1;
+      liveSocket = this;
       this.onopen?.({});
       this.emit(["Grbl 3.7 [FluidNC v3.7.12 (Simulator) '$' for help]"]);
       this.last = performance.now();
-      this.timer = setInterval(() => {
-        const now = performance.now();
-        const sim = simulator();
-        this.emit(sim.tick(((now - this.last) / 1000) * sim.speed));
-        this.last = now;
-      }, 20);
+      this.timer = setInterval(() => this.advance(), 20);
     }, 30);
+  }
+
+  /**
+   * Runs the simulated machine up to now (it moves in steps of the timer, 20 ms – a position read between two of them is
+   * up to 20 ms old). Where a Pi is simulated the machine is caught up to the very moment a report or a picture is
+   * taken, so that the stamp it gets belongs to the position it shows.
+   */
+  advance() {
+    const now = performance.now();
+    const sim = simulator();
+    this.emit(sim.tick(((now - this.last) / 1000) * sim.speed));
+    this.last = now;
   }
 
   send(data: string | Uint8Array) {
@@ -80,6 +170,7 @@ export class SimulatorSocket implements WebSocketLike {
       return;
     }
     if (data === '?') {
+      if (piClock()) this.advance();
       this.emit([sim.status()]);
       return;
     }
@@ -96,15 +187,48 @@ export class SimulatorSocket implements WebSocketLike {
   close() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    if (this.arrival) clearTimeout(this.arrival);
+    this.arrival = null;
+    this.onTheWay = [];
+    if (liveSocket === this) liveSocket = null;
     this.readyState = 3;
     this.onclose?.({});
   }
 
   private emit(lines: string[]) {
     if (lines.length === 0) return;
-    // Answer asynchronously, like a network.
     const text = lines.map((l) => `${l}\n`).join('');
-    setTimeout(() => this.onmessage?.({ data: encoder.encode(text).buffer }), 2);
+    const pi = piClock();
+    if (!pi) {
+      // Answer asynchronously, like a network.
+      setTimeout(() => this.onmessage?.({ data: encoder.encode(text).buffer }), 2);
+      return;
+    }
+    // Over the Pi: stamped when it gets the message (the stamp and its message leave together, in one piece), then late
+    // and uneven on the way to the page – in order, as one stream is
+    const now = performance.now();
+    const frames: unknown[] = pi.stamps === false ? [] : [stampFrameFor(now, pi)];
+    frames.push(encoder.encode(text).buffer);
+    const due = Math.max(this.lastDue, now + pi.linkMs + linkNoise() * pi.linkJitterMs);
+    this.lastDue = due;
+    this.onTheWay.push({ due, frames });
+    this.arm();
+  }
+
+  /** One timer for the head of the link: what is due goes to the page in the order it was sent, then the next is waited for */
+  private arm() {
+    if (this.arrival !== null || this.onTheWay.length === 0) return;
+    this.arrival = setTimeout(
+      () => {
+        this.arrival = null;
+        // a timer may fire a hair early: what is due within half a millisecond goes now
+        while (this.onTheWay.length > 0 && this.onTheWay[0]!.due <= performance.now() + 0.5) {
+          for (const data of this.onTheWay.shift()!.frames) this.onmessage?.({ data });
+        }
+        this.arm();
+      },
+      Math.max(0, this.onTheWay[0]!.due - performance.now()),
+    );
   }
 }
 
@@ -658,6 +782,123 @@ function mdfSpeckle(ctx: CanvasRenderingContext2D): CanvasPattern | null {
   // 128 px of the tile = 32 mm on the table
   pattern?.setTransform?.(new DOMMatrix().scale(0.25));
   return pattern;
+}
+
+// ---------- the camera's pictures with the stamp of the Pi ----------
+
+/** Pictures a second the simulated server takes (a real camera: 15–30) */
+const SIM_FRAME_FPS = 30;
+/** Most pictures the simulated server keeps for the scan (the same as the real stream's ring) */
+const SIM_FRAME_RING = 300;
+
+/** A picture of the simulated camera, taken at the true moment: where the tool was and the stamp the Pi gave it. */
+export interface SimFrame extends SourceFrame {
+  /** Where the tool really was when it was taken (the camera sees the table from there) */
+  tool: { x: number; y: number };
+}
+
+/**
+ * The simulated camera server's stamped pictures (what `openStampedStream` is for a real one): taken at the true
+ * moment – the machine is caught up to it first – and stamped with the Pi's clock plus the noise of the setup, to the
+ * millisecond. **The page's camera lag (`lowriderCameraLag`) does not touch the stamp or the picture**; it only decides
+ * when the page *says* it got it (`arrival`, for the recording). Nothing is drawn while the pictures are taken: a picture
+ * is only a place and a stamp until `decode` paints it, as a JPEG is only bytes until it is decoded.
+ */
+/** Simulated streams that are open right now – the tests look at it to see that a scan lets go of its stream */
+let openFrameSources = 0;
+export const openSimulatedStreams = () => openFrameSources;
+
+class SimulatedFrames implements FrameSource<SimFrame> {
+  ok = true;
+  reason: string | undefined;
+  evicted = 0;
+  private kept: SimFrame[] = [];
+  private spacing = 0.05;
+  private lastKeptT = -Infinity;
+  private lastStampMs = -Infinity;
+  private seq = 0;
+  private readonly timer = setInterval(() => this.take(), 1000 / SIM_FRAME_FPS);
+
+  constructor() {
+    openFrameSources += 1;
+  }
+
+  get domain(): StampDomain | null {
+    return piClock()?.frameDomain ?? 'mono';
+  }
+
+  private take() {
+    const pi = piClock();
+    if (!pi || !this.ok) return;
+    // the machine as it was at this very moment, not as it was at the last step of its timer
+    liveSocket?.advance();
+    const now = performance.now();
+    const tool = simulator().physical();
+    const wobble = (frameNoise() * 2 - 1) * pi.frameStampNoiseMs;
+    const domain = pi.frameDomain ?? 'mono';
+    const at = now + wobble + (pi.frameClockOffsetMs ?? 0);
+    // whole milliseconds, going forward: what ustreamer prints
+    const ms = Math.max(
+      this.lastStampMs + 1,
+      Math.round(domain === 'wall' ? wallOf(at) + pi.offsetMs : at + pi.offsetMs),
+    );
+    this.lastStampMs = ms;
+    const t = ms / 1000;
+    if (t - this.lastKeptT < this.spacing - 1e-6) return;
+    this.lastKeptT = t;
+    const lag = simulatorCameraLag;
+    this.seq += 1;
+    this.kept.push({
+      stamp: {
+        t,
+        domain,
+        source: domain === 'wall' ? 'x-timestamp' : 'x-ustreamer-grab-time',
+      },
+      // the page gets it late and unevenly – its own business, unseen by the stamp
+      arrival: now + lag.ms + Math.sin(now * 0.37) * 0.5 * lag.jitterMs + lag.jitterMs * 0.5,
+      tool: { x: tool.x, y: tool.y },
+    });
+    while (this.kept.length > SIM_FRAME_RING) {
+      this.kept.shift();
+      this.evicted += 1;
+    }
+  }
+
+  frames(): readonly SimFrame[] {
+    return this.kept.slice();
+  }
+
+  clear() {
+    this.kept = [];
+    this.lastKeptT = -Infinity;
+  }
+
+  setMinSpacing(seconds: number) {
+    if (Number.isFinite(seconds) && seconds >= 0) this.spacing = seconds;
+  }
+
+  async decode(frame: SimFrame): Promise<Drawable | null> {
+    if (piClock()?.undecodable) return null;
+    const picture = document.createElement('canvas');
+    picture.width = SIM_CAMERA.width;
+    picture.height = SIM_CAMERA.height;
+    paint(picture.getContext('2d')!, undefined, frame.tool);
+    return picture;
+  }
+
+  close() {
+    clearInterval(this.timer);
+    if (this.ok) {
+      this.ok = false;
+      this.reason = 'closed';
+      openFrameSources -= 1;
+    }
+  }
+}
+
+/** The simulated camera server's stamped pictures, or null where no Pi is set up (`lowriderPiClock`). */
+export function simulatorFrameSource(): FrameSource<SimFrame> | null {
+  return piClock() ? new SimulatedFrames() : null;
 }
 
 /** Where the simulated workpieces lie, in machine coordinates (for the info card). */

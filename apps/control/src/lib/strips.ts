@@ -211,6 +211,39 @@ export class PositionTrack {
   }
 }
 
+/** What a lag may be (s): the browser's clock sees a picture only after it was taken, never before */
+export const LAG_LIMITS = { min: 0, max: 1.5 } as const;
+/**
+ * The same for the Pi's clock: a picture is stamped when it was exposed and a report when the Pi received it, a
+ * little *after* FluidNC measured the position – so the lag between the two stamps can be a few tens of ms below zero.
+ */
+export const PI_LAG_LIMITS = { min: -0.5, max: 1.5 } as const;
+
+/** One picture of a run: where the clock put it, where registration found it, how fast the camera moved there (mm/s, signed). */
+export interface CorrectionSample {
+  predicted: number;
+  actual: number;
+  speed: number;
+}
+
+/** Speed below which a picture says nothing of the lag: a position error divided by a speed near zero is any number at all, mm/s */
+export const MIN_LAG_SPEED = 5;
+/** Fewest pictures a lag or its noise is worked out from */
+const MIN_LAG_SAMPLES = 4;
+
+/** The lag each picture of a run implies, s (sorted). */
+function impliedLags(lag: number, samples: readonly CorrectionSample[]): number[] {
+  return samples
+    .filter((s) => Math.abs(s.speed) >= MIN_LAG_SPEED)
+    .map((s) => lag - (s.actual - s.predicted) / s.speed)
+    .sort((a, b) => a - b);
+}
+
+function median(sorted: readonly number[]): number {
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
 /**
  * The lag (s) the pictures really have, from what registration found: a picture taken at `actual` that the clock
  * put at `predicted` with the lag `lag` while the camera moved at `speed` (mm/s, signed) shows `lag` was off by
@@ -218,16 +251,49 @@ export class PositionTrack {
  */
 export function lagFromCorrections(
   lag: number,
-  samples: readonly { predicted: number; actual: number; speed: number }[],
+  samples: readonly CorrectionSample[],
+  limits: { min: number; max: number } = LAG_LIMITS,
 ): number | null {
-  const lags = samples
-    .filter((s) => Math.abs(s.speed) >= 5)
-    .map((s) => lag - (s.actual - s.predicted) / s.speed)
-    .sort((a, b) => a - b);
-  if (lags.length < 4) return null;
-  const mid = lags.length >> 1;
-  const median = lags.length % 2 ? lags[mid]! : (lags[mid - 1]! + lags[mid]!) / 2;
-  return Math.min(1.5, Math.max(0, median));
+  const lags = impliedLags(lag, samples);
+  if (lags.length < MIN_LAG_SAMPLES) return null;
+  return Math.min(limits.max, Math.max(limits.min, median(lags)));
+}
+
+/**
+ * How much the clock scatters, ms: the spread of the lags the single pictures of a run imply around their median
+ * (root mean square). The lag itself is a constant the app learns; this is what no constant takes out – the jitter of
+ * the clock the pictures and the reports were put on. Registration measures both ends of it, so it includes a little of
+ * its own noise (about 0.1 mm over the speed). Null with too few pictures moving fast enough.
+ */
+export function timingNoiseMs(
+  lag: number,
+  samples: readonly CorrectionSample[],
+): { ms: number; count: number } | null {
+  const lags = impliedLags(lag, samples);
+  if (lags.length < MIN_LAG_SAMPLES) return null;
+  const mid = median(lags);
+  const ms = 1000 * Math.sqrt(lags.reduce((sum, l) => sum + (l - mid) ** 2, 0) / lags.length);
+  return { ms, count: lags.length };
+}
+
+// ---------- the speed the exposure allows ----------
+
+/** The blur a picture of a run may have at most, mm: a third of a millimetre is a few pixels of the map and leaves the texture */
+export const BLUR_MM = 0.3;
+
+/**
+ * Fastest the camera may run (mm/s) for a picture exposed for `exposureMs` to be blurred by no more than `blurMm`: during
+ * the exposure the table moves under the lens by speed × exposure. Infinity where the exposure is not known (0 or less,
+ * or no number) – no cap then, which is what the app did before it could be told.
+ */
+export function maxSpeedForBlur(exposureMs: number, blurMm: number = BLUR_MM): number {
+  if (!Number.isFinite(exposureMs) || exposureMs <= 0) return Infinity;
+  return Math.max(0, blurMm) / (exposureMs / 1000);
+}
+
+/** The blur (mm) a picture of a run at `speed` mm/s has when it is exposed for `exposureMs`. */
+export function blurAtSpeed(exposureMs: number, speed: number): number {
+  return (Math.max(0, exposureMs) * Math.max(0, speed)) / 1000;
 }
 
 // ---------- where the pictures were taken ----------

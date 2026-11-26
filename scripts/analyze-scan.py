@@ -11,6 +11,15 @@ It answers, from the file alone, what a scan in strips depends on and the app ca
   4. What the app made of each run: pictures taken, placed, refused, how far the two chains disagreed.
   5. Where the placed pictures really lie: each is set against the pictures at rest (a scan by stops, the anchors)
      that overlap it – the error of the placement, in mm.
+  6. Which clock the pictures were put on the time line with (`meta.clock`: the Pi's – the relay stamps the reports and the
+     camera server the pictures – or the browser's) and, for a run on the Pi's, the lag and the timing noise of *both* time
+     lines from the same placed pictures: the page's arrival times against the Pi's stamps, and which of the two scatters less.
+     **What "the page's" means differs by run.** On a run on the browser's clock a picture is timed when the screen first
+     showed it (the sampling of the screen). On a run on the Pi's clock the page does not look at the screen: a picture's page
+     time is when the page *read the chunk of the stream that completed it*, a report's when the page received it – no raster
+     of the screen, no decode. So the page figure of a Pi-clock file is the arrival of bytes, a little better than what a scan on
+     the browser's clock would have had, and the comparison says what the stamps take out of *arrival* times, not what a whole
+     browser-clock scan would have scattered. A file without stamps (older, or a run on the browser's clock) has only the page's.
 
 Needs numpy and Pillow.   python3 scripts/analyze-scan.py recording.zip [--json out.json]
 """
@@ -258,13 +267,34 @@ def fit_lag(trace, run, followed):
     return best
 
 
+def lag_fit(t, along, rt, rp, lo=-100.0, hi=1000.0, step=2.0):
+    """The lag (ms) that makes the reports (times `rt`, positions `rp`), delayed by it, fit the placed pictures
+    (times `t`, positions `along`) best – and what is left: the rms of the pictures about that line, mm."""
+    best = None
+    for lag in np.arange(lo, hi, step):
+        mask = (t - lag >= rt[0]) & (t - lag <= rt[-1])
+        if mask.sum() < 4:
+            continue
+        model = np.interp(t - lag, rt, rp)
+        rms = float(np.sqrt(np.mean((along[mask] - model[mask]) ** 2)))
+        if best is None or rms < best['rms_mm']:
+            best = {'lag_ms': float(lag), 'rms_mm': rms, 'n': int(mask.sum())}
+    return best
+
+
+def run_reports(trace, run):
+    """The reports of a run's window (a little before and after), in the order they came."""
+    return [r for r in trace['reports'] if run['send']['t'] - 800 <= r['t'] <= (run['end_t'] or 1e12) + 800]
+
+
 def lag_from_solved(trace, run):
-    """The lag from what the app itself placed: the registered position of each picture against the reports."""
+    """The lag from what the app itself placed: the registered position of each picture against the reports – on the
+    page's clock (when the page saw the report, and the picture)."""
     sol = run['solved']
     if not sol:
         return None
     idx = 0 if sol['axis'] == 'x' else 1
-    rep = [r for r in trace['reports'] if run['send']['t'] - 800 <= r['t'] <= (run['end_t'] or 1e12) + 800]
+    rep = run_reports(trace, run)
     if len(rep) < 5:
         return None
     rt = np.array([r['t'] for r in rep], dtype=float)
@@ -277,16 +307,34 @@ def lag_from_solved(trace, run):
         return None
     t = np.array([p[0] for p in pts])
     along = np.array([p[1] for p in pts])
-    best = None
-    for lag in np.arange(-100, 1000, 2.0):
-        mask = (t - lag >= rt[0]) & (t - lag <= rt[-1])
-        if mask.sum() < 4:
-            continue
-        model = np.interp(t - lag, rt, rp)
-        rms = float(np.sqrt(np.mean((along[mask] - model[mask]) ** 2)))
-        if best is None or rms < best['rms_mm']:
-            best = {'lag_ms': float(lag), 'rms_mm': rms, 'n': int(mask.sum())}
-    return best
+    return lag_fit(t, along, rt, rp)
+
+
+def lag_from_solved_pi(trace, run):
+    """The same on the Pi's clock: each picture at the stamp the Pi's camera server gave it, the reports at the stamp the
+    relay gave them (the same clock – `mono` or `wall` – the pictures are in). None for a run on the browser's clock, and
+    for a file that has no stamps. (`lag_from_solved` above is, on such a run, made from the page's arrival times: the picture's
+    `t` in the file is when the page read the stream chunk that held it – not when the screen showed it.)"""
+    sol = run['solved']
+    if not sol or sol.get('clock') != 'pi':
+        return None
+    idx = 0 if sol['axis'] == 'x' else 1
+    pts = [(fr['stamp']['t'] * 1000.0, fr['stamp']['domain'], a) for fr, a in zip(sol['frames'], sol['along'])
+           if a is not None and fr.get('stamp')]
+    if len(pts) < 4:
+        return None
+    domain = pts[0][1]
+    rep = sorted(((r['stamp'][domain], r['mpos'][idx]) for r in run_reports(trace, run) if r.get('stamp')))
+    if len(rep) < 5:
+        return None
+    off = trace['meta']['camera']['offsetX' if idx == 0 else 'offsetY']
+    rt = np.array([x[0] for x in rep], dtype=float)
+    rp = np.array([x[1] for x in rep], dtype=float) + off
+    # the Pi's clocks count from its start (mono) or from 1970 (wall): a lag is a difference, so the numbers are made small
+    # first – a double holds 1.7e12 ms to a fraction of a microsecond, which is enough, but a fit across it is easier to read
+    base = rt[0]
+    t = np.array([p[0] for p in pts]) - base
+    return lag_fit(t, np.array([p[2] for p in pts]), rt - base, rp, lo=-300.0)
 
 
 def blur_table(trace, run, followed, lag):
@@ -320,7 +368,7 @@ def run_summary(run):
     bw = sum(1 for v in sol['backward'] if v is not None)
     return {'offered': len(along), 'placed': placed, 'forward': fw, 'backward': bw,
             'disagreement_mm': round(sol['disagreement'], 2), 'lag_used_ms': round(sol['lag'] * 1000),
-            'lag_known': sol['lagKnown']}
+            'lag_known': sol['lagKnown'], 'clock': sol.get('clock', 'browser')}
 
 
 def placement_errors(trace, files, meta, runs_):
@@ -379,6 +427,40 @@ def placement_errors(trace, files, meta, runs_):
     return out
 
 
+def clocks(trace):
+    """What the file says of the two clocks: which the scans ran on, and – where the reports and the pictures carry the Pi's
+    stamp – how unevenly the page saw them against how evenly the Pi stamped them."""
+    out = {'meta_clock': trace['meta'].get('clock'),
+           'scan_clocks': [s.get('options', {}).get('clock') for s in trace['scans']]}
+    stamped = [r for r in trace['reports'] if r.get('stamp')]
+    if len(stamped) >= 5:
+        domain = 'mono'
+        page = np.array([r['t'] for r in stamped], dtype=float)
+        pi = np.array([r['stamp'][domain] for r in stamped], dtype=float)
+        # what the page saw minus what the Pi stamped: a constant (the link and the clocks' offset) and its scatter –
+        # the scatter is the link's jitter, which the Pi's stamp does not contain
+        out['reports'] = {'n_stamped': len(stamped), 'page_minus_pi_ms': stats(page - pi),
+                          'page_minus_pi_sd_ms': round(float(np.std(page - pi)), 2),
+                          'interval_ms_page': stats(np.diff(page)), 'interval_ms_pi': stats(np.diff(pi))}
+    pics = trace.get('pictures') or []
+    if len(pics) >= 5:
+        # per scan: the pictures are not all one stream (a scan ends, the next begins)
+        groups = {}
+        for p in pics:
+            groups.setdefault((p['scan'], p['stamp']['domain']), []).append(p)
+        rows = []
+        for (scan, domain), ps in groups.items():
+            if len(ps) < 5:
+                continue
+            page = np.array([p['t'] for p in ps], dtype=float)
+            pi = np.array([p['stamp']['t'] * 1000.0 for p in ps], dtype=float)
+            rows.append({'scan': scan, 'domain': domain, 'n': len(ps), 'page_minus_pi_sd_ms': round(float(np.std(page - pi)), 2),
+                         'interval_ms_page': stats(np.diff(page)), 'interval_ms_pi': stats(np.diff(pi)),
+                         'source': ps[0]['stamp']['source']})
+        out['pictures'] = rows
+    return out
+
+
 def summary(report):
     """What matters, in a few lines."""
     lines = ['=== Summary ===']
@@ -389,12 +471,58 @@ def summary(report):
     lines.append(f"Stalls of the page over 30 ms: {t['screen_stalls']['n']} (longest {t['screen_stalls']['longest_ms']} ms)")
     if t['jog'].get('send_to_first_Jog_report_ms'):
         lines.append(f"Jog start to the first 'Jog' report: {t['jog']['send_to_first_Jog_report_ms']} ms")
-    lags = [r['lag_from_placed_pictures'] for r in report['runs'] if r.get('lag_from_placed_pictures')]
+    c = report.get('clocks') or {}
+    if c.get('meta_clock'):
+        lines.append(f"Clock the scans ran on: {c['meta_clock']} ('pi': reports and pictures stamped by the Pi; "
+                     f"'browser': timed when this page saw them – a picture when the screen first showed it)")
+    on_pi = lambda r: (r.get('summary') or {}).get('clock') == 'pi'
+    # the page's own times: on a run on the browser's clock the moment the screen first showed a picture (the app's own timing
+    # then); on a run on the Pi's clock the moment the page read the stream chunk that held it – two different things
+    lags = [r['lag_from_placed_pictures'] for r in report['runs'] if r.get('lag_from_placed_pictures') and not on_pi(r)]
+    arrival_lags = [r['lag_from_placed_pictures'] for r in report['runs'] if r.get('lag_from_placed_pictures') and on_pi(r)]
+    pi_lags = [r['lag_from_placed_pictures_pi'] for r in report['runs'] if r.get('lag_from_placed_pictures_pi')]
     if lags:
         lag = float(np.median([x['lag_ms'] for x in lags]))
         noise = float(np.median([x.get('timing_noise_ms', 0) for x in lags]))
-        lines.append(f"Lag of the camera pictures behind the status reports: {lag:.0f} ms (timing noise about {noise:.0f} ms) – "
-                     f"from {len(lags)} run(s); the app's own figure is in meta.stripLagS")
+        lines.append(f"Lag of the camera pictures behind the status reports, browser clock (a picture timed when the screen first "
+                     f"showed it): {lag:.0f} ms (timing noise about {noise:.0f} ms) – from {len(lags)} run(s); the app's own figure "
+                     f"is in meta.stripLagS")
+    if arrival_lags:
+        lag = float(np.median([x['lag_ms'] for x in arrival_lags]))
+        noise = float(np.median([x.get('timing_noise_ms', 0) for x in arrival_lags]))
+        lines.append(f"Lag of the camera pictures behind the status reports, page arrival times on a Pi-clock scan (a picture timed "
+                     f"when the page read the stream chunk that held it, a report when the page received it – not when the screen "
+                     f"showed it): {lag:.0f} ms (timing noise about {noise:.0f} ms) – from {len(arrival_lags)} run(s)")
+    if pi_lags:
+        lag = float(np.median([x['lag_ms'] for x in pi_lags]))
+        noise = float(np.median([x.get('timing_noise_ms', 0) for x in pi_lags]))
+        lines.append(f"Lag of the camera pictures behind the status reports, Pi clock: {lag:.0f} ms (timing noise about "
+                     f"{noise:.0f} ms) – from {len(pi_lags)} run(s)")
+        # the same placed pictures against both clocks: the lower scatter is the clock that tells the time better
+        both = [(r['lag_from_placed_pictures'], r['lag_from_placed_pictures_pi']) for r in report['runs']
+                if r.get('lag_from_placed_pictures') and r.get('lag_from_placed_pictures_pi')]
+        if both:
+            nb = float(np.median([b.get('timing_noise_ms', 0) for b, _ in both]))
+            npi = float(np.median([p.get('timing_noise_ms', 0) for _, p in both]))
+            winner = 'the Pi stamps' if npi < nb else ('the page arrival times' if nb < npi else 'neither')
+            # the registration places a picture to about 0.1 mm: over the speed of the run that is the least a noise can show
+            speed = float(np.median([r['speed_mm_s'] for r in report['runs'] if r.get('lag_from_placed_pictures_pi')]))
+            floor = 100.0 / speed if speed > 0 else 0.0
+            lines.append(f"Timing noise, page arrival times {nb:.0f} ms (a report when the page received it, a picture when the page read "
+                         f"the stream chunk that held it) against Pi stamps {npi:.0f} ms: {winner} {'have' if winner == 'the Pi stamps' else 'has'} "
+                         f"the lower noise (the same placed pictures, {len(both)} run(s); this compares arrival of bytes with the Pi's "
+                         f"stamps – a scan on the browser's clock times a picture when the screen first shows it, which is not what is "
+                         f"measured here; the registration itself resolves about 0.1 mm, which at {speed:.0f} mm/s is {floor:.1f} ms – "
+                         f"a figure near that says 'no more than this', not 'exactly this')")
+    elif c.get('meta_clock') == 'pi':
+        lines.append('A run on the Pi clock, but no run placed enough pictures to work the Pi clock\'s lag out')
+    if c.get('reports'):
+        r = c['reports']
+        lines.append(f"Reports: the page received them {r['page_minus_pi_sd_ms']} ms (sd) unevenly against the Pi's stamp "
+                     f"({r['n_stamped']} stamped)")
+    for row in c.get('pictures') or []:
+        lines.append(f"Pictures, scan {row['scan']} ({row['source']}): the page read the stream chunk that held them "
+                     f"{row['page_minus_pi_sd_ms']} ms (sd) unevenly against the Pi's stamp ({row['n']} pictures)")
     ok = [r for r in report['runs'] if r.get('summary')]
     if ok:
         offered = sum(r['summary']['offered'] for r in ok)
@@ -427,6 +555,7 @@ def main():
               'frames': {k: sum(1 for f in trace['frames'] if f['kind'] == k) for k in ('rest', 'anchor', 'run', 'dense')},
               'dropped': trace['dropped']}
     report['timing'] = timing(trace)
+    report['clocks'] = clocks(trace)
     runs_ = runs(trace)
     report['runs'] = []
     for run in runs_:
@@ -449,6 +578,11 @@ def main():
         if placed:
             placed['timing_noise_ms'] = round(placed['rms_mm'] / (run['send']['feed'] / 60) * 1000)
         entry['lag_from_placed_pictures'] = placed
+        # on the Pi's clock too, where the run was on it (the same placed pictures, the stamps instead of the page's times)
+        on_pi = lag_from_solved_pi(trace, run)
+        if on_pi:
+            on_pi['timing_noise_ms'] = round(on_pi['rms_mm'] / (run['send']['feed'] / 60) * 1000)
+        entry['lag_from_placed_pictures_pi'] = on_pi
         report['runs'].append(entry)
     errs = placement_errors(trace, files, meta, runs_)
     if errs:

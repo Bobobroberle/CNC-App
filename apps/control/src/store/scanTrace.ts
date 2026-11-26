@@ -7,6 +7,7 @@ import {
   TraceRecorder,
   traceFileName,
   type TraceFrameKind,
+  type TraceStamp,
 } from '../lib/scanTrace';
 import { useMachine } from './machine';
 import type { CameraPicture } from './camera';
@@ -47,6 +48,7 @@ interface Waiting {
   height: number;
   spindle?: { x: number; y: number };
   strip?: number;
+  stamp?: TraceStamp;
   frame?: Frame;
   gray?: Uint8Array;
 }
@@ -120,7 +122,8 @@ export function traceBegin(
   const rec = recorder;
   off?.();
   off = useMachine.subscribe((s, prev) => {
-    if (s.status && s.status !== prev.status) rec.report(s.status.state, s.status.mpos);
+    if (s.status && s.status !== prev.status)
+      rec.report(s.status.state, s.status.mpos, s.statusStamp);
   });
   rec.note('scan-start', { n });
 }
@@ -155,11 +158,29 @@ export function traceGap(ms: number) {
 /** The time on the recording's clock, or 0 when nothing is recorded. */
 export const traceTime = () => (active && recorder ? recorder.t() : 0);
 
+/** The recording's time of a moment on the page's clock (`performance.now()`), or 0 when nothing is recorded. */
+export const traceTimeOf = (pageMs: number) => (active && recorder ? recorder.at(pageMs) : 0);
+
+/** Says which clock the scan that began runs on (`meta.clock`; `mixed` where a recording holds both). */
+export function traceClock(kind: string) {
+  if (active) recorder?.setClock(kind);
+}
+
+/** A picture of the camera server's own stream, with the Pi's stamp and when the page got it (copying numbers only). */
+export function tracePicture(pageMs: number, stamp: TraceStamp) {
+  if (active) recorder?.picture(pageMs, stamp);
+}
+
 /** Keeps a picture as it was taken; the name it will have in the file (so events can point at it), or null. */
 export function traceFrame(
   kind: Exclude<TraceFrameKind, 'dense'>,
   read: { frame: Frame; k: number },
-  extra: { spindle?: { x: number; y: number }; strip?: number; t?: number } = {},
+  extra: {
+    spindle?: { x: number; y: number };
+    strip?: number;
+    t?: number;
+    stamp?: TraceStamp;
+  } = {},
 ): string | null {
   if (!active || !recorder) return null;
   const name = nameFor(kind);
@@ -173,6 +194,7 @@ export function traceFrame(
     height: read.frame.height,
     spindle: extra.spindle,
     strip: extra.strip,
+    stamp: extra.stamp,
     frame: read.frame,
   });
   syncPending();
@@ -239,6 +261,7 @@ function flush(): Promise<void> {
               codec: 'jpeg',
               spindle: w.spindle,
               strip: w.strip,
+              ...(w.stamp ? { stamp: w.stamp } : {}),
             },
             bytes,
             w.name,

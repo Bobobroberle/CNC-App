@@ -3365,6 +3365,75 @@ export const en: DictionaryShape = {
     estimateStrips: '{count} strips, about {minutes} min',
     estimateCompare: 'With stops it would be {count} pictures, about {minutes} min.',
     scanningStrips: 'Scanning: strip {done} of {total}, about {minutes} min to go',
+    stripsTooSlow:
+      'With this exposure the run would be slower than {speed} mm/s – stops are faster then. The scan runs with a stop for every picture.',
+    exposure: 'Exposure (ms)',
+    exposureHint:
+      'How long the camera exposes a picture (0 = unknown, then there is no limit). It gives the fastest speed at which a picture is not blurred by more than 0.3 mm.',
+    blur: 'Blur at this speed about {mm} mm',
+    capped: 'Speed limited to {speed} mm/s so that a picture is not blurred by more than 0.3 mm.',
+    tooSlow:
+      'With this exposure the run would be slower than {speed} mm/s – with stops it is faster.',
+    clockFallback:
+      "The Pi's time stamps are not used: {why}. The pictures of the run are placed by the clock of this page.",
+    clockLost:
+      "The Pi's clock went away during the scan: {why}. The run ends here, the rest is scanned with stops.",
+    // Why the Pi's clock was not taken when the scan chose its clock (before anything moved)
+    clockWhy: {
+      relay:
+        "the controller's reports come without a Pi time stamp (not connected through the Pi, or an older companion)",
+      device: 'the camera is not a stream of the Pi (device camera or no address)',
+      stream: 'this page cannot read the camera stream with time stamps',
+      noDecode: 'this browser cannot make pixels of the pictures of the camera stream',
+      window:
+        "the camera pictures' time stamps are in another clock than the reports' (more than 3 s apart)",
+    },
+    // What more is known of a stream that could not be read (its failure code; the code itself stays beside it, small)
+    clockDetail: {
+      'no-fetch': 'this browser cannot fetch the stream itself',
+      unreachable:
+        'the camera server does not answer, or the browser does not let this page read it (CORS)',
+      'no-response':
+        'the camera server does not answer in time (a camera that serves one viewer keeps a second connection waiting)',
+      'http-status': 'the camera server answers with an error',
+      'no-body-stream':
+        'this browser does not read a data stream piece by piece (some Safari versions)',
+      'not-multipart': 'the address does not deliver a stream of pictures (motion JPEG)',
+      'bad-stream': 'the stream of pictures is malformed',
+      silent: 'the camera server sends no pictures',
+      offline: 'the camera is not there (the server sends placeholder pictures only)',
+      'no-stamp': 'the pictures carry no time stamp the app can read',
+      ended: 'the camera server ended the stream',
+      'read-failed': 'reading the stream broke off',
+      closed: 'the stream was closed',
+    },
+    // Why the Pi's clock went away in the middle of a scan
+    clockLostWhy: {
+      relay: "the controller's reports no longer come with the Pi time stamp",
+      stream: 'the camera stream broke off or delivers no new pictures any more',
+      window:
+        "the camera pictures' time stamps are no longer in the clock of the reports (more than 3 s apart)",
+    },
+    clock: {
+      title: 'Clock of the last scan on the move',
+      pi: 'Pi – reports and camera pictures carry the Pi time stamp: {source}, measured in the {domain}.',
+      domains: { mono: 'monotonic clock', wall: 'real-time clock' },
+      // The header of the camera server the stamp is read from (the header's own name stays beside it, small)
+      sources: {
+        'x-ustreamer-grab-begin-time': "the camera driver's capture time (start)",
+        'x-ustreamer-grab-time': "the camera driver's capture time",
+        'x-ustreamer-grab-end-time':
+          'the time after the picture was fetched (a little later than the capture)',
+        'x-timestamp': "the camera server's time of sending (the least exact choice)",
+        other: 'a time from a header of the camera server',
+      },
+      code: 'Code: {code}',
+      browser:
+        'Browser – reports and pictures lie where this page first saw them (later and less even than the time on the Pi).',
+      why: 'Reason: {why}.',
+      lost: "The Pi's clock went away during the scan: {why}.",
+      noise: 'Clock scatter: about {ms} ms.',
+    },
     trace: {
       label: 'Record the scan for analysis',
       hint: "Saves the camera pictures, the times and the controller's reports of the scans in one file (up to about 40 MB). It contains photos of your table. None of it goes anywhere until you hand the file on. While recording, the run is not given up even if the pictures fit badly.",
@@ -3672,7 +3741,7 @@ export const en: DictionaryShape = {
       twoHoles:
         'two holes, rotation, askew, align with the camera, measure the angle, registration holes',
       photomap:
-        'photo map, scan, table photo, overview, map, photo, photograph the table, aerial picture, panorama, mosaic, stitch, table picture, on the move, without stopping, strips, speed, faster scan, seamless, tiles, recording, record scan, analysis, trace, measure camera',
+        'photo map, scan, table photo, overview, map, photo, photograph the table, aerial picture, panorama, mosaic, stitch, table picture, on the move, without stopping, strips, speed, faster scan, seamless, tiles, recording, record scan, analysis, trace, measure camera, exposure, exposure time, blur, motion blur, blurred, clock, pi clock, time stamp, timestamp, stamp, timing noise, belichtung, unschärfe, uhr, zeitstempel',
       recording: 'recording, record, video, film, timelapse, clip, capture',
       connection:
         'connect, connection, address, ip, wifi, wlan, network, offline, fluidnc, websocket, disconnect, not connected, hostname, keep the screen on',

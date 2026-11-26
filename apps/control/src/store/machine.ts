@@ -21,6 +21,7 @@ import {
   parseParserState,
   type CharacterCountingStreamer,
   type ParserState,
+  type RelayStamp,
   type StreamProgress,
   parseSettingsList,
   sameConfigText,
@@ -47,6 +48,7 @@ import {
   mayRetry,
   relayTarget,
   retryDelay,
+  socketUrl,
   viaFor,
   type FailedAttempt,
   type LinkFailure,
@@ -142,6 +144,12 @@ interface MachineStore {
   url: string;
   connection: ConnectionState;
   status: MachineStatus | null;
+  /**
+   * The Pi's clock when its relay received `status` from FluidNC (CLOCK_MONOTONIC ms, ustreamer's
+   * own clock, and wall ms) – set in the same step as `status`. null for a report that came without one:
+   * the simulator, FluidNC typed in directly, an older companion, a relay that was not asked.
+   */
+  statusStamp: RelayStamp | null;
   /** Code of the last alarm; cleared when the machine leaves the Alarm state */
   alarm: number | null;
   /** A probing routine runs (the status bar says "Antasten") */
@@ -269,6 +277,13 @@ interface MachineStore {
    * could not be (a stop of it needs a reset, which loses the position). Refused outside the travel once homed.
    */
   jogMachine(axis: 'x' | 'y', target: number, feed: number): Promise<boolean>;
+  /**
+   * Asks FluidNC for its status every `everyMs` on top of the regular poll (5 Hz), until the returned function is called –
+   * for the strip scan, which places its pictures by the reports and wants more of them while the camera runs. Only a status
+   * query goes out (the one byte the regular poll sends), never a command; without a connection, or while the socket closes,
+   * a query is skipped. The relay hands every answer on to every device, so it is meant for the run itself, not for good.
+   */
+  pollStatus(everyMs: number): () => void;
   /** Joystick deflection −1…1 (Y up); 0, 0 or `stickStop()` ends the motion */
   stick(vx: number, vy: number): void;
   stickStop(): void;
@@ -413,6 +428,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
   url: storedAddress(),
   connection: 'disconnected',
   status: null,
+  statusStamp: null,
   alarm: null,
   probing: false,
   firmware: null,
@@ -507,7 +523,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
     };
 
     const c = new FluidNCConnection(
-      sim ? { url, createSocket: () => new SimulatorSocket() } : { url },
+      sim ? { url, createSocket: () => new SimulatorSocket() } : { url: socketUrl(url) },
     );
     connection = c;
     c.on('closed', (info) => {
@@ -543,7 +559,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
       if (state === 'disconnected') {
         // A step that waits for the machine to rest has nothing to wait for any more
         forgetJogTargets();
-        set({ status: null, homed: false, homedAxes: '', viewer: false });
+        set({ status: null, statusStamp: null, homed: false, homedAxes: '', viewer: false });
         if (connection === c) connection = null;
       }
     });
@@ -551,7 +567,7 @@ export const useMachine = create<MachineStore>((set, get) => ({
       if (!line.startsWith('<')) addLog('in', line);
     });
     c.on('sent', (line) => addLog('out', line));
-    c.on('status', (status) => {
+    c.on('status', (status, stamp) => {
       reportOld = false;
       // A jog target is done once the machine stands still on it.
       for (const axis of Object.keys(jogTargets) as JogAxis[]) {
@@ -559,7 +575,12 @@ export const useMachine = create<MachineStore>((set, get) => ({
         if (status.state !== 'Jog' && Math.abs(pos - jogTargets[axis]!) < 0.005)
           delete jogTargets[axis];
       }
-      set((s) => ({ status, alarm: status.state === 'Alarm' ? s.alarm : null }));
+      // The stamp goes in with its report: a reader of one never sees the other's neighbour
+      set((s) => ({
+        status,
+        statusStamp: stamp,
+        alarm: status.state === 'Alarm' ? s.alarm : null,
+      }));
     });
     c.on('reset', () => {
       forgetJogTargets();
@@ -644,7 +665,14 @@ export const useMachine = create<MachineStore>((set, get) => ({
     forgetJogTargets();
     if (c?.state === 'connecting') cancelled = c;
     c?.disconnect();
-    set({ connection: 'disconnected', status: null, firmware: null, homed: false, homedAxes: '' });
+    set({
+      connection: 'disconnected',
+      status: null,
+      statusStamp: null,
+      firmware: null,
+      homed: false,
+      homedAxes: '',
+    });
     get().addLog('info', t('machine.disconnected'));
   },
 
@@ -1330,6 +1358,17 @@ export const useMachine = create<MachineStore>((set, get) => ({
       );
       return false;
     }
+  },
+
+  pollStatus(everyMs) {
+    const timer = setInterval(() => {
+      try {
+        if (connection?.state === 'connected') connection.realtime(Realtime.StatusReport);
+      } catch {
+        // a socket that is closing, or a device that only watches: the regular poll carries on
+      }
+    }, everyMs);
+    return () => clearInterval(timer);
   },
 
   async jogMachine(axis, target, feed) {

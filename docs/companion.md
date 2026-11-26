@@ -112,25 +112,25 @@ sudo-Regel: `setup.sh` erneut ausführen.
 FLUIDNC_URL=ws://192.168.178.40:81 LOWRIDER_APP=./app SENSOR_SIMULATOR=1 node companion.mjs
 ```
 
-| Variable                           | Bedeutung                                                              | Standard                                    |
-| ---------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------- |
-| `PORT`, `HOST`                     | Adresse des Servers                                                    | `8080`, `0.0.0.0`                           |
-| `LOWRIDER_DB`                      | SQLite-Datei                                                           | `data/lowrider.db`                          |
-| `LOWRIDER_APP`                     | Ordner mit `index.html` der App                                        | –                                           |
-| `FLUIDNC_URL`                      | WebSocket des Jackpot für die Weiterleitung `/fluidnc`                 | – (aus)                                     |
-| `CAMERA_URL`                       | Kamera-Stream für die App; `:8081/stream` = Port auf demselben Rechner | –                                           |
-| `SENSOR_SIMULATOR`                 | `1` = simulierte Spindellast und gelegentliches Rattern                | aus                                         |
-| `LOWRIDER_SHUTDOWN`                | `0` = _Pi herunterfahren_ aus der App abschalten                       | an                                          |
-| `LOWRIDER_RECORDINGS`              | `0` = Mitschnitt abschalten                                            | an (braucht ffmpeg)                         |
-| `RECORD_STREAM`, `RECORD_SNAPSHOT` | ustreamer auf diesem Rechner für den Mitschnitt                        | `http://127.0.0.1:8081/stream`, `/snapshot` |
-| `LOWRIDER_BACKUP`                  | `0` = die tägliche Datensicherung der Datenbank abschalten             | an                                          |
-| `LOWRIDER_BACKUP_DIR`              | Ordner der Sicherungen – **besser ein zweites Medium (USB-Stick)**     | `backups/` neben der Datenbank              |
-| `LOWRIDER_BACKUP_KEEP`             | Wie viele Tagessicherungen bleiben                                     | `7`                                         |
-| `LOWRIDER_DIR`                     | Ordner der Einrichtung (`releases/`, `current`, `data/`) – nötig für das Update aus der App | –                      |
-| `LOWRIDER_UPDATE`                  | `1` = Update aus der App erlauben (`setup.sh` setzt es)                | aus                                         |
-| `LOWRIDER_CODE_FILE`               | Datei des Pi-Codes                                                     | `pi-code.txt` neben der Datenbank           |
-| `LOWRIDER_CONFIRM_MS`              | Wie lange eine neue Version laufen muss, bis sie sich bestätigt        | `30000`                                     |
-| `LOWRIDER_GATE_SECONDS`            | Wie lange `health-gate.sh` auf die Antwort einer Version in der Probezeit wartet | `30`                              |
+| Variable                           | Bedeutung                                                                                   | Standard                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `PORT`, `HOST`                     | Adresse des Servers                                                                         | `8080`, `0.0.0.0`                           |
+| `LOWRIDER_DB`                      | SQLite-Datei                                                                                | `data/lowrider.db`                          |
+| `LOWRIDER_APP`                     | Ordner mit `index.html` der App                                                             | –                                           |
+| `FLUIDNC_URL`                      | WebSocket des Jackpot für die Weiterleitung `/fluidnc`                                      | – (aus)                                     |
+| `CAMERA_URL`                       | Kamera-Stream für die App; `:8081/stream` = Port auf demselben Rechner                      | –                                           |
+| `SENSOR_SIMULATOR`                 | `1` = simulierte Spindellast und gelegentliches Rattern                                     | aus                                         |
+| `LOWRIDER_SHUTDOWN`                | `0` = _Pi herunterfahren_ aus der App abschalten                                            | an                                          |
+| `LOWRIDER_RECORDINGS`              | `0` = Mitschnitt abschalten                                                                 | an (braucht ffmpeg)                         |
+| `RECORD_STREAM`, `RECORD_SNAPSHOT` | ustreamer auf diesem Rechner für den Mitschnitt                                             | `http://127.0.0.1:8081/stream`, `/snapshot` |
+| `LOWRIDER_BACKUP`                  | `0` = die tägliche Datensicherung der Datenbank abschalten                                  | an                                          |
+| `LOWRIDER_BACKUP_DIR`              | Ordner der Sicherungen – **besser ein zweites Medium (USB-Stick)**                          | `backups/` neben der Datenbank              |
+| `LOWRIDER_BACKUP_KEEP`             | Wie viele Tagessicherungen bleiben                                                          | `7`                                         |
+| `LOWRIDER_DIR`                     | Ordner der Einrichtung (`releases/`, `current`, `data/`) – nötig für das Update aus der App | –                                           |
+| `LOWRIDER_UPDATE`                  | `1` = Update aus der App erlauben (`setup.sh` setzt es)                                     | aus                                         |
+| `LOWRIDER_CODE_FILE`               | Datei des Pi-Codes                                                                          | `pi-code.txt` neben der Datenbank           |
+| `LOWRIDER_CONFIRM_MS`              | Wie lange eine neue Version laufen muss, bis sie sich bestätigt                             | `30000`                                     |
+| `LOWRIDER_GATE_SECONDS`            | Wie lange `health-gate.sh` auf die Antwort einer Version in der Probezeit wartet            | `30`                                        |
 
 **Datensicherung:** einmal am Tag (und beim Start, wenn die von heute fehlt) macht der Companion eine vollständige Kopie der
 Datenbank (`lowrider-JJJJ-MM-TT.db`: Werkzeuge, Materialien, Nullpunkte, Historie, abgelegte Jobs …) in einem eigenen Prozess,
@@ -215,25 +215,56 @@ der Pi von selbst zur alten Version zurückgekehrt ist. Dasselbe in die andere R
 
 ## Schnittstelle
 
-| Methode und Pfad                                              | Zweck                                                                           |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `GET /api/health`                                             | Version, Build, Weiterleitung, Sensorquelle, Kamera-Stream, Anmeldung/Update an |
-| `GET /api/state`, `PUT /api/state/:key`                       | Einstellungen der Maschine (Dokumente mit Version, s. oben)                     |
-| `POST /api/auth/login`, `GET/POST/DELETE /api/auth/…`         | Anmeldung: mit dem Pi-Code anmelden, Geräte, Code anzeigen/erneuern             |
-| `GET /api/update`, `POST /api/update/{upload,apply,rollback}` | Update aus der App (mit Anmeldung, s. oben)                                     |
-| `DELETE /api/update/staged`                                   | Eine hochgeladene Datei verwerfen (sie bleibt sonst 30 Minuten im Speicher des Pi) |
-| `POST /api/system/shutdown`                                   | Pi herunterfahren (mit Anmeldung; antwortet erst, fährt dann nach 0,5 s)        |
-| `GET/PUT/DELETE /api/library/:sammlung/:id`                   | tools, materials, zeros, jigs, macros, history, learning, profiles …            |
-| `POST /api/library/:sammlung`                                 | mehrere Einträge auf einmal (Import)                                            |
-| `GET/PUT/DELETE /api/jobs/:name`                              | Job-Puffer (G-Code als Text)                                                    |
-| `GET/PUT /api/notify`, `POST /api/notify`                     | Benachrichtigung einstellen bzw. senden                                         |
-| `GET/POST /api/sensors`                                       | letzter Sensorwert bzw. neuen Wert melden                                       |
-| `WS /api/sensors/stream`                                      | Sensorwerte live                                                                |
-| `WS /fluidnc`                                                 | Weiterleitung zum Jackpot                                                       |
-| `GET /api/recordings`                                         | Aufnahmen, laufende Aufnahme, ffmpeg/Video-Chip vorhanden                       |
-| `POST /api/recordings/start`, `/stop`                         | Mitschnitt starten (`mode`, `intervalSeconds`, …) bzw. beenden                  |
-| `GET /api/recordings/:id/file?kind=…`                         | `video` oder `timelapse` als MP4 (mit Range, für iPad/Safari)                   |
-| `DELETE /api/recordings/:id`                                  | Aufnahme löschen                                                                |
+| Methode und Pfad                                              | Zweck                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `GET /api/health`                                             | Version, Build, Weiterleitung, Sensorquelle, Kamera-Stream, Anmeldung/Update an, `stamps` (s. u.) |
+| `GET /api/state`, `PUT /api/state/:key`                       | Einstellungen der Maschine (Dokumente mit Version, s. oben)                                       |
+| `POST /api/auth/login`, `GET/POST/DELETE /api/auth/…`         | Anmeldung: mit dem Pi-Code anmelden, Geräte, Code anzeigen/erneuern                               |
+| `GET /api/update`, `POST /api/update/{upload,apply,rollback}` | Update aus der App (mit Anmeldung, s. oben)                                                       |
+| `DELETE /api/update/staged`                                   | Eine hochgeladene Datei verwerfen (sie bleibt sonst 30 Minuten im Speicher des Pi)                |
+| `POST /api/system/shutdown`                                   | Pi herunterfahren (mit Anmeldung; antwortet erst, fährt dann nach 0,5 s)                          |
+| `GET/PUT/DELETE /api/library/:sammlung/:id`                   | tools, materials, zeros, jigs, macros, history, learning, profiles …                              |
+| `POST /api/library/:sammlung`                                 | mehrere Einträge auf einmal (Import)                                                              |
+| `GET/PUT/DELETE /api/jobs/:name`                              | Job-Puffer (G-Code als Text)                                                                      |
+| `GET/PUT /api/notify`, `POST /api/notify`                     | Benachrichtigung einstellen bzw. senden                                                           |
+| `GET/POST /api/sensors`                                       | letzter Sensorwert bzw. neuen Wert melden                                                         |
+| `WS /api/sensors/stream`                                      | Sensorwerte live                                                                                  |
+| `WS /fluidnc`                                                 | Weiterleitung zum Jackpot (`?stamp=1`: mit Zeitstempeln des Pi, s. u.)                            |
+| `GET /api/recordings`                                         | Aufnahmen, laufende Aufnahme, ffmpeg/Video-Chip vorhanden                                         |
+| `POST /api/recordings/start`, `/stop`                         | Mitschnitt starten (`mode`, `intervalSeconds`, …) bzw. beenden                                    |
+| `GET /api/recordings/:id/file?kind=…`                         | `video` oder `timelapse` als MP4 (mit Range, für iPad/Safari)                                     |
+| `DELETE /api/recordings/:id`                                  | Aufnahme löschen                                                                                  |
+
+### Zeitstempel der Weiterleitung (`?stamp=1`)
+
+Für den Scan „In Fahrt“ muss die App wissen, **wann** FluidNC eine Position gemeldet hat – auf derselben Uhr, auf der
+später das Kamerabild gestempelt wird. Der Browser kann das nicht: er sieht einen Bericht erst, wenn er durch das
+WLAN, den Pi und wieder das WLAN gelaufen ist. Darum stempelt das Relais auf dem Pi.
+
+- **Nur auf Wunsch.** Wer sich mit `ws://<pi>:8080/fluidnc?stamp=1` verbindet, bekommt **vor jeder Nachricht von
+  FluidNC** einen Textrahmen `STAMP:<mono>:<wall>`; jeder andere Browser sieht **genau dieselben Rahmen wie bisher**
+  (eine ältere App würde einen Textrahmen, den sie nicht kennt, an die nächste Zeile kleben und den Bericht
+  verlieren – deshalb ist es nie vorgegeben). Jeder andere Wert von `stamp` (oder gar keiner) ist ein Browser ohne
+  Stempel; die Aufzeichnung am Relais bekommt nie einen.
+- **`mono`** sind Millisekunden mit drei Nachkommastellen auf der **monotonen Uhr** des Pi (`process.hrtime`, unter Linux
+  `CLOCK_MONOTONIC` – die Uhr, in der ustreamer seine eigenen Zeiten angibt; die Aufnahmezeit eines Bildes nimmt er aus dem V4L2-Treiber, meist
+  dieselbe Uhr – ob das auf diesem Pi stimmt, ist ungeprüft), **`wall`** die Uhrzeit des Pi in
+  Millisekunden seit 1970 (`Date.now()`). Beides wird beim Eintreffen der Nachricht am Pi **einmal** gelesen und gilt für
+  alle Browser, die Stempel wollen. Der Stempel gehört zur Nachricht direkt dahinter – auch zu einer Meldung, die keine
+  Position ist; die App wirft ihn dann weg.
+- **Die App** (`fluidnc-client`) nimmt `STAMP:` mit streng geprüften Zahlen an, merkt ihn bis zum nächsten Rahmen und gibt
+  ihn dem Bericht mit, der in diesem Rahmen steht (steht ein Bericht auf zwei Rahmen verteilt, gilt der Stempel des
+  Rahmens, in dem er anfing). Ein fehlerhafter Stempel gilt als Meta-Meldung und wird verworfen; ein Stempel, auf
+  dessen Rahmen die Verbindung nicht mehr wartet, geht mit der Verbindung. Im Speicher der App steht er als
+  `useMachine.statusStamp` – im selben Schritt wie `status`, und `null` für einen Bericht ohne Stempel (Simulator, FluidNC
+  direkt, ein älterer Companion, der den unbekannten Parameter ignoriert).
+- **`GET /api/health`** meldet `stamps: true` (diese Version stempelt auf Wunsch). Ein älterer Companion hat das Feld nicht; die App
+  bleibt dann bei der Uhr des Browsers. Die Uhr des Pi selbst steht **nicht** in der Antwort (sie ist ohne Anmeldung für jede Seite
+  lesbar, und die Betriebszeit des Pi braucht keine Seite): der Scan prüft die Uhren gegen den Stempel des neuesten Berichts
+  (`domainFits`, `docs/scan.md`), nicht gegen eine Zeit aus `/api/health`.
+- **Was das nicht kann:** der Stempel sagt, wann der **Pi** die Nachricht bekam. Der Weg Jackpot → Pi (WLAN, jitternd), die
+  Zeit, die FluidNC für Messen und Senden braucht, und die Verzögerung der Kamera bleiben unbekannt (die letzte lernt der
+  Scan selbst).
 
 ## Sensoren anschließen
 

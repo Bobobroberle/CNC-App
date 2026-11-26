@@ -3417,6 +3417,76 @@ export const de = {
     estimateStrips: '{count} Streifen, etwa {minutes} min',
     estimateCompare: 'Mit Halt wären es {count} Bilder, etwa {minutes} min.',
     scanningStrips: 'Scan läuft: Streifen {done} von {total}, noch etwa {minutes} min',
+    stripsTooSlow:
+      'Bei dieser Belichtung wäre die Fahrt langsamer als {speed} mm/s – dann geht es mit Halt schneller. Der Scan läuft mit Halt für jedes Bild.',
+    exposure: 'Belichtung (ms)',
+    exposureHint:
+      'Wie lange die Kamera ein Bild belichtet (0 = unbekannt, dann gibt es keine Begrenzung). Daraus folgt das schnellste Tempo, bei dem ein Bild nicht mehr als 0,3 mm verwischt.',
+    blur: 'Unschärfe bei diesem Tempo etwa {mm} mm',
+    capped: 'Tempo auf {speed} mm/s begrenzt, damit ein Bild nicht mehr als 0,3 mm verwischt.',
+    tooSlow:
+      'Bei dieser Belichtung wäre die Fahrt langsamer als {speed} mm/s – mit Halt geht es schneller.',
+    clockFallback:
+      'Die Zeitstempel des Pi werden nicht genutzt: {why}. Die Bilder der Fahrt werden nach der Uhr dieser Seite abgelegt.',
+    clockLost:
+      'Die Uhr des Pi ist während des Scans weggefallen: {why}. Die Fahrt endet hier, der Rest wird mit Halt gescannt.',
+    // Why the Pi's clock was not taken when the scan chose its clock (before anything moved)
+    clockWhy: {
+      relay:
+        'die Meldungen der Steuerung kommen ohne Zeitstempel des Pi (nicht über den Pi verbunden, oder ein älterer Companion)',
+      device: 'die Kamera ist kein Stream des Pi (Gerätekamera oder keine Adresse)',
+      stream: 'der Kamera-Stream lässt sich von dieser Seite nicht mit Zeitstempeln lesen',
+      noDecode:
+        'die Bilder des Kamera-Streams lassen sich in diesem Browser nicht in Pixel verwandeln',
+      window:
+        'die Zeitstempel der Kamerabilder liegen in einer anderen Uhr als die der Meldungen (mehr als 3 s Unterschied)',
+    },
+    // What more is known of a stream that could not be read (its failure code; the code itself stays beside it, small)
+    clockDetail: {
+      'no-fetch': 'dieser Browser kann den Stream nicht selbst abrufen',
+      unreachable:
+        'der Kamera-Server antwortet nicht, oder der Browser erlaubt dieser Seite das Lesen nicht (CORS)',
+      'no-response':
+        'der Kamera-Server antwortet nicht rechtzeitig (eine Kamera, die nur einen Zuschauer bedient, lässt eine zweite Verbindung warten)',
+      'http-status': 'der Kamera-Server antwortet mit einem Fehler',
+      'no-body-stream':
+        'dieser Browser liest einen Datenstrom nicht stückweise (manche Safari-Versionen)',
+      'not-multipart': 'die Adresse liefert keinen Bilderstrom (Motion-JPEG)',
+      'bad-stream': 'der Bilderstrom ist fehlerhaft aufgebaut',
+      silent: 'der Kamera-Server schickt keine Bilder',
+      offline: 'die Kamera ist nicht da (der Server schickt nur Platzhalterbilder)',
+      'no-stamp': 'die Bilder tragen keinen Zeitstempel, den die App lesen kann',
+      ended: 'der Kamera-Server hat den Strom beendet',
+      'read-failed': 'das Lesen des Stroms ist abgebrochen',
+      closed: 'der Strom wurde geschlossen',
+    },
+    // Why the Pi's clock went away in the middle of a scan
+    clockLostWhy: {
+      relay: 'die Meldungen der Steuerung kommen nicht mehr mit dem Zeitstempel des Pi',
+      stream: 'der Kamera-Stream ist abgerissen oder liefert keine neuen Bilder mehr',
+      window:
+        'die Zeitstempel der Kamerabilder liegen nicht mehr in der Uhr der Meldungen (mehr als 3 s Unterschied)',
+    },
+    clock: {
+      title: 'Uhr des letzten Scans in Fahrt',
+      pi: 'Pi – Meldungen und Kamerabilder tragen den Zeitstempel des Pi: {source}, gemessen in der {domain}.',
+      domains: { mono: 'Monotonuhr', wall: 'Echtzeituhr' },
+      // The header of the camera server the stamp is read from (the header's own name stays beside it, small)
+      sources: {
+        'x-ustreamer-grab-begin-time': 'Aufnahmezeit des Kameratreibers (Anfang)',
+        'x-ustreamer-grab-time': 'Aufnahmezeit des Kameratreibers',
+        'x-ustreamer-grab-end-time':
+          'Zeit nach dem Holen des Bildes (etwas später als die Aufnahme)',
+        'x-timestamp': 'Sendezeit des Kamera-Servers (die ungenaueste Wahl)',
+        other: 'Zeit aus einer Kopfzeile des Kamera-Servers',
+      },
+      code: 'Code: {code}',
+      browser:
+        'Browser – Meldungen und Bilder liegen dort, wo diese Seite sie zuerst sah (später und ungleichmäßiger als die Zeit auf dem Pi).',
+      why: 'Grund: {why}.',
+      lost: 'Die Uhr des Pi fiel während des Scans weg: {why}.',
+      noise: 'Zeitrauschen der Uhr: etwa {ms} ms.',
+    },
     trace: {
       label: 'Scan für die Auswertung aufzeichnen',
       hint: 'Speichert die Kamerabilder, die Zeitpunkte und die Meldungen der Steuerung zu den Scans in einer Datei (bis etwa 40 MB). Sie enthält Fotos deines Tisches. Nichts davon geht irgendwohin, bis du die Datei weitergibst. Mit Aufzeichnung gibt die Fahrt nicht auf, auch wenn die Bilder sich schlecht einpassen lassen.',
@@ -3744,7 +3814,7 @@ export const de = {
       twoHoles:
         'zwei bohrungen, zwei löcher, drehung, schräg, ausrichten mit kamera, rotation, winkel messen, two holes, passbohrungen',
       photomap:
-        'fotokarte, scan, scannen, tischfoto, übersicht, karte, foto, tisch fotografieren, luftbild, panorama, mosaik, photo map, abfotografieren, tischbild, in fahrt, ohne halt, streifen, tempo, schneller scannen, nahtlos, kacheln, aufzeichnung, aufzeichnen, mitschneiden, trace, auswertung, kamera messen',
+        'fotokarte, scan, scannen, tischfoto, übersicht, karte, foto, tisch fotografieren, luftbild, panorama, mosaik, photo map, abfotografieren, tischbild, in fahrt, ohne halt, streifen, tempo, schneller scannen, nahtlos, kacheln, aufzeichnung, aufzeichnen, mitschneiden, trace, auswertung, kamera messen, belichtung, belichtungszeit, exposure, unschärfe, bewegungsunschärfe, verwischt, verwackelt, blur, uhr, pi-uhr, uhr des pi, zeitstempel, stempel, timestamp, clock, zeitrauschen',
       recording:
         'mitschnitt, aufnahme, video, film, zeitraffer, aufzeichnen, recording, timelapse, mitfilmen, clip',
       connection:

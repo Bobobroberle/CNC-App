@@ -31,6 +31,17 @@ export function isRelayUrl(url: string): boolean {
   return /^wss?:\/\/[^/]+\/fluidnc\/?$/i.test(url.trim());
 }
 
+/**
+ * The address the socket is opened with. Through the companion's relay it asks for stamps (`?stamp=1`):
+ * the Pi's clock at the moment it received each message from FluidNC, for the strip scan to place its
+ * pictures with. An older companion ignores the parameter and sends none, FluidNC typed in directly
+ * knows nothing of it – the app then keeps the browser's clock for everything. Only the socket gets it:
+ * the typed address stays what it was (`isRelayUrl`, the messages and the reports name that one).
+ */
+export function socketUrl(url: string): string {
+  return isRelayUrl(url) ? `${url.trim()}?stamp=1` : url;
+}
+
 /** `ws://192.168.0.200:81/` → `192.168.0.200:81` (what the operator recognises). */
 export function hostOf(url: string): string {
   // `ws://user:password@host:81/` → `host:81`: the address is said in messages and reports, the login is not
