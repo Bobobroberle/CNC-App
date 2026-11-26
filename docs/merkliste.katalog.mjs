@@ -65,6 +65,7 @@ add('scan', 'Position der Aufnahmen (Timing)', [
     'Adaptives Warten im Stopp-Modus',
     'Das Bild wird gemacht, sobald Position und Bild ruhig sind, nicht nach fester Pause. Schneller, ohne Uhr.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'tim-e',
@@ -97,6 +98,7 @@ add('scan', 'Bewegungsunschärfe', [
     'Belichtung aus der App einstellen',
     'Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'blur-c',
@@ -212,6 +214,7 @@ add('cam', 'Auswählen & Anordnen', [
     'Teile ausblenden',
     'Auge je Teil: ausgeblendete Teile werden nicht gefräst und stören nicht beim Anordnen.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-sel7',
@@ -224,12 +227,14 @@ add('cam', 'Auswählen & Anordnen', [
     'Umschalt/Strg+Tipp',
     'Am Rechner mit Umschalt oder Strg auf ein Teil tippen nimmt es in die Auswahl, ohne den Schalter „Mehrfachauswahl“ anzufassen. Braucht die Modifier-Tasten in der Gestenschicht (usePanZoom).',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-sel9',
     'Rahmen aufziehen',
     'Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-sel10',
@@ -254,12 +259,14 @@ add('cam', 'Auswählen & Anordnen', [
     'Fangen an Kanten, Mitten und Rohteil',
     'Beim Schieben rastet ein Teil an Kanten und Mitten anderer Teile und am Rohteil ein, mit sichtbarer Hilfslinie.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-snap2',
     'Abstände zwischen Teilen anzeigen',
     'Beim Schieben erscheinen die Maße zu den Nachbarn (wie bei Illustrator).',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-snap3',
@@ -278,12 +285,14 @@ add('cam', 'Auswählen & Anordnen', [
     'Automatisch verschachteln (Nesting)',
     'Teile so auf dem Rohteil verteilen, dass möglichst wenig Material übrig bleibt.',
     'gross',
+    { want: true, building: true },
   ],
   [
     'cam-arr3',
     'Reihenfolge der Bearbeitung von Hand',
     'Teile in der Liste ziehen, um die Fräsreihenfolge festzulegen (statt automatisch innen vor außen).',
     'klein',
+    { want: true, building: true },
   ],
 ]);
 add('cam', 'Zeichnen & Formen', [
@@ -310,6 +319,7 @@ add('cam', 'Zeichnen & Formen', [
     'Weitere Grundformen',
     'Rechteck mit Eckenradius je Ecke, Langloch, Ellipse, Stern, Zahnrad, Spirale.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-draw5',
@@ -414,6 +424,7 @@ add('cam', 'Haltestege', [
     'Stege meiden Ecken',
     'Beim automatischen Verteilen wandern Stege in die Mitte gerader Stücke und nie auf eine Ecke.',
     'klein',
+    { want: true, building: true },
   ],
   ['cam-tab5', 'Verteilen nach Abstand', 'Ein Steg alle X mm statt einer festen Anzahl.', 'klein'],
   [
@@ -459,12 +470,14 @@ add('cam', 'Bahnen & Strategien', [
     'Helix zum Eintauchen und Vorbohren',
     'Eintauchen in Taschen mit einer Helix; Vorbohren an einem Punkt.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-path5',
     'Bohren mit Spanbrechen',
     'Tiefe Bohrungen in Stufen mit Rückzug; Zentrieren vor dem Bohren.',
     'klein',
+    { want: true, building: true },
   ],
   ['cam-path6', 'Gewindefräsen', 'Innengewinde mit einem Gewindefräser als Helix.', 'gross'],
   [
@@ -478,6 +491,7 @@ add('cam', 'Bahnen & Strategien', [
     'Mehrere Werkzeuge in einem Programm',
     'Zum Beispiel V-Fräser für die Schrift und Schaftfräser für den Ausschnitt, mit Werkzeugwechsel.',
     'gross',
+    { want: true, building: true },
   ],
   [
     'cam-path9',
@@ -496,6 +510,7 @@ add('cam', 'Bahnen & Strategien', [
     'Fahrwege kürzen',
     'Reihenfolge der Teile so wählen, dass die Eilgänge möglichst kurz werden.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-path12',
@@ -581,12 +596,14 @@ add('cam', 'Komfort', [
     'Messen in der Zeichnung',
     'Abstand zwischen zwei Punkten der Zeichnung ablesen, ohne etwas zu verändern.',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-ux4',
     'Farben als Bearbeitungsgruppen',
     'Teile einer Farbe teilen sich Tiefe, Werkzeug und Reihenfolge (wie die Farbzuordnung in Estlcam).',
     'klein',
+    { want: true, building: true },
   ],
   [
     'cam-ux5',
@@ -959,6 +976,7 @@ add('cam', 'Auswählen & Anordnen', [
     'Haltestege-Feld schiebt die Liste beim Abhaken',
     'Das Feld der Haltestege klappt unter dem ersten abgehakten Teil auf und schiebt die Zeilen darunter um etwa 380 px. Lösung: das Feld erst auf Wunsch öffnen oder aus der Zeile herausnehmen.',
     'klein',
+    { want: true, building: true },
   ],
 ]);
 add('cam', 'Zeichnen & Formen', [
@@ -1005,6 +1023,16 @@ add('scan', 'Position der Aufnahmen (Timing)', [
     'Verstreute Tischmarken als Ankerpunkte',
     'Kleine gedruckte Marken (wie die der Vorrichtungen) fest auf der Opferplatte verteilen, einmal einmessen und speichern. Im Scan kennt jedes Bild mit einer Marke seine Position absolut: die Verzögerung lässt sich mitten im Lauf lernen, Maßstabsfehler werden korrigiert, und auf einem Brett ohne Maserung hat die Bildzuordnung einen Halt. Dünn halten (Papier), weil die App die Höhe der Marke nicht herausrechnet; es gibt nur 48 Nummern, nicht in jedem Bild muss eine liegen.',
     'gross',
+  ],
+]);
+
+add('cam', 'CAM Funktionen', [
+  [
+    'u-mwxlpobg',
+    'Schrift',
+    'Überarbeiteter Texteditor, Auswahlmöglichkeiten verschiedener Schriftarten (Eintrag des Betreibers).',
+    'klein',
+    { want: true, building: true },
   ],
 ]);
 

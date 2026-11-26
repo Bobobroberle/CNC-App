@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-22 von 154 erledigt.
+22 von 155 erledigt.
 
 ## Scan & Kamera
 
@@ -13,7 +13,7 @@ _Position und Schärfe der Aufnahmen, Kamera und Licht._
 - [x] **Eine Uhr für Bild und Position** (kleiner Schritt) – Der Pi stempelt Kamerabild und Statusbericht mit derselben Uhr. Im Simulator sank die Streuung der Zeit von 11–33 ms auf 1–2 ms, die fertige Karte wurde dort nicht genauer; bei sehr schlechtem Link gab der Browser-Takt auf, der Pi-Takt nicht. An der echten Maschine ist die Genauigkeit ungemessen.
 - [ ] **Hardware-Trigger statt Uhr** (größeres Projekt) – Eine Global-Shutter-Kamera wird von einem FluidNC-Ausgang ausgelöst (M62/M63); die Position des Bildes ist die befohlene Position, es gibt keine Uhr. Ob M62/M63 auf der Jackpot bewegungssynchron schaltet, ist ungeprüft.
 - [ ] **Absolute Referenz im Bild** (größeres Projekt) – Ein Streifen mit gedruckten Marken am Tischrand gibt die Position aus dem Bild selbst; wirkt gegen jede Verzögerung, aber nur nahe am Streifen.
-- [ ] **Adaptives Warten im Stopp-Modus** (kleiner Schritt) – Das Bild wird gemacht, sobald Position und Bild ruhig sind, nicht nach fester Pause. Schneller, ohne Uhr.
+- [ ] ★ **Adaptives Warten im Stopp-Modus** (kleiner Schritt, in Arbeit) – Das Bild wird gemacht, sobald Position und Bild ruhig sind, nicht nach fester Pause. Schneller, ohne Uhr.
 - [ ] **Verzögerung an der Maschine messen** (Aufgabe) – Einen Streifen-Scan mit Aufzeichnung fahren und mit dem Auswerter die Verzögerung der Kamera bestimmen (Anleitung in docs/scan.md).
 - [ ] **Zeitstempel von ustreamer prüfen** (Aufgabe) – Am Pi mit curl nachsehen, welche Kopfzeilen der Stream pro Bild sendet und was der Stempel bedeutet (Aufnahme, Kodierung oder Senden).
 - [ ] **M62/M63 an der Jackpot prüfen** (Aufgabe) – Pulst der Ausgang wirklich in der Bewegung, ohne sie anzuhalten? Mit einer LED oder dem Oszilloskop messen.
@@ -22,7 +22,7 @@ _Position und Schärfe der Aufnahmen, Kamera und Licht._
 ### Bewegungsunschärfe
 
 - [ ] **Belichtung von Hand kurz stellen** (kleiner Schritt) – Automatik aus, Belichtung ≤ 2 ms, dafür mehr Licht. Unschärfe = Geschwindigkeit × Belichtungszeit: 50 mm/s und 10 ms sind 0,5 mm, bei 1 ms nur 0,05 mm.
-- [ ] **Belichtung aus der App einstellen** (kleiner Schritt) – Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH.
+- [ ] ★ **Belichtung aus der App einstellen** (kleiner Schritt, in Arbeit) – Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH.
 - [x] **Tempo aus der Belichtung ableiten** (kleiner Schritt) – Die größte Scan-Geschwindigkeit folgt aus der erlaubten Unschärfe (v ≤ 0,3 mm / Belichtungszeit): Feld „Belichtung (ms)“ im Scan-Panel, 0 heißt unbekannt; unter 5 mm/s wird in Stopps gescannt.
 - [ ] **Schärfstes Bild wählen** (kleiner Schritt) – Bei mehreren Bildern derselben Stelle das mit dem größten Kontrast nehmen (Varianz des Laplace-Filters).
 - [ ] **Unschärfe herausrechnen** (Forschung) – Richtungs-Entfaltung bei bekannter Fahrtrichtung und Länge. Hilft begrenzt und verstärkt das Rauschen.
@@ -52,28 +52,28 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [x] **Gleichmäßig verteilen** (kleiner Schritt) – Waagerecht und senkrecht, mit gleichen Abständen oder gleichen Mitten; ab drei Teilen, die beiden äußeren bleiben stehen.
 - [x] **Gruppieren und auflösen** (kleiner Schritt) – Gruppieren verbindet die gewählten Teile zu einer Gruppe, die sich gemeinsam wählen, schieben, drehen, skalieren und ausrichten lässt; „Gruppierung aufheben“ macht aus jeder Kontur wieder ein eigenes Teil (so lassen sich auch die einzelnen Konturen einer DXF- oder SVG-Datei wählen).
 - [ ] **Teile sperren** (kleiner Schritt) – Ein gesperrtes Teil lässt sich nicht versehentlich schieben.
-- [ ] **Teile ausblenden** (kleiner Schritt) – Auge je Teil: ausgeblendete Teile werden nicht gefräst und stören nicht beim Anordnen.
+- [ ] ★ **Teile ausblenden** (kleiner Schritt, in Arbeit) – Auge je Teil: ausgeblendete Teile werden nicht gefräst und stören nicht beim Anordnen.
 - [ ] **Gleiche Art auswählen** (kleiner Schritt) – Alle Bohrungen, alle Taschen oder alle Teile mit demselben Werkzeug mit einem Tipp wählen.
-- [ ] **Umschalt/Strg+Tipp** (kleiner Schritt) – Am Rechner mit Umschalt oder Strg auf ein Teil tippen nimmt es in die Auswahl, ohne den Schalter „Mehrfachauswahl“ anzufassen. Braucht die Modifier-Tasten in der Gestenschicht (usePanZoom).
-- [ ] **Rahmen aufziehen** (kleiner Schritt) – Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt.
+- [ ] ★ **Umschalt/Strg+Tipp** (kleiner Schritt, in Arbeit) – Am Rechner mit Umschalt oder Strg auf ein Teil tippen nimmt es in die Auswahl, ohne den Schalter „Mehrfachauswahl“ anzufassen. Braucht die Modifier-Tasten in der Gestenschicht (usePanZoom).
+- [ ] ★ **Rahmen aufziehen** (kleiner Schritt, in Arbeit) – Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt.
 - [ ] **Tasten für Gruppieren und Ausrichten** (kleiner Schritt) – Strg+G gruppiert, Strg+Umschalt+G löst auf, Tasten zum Ausrichten – jede mit Zeile in der Tastenliste und in der Schnellsuche.
 - [ ] **Am Rohteil ausrichten** (kleiner Schritt) – Links, mittig, rechts … am eingegebenen Rohteil statt an der Auswahl, etwa zum Mittigsetzen auf der Platte. Der Speicher kennt das Rohteil schon (enteredStock), es fehlt die Wahl in der Oberfläche.
 - [ ] **Am Tisch ausrichten** (kleiner Schritt) – Dasselbe am Arbeitsbereich der Maschine. Der Zeichen-Speicher kennt die Tischgröße noch nicht; sie wird nur im Tischbild aus dem Maschinenprofil abgeleitet.
-- [ ] **Fangen an Kanten, Mitten und Rohteil** (kleiner Schritt) – Beim Schieben rastet ein Teil an Kanten und Mitten anderer Teile und am Rohteil ein, mit sichtbarer Hilfslinie.
-- [ ] **Abstände zwischen Teilen anzeigen** (kleiner Schritt) – Beim Schieben erscheinen die Maße zu den Nachbarn (wie bei Illustrator).
+- [ ] ★ **Fangen an Kanten, Mitten und Rohteil** (kleiner Schritt, in Arbeit) – Beim Schieben rastet ein Teil an Kanten und Mitten anderer Teile und am Rohteil ein, mit sichtbarer Hilfslinie.
+- [ ] ★ **Abstände zwischen Teilen anzeigen** (kleiner Schritt, in Arbeit) – Beim Schieben erscheinen die Maße zu den Nachbarn (wie bei Illustrator).
 - [ ] **Raster und Hilfslinien** (kleiner Schritt) – Raster mit einstellbarem Maß, Lineale, Hilfslinien aus dem Lineal ziehen.
 - [ ] **Anordnen im Kreis** (kleiner Schritt) – Kreisförmige Anordnung (Polar-Array) mit Anzahl und Winkel.
-- [ ] **Automatisch verschachteln (Nesting)** (größeres Projekt) – Teile so auf dem Rohteil verteilen, dass möglichst wenig Material übrig bleibt.
-- [ ] **Reihenfolge der Bearbeitung von Hand** (kleiner Schritt) – Teile in der Liste ziehen, um die Fräsreihenfolge festzulegen (statt automatisch innen vor außen).
+- [ ] ★ **Automatisch verschachteln (Nesting)** (größeres Projekt, in Arbeit) – Teile so auf dem Rohteil verteilen, dass möglichst wenig Material übrig bleibt.
+- [ ] ★ **Reihenfolge der Bearbeitung von Hand** (kleiner Schritt, in Arbeit) – Teile in der Liste ziehen, um die Fräsreihenfolge festzulegen (statt automatisch innen vor außen).
 - [ ] **Beziehungen festhalten** (größeres Projekt) – Teile an Regeln binden, die beim Ändern bestehen bleiben: ein Loch bleibt mittig im Teil, ein Abstand bleibt 10 mm, zwei Teile bleiben bündig, auch wenn eines größer wird (wie Einschränkungen in CAD).
-- [ ] **Haltestege-Feld schiebt die Liste beim Abhaken** (kleiner Schritt) – Das Feld der Haltestege klappt unter dem ersten abgehakten Teil auf und schiebt die Zeilen darunter um etwa 380 px. Lösung: das Feld erst auf Wunsch öffnen oder aus der Zeile herausnehmen.
+- [ ] ★ **Haltestege-Feld schiebt die Liste beim Abhaken** (kleiner Schritt, in Arbeit) – Das Feld der Haltestege klappt unter dem ersten abgehakten Teil auf und schiebt die Zeilen darunter um etwa 380 px. Lösung: das Feld erst auf Wunsch öffnen oder aus der Zeile herausnehmen.
 
 ### Zeichnen & Formen
 
 - [ ] **Freie Linie und Vieleck zeichnen** (kleiner Schritt) – Punkte antippen, schließen, fertig. Mit Eingabe von Länge und Winkel.
 - [ ] **Bögen und Kurven** (größeres Projekt) – Bogen und Bézier-Kurven zeichnen und ihre Griffe ziehen.
 - [ ] **Knoten bearbeiten** (größeres Projekt) – Punkte einer Kontur verschieben, einfügen, löschen; Linie in Kurve wandeln. Auch für geladene Konturen.
-- [ ] **Weitere Grundformen** (kleiner Schritt) – Rechteck mit Eckenradius je Ecke, Langloch, Ellipse, Stern, Zahnrad, Spirale.
+- [ ] ★ **Weitere Grundformen** (kleiner Schritt, in Arbeit) – Rechteck mit Eckenradius je Ecke, Langloch, Ellipse, Stern, Zahnrad, Spirale.
 - [ ] **Eigene Schriften** (größeres Projekt) – TTF/OTF-Schriften in Konturen umwandeln; Zeilenabstand, Buchstabenabstand, Text auf Linie oder Kreis.
 - [ ] **Maße als Formel** (größeres Projekt) – Eine Tabelle mit Maßen (Breite = 2 × Höhe), die das Teil neu zeichnet.
 - [ ] **Bild nachzeichnen** (größeres Projekt) – PNG/JPG in Konturen umwandeln (Vektorisieren), mit Schwelle und Glättung.
@@ -97,7 +97,7 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [x] **Haltestege je Teil einstellen** (kleiner Schritt) – Anzahl, Breite und Höhe für jedes Teil einzeln (statt einer globalen Einstellung).
 - [x] **Automatisch verteilen oder von Hand setzen** (kleiner Schritt) – Gleichmäßig verteilen oder Stege per Tipp setzen, verschieben und löschen.
 - [x] **Stege auf dem Tisch anzeigen** (kleiner Schritt) – Markierungen in echter Breite an der Stelle, wo der Steg stehen bleibt.
-- [ ] **Stege meiden Ecken** (kleiner Schritt) – Beim automatischen Verteilen wandern Stege in die Mitte gerader Stücke und nie auf eine Ecke.
+- [ ] ★ **Stege meiden Ecken** (kleiner Schritt, in Arbeit) – Beim automatischen Verteilen wandern Stege in die Mitte gerader Stücke und nie auf eine Ecke.
 - [ ] **Verteilen nach Abstand** (kleiner Schritt) – Ein Steg alle X mm statt einer festen Anzahl.
 - [ ] **Keilförmige Stege** (kleiner Schritt) – Dreieckige Stege, die sich leichter abschneiden lassen und weniger Reststeg lassen.
 - [ ] **Stege nachträglich entfernen** (größeres Projekt) – Ein kleines Programm, das die Stege nach dem Herauslösen glatt fräst.
@@ -109,14 +109,14 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [ ] **Taschenmuster** (größeres Projekt) – Spirale oder Zickzack für Taschen; Boden und Wand getrennt schlichten.
 - [ ] **Restmaterial mit kleinerem Fräser** (größeres Projekt) – Dort nachfräsen, wo der große Fräser nicht hinkam (Ecken, enge Stellen).
 - [ ] **Anfahrbögen** (kleiner Schritt) – Tangentiales Ein- und Ausfahren an Konturen, damit keine Marke im Schnitt bleibt.
-- [ ] **Helix zum Eintauchen und Vorbohren** (kleiner Schritt) – Eintauchen in Taschen mit einer Helix; Vorbohren an einem Punkt.
-- [ ] **Bohren mit Spanbrechen** (kleiner Schritt) – Tiefe Bohrungen in Stufen mit Rückzug; Zentrieren vor dem Bohren.
+- [ ] ★ **Helix zum Eintauchen und Vorbohren** (kleiner Schritt, in Arbeit) – Eintauchen in Taschen mit einer Helix; Vorbohren an einem Punkt.
+- [ ] ★ **Bohren mit Spanbrechen** (kleiner Schritt, in Arbeit) – Tiefe Bohrungen in Stufen mit Rückzug; Zentrieren vor dem Bohren.
 - [ ] **Gewindefräsen** (größeres Projekt) – Innengewinde mit einem Gewindefräser als Helix.
 - [ ] **V-Carving** (größeres Projekt) – Schrift und Formen mit V-Fräser, Tiefe folgt der Breite (Füllung).
-- [ ] **Mehrere Werkzeuge in einem Programm** (größeres Projekt) – Zum Beispiel V-Fräser für die Schrift und Schaftfräser für den Ausschnitt, mit Werkzeugwechsel.
+- [ ] ★ **Mehrere Werkzeuge in einem Programm** (größeres Projekt, in Arbeit) – Zum Beispiel V-Fräser für die Schrift und Schaftfräser für den Ausschnitt, mit Werkzeugwechsel.
 - [ ] **Trochoidal schruppen** (größeres Projekt) – Kreisende Bahn mit kleiner Eingriffsbreite für Hartholz und Metall.
 - [ ] **Fläche planfräsen** (kleiner Schritt) – Opferplatte oder Rohteil planen, mit Muster und Überlappung.
-- [ ] **Fahrwege kürzen** (kleiner Schritt) – Reihenfolge der Teile so wählen, dass die Eilgänge möglichst kurz werden.
+- [ ] ★ **Fahrwege kürzen** (kleiner Schritt, in Arbeit) – Reihenfolge der Teile so wählen, dass die Eilgänge möglichst kurz werden.
 - [ ] **Tiefe und Materialdicke je Teil** (kleiner Schritt) – Jedes Teil mit eigener Materialdicke und eigenem Z-Versatz (Stufen im Rohteil).
 - [ ] **Einstieg nur außerhalb des Teils** (kleiner Schritt) – Bei Ausschnitten außerhalb der Kontur einstechen, wo der Verschnitt liegt.
 - [ ] **Flächen schraffieren** (kleiner Schritt) – Eine geschlossene Form mit Linien füllen (Gravur mit kleinem Fräser oder V-Fräser), mit Abstand und Winkel.
@@ -141,8 +141,8 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 
 - [ ] **Kontextmenü** (kleiner Schritt) – Langes Tippen oder Rechtsklick auf ein Teil: Kopieren, Löschen, Gruppieren, Ausrichten.
 - [ ] **Zoom auf Auswahl** (kleiner Schritt) – Ansicht passt sich dem gewählten Teil an.
-- [ ] **Messen in der Zeichnung** (kleiner Schritt) – Abstand zwischen zwei Punkten der Zeichnung ablesen, ohne etwas zu verändern.
-- [ ] **Farben als Bearbeitungsgruppen** (kleiner Schritt) – Teile einer Farbe teilen sich Tiefe, Werkzeug und Reihenfolge (wie die Farbzuordnung in Estlcam).
+- [ ] ★ **Messen in der Zeichnung** (kleiner Schritt, in Arbeit) – Abstand zwischen zwei Punkten der Zeichnung ablesen, ohne etwas zu verändern.
+- [ ] ★ **Farben als Bearbeitungsgruppen** (kleiner Schritt, in Arbeit) – Teile einer Farbe teilen sich Tiefe, Werkzeug und Reihenfolge (wie die Farbzuordnung in Estlcam).
 - [ ] **Verlauf der Änderungen** (kleiner Schritt) – Rückgängig-Liste mit Namen der Schritte, Sprung zu einem früheren Stand.
 - [ ] **Kopieren zwischen Projekten** (kleiner Schritt) – Teile in die Zwischenablage legen und in einem anderen Projekt einfügen.
 
@@ -152,6 +152,10 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [x] **Dogbone und T-Bone, Schlichtzugabe, innen vor außen** (vorhanden) – Ecken freischneiden, Schruppen und Schlichten, sinnvolle Reihenfolge.
 - [x] **Beidseitig fräsen, Serien auf Rohlingen, Teile in Abschnitten** (vorhanden) – Abläufe, die die Kamera nutzen.
 - [x] **Projekt speichern und öffnen** (vorhanden) – Zeichnung als Datei sichern, strikt gelesen, in einem Schritt rückgängig.
+
+### CAM Funktionen
+
+- [ ] ★ **Schrift** (kleiner Schritt, in Arbeit) – Überarbeiteter Texteditor, Auswahlmöglichkeiten verschiedener Schriftarten (Eintrag des Betreibers).
 
 ## Ideen mit Kamera
 
