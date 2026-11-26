@@ -257,6 +257,8 @@ export function PhotoMapPanel() {
             onChange={(e) => {
               const text = e.target.value;
               setTypingExposure(text);
+              // what the line says was true of the field when the camera was read: not of what is typed now
+              setTaken(null);
               const v = parseNumber(text);
               if (text.trim() !== '' && Number.isFinite(v)) setExposure(v);
             }}

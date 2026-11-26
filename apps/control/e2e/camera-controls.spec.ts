@@ -300,11 +300,18 @@ test('the scan panel takes the exposure from the camera – on the tap, only a f
   const kept = await page.evaluate(() => localStorage.getItem('lowrider-control.scan'));
   expect(JSON.parse(kept!)).toMatchObject({ mode: 'strips', exposureMs: 12.3 });
 
+  // typing another number takes the line away: it said what was read, not what the field holds now
+  await field.fill('3');
+  await expect(line).toHaveCount(0);
+  await expect(field).toHaveValue('3');
+  expect(pi.gets).toBe(before + 1);
+
   // what the camera does later is not taken by itself – only on the next tap
   pi.camera.get('exposure_time_absolute').value = 50;
-  await expect(field).toHaveValue('12.3');
+  await expect(field).toHaveValue('3');
   await panel.getByTestId('exposure-take').click();
   await expect(field).toHaveValue('5');
+  await expect(line).toHaveAttribute('data-kind', 'ms');
   expect(pi.gets).toBe(before + 2);
 
   // a camera that cannot be read: the reason, nothing changed

@@ -530,6 +530,14 @@ export const en: DictionaryShape = {
         action:
           'Let the job finish – or end it in Fräsen (“Abort job”, between two parts “Cancel the remaining parts”) – and try again.',
       },
+      scanTiming: {
+        cause:
+          'After the machine stopped, the camera picture was still changing when the wait was over: the camera is later than expected, or the machine rings.',
+        effect:
+          'The pictures are on the map where the machine stood; at these places the map may be blurred or shifted a little. The machine was not affected.',
+        action:
+          'Scan again if the map is needed at these places. If it happens again: check the camera and the lighting.',
+      },
       limit: {
         cause: 'The move would have left the travel.',
         effect: 'The machine went to the limit at most.',
@@ -3430,6 +3438,8 @@ export const en: DictionaryShape = {
     scanFailed: 'Scan stopped: move command not carried out.',
     scanHeld: 'Scan stopped: the controller was held (pause or alarm).',
     scanLost: 'Scan stopped: the connection to the controller was lost.',
+    restUnsure:
+      '{count} of {total} pictures were taken while the camera picture was still changing. They are on the map, but may be blurred or shifted there.',
     stripsNeedPixels:
       'The camera picture cannot be read (stream without permission) – the scan stops for every picture.',
     stripsGiveUp:

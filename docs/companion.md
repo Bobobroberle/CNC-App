@@ -355,7 +355,8 @@ Bildrate begrenzen.
 
 **Grenzen:** eine Anfrage trägt höchstens 12 Regler und 4 KB (die Strecke prüft das, bevor sie den Rumpf liest); höchstens ein
 Schreibvorgang je 500 ms (sonst `429 rate-limited`, die App wartet 0,6 s zwischen zwei und versucht es einmal neu); jeder
-`v4l2-ctl`-Aufruf höchstens 3 s und nur einer zur selben Zeit (Leseanfragen, die zusammen warten, teilen sich einen Aufruf). Aufgerufen wird es mit `execFile` und festen Argumenten
+`v4l2-ctl`-Aufruf höchstens 3 s (danach `SIGKILL`; antwortet der Prozess auch dann nicht – er steckt im Kernel –, antwortet der Companion nach einer Sekunde Nachfrist von selbst mit `timeout`)
+und nur einer zur selben Zeit (Leseanfragen, die zusammen warten, teilen sich einen Aufruf); mehr als vier Schreibvorgänge warten nie zugleich – ein fünfter bekommt `429 rate-limited`, solange die Kamera nicht antwortet. Aufgerufen wird es mit `execFile` und festen Argumenten
 (`-d <Gerät> --list-ctrls-menus`, `-d <Gerät> --set-ctrl <name>=<ganze Zahl>`), nie über eine Shell; das Gerät kommt nur aus der
 Umgebung (`CAMERA_DEVICE`), aus der Anfrage nur Name und Zahl eines geprüften Reglers.
 

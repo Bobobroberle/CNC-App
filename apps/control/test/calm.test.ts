@@ -139,6 +139,12 @@ describe('whether the picture is calm now', () => {
     expect(calmNow(slow, 740, 0.65)).toBe(true);
     expect(calmNow(slow, 940, 0.65)).toBe(false);
   });
+  it('is not where the newest frame is more than 100 ms old, even on a fast camera that still has frames enough in the stretch', () => {
+    // a frame every 10 ms up to t = 900, noise 0.4: 100 ms after the last one the stream is still running, a little later it is not
+    const fast = Array.from({ length: 91 }, (_, i) => grey(10 * i, i % 2 ? 0.4 : 0));
+    expect(calmNow(fast, 1000, 0.65)).toBe(true);
+    expect(calmNow(fast, 1001, 0.65)).toBe(false);
+  });
   it('is not where a change lies inside the stretch – or at the picture it began with', () => {
     const jumped = [
       ...run(0, [0, 0.4, 0, 0.4, 0, 0.4, 0, 0.4]),

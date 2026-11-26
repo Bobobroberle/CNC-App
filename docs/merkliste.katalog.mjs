@@ -63,9 +63,27 @@ add('scan', 'Position der Aufnahmen (Timing)', [
   [
     'tim-d',
     'Adaptives Warten im Stopp-Modus',
-    'Das Bild wird gemacht, sobald Position und Bild ruhig sind, nicht nach fester Pause. Schneller, ohne Uhr. Gebaut mit Beleg: nur wo die Bilder selbst zeigen, dass sie frisch sind (Rauschen der Kamera, die Fahrt im Bild gesehen, ruhig über mindestens 150 ms, nicht vor der auf den ersten drei Punkten gelernten Zeit), sonst die feste Zeit wie bisher; die Serie bleibt bei der festen Zeit. Im Simulator fiel die Pause je Bild bei einer Kamera ohne Verzögerung von etwa 1,0 s auf 0,2 s, wo ein Beleg da ist (auf dem Tisch des Simulators kam er erst beim 26. Bild, vermutlich weil die ersten Reihen über blanker Fläche lagen – nicht gemessen; der Scan eines 725 × 290 mm großen Tisches dauerte statt 204 s noch 170 s); bei 0,8 s Verzögerung lag mit fester Zeit ein Bild 1,8 mm daneben, mit Wartezeit keines. An der echten Kamera ist weder der Gewinn noch die Empfindlichkeit gemessen.',
+    'Das Bild wird gemacht, sobald Position und Bild ruhig sind, nicht nach fester Pause. Schneller, ohne Uhr. Gebaut mit Beleg: nur wo die Bilder selbst zeigen, dass sie frisch sind (Rauschen der Kamera, die Fahrt im Bild gesehen, ruhig über mindestens 150 ms, nicht vor der auf den ersten drei Punkten gelernten Zeit), sonst die feste Zeit wie bisher; die Serie bleibt bei der festen Zeit. Im Simulator fiel die Pause je Bild bei einer Kamera ohne Verzögerung von etwa 1,0 s auf 0,2 s, wo ein Beleg da ist (auf dem Tisch des Simulators kam er erst beim 26. Bild, vermutlich weil die ersten Reihen über blanker Fläche lagen – nicht gemessen; der Scan eines 725 × 290 mm großen Tisches dauerte statt 204 s noch 170 s); bei 0,8 s Verzögerung lag mit fester Zeit ein Bild 1,8 mm daneben, mit Wartezeit keines. An der echten Kamera ist weder der Gewinn noch die Empfindlichkeit gemessen. Grenzen: Ein Bild, das bei der festen Zeit die Fahrt nicht zeigt, wird bei der festen Zeit genommen (und kann von vor dem Halt sein, tim-j); ein Bild, das bei der längsten Wartezeit noch im Wandel war, wird aufgelegt und einmal je Scan gemeldet (tim-i).',
     'klein',
     { want: true, done: true },
+  ],
+  [
+    'tim-i',
+    'Unsichere Bilder beim Scan mit Halt nicht auflegen',
+    'Ein Bild, das bei der längsten Wartezeit noch im Wandel war, liegt auf der Karte und wird nur einmal je Scan gemeldet. Besser wäre, es nicht aufzulegen und einmal neu aufzunehmen. Offen, weil es beim Scan mit Halt keinen Weg gibt, eine Lücke nachzufüllen (beim Scan in Fahrt tut das die Nachholrunde).',
+    'klein',
+  ],
+  [
+    'tim-j',
+    'Bild ohne Beleg der Fahrt auf einer gelernten Kamera verlängern',
+    'Zeigt das Bild bei der festen Zeit die Fahrt nicht (eine blanke Stelle des Tisches, oder eine Kamera, die um mehr als Fahrt plus feste Zeit zu spät ist), nimmt die App es bei der festen Zeit, auch wenn frühere Punkte die Fahrt gezeigt haben; beides sieht für sie gleich aus. Unterscheiden ließe es sich nur über ein Maß für die Struktur im Bild, dessen Schwelle an der echten Kamera zu messen wäre – ohne es kostete jedes blanke Stück bis zu 1,5 s.',
+    'forschung',
+  ],
+  [
+    'tim-k',
+    'Adaptives Warten an der echten Kamera prüfen',
+    'Einen Scan mit Halt an der Maschine fahren und die Pausen je Punkt ansehen (ScanStats.rest.points): Rauscht die Kamera von Bild zu Bild neu? Für wie viele Punkte kommt der Beleg zustande? Meldet die App unsichere Bilder? Liegt ein Bild neben seinem Platz (Karte mit dem Scan bei fester Zeit vergleichen)?',
+    'aufgabe',
   ],
   [
     'tim-e',
@@ -96,9 +114,15 @@ add('scan', 'Bewegungsunschärfe', [
   [
     'blur-b',
     'Belichtung aus der App einstellen',
-    'Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH.',
+    'Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH. Gebaut und gegen eine nachgebaute Kamera getestet (eine Attrappe von v4l2-ctl, die Ausgabe nach dem Format von v4l-utils 1.22 geschrieben, nicht von einer Kamera aufgenommen); an einer echten Kamera und mit einem echten v4l2-ctl nicht geprüft – ob ein zweiter Prozess Regler setzen darf, während ustreamer das Gerät hält, und ob die Werte einen Neustart von ustreamer überstehen, ist offen (blur-d).',
     'klein',
     { want: true, done: true },
+  ],
+  [
+    'blur-d',
+    'Belichtung und Bild an der echten Kamera prüfen',
+    'Am Pi die Ausgabe von v4l2-ctl -d /dev/video0 --list-ctrls-menus mit der Karte in den Kameraeinstellungen vergleichen; die Belichtung setzen, während ustreamer läuft, und im Bild nachsehen, ob sie wirkt; ustreamer neu starten und prüfen, ob der Companion die Werte zurückschreibt; „Aus der Kamera übernehmen“ im Scan-Panel gegen den Wert halten, den v4l2-ctl zeigt. Offene Fragen stehen in docs/offene-fragen.md (12).',
+    'aufgabe',
   ],
   [
     'blur-c',

@@ -538,6 +538,14 @@ export const de = {
         action:
           'Den Job zu Ende laufen lassen – oder in Fräsen beenden („Job abbrechen“, zwischen zwei Teilen „Restliche Teile abbrechen“) – und es dann noch einmal versuchen.',
       },
+      scanTiming: {
+        cause:
+          'Nach dem Halt der Maschine hat sich das Bild der Kamera noch verändert, als die Wartezeit zu Ende war: die Kamera ist später als erwartet, oder die Maschine schwingt nach.',
+        effect:
+          'Die Bilder liegen auf der Karte, wo die Maschine stand; an diesen Stellen kann die Karte verwischt oder ein Stück verschoben sein. Die Maschine wurde nicht beeinträchtigt.',
+        action:
+          'Den Scan wiederholen, wenn die Karte an diesen Stellen gebraucht wird. Wiederholt es sich: Kamera und Beleuchtung prüfen.',
+      },
       limit: {
         cause: 'Die Bewegung hätte den Verfahrweg verlassen.',
         effect: 'Gefahren wurde höchstens bis zur Grenze.',
@@ -3481,6 +3489,8 @@ export const de = {
     scanFailed: 'Scan abgebrochen: Fahrbefehl nicht ausgeführt.',
     scanHeld: 'Scan abgebrochen: Die Steuerung wurde angehalten (Pause oder Alarm).',
     scanLost: 'Scan abgebrochen: Die Verbindung zur Steuerung ist abgerissen.',
+    restUnsure:
+      '{count} von {total} Bildern wurden aufgenommen, während sich das Kamerabild noch veränderte. Sie liegen auf der Karte, können dort aber verwischt oder verschoben sein.',
     stripsNeedPixels:
       'Das Kamerabild lässt sich nicht auslesen (Stream ohne Freigabe) – der Scan läuft mit Halt für jedes Bild.',
     stripsGiveUp:

@@ -154,6 +154,11 @@ export interface RestResult {
   extended: boolean;
   /** What had been learned of the camera when this point began */
   learned: boolean;
+  /**
+   * The wait was given up because the scan was cancelled or the link went away: the picture is not one the wait vouches for –
+   * it is none to lay down, and the point teaches the waiter nothing
+   */
+  aborted?: true;
 }
 
 export interface RestOptions {
@@ -268,7 +273,9 @@ export class Rest {
     for (;;) {
       const t = this.now();
       const elapsed = t - t0;
-      if (o.cancelled() || useMachine.getState().connection !== 'connected') return done('fixed');
+      // gone before the picture was shown to be calm: no answer to the waiter's books either (the next point starts afresh)
+      if (o.cancelled() || useMachine.getState().connection !== 'connected')
+        return { kind: 'fixed', ms: elapsed, extended, learned: known, aborted: true };
       const frames = this.eye.usable ? this.eye.frames : [];
       const acc = account(frames, known ? learner.limit : null);
       const calm = acc.limit !== null && calmNow(frames, t, acc.limit);

@@ -250,43 +250,66 @@ export type Run = (args: readonly string[]) => Promise<RunResult>;
 
 /** How long one `v4l2-ctl` may take. */
 export const V4L2_TIMEOUT_MS = 3000;
+/**
+ * How long after that the runner answers on its own: a child that is signalled and does not go (one that is waiting in
+ * the kernel cannot be killed until the call returns) must not hold the one queue – and so every later request – for as
+ * long as it likes.
+ */
+export const V4L2_GRACE_MS = 1000;
 
 type ExecError = (Error & { code?: unknown; killed?: boolean }) | null;
 type ExecFileLike = (
   file: string,
   args: string[],
-  options: { timeout: number; maxBuffer: number; env: Record<string, string> },
+  options: {
+    timeout: number;
+    killSignal: 'SIGKILL';
+    maxBuffer: number;
+    env: Record<string, string>;
+  },
   callback: (error: ExecError, stdout: string, stderr: string) => void,
 ) => unknown;
 
 /**
  * `v4l2-ctl` with the arguments it is given and nothing else: `execFile` (no shell), a fixed environment (the
- * messages are not translated), a time limit and a bound on its output.
+ * messages are not translated), a time limit that kills (`SIGKILL`: a child that ignores `SIGTERM` is not let off, and
+ * one that is signalled cannot go on to exit 0 and pass for a success with no output) and a bound on its output. The
+ * time limit is also kept here, with a little grace: the answer is a time-out then, whatever the child does.
  */
 export function v4l2Runner(exec: ExecFileLike = execFile as unknown as ExecFileLike): Run {
   return (args) =>
-    new Promise((done) =>
+    new Promise((done) => {
+      const giveUp = setTimeout(
+        () => done({ code: -1, stdout: '', stderr: '', failure: 'timeout' }),
+        V4L2_TIMEOUT_MS + V4L2_GRACE_MS,
+      );
+      // a late answer of a child that was given up on changes nothing: the promise is settled once
+      const answer = (result: RunResult) => {
+        clearTimeout(giveUp);
+        done(result);
+      };
       exec(
         'v4l2-ctl',
         [...args],
         {
           timeout: V4L2_TIMEOUT_MS,
+          killSignal: 'SIGKILL',
           maxBuffer: 256 * 1024,
           env: { PATH: process.env.PATH ?? '/usr/bin:/bin', LC_ALL: 'C' },
         },
         (error, stdout, stderr) => {
-          if (!error) return done({ code: 0, stdout, stderr });
+          if (!error) return answer({ code: 0, stdout, stderr });
           const failure =
             error.code === 'ENOENT' ? 'missing' : error.killed ? 'timeout' : undefined;
-          done({
+          answer({
             code: typeof error.code === 'number' ? error.code : -1,
             stdout,
             stderr,
             ...(failure ? { failure } : {}),
           });
         },
-      ),
-    );
+      );
+    });
 }
 
 /** The device may be opened for reading and writing (v4l2-ctl opens it that way). */
@@ -310,6 +333,11 @@ export interface CameraOptions {
 }
 
 const STORED_MAX = 32;
+/**
+ * Write batches that may wait in the queue at once (the one running included). Each takes the time of a few `v4l2-ctl`
+ * calls at the most, so a camera that does not answer cannot be piled on without end by a page that keeps writing.
+ */
+export const MAX_QUEUED_WRITES = 4;
 const detailOf = (text: string) => text.trim().slice(0, 200) || undefined;
 
 export interface ApplyAnswer {
@@ -324,6 +352,7 @@ export class CameraControls {
   private readonly options: CameraOptions;
   private tail: Promise<unknown> = Promise.resolve();
   private lastBatch: number | null = null;
+  private queuedWrites = 0;
 
   constructor(options: CameraOptions) {
     this.options = options;
@@ -401,8 +430,14 @@ export class CameraControls {
     const gap = this.options.minGapMs ?? 500;
     if (this.lastBatch !== null && at - this.lastBatch < gap)
       throw new CameraError('rate-limited', String(gap - (at - this.lastBatch)));
+    // the camera is not answering as fast as the page writes: refused like a write that came too soon, the queue stays short
+    if (this.queuedWrites >= MAX_QUEUED_WRITES)
+      throw new CameraError('rate-limited', String(V4L2_TIMEOUT_MS));
     this.lastBatch = at;
-    return this.enqueue(() => this.batch(wanted, true));
+    this.queuedWrites += 1;
+    return this.enqueue(() => this.batch(wanted, true)).finally(() => {
+      this.queuedWrites -= 1;
+    });
   }
 
   private async batch(wanted: [string, number][], keep: boolean): Promise<ApplyAnswer> {
@@ -460,9 +495,11 @@ export class CameraControls {
    * still reports and still accepts, and only those that differ. Nothing stored: no call at all.
    */
   restore(): Promise<{ applied: string[]; refused: string[] } | null> {
-    const wanted = Object.entries(this.stored());
-    if (wanted.length === 0) return Promise.resolve(null);
     return this.enqueue(async () => {
+      // What is stored is read when this job runs, not when it was asked for: a write that was queued before it has saved
+      // its values by now, and putting back the older ones would undo it with nothing to show for it.
+      const wanted = Object.entries(this.stored());
+      if (wanted.length === 0) return null;
       const current = await this.read();
       const todo = wanted.filter(
         ([name, value]) => current.find((c) => c.name === name)?.value !== value,

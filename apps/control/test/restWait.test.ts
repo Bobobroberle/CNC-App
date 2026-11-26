@@ -27,6 +27,18 @@ interface Camera {
   flat?: boolean;
   /** A flicker of the light: every fifth picture is far brighter than the noise (the noise of a live camera is not even) */
   flicker?: boolean;
+  /**
+   * What the camera shows before the move reaches it is the table as it lay before the move, standing still – not the slope
+   * the move would make, going back in time (a camera so late that, at the stop, it still shows the stop before)
+   */
+  still?: boolean;
+}
+
+/** How the machine reports: how often (ms, a multiple of 25) and whether the position still rings after the stop */
+interface Reports {
+  every?: number;
+  /** The reports of the stop before this time (ms) alternate by 0.1 mm either way – the gantry has not come to rest */
+  ringUntil?: number;
 }
 
 /** One point: a machine that moves until STOP and a camera, both read off a virtual clock */
@@ -35,12 +47,14 @@ class World implements Watching {
   readonly frames: Frame[] = [];
   usable = true;
   idle = false;
+  private rung = 0;
   private last: Look | null = null;
   private held: { base: number; noise: number } | null = null;
 
   constructor(
     private readonly camera: Camera,
     private readonly reportPhase = 0,
+    private readonly reports: Reports = {},
   ) {}
 
   start(): void {}
@@ -48,7 +62,9 @@ class World implements Watching {
 
   /** The grey level the table shows when it was photographed at `at`: a slope up to the stop, flat after */
   private base(at: number): number {
-    return this.camera.flat ? 100 : at < STOP ? 100 + (STOP - at) / 10 : 100;
+    if (this.camera.flat) return 100;
+    const when = this.camera.still ? Math.max(0, at) : at;
+    return when < STOP ? 100 + (STOP - when) / 10 : 100;
   }
 
   /** What the picture shows now – the level of the table and the noise of the picture it is */
@@ -78,9 +94,15 @@ class World implements Watching {
         this.frames.push({ t: this.t, look });
         this.last = look;
       }
-      if ((this.t - this.reportPhase) % 200 === 0 && this.t >= this.reportPhase) {
+      if (
+        (this.t - this.reportPhase) % (this.reports.every ?? 200) === 0 &&
+        this.t >= this.reportPhase
+      ) {
         const moving = this.t < STOP;
-        const mpos = moving ? [this.t / 100, 20, 0] : [10, 20, 0];
+        // ringing: the position of the stop is 10 mm give or take 0.1 – a report to the one before it differs by 0.2
+        const rings = !moving && this.t < (this.reports.ringUntil ?? 0);
+        const x = rings ? 10 + (this.rung++ % 2 ? 0.1 : -0.1) : 10;
+        const mpos = moving ? [this.t / 100, 20, 0] : [x, 20, 0];
         this.idle ||= !moving;
         useMachine.setState({
           status: {
@@ -112,9 +134,9 @@ beforeEach(() => {
 async function point(
   w: RestWaiter,
   camera: Camera,
-  o: { phase?: number; cancelled?: () => boolean } = {},
+  o: { phase?: number; cancelled?: () => boolean; reports?: Reports } = {},
 ) {
-  world = new World(camera, o.phase ?? 0);
+  world = new World(camera, o.phase ?? 0, o.reports);
   const rest = w.begin();
   while (!world.idle && world.t < 5000) world.advance(25);
   const result = await rest.finish({ fixedMs: FIXED, cancelled: o.cancelled ?? (() => false) });
@@ -225,13 +247,29 @@ describe('the wait for a picture at a stop', () => {
     rest.stop();
     expect(result.kind).toBe('fixed');
     expect(result.ms).toBeGreaterThanOrEqual(FIXED);
-    // cancelled: at once
+    // cancelled: at once – and said to be given up, so that no picture is laid down for it
     const cancelled = await point(w, QUICK, { cancelled: () => true });
     expect(cancelled.result.ms).toBe(0);
-    // no link: at once
+    expect(cancelled.result.aborted).toBe(true);
+    // no link: at once, the same
     useMachine.setState({ connection: 'disconnected' });
     const gone = await point(w, QUICK);
     expect(gone.result.ms).toBe(0);
+    expect(gone.result.aborted).toBe(true);
+    // a wait that ran to its end is none of that
+    useMachine.setState({ connection: 'connected' });
+    expect((await point(w, QUICK)).result.aborted).toBeUndefined();
+  });
+
+  it('counts a wait that was given up as nothing: it neither ends a run of unsure points nor makes one', async () => {
+    const w = waiter();
+    await learned(w);
+    expect((await point(w, { lag: 5000, noise: true })).result.kind).toBe('unsure');
+    // the operator cancels (or the link goes) on the next point: that is no answer about the camera …
+    expect((await point(w, QUICK, { cancelled: () => true })).result.aborted).toBe(true);
+    // … so the next unsure point is the second one of the run, and what was learned goes
+    expect((await point(w, { lag: 5000, noise: true })).result.kind).toBe('unsure');
+    expect(w.learner.known).toBe(false);
   });
 
   it('waits for a picture that is still changing, but only so long – and lets go of what it learned after two such points', async () => {
@@ -243,15 +281,109 @@ describe('the wait for a picture at a stop', () => {
     expect(first.result.extended).toBe(true);
     expect(first.result.ms).toBeGreaterThanOrEqual(FIXED + EXTRA_MS);
     expect(first.result.ms).toBeLessThan(FIXED + EXTRA_MS + 50);
+    // one is not enough to let go of it (and the constant says two: the test says it in numbers too)
+    expect(GIVE_UP_AFTER).toBe(2);
     expect(w.learner.known).toBe(true);
-    for (let i = 1; i < GIVE_UP_AFTER; i++) {
-      expect((await point(w, { lag: 5000, noise: true })).result.kind).toBe('unsure');
-    }
+    expect((await point(w, { lag: 5000, noise: true })).result.kind).toBe('unsure');
     // two in a row: the camera is not the one that was learned – the fixed pause and learning again
     expect(w.learner.known).toBe(false);
     const again = await point(w, QUICK);
     expect(again.result.kind).toBe('fixed');
     expect(again.result.learned).toBe(false);
+  });
+
+  it('takes no shortcut on a picture that shows nothing of the move, however calm it is: the fixed pause, as before – which cannot help a picture that is old', async () => {
+    const w = waiter();
+    await learned(w);
+    // the camera is so late that at the stop it still shows the table as it lay before the move: standing still, with noise.
+    // Calm – but there is nothing in it that says the move was seen, so it is no evidence (the move shows from 1.9 s on)
+    const { result, level } = await point(w, { lag: 1900, noise: true, still: true });
+    expect(result.learned).toBe(true);
+    expect(result.kind).toBe('fixed');
+    expect(result.ms).toBeGreaterThanOrEqual(FIXED);
+    expect(result.extended).toBe(false);
+    // what the fixed pause takes then is a picture from before the stop – the behaviour of the fixed pause, and what no
+    // wait can see (docs/scan.md, "Die Grenzen der Tests")
+    expect(level).toBeGreaterThan(100);
+    // a picture that is old only until the move shows in it, as it does at the next stop, is waited for as always
+    const quick = await point(w, QUICK);
+    expect(quick.result.kind).toBe('adaptive');
+    expect(quick.level).toBe(100);
+  });
+
+  it('does not take the picture before the machine has said twice that it stands, however calm the picture is already', async () => {
+    const w = waiter();
+    // a camera that is not late: its picture is final the moment the machine stops
+    const live: Camera = { lag: 0, noise: true };
+    await learned(w, live);
+    // the machine reports every 0.6 s: the first Idle is a report at 1200 ms, the second one at 1800 ms. The picture is calm
+    // from the first (the learned wait is 100 ms) – but one report is not two
+    const slow = await point(w, live, { reports: { every: 600 } });
+    expect(slow.result.kind).toBe('adaptive');
+    expect(slow.result.ms).toBeGreaterThanOrEqual(600);
+    expect(slow.level).toBe(100);
+  });
+
+  it('does not take the picture while the machine still rings: its reports must agree to 0.02 mm', async () => {
+    const w = waiter();
+    const live: Camera = { lag: 0, noise: true };
+    await learned(w, live);
+    // Idle every 0.2 s, but each report 0.2 mm from the one before it until 1.7 s: no two of them agree, and the picture
+    // (calm for a long time) does not say how the gantry stands – the fixed pause it is
+    const ringing = await point(w, live, { reports: { ringUntil: 1700 } });
+    expect(ringing.result.kind).toBe('fixed');
+    expect(ringing.result.ms).toBeGreaterThanOrEqual(FIXED);
+    // the same machine at rest is quick
+    const quiet = await point(w, live);
+    expect(quiet.result.kind).toBe('adaptive');
+    expect(quiet.result.ms).toBeLessThan(FIXED / 2);
+  });
+
+  it('never takes the picture before the wait it learned, even where the picture is calm sooner', async () => {
+    const w = waiter();
+    // learned on a camera that shows the stop 0.6 s late: the picture is final 0.6 s after the machine reports rest
+    await learned(w, { lag: 600, noise: true });
+    const learnedWait = w.learner.waitMs();
+    expect(learnedWait).toBeGreaterThanOrEqual(600);
+    expect(learnedWait).toBeLessThan(FIXED);
+    // now it is quick (a camera that was given a shorter pipeline): calm at about 0.25 s – and still not before the learned wait
+    const { result, level } = await point(w, QUICK);
+    expect(result.kind).toBe('adaptive');
+    expect(result.ms).toBeGreaterThanOrEqual(learnedWait);
+    expect(result.ms).toBeLessThan(FIXED);
+    expect(level).toBe(100);
+  });
+
+  it('shows what the shortcuts it does not take would have done, on the same cameras: a plain wait and a calm by the clock each take a picture from before the stop', async () => {
+    const toRest = (camera: Camera) => {
+      world = new World(camera);
+      while (!world.idle && world.t < 5000) world.advance(25);
+      return world;
+    };
+    // 1. a plain wait of 350 ms after the machine reports rest, on a camera that is 0.4 s late: the picture still shows the move
+    const plain = toRest({ lag: 400, noise: true });
+    plain.advance(350);
+    expect(plain.level()).toBeGreaterThan(100);
+    // … and the wait, learned on that camera, does not
+    const w = waiter();
+    await learned(w, { lag: 400, noise: true });
+    const wise = await point(w, { lag: 400, noise: true });
+    expect(wise.result.kind).toBe('adaptive');
+    expect(wise.level).toBe(100);
+    // 2. "calm" told by the clock alone – nothing has differed from the newest picture for 150 ms – on a stream that stops
+    // delivering at 0.9 s: it holds for a stream that delivers nothing, and the picture is the one before the stop
+    const clock = toRest({ lag: 100, noise: true, freeze: [900, 1600] });
+    const calmByClock = () => {
+      const newest = clock.frames[clock.frames.length - 1]!;
+      return clock.frames
+        .filter((f) => clock.t - f.t <= 150)
+        .every((f) => lookDiff(f.look, newest.look) <= 0.65);
+    };
+    while (!calmByClock()) clock.advance(25);
+    expect(clock.level()).toBeGreaterThan(100);
+    // … and the wait on the same stream does not take it (the test for it is above: 'does not take a picture from before the stop')
+    const frozen = await point(w, { lag: 100, noise: true, freeze: [900, 1600] });
+    expect(frozen.level).toBe(100);
   });
 
   it('spends its budget only on waits that came to nothing: a camera that is simply late is waited for on every point', async () => {

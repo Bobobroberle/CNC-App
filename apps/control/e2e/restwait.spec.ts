@@ -56,6 +56,7 @@ type Handle = {
     store(): {
       clear(): void;
       scanArea(area: Area, options?: { precise?: boolean }): Promise<boolean>;
+      cancelScan(): void;
       scan: { done: number; total: number } | null;
     };
     picture(): {
@@ -283,6 +284,70 @@ test('a lag that jumps to 1 s the moment the machine stops, after the camera was
   expect(worst(run.pictures), line).toBeLessThan(PRE_STOP_MM);
   // the camera is 1 s late from then on: the wait was longer than the fixed pause
   expect(run.stats.rest.extended, line).toBeGreaterThanOrEqual(1);
+  await camera(page, { ms: 0 });
+});
+
+test('a scan cancelled while it waits for the picture of a stop lays no picture down – not the one from before the wait was over', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await openDemo(page);
+  // a camera that is late: at the moment the wait is cut short the picture still shows the move
+  await camera(page, { ms: 300, jitterMs: 0, noise: 2 });
+  await page.waitForTimeout(800);
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.store().clear());
+  await watchPictures(page);
+  const result = await page.evaluate(async (a) => {
+    const w = window as unknown as Handle;
+    const done = w.lowriderMap.store().scanArea(a, { precise: false });
+    // the machine hops to the first point and stops; the first points keep the fixed pause (0.85 s), so 0.4 s after it rests the
+    // scan is in the middle of the wait
+    const give = performance.now() + 30_000;
+    let moved = false;
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 5));
+      if (w.lowriderSimulator.state !== 'Idle') moved = true;
+      else if (moved) break;
+      if (performance.now() > give) throw new Error('the machine never moved');
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    const waiting = w.lowriderMap.store().scan;
+    w.lowriderMap.store().cancelScan();
+    const ok = await done;
+    return { ok, waiting: waiting !== null, pictures: w.__pics!.length };
+  }, AREA);
+  expect(result.waiting).toBe(true);
+  expect(result.ok).toBe(false);
+  // nothing was laid down for the point that was waited for
+  expect(result.pictures).toBe(0);
+  await camera(page, { ms: 0 });
+});
+
+test('pictures taken while the camera picture still changed are said once, with their number', async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await openDemo(page);
+  await camera(page, { ms: 150, jitterMs: 40, noise: 2 });
+  await page.waitForTimeout(800);
+  await watchPictures(page);
+  // learned at 0.15 s; from the fifth picture on the camera is 5 s late the moment the machine stops – the picture is
+  // still being delivered of the move (it does not come, in fact: the stream stands still) when the longest wait is over
+  await lagJumpAtStop(page, 5000, 5);
+  const run = await scan(page, AREA, false);
+  const line = `unsure: ${run.stats.rest.adaptive} adaptive, ${run.stats.rest.fixed} fixed, ${run.stats.rest.unsure} unsure, ${run.stats.rest.extended} extended`;
+  console.log(line);
+  expect(run.stats.rest.unsure, line).toBeGreaterThanOrEqual(1);
+  // one warning for the scan, with the number of those pictures and of all the stops
+  await expect(
+    page
+      .getByText(
+        new RegExp(
+          `${run.stats.rest.unsure} von ${run.stats.rest.points.length} Bildern wurden aufgenommen, während sich das Kamerabild noch veränderte`,
+        ),
+      )
+      .first(),
+  ).toBeVisible();
   await camera(page, { ms: 0 });
 });
 

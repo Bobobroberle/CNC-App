@@ -1550,7 +1550,14 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
         if (!((await moveMachine(at, feed)) && (await settled(at)) !== null)) return false;
         if (cancelled) return true;
         if (watch) {
-          tally(await watch.finish({ fixedMs: settle + FRAME_LAG_MS, cancelled: () => cancelled }));
+          const result = await watch.finish({
+            fixedMs: settle + FRAME_LAG_MS,
+            cancelled: () => cancelled,
+          });
+          // Cancelled or cut off while it waited: the picture is from before the machine was shown to be at rest – none is laid.
+          // A cancel is the operator's own end (as before); a link that went away is a scan that failed.
+          if (result.aborted) return cancelled;
+          tally(result);
         } else {
           await wait(settle);
           const now = picture();
@@ -1766,6 +1773,13 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
             }
           : {}),
       });
+      // Pictures taken while the camera's picture still changed (`unsure`) lie on the map all the same: said once, with their number
+      if (stats.rest.unsure > 0)
+        addLog(
+          'error',
+          t('photomap.restUnsure', { count: stats.rest.unsure, total: stopsTaken }),
+          'photomap.restUnsure',
+        );
       if (cancelled || end === 'cancelled') addLog('info', t('photomap.scanCancelled', { count }));
       else if (end === 'held') addLog('error', t('photomap.scanHeld'), 'photomap.scanHeld');
       else if (end === 'lost') addLog('error', t('photomap.scanLost'), 'photomap.scanLost');

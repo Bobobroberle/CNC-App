@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
   ALLOWED_CONTROLS,
@@ -6,8 +9,10 @@ import {
   CONTROL_REFUSALS,
   CameraControls,
   CameraError,
+  MAX_QUEUED_WRITES,
   MAX_WRITE_CONTROLS,
   MODE_CONTROLS,
+  V4L2_GRACE_MS,
   V4L2_TIMEOUT_MS,
   deviceAccess,
   parseControls,
@@ -293,9 +298,63 @@ describe('the command that runs', () => {
     expect(V4L2_TIMEOUT_MS).toBe(3000);
     expect(options.maxBuffer).toBeLessThanOrEqual(1024 * 1024);
     expect(options.env).toMatchObject({ LC_ALL: 'C' });
-    expect(Object.keys(options).sort()).toEqual(['env', 'maxBuffer', 'timeout']);
+    // the time limit kills: a child that ignores SIGTERM is not let off
+    expect(options.killSignal).toBe('SIGKILL');
+    expect(Object.keys(options).sort()).toEqual(['env', 'killSignal', 'maxBuffer', 'timeout']);
     expect(options).not.toHaveProperty('shell');
   });
+
+  it('answers a time-out on its own when the child neither answers nor goes – and a late answer changes nothing', async () => {
+    vi.useFakeTimers();
+    try {
+      let late = () => {};
+      const run = v4l2Runner((_f, _a, _o, callback) => {
+        late = () => callback(null, 'late', '');
+      });
+      const pending = run(['-d', 'x']);
+      let settled = false;
+      void pending.then(() => (settled = true));
+      await vi.advanceTimersByTimeAsync(V4L2_TIMEOUT_MS + V4L2_GRACE_MS - 1);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await pending).toEqual({ code: -1, stdout: '', stderr: '', failure: 'timeout' });
+      late();
+      expect(await pending).toMatchObject({ failure: 'timeout', stdout: '' });
+      // an answer in time leaves no timer behind
+      const quick = v4l2Runner((_f, _a, _o, callback) => callback(null, 'out', ''));
+      expect(await quick(['-d', 'x'])).toEqual({ code: 0, stdout: 'out', stderr: '' });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('kills a real child that ignores SIGTERM at the time limit, instead of waiting for it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'v4l2-stub-'));
+    const pidFile = join(dir, 'pid');
+    const path = process.env.PATH;
+    try {
+      // a stub `v4l2-ctl`: it says who it is, ignores SIGTERM (and so does the `sleep` it becomes) and stays 20 s
+      writeFileSync(
+        join(dir, 'v4l2-ctl'),
+        `#!/bin/sh\necho $$ > '${pidFile}'\ntrap '' TERM\nexec sleep 20\n`,
+      );
+      chmodSync(join(dir, 'v4l2-ctl'), 0o755);
+      process.env.PATH = `${dir}:${path}`;
+      const started = Date.now();
+      const result = await v4l2Runner()(['-d', 'x']);
+      const took = Date.now() - started;
+      expect(result).toMatchObject({ failure: 'timeout' });
+      expect(took).toBeGreaterThanOrEqual(V4L2_TIMEOUT_MS - 100);
+      const pid = Number(readFileSync(pidFile, 'utf8'));
+      expect(pid).toBeGreaterThan(1);
+      // gone, not merely given up on (a SIGTERM would have left it sleeping)
+      expect(() => process.kill(pid, 0)).toThrow(/ESRCH/);
+    } finally {
+      process.env.PATH = path;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 15_000);
 
   it('tells a missing command, a time-out and an exit code apart', async () => {
     const failing = (error: Record<string, unknown>) =>
@@ -572,6 +631,44 @@ describe('the controls of the camera', () => {
     expect(pair.map((p) => p.status)).toEqual(['rejected', 'rejected']);
   });
 
+  it('keeps the queue short when the camera does not answer: writes beyond a few wait outside, and a failed one frees its place', async () => {
+    const cam = fakeCamera();
+    let release = () => {};
+    const gate = new Promise<void>((done) => (release = done));
+    const r = rig({
+      run: async (args) => {
+        await gate;
+        return cam.run(args);
+      },
+    });
+    const writes: Promise<unknown>[] = [];
+    for (let i = 1; i <= MAX_QUEUED_WRITES; i++) {
+      writes.push(r.controls.apply({ controls: { brightness: i } }));
+      r.advance(500);
+    }
+    await expect(r.controls.apply({ controls: { brightness: 9 } })).rejects.toMatchObject({
+      code: 'rate-limited',
+      detail: String(V4L2_TIMEOUT_MS),
+    });
+    release();
+    await Promise.all(writes);
+    expect(cam.get('brightness').value).toBe(MAX_QUEUED_WRITES);
+    // nothing waits any more: the next one is taken …
+    r.advance(500);
+    await r.controls.apply({ controls: { brightness: 9 } });
+    expect(cam.get('brightness').value).toBe(9);
+    // … and writes that end in an error do not keep their places
+    const failing = rig({
+      run: async () => ({ code: -1, stdout: '', stderr: '', failure: 'timeout' }),
+    });
+    for (let i = 0; i < MAX_QUEUED_WRITES + 2; i++) {
+      await expect(failing.controls.apply({ controls: { brightness: 1 } })).rejects.toMatchObject({
+        code: 'timeout',
+      });
+      failing.advance(500);
+    }
+  });
+
   it('lets one write batch through per 500 ms, and says how long to wait', async () => {
     const r = rig();
     await r.controls.apply({ controls: { brightness: 1 } });
@@ -757,6 +854,17 @@ describe('what the companion keeps and puts back', () => {
       refused: [],
     });
     expect(r.saved).toEqual([]);
+  });
+
+  it('puts back what is stored when its turn comes, not what was stored when it was asked for – a write queued before it stays', async () => {
+    const r = rig();
+    r.store({ gain: 10 });
+    const put = r.controls.apply({ controls: { gain: 50 } });
+    const restore = r.controls.restore();
+    const [, done] = await Promise.all([put, restore]);
+    expect(done).toEqual({ applied: [], refused: [] });
+    expect(r.get('gain').value).toBe(50);
+    expect(r.peek()).toEqual({ gain: 50 });
   });
 
   it('makes no call at all when nothing was kept, or when the camera has it all', async () => {
