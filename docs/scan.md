@@ -68,12 +68,12 @@ verfälscht es nicht, und ein Bild, dessen Abstände sich nicht so beschreiben l
 wartet die feste Zeit und – solange das Guthaben reicht – bis zu 1,5 s mehr (Test mit einem Flackern in `test/restWait.test.ts`: kein Bild vorzeitig, höchstens 15 s mehr im Scan). Bei einem häufigeren
 Flackern (etwa jedes dritte Bild) ist der mittlere Abstand selbst groß; die Schwelle wäre dann grob und ein Kriechen unter ihr bliebe unbemerkt – aus der Bauart gefolgert, nicht getestet.
 
-**Unverändert, mit fester Zeit:** die Serie auf Rohlingen und die Vorrichtungen (`precise`: dort kommt es auf die Lage jedes Bildes an), die Ankerbilder der Fahrt in Streifen
+**Unverändert, mit fester Zeit:** die Serie auf Rohlingen (`precise`: dort kommt es auf die Lage jedes Bildes an; sie ist neben dem Panel der einzige Aufrufer des Scans, die Vorrichtungen scannen nicht), die Ankerbilder der Fahrt in Streifen
 (`restPicture`), Bilder eines `<video>`-Elements (dort wartet die App auf das nächste Bild der Kamera), ein Bild, das sich nicht lesen lässt, und ein Tisch ohne Struktur. Es gibt
 keine neue Einstellung; die Beruhigungszeit bleibt die feste Zeit der ersten Punkte und der Fälle ohne Beleg.
 
-**Die Zeitschätzung** über dem Scan rechnet nach einem Scan mit der Pause, die er angewendet hat (die ersten drei Bilder mit der festen Zeit, die übrigen mit der gemessenen);
-vor dem ersten Scan und nach einem Kamerawechsel rechnet sie mit der festen Zeit.
+**Die Zeitschätzung** über dem Scan rechnet nach einem Scan mit der Pause, die er angewendet hat (die ersten drei Bilder mit der festen Zeit, die übrigen mit dem Mittel der Bilder, die der letzte Scan nach dem Lernen genommen hat);
+vor dem ersten Scan und nach einem Kamerawechsel rechnet sie mit der festen Zeit. Das ist eine Schätzung: wo das Lernen lange dauert (auf dem Tisch unten erst nach 25 Bildern), stimmt sie nur ungefähr – dort versprach sie 176 s für einen Scan, der 170 s dauerte, und die Fehler heben sich zum Teil auf.
 
 **Der Test, der das entscheidet** (`e2e/restwait.spec.ts`, Simulator): Die Kamera zeigt den Tisch 0, 0,15, 0,4 und 0,8 s zu spät (plus 40 ms Schwanken) und rauscht (`lowriderCameraLag`:
 `ms`, `jitterMs`, `noise`); jedes Bild wird in dem Augenblick, in dem die App es liest, mit dem verglichen, was der Simulator wirklich unter der Spindel hat (`shown` gegen
@@ -102,9 +102,9 @@ Ein Lauf; ein zweiter, später, auf dem endgültigen Stand: mit Wartezeit 572 / 
 | 0,4 s | – | 183,3 s | – → 823 ms | 34 / 32 / 0 / 0 | – / 0,000 mm |
 | 0,8 s | 194,8 s | 197,3 s (+1 %) | 987 → 1032 ms | 0 / 66 / 0 / 25 | **1,766** / 0,000 mm |
 
-Der Gewinn ist kleiner als die Pause je Bild vermuten lässt, weil **nur dort Beleg da ist, wo das Bild genug Struktur zeigt**: Bei 0 s Verzögerung (ein eigener Lauf mit Protokoll jedes Bildes, `ScanStats.rest.points`)
-begann der Scan über blanker Spanplatte; die ersten **25 Bilder** blieben bei der festen Zeit (854–880 ms nach der Ruhemeldung), erst als die Tafel ins Bild kam, war die Kamera gelernt. Danach kamen 33 von 41 Bildern nach
-183–234 ms und 8 nach der festen Zeit (Stellen mit zu wenig Struktur für den Beleg „die Fahrt war im Bild zu sehen“). Die Schätzung über dem Scan zeigte vor dem Scan 209 s (feste Zeit, noch nichts gelernt) und danach 176 s; der nächste Scan dauerte 170 s.
+Der Gewinn ist kleiner als die Pause je Bild vermuten lässt, weil **nur dort Beleg da ist, wo er sich bilden lässt**: Bei 0 s Verzögerung (ein eigener Lauf mit Protokoll jedes Bildes, `ScanStats.rest.points`)
+blieben die ersten **25 Bilder** bei der festen Zeit (854–880 ms nach der Ruhemeldung), erst beim 26. war die Kamera gelernt. Danach kamen 33 von 41 Bildern nach
+183–234 ms und 8 nach der festen Zeit. **Warum** das so ist, ist nicht gemessen: protokolliert sind nur Art und Zeit je Bild, nicht, ob die Fahrt im Bild gesehen wurde. Wahrscheinlich liegen die ersten Reihen dieses Scans über blanker Spanplatte (zu wenig Struktur für den Beleg „die Fahrt war im Bild zu sehen“, der eine Änderung von mehr als dem Achtfachen der Schwelle verlangt), die späteren acht an Stellen mit wenig Struktur. Die Schätzung über dem Scan zeigte vor dem Scan 209 s (feste Zeit, noch nichts gelernt) und danach 176 s; der nächste Scan dauerte 170 s.
 **Bei 0,8 s liegt die feste Zeit zu knapp:** im Scan der ganzen Fläche lag ein Bild mit fester Zeit **1,766 mm** neben dem, was der Simulator wirklich unter der Spindel hatte (in den acht Bildern oben nie) – das ist das Verhalten vor dieser Änderung. Mit Wartezeit
 wurde bei 25 Bildern über die feste Zeit hinaus gewartet, und kein Bild lag daneben; das kostet 1 % Zeit.
 
@@ -118,7 +118,7 @@ das Bild bei der festen Zeit noch ein wenig in Bewegung war und abgewartet wurde
 von Bild zu Bild wirklich neu ist (Kompression, Belichtungsregelung und Flackern des Lichts machen aus Rauschen etwas anderes); ob ein Bild, das ein Stück weit verrutscht ist, die Schwelle (1,5-faches Rauschen plus 0,05 Graustufen) überschreitet – die
 Empfindlichkeit für ein langsames Kriechen unter etwa 0,1 mm ist nur im Simulator gesehen, nicht an einer Maschine; ob eine Maschine nachschwingt und in welchem Takt (das ruhige Fenster von 150 ms sieht Schwingungen unter etwa 7 Hz nicht
 sicher); wie sich der Strom bei Aussetzern verhält (das Bild bleibt stehen oder kommt als Stoß nach). Wo eine dieser Annahmen nicht stimmt, kostet das Zeit (das Bild ist nie ruhig: die feste Zeit plus höchstens 1,5 s) oder – im
-ungünstigen Fall, den der Test nicht kennt – ein Bild von kurz vor dem Halt. Einen Schalter dafür gibt es nicht (keine neue Einstellung); die Serie und die Vorrichtungen scannen weiter mit der festen Zeit.
+ungünstigen Fall, den der Test nicht kennt – ein Bild von kurz vor dem Halt. Einen Schalter dafür gibt es nicht (keine neue Einstellung); die Serie scannt weiter mit der festen Zeit. Auch ein **aufgezeichneter** Scan mit Halt (die Vergleichsfahrt für den Auswerter) nimmt die Wartezeit mit Beleg – wer dafür Bilder streng nach der festen Zeit will, hat dazu keinen Schalter.
 
 ## Belichtung eintragen: wie schnell ein Bild unscharf wird
 

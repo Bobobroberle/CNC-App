@@ -837,7 +837,7 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   (`account().moved`); the last ≥ 150 ms must hold ≥ 3 new frames within the noise of the newest, which must be fresh (`calmNow`); and not before the
   flush time learned on the first three points (`FlushLearner`: machine reports rest → picture final; 0.9 quantile + the margin), which keep the fixed
   pause while they are watched. A picture still changing at the fixed pause (or standing still after changing on a camera that showed noise) is waited
-  for – 1.5 s a point, 15 s a scan; two such points in a row make it forget. Unchanged: `precise` scans (series, jigs), the strips' rest pictures
+  for – 1.5 s a point beyond the fixed pause (the fixed pause alone missed by 1.8 mm at 0.8 s over a whole table), 15 s a scan for waits that came to nothing; two such points in a row make it forget. Unchanged: `precise` scans (the series on blanks – with the panel the only caller of `scanArea`; jigs do not scan), the strips' rest pictures
   (`restPicture`), `<video>` pictures, an unreadable picture, a table with nothing to see. `scanEstimate` counts the pause the last scan applied
   (`stopRestSeconds`, `restMs`). **The pre-stop test** (`e2e/restwait.spec.ts`; simulator camera `noise`, `frozen`, `flat`, `shown`): every picture is
   held, as the app reads it, against where the tool rests (< 0.02 mm) at lags 0 / 0.15 / 0.4 / 0.8 s, a lag that jumps to 1 s at the stop and a camera
