@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-20 von 151 erledigt.
+22 von 153 erledigt.
 
 ## Scan & Kamera
 
@@ -10,7 +10,7 @@ _Position und Schärfe der Aufnahmen, Kamera und Licht._
 
 ### Position der Aufnahmen (Timing)
 
-- [ ] **Eine Uhr für Bild und Position** (kleiner Schritt, in Arbeit) – Der Pi stempelt Kamerabild und Statusbericht mit derselben Uhr; der Browser und das Netz fallen als Fehlerquelle weg. Wie genau das an der echten Maschine wird, ist ungemessen; der Simulator liefert die erste Zahl.
+- [x] **Eine Uhr für Bild und Position** (kleiner Schritt) – Der Pi stempelt Kamerabild und Statusbericht mit derselben Uhr. Im Simulator sank die Streuung der Zeit von 11–33 ms auf 1–2 ms, die fertige Karte wurde dort nicht genauer; bei sehr schlechtem Link gab der Browser-Takt auf, der Pi-Takt nicht. An der echten Maschine ist die Genauigkeit ungemessen.
 - [ ] **Hardware-Trigger statt Uhr** (größeres Projekt) – Eine Global-Shutter-Kamera wird von einem FluidNC-Ausgang ausgelöst (M62/M63); die Position des Bildes ist die befohlene Position, es gibt keine Uhr. Ob M62/M63 auf der Jackpot bewegungssynchron schaltet, ist ungeprüft.
 - [ ] **Absolute Referenz im Bild** (größeres Projekt) – Ein Streifen mit gedruckten Marken am Tischrand gibt die Position aus dem Bild selbst; wirkt gegen jede Verzögerung, aber nur nahe am Streifen.
 - [ ] **Adaptives Warten im Stopp-Modus** (kleiner Schritt) – Das Bild wird gemacht, sobald Position und Bild ruhig sind, nicht nach fester Pause. Schneller, ohne Uhr.
@@ -22,7 +22,7 @@ _Position und Schärfe der Aufnahmen, Kamera und Licht._
 
 - [ ] **Belichtung von Hand kurz stellen** (kleiner Schritt) – Automatik aus, Belichtung ≤ 2 ms, dafür mehr Licht. Unschärfe = Geschwindigkeit × Belichtungszeit: 50 mm/s und 10 ms sind 0,5 mm, bei 1 ms nur 0,05 mm.
 - [ ] **Belichtung aus der App einstellen** (kleiner Schritt) – Der Companion setzt Belichtung und Verstärkung über v4l2 (Karte in den Kameraeinstellungen), statt per SSH.
-- [ ] **Tempo aus der Belichtung ableiten** (kleiner Schritt, in Arbeit) – Die größte Scan-Geschwindigkeit folgt aus der erlaubten Unschärfe (v ≤ 0,3 mm / Belichtungszeit).
+- [x] **Tempo aus der Belichtung ableiten** (kleiner Schritt) – Die größte Scan-Geschwindigkeit folgt aus der erlaubten Unschärfe (v ≤ 0,3 mm / Belichtungszeit): Feld „Belichtung (ms)“ im Scan-Panel, 0 heißt unbekannt; unter 5 mm/s wird in Stopps gescannt.
 - [ ] **Schärfstes Bild wählen** (kleiner Schritt) – Bei mehreren Bildern derselben Stelle das mit dem größten Kontrast nehmen (Varianz des Laplace-Filters).
 - [ ] **Unschärfe herausrechnen** (Forschung) – Richtungs-Entfaltung bei bekannter Fahrtrichtung und Länge. Hilft begrenzt und verstärkt das Rauschen.
 - [ ] **Blitz oder gepulste LED im Takt der Belichtung** (Hardware) – Ein Blitz von 100 µs macht die Unschärfe praktisch null und legt den Zeitpunkt fest. Braucht Trigger oder Strobe-Ausgang der Kamera.
@@ -239,3 +239,5 @@ _Kleine Dinge, die noch zu klären oder an der Maschine zu prüfen sind._
 - [ ] **Streifen-Scan an der Maschine erproben** (Aufgabe) – Mit Aufzeichnung fahren, Verzögerung und Unschärfe messen, Ergebnis auswerten (docs/scan.md).
 - [ ] **Genauigkeits-Check mit Lineal fahren** (Aufgabe) – Vier Punkte bohren, sechs Abstände messen, Korrektur schreiben, Kontrollmessung (README, Abschnitt Genauigkeit).
 - [ ] **Messprotokoll der Kamera ausfüllen** (Aufgabe) – docs/messprotokoll-kamera.md: Maßstab, Wiederholbarkeit, Versatz.
+- [ ] **Scan mit Pi-Takt an der Maschine erproben** (Aufgabe) – Mit dem Pi als Weiterleitung scannen und im Panel nachsehen, welche Uhr lief und warum nicht die des Pi, falls nicht. Offen sind die echte ustreamer-Version, der iPad-Safari mit dem Kamerastrom und die echte Streuung (die beiden curl-Befehle stehen in docs/scan.md).
+- [ ] **Aufzeichnung: einmal fehlten Ankerbilder im Zip** (Aufgabe) – In einem von etwa sieben Läufen fehlten drei Ankerbilder in der Aufzeichnung, obwohl nichts verworfen wurde; Ursache offen, nicht wieder aufgetreten. Wenn es an der Maschine passiert: die Aufzeichnung behalten und melden.

@@ -44,9 +44,9 @@ add('scan', 'Position der Aufnahmen (Timing)', [
   [
     'tim-a',
     'Eine Uhr für Bild und Position',
-    'Der Pi stempelt Kamerabild und Statusbericht mit derselben Uhr; der Browser und das Netz fallen als Fehlerquelle weg. Wie genau das an der echten Maschine wird, ist ungemessen; der Simulator liefert die erste Zahl.',
+    'Der Pi stempelt Kamerabild und Statusbericht mit derselben Uhr. Im Simulator sank die Streuung der Zeit von 11–33 ms auf 1–2 ms, die fertige Karte wurde dort nicht genauer; bei sehr schlechtem Link gab der Browser-Takt auf, der Pi-Takt nicht. An der echten Maschine ist die Genauigkeit ungemessen.',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'tim-b',
@@ -101,9 +101,9 @@ add('scan', 'Bewegungsunschärfe', [
   [
     'blur-c',
     'Tempo aus der Belichtung ableiten',
-    'Die größte Scan-Geschwindigkeit folgt aus der erlaubten Unschärfe (v ≤ 0,3 mm / Belichtungszeit).',
+    'Die größte Scan-Geschwindigkeit folgt aus der erlaubten Unschärfe (v ≤ 0,3 mm / Belichtungszeit): Feld „Belichtung (ms)“ im Scan-Panel, 0 heißt unbekannt; unter 5 mm/s wird in Stopps gescannt.',
     'klein',
-    { building: true },
+    { done: true },
   ],
   [
     'blur-d',
@@ -981,6 +981,21 @@ add('cam', 'Bahnen & Strategien', [
     'Fase mit V-Fräser entlang der Kontur',
     'Eine Kante anfasen: der V-Fräser fährt die Kontur ab, die Tiefe bestimmt die Fasenbreite.',
     'klein',
+  ],
+]);
+
+add('test', 'An der Maschine', [
+  [
+    'o10',
+    'Scan mit Pi-Takt an der Maschine erproben',
+    'Mit dem Pi als Weiterleitung scannen und im Panel nachsehen, welche Uhr lief und warum nicht die des Pi, falls nicht. Offen sind die echte ustreamer-Version, der iPad-Safari mit dem Kamerastrom und die echte Streuung (die beiden curl-Befehle stehen in docs/scan.md).',
+    'aufgabe',
+  ],
+  [
+    'o11',
+    'Aufzeichnung: einmal fehlten Ankerbilder im Zip',
+    'In einem von etwa sieben Läufen fehlten drei Ankerbilder in der Aufzeichnung, obwohl nichts verworfen wurde; Ursache offen, nicht wieder aufgetreten. Wenn es an der Maschine passiert: die Aufzeichnung behalten und melden.',
+    'aufgabe',
   ],
 ]);
 
