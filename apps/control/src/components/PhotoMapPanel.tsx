@@ -14,12 +14,15 @@ import {
   type ScanMode,
   type ScanTempo,
 } from '../store/photomap';
+import { useScanTrace } from '../store/scanTrace';
 import { useWorkshop } from '../store/workshop';
 import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
+import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
 import { Progress } from '../ui/progress';
 import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
 
@@ -60,6 +63,7 @@ export function PhotoMapPanel() {
   const mode = usePhotoMap((s) => s.mode);
   const tempo = usePhotoMap((s) => s.tempo);
   const stripsBad = usePhotoMap((s) => s.stripsBad);
+  const trace = useScanTrace();
   const { scanArea, cancelScan, clear, setMode, setTempo } = usePhotoMap.getState();
   const connected = useMachine((s) => s.connection === 'connected');
   const idle = useMachine((s) => s.connection === 'connected' && s.status?.state === 'Idle');
@@ -213,6 +217,48 @@ export function PhotoMapPanel() {
       {!connected ? (
         <p className="text-muted-foreground text-sm">{t('photomap.notConnected')}</p>
       ) : null}
+      <Field>
+        <Label className="min-h-target gap-3 font-normal">
+          <Checkbox
+            checked={trace.recording}
+            data-testid="trace-toggle"
+            disabled={scan !== null}
+            onCheckedChange={(on) => trace.setRecording(!!on)}
+          />
+          {t('photomap.trace.label')}
+        </Label>
+        <p className="text-muted-foreground text-sm">{t('photomap.trace.hint')}</p>
+        {trace.scans > 0 ? (
+          <div className="flex flex-col gap-2" data-testid="trace-info">
+            <p className="text-sm tabular-nums">
+              {trace.pending > 0
+                ? t('photomap.trace.packing', { count: trace.pending })
+                : t('photomap.trace.have', {
+                    count: trace.scans,
+                    mb: formatNumber(trace.bytes / 1e6, 1),
+                  })}
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                disabled={scan !== null || trace.pending > 0}
+                reason="missing"
+                onClick={() => void trace.save()}
+              >
+                {t('photomap.trace.save')}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={scan !== null}
+                reason="missing"
+                onClick={trace.discard}
+              >
+                {t('photomap.trace.discard')}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Field>
       {scan ? (
         <>
           <p className="tabular-nums" data-testid="scan-progress">

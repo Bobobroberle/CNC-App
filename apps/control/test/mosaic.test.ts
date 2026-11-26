@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// Pictures are rendered pixel by pixel here: under the coverage run (instrumented, many files at once) a test takes
+// several times what it does alone.
+vi.setConfig({ testTimeout: 60_000 });
 import type { CameraCalibration } from '../src/lib/camera';
 import {
   COVERED,
@@ -520,8 +524,14 @@ describe('what a registration compares', () => {
     // CROP of 40 × 30 mm at 4 px per mm
     expect(box.width).toBeCloseTo(40 * CROP * MAP_PX_PER_MM, -0.5);
     expect(box.height).toBeCloseTo(30 * CROP * MAP_PX_PER_MM, -0.5);
-    const win = frameWindow(f, m, { x0: box.x0 - 20, y0: box.y0 - 20, width: box.width + 40, height: box.height + 40 });
-    const at = (x: number, y: number) => win.valid[(y - (box.y0 - 20)) * win.width + (x - (box.x0 - 20))];
+    const win = frameWindow(f, m, {
+      x0: box.x0 - 20,
+      y0: box.y0 - 20,
+      width: box.width + 40,
+      height: box.height + 40,
+    });
+    const at = (x: number, y: number) =>
+      win.valid[(y - (box.y0 - 20)) * win.width + (x - (box.x0 - 20))];
     expect(at(box.x0 + 5, box.y0 + 5)).toBe(1);
     expect(at(box.x0 + box.width - 5, box.y0 + box.height - 5)).toBe(1);
     expect(at(box.x0 - 5, box.y0 + 5)).toBe(0);
@@ -539,12 +549,21 @@ describe('what a registration compares', () => {
   });
 
   it('has the slow changes taken out: a ramp or a brightness vanishes, a texture stays', () => {
-    const ramp = highPassFrame(frame((x) => 40 + x * 0.5), 16);
+    const ramp = highPassFrame(
+      frame((x) => 40 + x * 0.5),
+      16,
+    );
     const mid = (SIZE.height / 2) * SIZE.width + SIZE.width / 2;
     expect(Math.abs(ramp.gray![mid]!)).toBeLessThan(0.5);
-    const flat = highPassFrame(frame(() => 180), 16);
+    const flat = highPassFrame(
+      frame(() => 180),
+      16,
+    );
     expect(Math.abs(flat.gray![mid]!)).toBeLessThan(1e-3);
-    const dots = highPassFrame(frame((x, y) => ((x >> 2) + (y >> 2)) % 2 ? 200 : 60), 16);
+    const dots = highPassFrame(
+      frame((x, y) => (((x >> 2) + (y >> 2)) % 2 ? 200 : 60)),
+      16,
+    );
     let energy = 0;
     for (let i = 0; i < dots.gray!.length; i += 7) energy += Math.abs(dots.gray![i]!);
     expect(energy / (dots.gray!.length / 7)).toBeGreaterThan(30);

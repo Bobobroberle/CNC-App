@@ -54,3 +54,27 @@ Kamera lassen sich nur an der Maschine messen.
 
 Bei Abweichungen über 0,5 mm bitte den Diagnosebericht speichern (Service → Meldungen) und mit dem Tempo, der Fläche und dem
 Befund aus Schritt 3 weitergeben. (Der Bericht enthält die Zeilen des Protokolls, nicht die Zahlen des Scans.)
+
+## Aufzeichnung für die Auswertung
+
+Was deine Kamera wirklich tut – Verzögerung, Unschärfe bei Tempo, die Struktur deines Tisches –, lässt sich nur an der Maschine messen. Dafür
+kann die App einen Scan **aufzeichnen**; ausgewertet wird die Datei danach, ohne Verbindung zur Maschine.
+
+1. Unter **Einrichten → Kamera → Fläche scannen** das Häkchen **„Scan für die Auswertung aufzeichnen“** setzen. Es merkt sich, bis du es
+   wieder abschaltest. Solange es an ist, gibt die Fahrt nicht auf, auch wenn sich die Bilder schlecht einpassen lassen – gerade das will
+   man ja sehen.
+2. Denselben Bereich nacheinander scannen: **einmal „Mit Halt“** (die Bilder im Stillstand sind die Messlatte) und danach **„In Fahrt“** in
+   „Sanft“, „Normal“ und „Schnell“. Ein kleiner Bereich genügt (etwa 300 × 200 mm), am besten mit einer klaren Struktur darauf (die
+   Referenztafel, ein bedrucktes Blatt) und danach noch einmal ohne.
+3. **„Aufzeichnung speichern“** (nach dem Verpacken, das Panel zeigt den Fortschritt). Die Datei ist ein Zip von bis zu etwa 40 MB und
+   **enthält Fotos deines Tisches**; sie enthält keine Adresse und keine Anmeldung.
+4. Die Datei weitergeben (hier im Chat hochladen) – oder selbst auswerten:
+
+```bash
+python3 scripts/analyze-scan.py lowrider-scan-….zip
+```
+
+Die Auswertung (Python mit numpy und Pillow) nennt die Verzögerung der Bilder hinter den Meldungen der Steuerung und ihr Zeitrauschen, den
+Takt der Bilder und der Meldungen, Aussetzer der Seite, wie viele Bilder der Fahrt sich einpassen ließen und wie weit die eingepassten Bilder
+von den Bildern im Stillstand abweichen. Die Seite selbst kostet beim Aufzeichnen etwas Zeit (Aussetzer von 30–50 ms stehen in der Auswertung);
+das ist bei der Deutung zu berücksichtigen.

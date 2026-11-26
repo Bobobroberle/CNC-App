@@ -3282,6 +3282,14 @@ export const de = {
     estimateStrips: '{count} Streifen, etwa {minutes} min',
     estimateCompare: 'Mit Halt wären es {count} Bilder, etwa {minutes} min.',
     scanningStrips: 'Scan läuft: Streifen {done} von {total}, noch etwa {minutes} min',
+    trace: {
+      label: 'Scan für die Auswertung aufzeichnen',
+      hint: 'Speichert die Kamerabilder, die Zeitpunkte und die Meldungen der Steuerung zu den Scans in einer Datei (bis etwa 40 MB). Sie enthält Fotos deines Tisches. Nichts davon geht irgendwohin, bis du die Datei weitergibst. Mit Aufzeichnung gibt die Fahrt nicht auf, auch wenn die Bilder sich schlecht einpassen lassen.',
+      packing: 'Aufzeichnung wird verpackt: noch {count} Bilder …',
+      have: 'Aufgezeichnet: {count} Scans, {mb} MB',
+      save: 'Aufzeichnung speichern',
+      discard: 'Aufzeichnung verwerfen',
+    },
   },
   recording: {
     title: 'Mitschnitt',
@@ -3583,7 +3591,7 @@ export const de = {
       twoHoles:
         'zwei bohrungen, zwei löcher, drehung, schräg, ausrichten mit kamera, rotation, winkel messen, two holes, passbohrungen',
       photomap:
-        'fotokarte, scan, scannen, tischfoto, übersicht, karte, foto, tisch fotografieren, luftbild, panorama, mosaik, photo map, abfotografieren, tischbild, in fahrt, ohne halt, streifen, tempo, schneller scannen, nahtlos, kacheln',
+        'fotokarte, scan, scannen, tischfoto, übersicht, karte, foto, tisch fotografieren, luftbild, panorama, mosaik, photo map, abfotografieren, tischbild, in fahrt, ohne halt, streifen, tempo, schneller scannen, nahtlos, kacheln, aufzeichnung, aufzeichnen, mitschneiden, trace, auswertung, kamera messen',
       recording:
         'mitschnitt, aufnahme, video, film, zeitraffer, aufzeichnen, recording, timelapse, mitfilmen, clip',
       connection:

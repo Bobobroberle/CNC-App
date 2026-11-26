@@ -41,6 +41,16 @@ import {
 import { useJob } from './job';
 import { useMachine } from './machine';
 import { settled, wait } from './settle';
+import {
+  traceBegin,
+  traceDense,
+  traceEnd,
+  traceFrame,
+  traceGap,
+  traceNote,
+  traceStamp,
+  useScanTrace,
+} from './scanTrace';
 import { useWorkshop, type CameraSettings } from './workshop';
 
 /** Why no picture can go onto the map right now (null = it can) */
@@ -515,6 +525,7 @@ export const scanStats = () => lastScan;
   stats: () => lastScan,
   picture: () => mapPicture(),
   store: () => usePhotoMap.getState(),
+  trace: () => useScanTrace.getState(),
 };
 
 /** Pictures taken during a strip, every this share of the trusted length along it */
@@ -579,6 +590,8 @@ async function awaitJog(axis: 'x' | 'y', target: number, limitMs: number): Promi
 interface Rest {
   read: Read;
   spindle: Point;
+  /** Where it is in the recording, if one is made */
+  trace: string | null;
 }
 
 /** A picture at rest: after the settle time and the picture's lag, with where the machine reports itself. */
@@ -589,7 +602,9 @@ async function restPicture(): Promise<Rest | null> {
   await freshFrame(pic.el);
   const sp = spindle();
   const read = readFrame(pic.el);
-  return sp && read ? { read, spindle: sp } : null;
+  return sp && read
+    ? { read, spindle: sp, trace: traceFrame('anchor', read, { spindle: sp }) }
+    : null;
 }
 
 /** Puts the pictures of a strip where they were taken, and lays them down. */
@@ -597,7 +612,7 @@ async function solveAndLay(
   strip: Strip,
   a: Rest,
   b: Rest,
-  taken: { read: Read; t: number }[],
+  taken: { read: Read; t: number; trace: string | null }[],
   track: PositionTrack,
   speed: number,
 ) {
@@ -630,6 +645,27 @@ async function solveAndLay(
     const next = steps.next();
     if (next.done) {
       const sol = next.value;
+      traceNote('solved', {
+        axis: strip.axis,
+        across,
+        speed,
+        lag: stripLag,
+        lagKnown,
+        anchors: [
+          { file: a.trace, along: alongOf(a) },
+          { file: b.trace, along: alongOf(b) },
+        ],
+        frames: frames.map((f, i) => ({
+          file: kept[i]!.trace,
+          t: kept[i]!.t,
+          predicted: f.predicted,
+          speed: f.speed,
+        })),
+        along: sol.along,
+        forward: sol.forward,
+        backward: sol.backward,
+        disagreement: sol.disagreement,
+      });
       const at = (along: number): Point => {
         const c = stripPoint({ ...strip, across }, along);
         return { x: c.x - cal.offsetX, y: c.y - cal.offsetY };
@@ -664,6 +700,40 @@ async function solveAndLay(
   }
 }
 
+/** What a recording of a scan is told about the camera and the machine (never an address or a login). */
+function traceMeta(visible: { width: number; height: number }): Record<string, unknown> {
+  const { settings } = useWorkshop.getState();
+  const cal = settings.camera;
+  const pic = picture();
+  const { profile } = useJob.getState();
+  const tempo = usePhotoMap.getState().tempo;
+  return {
+    app: 'LowRider Control',
+    userAgent: typeof navigator === 'undefined' ? '' : navigator.userAgent,
+    camera: {
+      offsetX: cal.offsetX,
+      offsetY: cal.offsetY,
+      pxPerMm: cal.pxPerMm,
+      rotation: cal.rotation,
+      focusHeight: cal.focusHeight,
+      scaleCalibrated: cal.scaleCalibrated,
+    },
+    picture: pic ? { width: pic.width, height: pic.height } : null,
+    frameMaxPx: FRAME_PX_MAX,
+    visibleMm: visible,
+    settleMs: settings.calibration.settleMs,
+    jogFeedMmMin: profile.jogFeed.xy,
+    accelMmS2: machineAccel(),
+    tempo,
+    stripSpeedMmS: stripSpeed(tempo),
+    stripLagS: stripLag,
+    lagKnown,
+    viaCompanion: useMachine.getState().link.via !== null,
+    probeSpeedMmS: PROBE_SPEED,
+    densePx: [320, 240],
+  };
+}
+
 /** Where the map has nothing inside a machine box (crosshair positions), on a grid of about 3 mm. */
 function holesIn(area: Rect): Point[] {
   const out: Point[] = [];
@@ -677,7 +747,9 @@ function holesIn(area: Rect): Point[] {
 }
 
 /** A run whose pictures mostly could not be put anywhere: the table shows too little to fit them by */
-const poor = (r: StripResult) => r.offered >= 6 && r.placed < 0.5 * r.offered;
+const poor = (r: StripResult) => !keepGoing && r.offered >= 6 && r.placed < 0.5 * r.offered;
+/** While a scan is recorded the run is not given up: the pictures of a table that fits badly are what is wanted */
+let keepGoing = false;
 
 /**
  * One strip: hop to its start, a picture at rest there, the run (a jog – it can be ended cleanly), a picture at
@@ -718,19 +790,26 @@ async function runStrip(
   const every = (STRIP_SPACING * (strip.axis === 'x' ? visible.width : visible.height)) / speed;
   const watch = new FrameWatch(pic.el);
   const track = new PositionTrack();
-  const taken: { read: Read; t: number }[] = [];
+  const taken: { read: Read; t: number; trace: string | null }[] = [];
   const off = useMachine.subscribe((s, prev) => {
     if (s.status && s.status !== prev.status)
       track.add(performance.now() / 1000, along(s.status.mpos));
   });
   let running = true;
   let lastAt = -Infinity;
+  let lastFrameAt = performance.now();
   const sample = () => {
     if (!running) return;
     const status = useMachine.getState().status;
     const t = performance.now() / 1000;
     // looked at on every frame of the screen: a picture is stamped when it is first seen
     const fresh = watch.changed();
+    traceGap(performance.now() - lastFrameAt);
+    lastFrameAt = performance.now();
+    if (fresh && status?.state === 'Jog') {
+      traceStamp();
+      traceDense(pic.el);
+    }
     if (
       fresh &&
       status?.state === 'Jog' &&
@@ -740,7 +819,7 @@ async function runStrip(
     ) {
       const read = readFrame(pic.el);
       if (read) {
-        taken.push({ read, t });
+        taken.push({ read, t, trace: traceFrame('run', read) });
         lastAt = t;
       }
     }
@@ -750,9 +829,19 @@ async function runStrip(
   const target = strip.to - offset;
   let end: StripEnd = 'failed';
   try {
+    traceNote('jog-send', {
+      axis: strip.axis,
+      across: strip.across,
+      from: strip.from,
+      to: strip.to,
+      target,
+      feed: speed * 60,
+    });
     if (await jogMachine(strip.axis, target, speed * 60)) {
+      traceNote('jog-ok');
       const limit = (Math.abs(strip.to - strip.from) / speed + 15) * 1000;
       end = await awaitJog(strip.axis, target, limit);
+      traceNote('jog-end', { end });
     }
   } finally {
     running = false;
@@ -799,6 +888,7 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
     const box = boundsOf(frameCorners(cal, sp, p, EXTENT_CROP));
     const read = readFrame(el);
     if (read) {
+      traceFrame('rest', read, { spindle: sp });
       lay(read, sp);
       return true;
     }
@@ -857,13 +947,19 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       addLog('info', t('photomap.stripsNeedPixels'));
       strips = null;
     }
-    if (strips && get().stripsBad) {
+    keepGoing = useScanTrace.getState().recording;
+    if (strips && get().stripsBad && !keepGoing) {
       addLog('info', t('photomap.stripsSkipped'));
       strips = null;
     }
     cancelled = false;
     const startedAt = Date.now();
     const tiles0 = get().tiles;
+    traceBegin(() => traceMeta(visible), area, strips ? 'strips' : 'stops', {
+      precise: !!options.precise,
+      tempo: get().tempo,
+      strips: strips ?? null,
+    });
     set({
       scan: {
         done: 0,
@@ -1011,6 +1107,7 @@ export const usePhotoMap = create<PhotoMapStore>((set, get) => ({
       const count = get().tiles - tiles0;
       stats.seconds = (Date.now() - startedAt) / 1000;
       lastScan = stats;
+      traceEnd({ ok, end, cancelled, count, stats });
       set({ scan: null });
       if (cancelled || end === 'cancelled') addLog('info', t('photomap.scanCancelled', { count }));
       else if (end === 'held') addLog('error', t('photomap.scanHeld'), 'photomap.scanHeld');

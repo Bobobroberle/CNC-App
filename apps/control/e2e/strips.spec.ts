@@ -1,3 +1,5 @@
+import { unzipSync, strFromU8 } from 'fflate';
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { goTo, openDemo } from './helpers';
 
@@ -52,6 +54,12 @@ type Handle = {
       setMode(mode: 'strips' | 'stops'): void;
       mode: 'strips' | 'stops';
       scan: unknown;
+    };
+    trace(): {
+      setRecording(on: boolean): void;
+      save(): Promise<boolean>;
+      scans: number;
+      pending: number;
     };
   };
   lowriderCameraLag: { ms: number; jitterMs: number; blurPx: number };
@@ -326,4 +334,72 @@ test('a table with nothing to fit the pictures by: the run is given up at once, 
   expect(await page.evaluate(() => (window as unknown as Handle).lowriderMap.stats()!.mode)).toBe(
     'strips',
   );
+});
+
+test('a recording of a stops scan and a strip scan with a late camera: one file with what the camera and the machine did', async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(400_000);
+  await openDemo(page);
+  await page.evaluate(() => {
+    const w = window as unknown as Handle;
+    w.lowriderMap.store().clear();
+    w.lowriderMap.store().setMode('strips');
+    w.lowriderMap.trace().setRecording(true);
+    w.lowriderCameraLag.ms = 300;
+    w.lowriderCameraLag.jitterMs = 40;
+  });
+  // by stops first: the pictures at rest are the ground truth of the strip scan that follows
+  expect(await scan(page, AREA, true)).toBe(true);
+  expect(await scan(page, AREA, false)).toBe(true);
+  // the pictures are encoded in the background; saving waits for them
+  const downloading = page.waitForEvent('download');
+  await page.evaluate(() => (window as unknown as Handle).lowriderMap.trace().save());
+  const download = await downloading;
+  expect(download.suggestedFilename()).toMatch(/^lowrider-scan-\d{8}-\d{6}\.zip$/);
+  const out = process.env.TRACE_OUT ?? testInfo.outputPath('scan.zip');
+  await download.saveAs(out);
+
+  const zip = unzipSync(new Uint8Array(readFileSync(out)));
+  const trace = JSON.parse(strFromU8(zip['trace.json']!)) as {
+    format: string;
+    scans: { n: number; mode: string }[];
+    reports: { t: number; state: string }[];
+    stamps: { t: number }[];
+    frames: { file: string; kind: string; codec: string }[];
+    events: { kind: string; frames?: { file: string }[]; anchors?: { file: string }[] }[];
+    meta: Record<string, unknown>;
+    dropped: number;
+  };
+  expect(trace.format).toBe('lowrider-scan-trace');
+  expect(trace.scans.map((s) => s.mode)).toEqual(['stops', 'strips']);
+  // the machine's reports, with the Jog of the runs in them, and a stamp for every new picture of the camera
+  expect(trace.reports.length).toBeGreaterThan(40);
+  expect(trace.reports.some((r) => r.state === 'Jog')).toBe(true);
+  expect(trace.stamps.length).toBeGreaterThan(40);
+  // the kinds of picture: at rest (stops and anchors), taken on the run, the dense series
+  const count = (kind: string) => trace.frames.filter((f) => f.kind === kind).length;
+  expect(count('rest')).toBeGreaterThan(5);
+  expect(count('anchor')).toBeGreaterThanOrEqual(4);
+  expect(count('run')).toBeGreaterThan(8);
+  expect(count('dense')).toBeGreaterThan(40);
+  expect(trace.frames.every((f) => f.codec === 'jpeg' && zip[f.file] !== undefined)).toBe(true);
+  // what the solver was given and answered, pointing at pictures that are in the file
+  const solved = trace.events.filter((e) => e.kind === 'solved');
+  expect(solved.length).toBeGreaterThanOrEqual(1);
+  for (const e of solved) {
+    for (const f of [...e.anchors!, ...e.frames!]) expect(zip[f.file]).toBeDefined();
+  }
+  for (const kind of ['jog-send', 'jog-ok', 'jog-end', 'scan-start', 'scan-end']) {
+    expect(
+      trace.events.some((e) => e.kind === kind),
+      kind,
+    ).toBe(true);
+  }
+  // what the scans were made with – and no address of the Pi or of the controller
+  expect(trace.meta).toMatchObject({ camera: { pxPerMm: 10 }, lagKnown: expect.any(Boolean) });
+  const { userAgent, ...setup } = trace.meta;
+  expect(typeof userAgent).toBe('string');
+  expect(JSON.stringify(setup)).not.toMatch(/\d+\.\d+\.\d+\.\d+|http|ws:/);
+  expect(trace.dropped).toBe(0);
 });

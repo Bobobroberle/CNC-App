@@ -655,6 +655,27 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   exposure time and the motion blur at speed, a real controller's report timing and its feed hold during a jog (Grbl-family firmware
   ends a jog on a hold as Idle, the simulator as Hold – both end the scan), a real table's texture. Hence "In Fahrt" is opt-in with both
   estimates side by side, the series flow stays by stops, and `docs/scan.md` says how to check a strip scan on the machine.
+- **Recording a scan for analysis** (`lib/scanTrace.ts`, `store/scanTrace.ts`, the checkbox and the buttons in the photo map panel,
+  `scripts/analyze-scan.py`): the lag of the camera, its blur at speed and what the real table gives to fit pictures by cannot be
+  tested here, so a scan can be **recorded** and the file worked through away from the machine (`python3 scripts/analyze-scan.py
+  file.zip`, needs numpy and Pillow). Off unless asked for, hooked into `scanArea` only – **no motion code of its own**; one recording
+  spans several scans until it is saved or discarded (a scan by stops over the same area is the ground truth of the strip scan). One
+  zip: `trace.json` and JPEGs (`TraceFile`; 40 MB cap, `dropped` counts what did not fit) holding every status report and every new
+  picture of the camera with its arrival time on the page, the jog's send / ok / end, every picture as it was taken (**raw – before
+  gain and vignette**, also the ones the solver refuses), the pictures at rest with where the machine reported itself, a dense grey
+  series (320 × 240, up to 400 per run) and, per run, what the solver was given and answered (`solved`: anchors, predicted positions,
+  both chains). Rules: **during a jog only pixels and stamps are copied** – encoding (`toBlob`) happens after the run, a picture at a
+  time with `setTimeout(0)` in between; rAF gaps over `GAP_MS` are logged so stalls show up in the file (they are the recorder's own
+  footprint too); **while recording, the run is not given up** (`keepGoing`: the give-up gate would empty the file on exactly the table
+  it is wanted for – refused pictures stay off the map, holes are still refilled); the meta holds calibration, picture size, speeds, the
+  lag as known, `viaCompanion` – **never an address or a login** (the e2e checks) – and the user agent; the file contains photos of the
+  table and the panel says so. The analyzer reports the rhythm of reports and pictures, stalls, how long a jog takes to start, the
+  **lag of the pictures behind the reports from the registered (placed) pictures** – a lag cannot be found from positions that are
+  relative within stretches, a steady speed hides it; absolute positions need the anchors, which is what the solver's placements are,
+  checked against the pictures at rest – its timing noise, the sharpness by speed (content dependent), what the app could place and
+  where the placed pictures really lie against the pictures at rest. `e2e/strips.spec.ts` records a stops and a strip scan with a lag
+  of 0.3 s ± 40 ms and the pair was proven on it: lag found 342 ms (0.3 s + the mean of the jitter + the frame), timing noise 21 ms,
+  placement against rest 0.03 mm mean, 0.12 mm worst.
 - After a measuring move, read the position and take pictures only after `settled()`
   (`store/settle.ts`): the status report in the store may be older than the move.
 - No safety function lives in the browser; the app triggers and displays, FluidNC enforces.

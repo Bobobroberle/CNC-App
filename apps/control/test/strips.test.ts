@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// Pictures are rendered pixel by pixel here: under the coverage run (instrumented, many files at once) a test takes
+// several times what it does alone.
+vi.setConfig({ testTimeout: 60_000 });
 import type { CameraCalibration } from '../src/lib/camera';
 import { COVERED, Mosaic } from '../src/lib/mosaic';
 import {

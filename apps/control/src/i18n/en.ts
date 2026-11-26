@@ -3232,6 +3232,14 @@ export const en: DictionaryShape = {
     estimateStrips: '{count} strips, about {minutes} min',
     estimateCompare: 'With stops it would be {count} pictures, about {minutes} min.',
     scanningStrips: 'Scanning: strip {done} of {total}, about {minutes} min to go',
+    trace: {
+      label: 'Record the scan for analysis',
+      hint: "Saves the camera pictures, the times and the controller's reports of the scans in one file (up to about 40 MB). It contains photos of your table. None of it goes anywhere until you hand the file on. While recording, the run is not given up even if the pictures fit badly.",
+      packing: 'Packing the recording: {count} pictures to go …',
+      have: 'Recorded: {count} scans, {mb} MB',
+      save: 'Save recording',
+      discard: 'Discard recording',
+    },
   },
   recording: {
     title: 'Recording',
@@ -3513,7 +3521,7 @@ export const en: DictionaryShape = {
       twoHoles:
         'two holes, rotation, askew, align with the camera, measure the angle, registration holes',
       photomap:
-        'photo map, scan, table photo, overview, map, photo, photograph the table, aerial picture, panorama, mosaic, stitch, table picture, on the move, without stopping, strips, speed, faster scan, seamless, tiles',
+        'photo map, scan, table photo, overview, map, photo, photograph the table, aerial picture, panorama, mosaic, stitch, table picture, on the move, without stopping, strips, speed, faster scan, seamless, tiles, recording, record scan, analysis, trace, measure camera',
       recording: 'recording, record, video, film, timelapse, clip, capture',
       connection:
         'connect, connection, address, ip, wifi, wlan, network, offline, fluidnc, websocket, disconnect, not connected, hostname, keep the screen on',
