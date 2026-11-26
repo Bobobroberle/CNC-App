@@ -3261,6 +3261,27 @@ export const de = {
     scanDone: 'Scan fertig: {count} Bilder auf der Karte.',
     scanCancelled: 'Scan abgebrochen nach {count} Bildern.',
     scanFailed: 'Scan abgebrochen: Fahrbefehl nicht ausgeführt.',
+    scanHeld: 'Scan abgebrochen: Die Steuerung wurde angehalten (Pause oder Alarm).',
+    scanLost: 'Scan abgebrochen: Die Verbindung zur Steuerung ist abgerissen.',
+    stripsNeedPixels:
+      'Das Kamerabild lässt sich nicht auslesen (Stream ohne Freigabe) – der Scan läuft mit Halt für jedes Bild.',
+    stripsGiveUp:
+      'Auf diesem Tisch ist zu wenig Struktur, um die Bilder der Fahrt einzupassen – der Rest wird mit Halt gescannt.',
+    stripsSkipped:
+      'Die Fahrt hat auf diesem Tisch nicht getaugt (zu wenig Struktur) – es geht mit Halt. „In Fahrt“ erneut wählen, um es noch einmal zu versuchen.',
+    stripsRefill:
+      'Nach der Fahrt fehlen Stellen (zu wenig Struktur zum Einpassen, oder ein Streifen war zu kurz): {count} Bilder werden mit Halt nachgeholt.',
+    mode: 'Art des Scans',
+    modes: { strips: 'In Fahrt (schnell)', stops: 'Mit Halt (genau)' },
+    modeHint:
+      'In Fahrt: die Kamera fährt in Streifen, ohne anzuhalten; die Bilder werden an ihrer Überlappung eingepasst. Mit Halt: ein Bild nach dem anderen, jedes im Stillstand.',
+    tempo: 'Tempo der Fahrt',
+    tempos: { gentle: 'Sanft', normal: 'Normal', fast: 'Schnell' },
+    tempoHint:
+      'Je schneller, desto mehr Bewegungsunschärfe – bei wenig Licht oder feinen Strukturen langsamer fahren.',
+    estimateStrips: '{count} Streifen, etwa {minutes} min',
+    estimateCompare: 'Mit Halt wären es {count} Bilder, etwa {minutes} min.',
+    scanningStrips: 'Scan läuft: Streifen {done} von {total}, noch etwa {minutes} min',
   },
   recording: {
     title: 'Mitschnitt',
@@ -3562,7 +3583,7 @@ export const de = {
       twoHoles:
         'zwei bohrungen, zwei löcher, drehung, schräg, ausrichten mit kamera, rotation, winkel messen, two holes, passbohrungen',
       photomap:
-        'fotokarte, scan, scannen, tischfoto, übersicht, karte, foto, tisch fotografieren, luftbild, panorama, mosaik, photo map, abfotografieren, tischbild',
+        'fotokarte, scan, scannen, tischfoto, übersicht, karte, foto, tisch fotografieren, luftbild, panorama, mosaik, photo map, abfotografieren, tischbild, in fahrt, ohne halt, streifen, tempo, schneller scannen, nahtlos, kacheln',
       recording:
         'mitschnitt, aufnahme, video, film, zeitraffer, aufzeichnen, recording, timelapse, mitfilmen, clip',
       connection:

@@ -117,6 +117,8 @@ const GROUP_OF_KEY: Record<string, MessageGroup> = {
   // A move that was not carried out is about moving, not about the picture: the reason is the message before
   // (`calibration.noRoom` and `.outside` are the reasons themselves – they stay with the measuring)
   'photomap.scanFailed': 'motion',
+  'photomap.scanHeld': 'motion',
+  'photomap.scanLost': 'connection',
   'calibration.moveFailed': 'motion',
   'drive.atLimit': 'limit',
   'drive.limited': 'limit',

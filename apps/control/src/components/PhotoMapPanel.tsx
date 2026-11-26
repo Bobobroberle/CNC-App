@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { t } from '../i18n';
 import { formatNumber, parseNumber } from '../lib/format';
-import { estimateScan, type Rect } from '../lib/photomap';
+import type { Rect } from '../lib/photomap';
 import { crosshairPoint, focusError } from '../store/camera';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
-import { mapBlocker, minutes, scanPoints, usePhotoMap } from '../store/photomap';
+import {
+  mapBlocker,
+  minutes,
+  scanEstimate,
+  scanPoints,
+  usePhotoMap,
+  type ScanMode,
+  type ScanTempo,
+} from '../store/photomap';
 import { useWorkshop } from '../store/workshop';
 import { HoldButton } from './HoldButton';
 import { Alert } from '../ui/alert';
@@ -13,11 +21,12 @@ import { Button } from '../ui/button';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { Progress } from '../ui/progress';
+import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
 
 /** Margin around the job for the default scan area, mm */
 const MARGIN = 10;
-/** Pause per picture besides the settle time: stream lag and drawing, ms */
-const PER_PICTURE_MS = 400;
+const MODES: ScanMode[] = ['strips', 'stops'];
+const TEMPOS: ScanTempo[] = ['gentle', 'normal', 'fast'];
 
 /** The job's cut area plus a margin, in work coordinates; null without a job. */
 function jobArea(): Rect | null {
@@ -48,13 +57,16 @@ const round = (v: number) => Math.round(v * 10) / 10;
 export function PhotoMapPanel() {
   const tiles = usePhotoMap((s) => s.tiles);
   const scan = usePhotoMap((s) => s.scan);
-  const { scanArea, cancelScan, clear } = usePhotoMap.getState();
+  const mode = usePhotoMap((s) => s.mode);
+  const tempo = usePhotoMap((s) => s.tempo);
+  const stripsBad = usePhotoMap((s) => s.stripsBad);
+  const { scanArea, cancelScan, clear, setMode, setTempo } = usePhotoMap.getState();
   const connected = useMachine((s) => s.connection === 'connected');
   const idle = useMachine((s) => s.connection === 'connected' && s.status?.state === 'Idle');
   const wco = useMachine((s) => s.status?.wco);
-  const settle = useWorkshop((s) => s.settings.calibration.settleMs);
+  useWorkshop((s) => s.settings.calibration.settleMs);
   useWorkshop((s) => s.settings.camera);
-  const jogFeed = useJob((s) => s.profile.jogFeed.xy);
+  useJob((s) => s.profile.jogFeed.xy);
   useJob((s) => s.analysis);
   useMachine((s) => s.status?.wpos[2]);
   const [area, setArea] = useState<Rect>(() => {
@@ -72,10 +84,9 @@ export function PhotoMapPanel() {
       }
     : null;
   const points = machineArea ? scanPoints(machineArea) : null;
-  const feed = Math.min(2000, jogFeed);
-  const estimate = points
-    ? estimateScan(points, crosshairPoint(), feed, settle + PER_PICTURE_MS)
-    : null;
+  // Both ways by the same rules, so the one can be compared with the other
+  const estimate = machineArea ? scanEstimate(machineArea, tempo) : null;
+  const onTheMove = mode === 'strips' && !stripsBad && estimate?.strips != null;
   const canScan = idle && !scan && points !== null && (blocker === null || blocker === 'offHeight');
 
   // What is being typed, until it is a number again ("12," or "-" on the way to a value).
@@ -141,10 +152,63 @@ export function PhotoMapPanel() {
       >
         {t('photomap.areaFromJob')}
       </Button>
-      {points && estimate !== null && !scan ? (
-        <p className="text-muted-foreground text-sm tabular-nums" data-testid="scan-estimate">
-          {t('photomap.estimate', { count: points.length, minutes: minutes(estimate) })}
-        </p>
+      <Field>
+        <FieldLabel>{t('photomap.mode')}</FieldLabel>
+        <SegmentedControl role="group" aria-label={t('photomap.mode')}>
+          {MODES.map((m) => (
+            <SegmentedControlItem key={m} pressed={mode === m} onClick={() => setMode(m)}>
+              {t(`photomap.modes.${m}`)}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
+        <p className="text-muted-foreground text-sm">{t('photomap.modeHint')}</p>
+      </Field>
+      {mode === 'strips' && stripsBad ? (
+        <Alert variant="warning" data-testid="strips-bad">
+          {t('photomap.stripsSkipped')}
+        </Alert>
+      ) : null}
+      {mode === 'strips' ? (
+        <Field>
+          <FieldLabel>{t('photomap.tempo')}</FieldLabel>
+          <SegmentedControl role="group" aria-label={t('photomap.tempo')}>
+            {TEMPOS.map((v) => (
+              <SegmentedControlItem key={v} pressed={tempo === v} onClick={() => setTempo(v)}>
+                {t(`photomap.tempos.${v}`)}
+              </SegmentedControlItem>
+            ))}
+          </SegmentedControl>
+          <p className="text-muted-foreground text-sm">{t('photomap.tempoHint')}</p>
+        </Field>
+      ) : null}
+      {estimate && !scan ? (
+        <div className="text-muted-foreground text-sm tabular-nums">
+          {onTheMove && estimate.strips ? (
+            <>
+              <p data-testid="scan-estimate">
+                {t('photomap.estimateStrips', {
+                  count: estimate.strips.count,
+                  minutes: minutes(estimate.strips.seconds),
+                })}
+              </p>
+              {estimate.stops ? (
+                <p data-testid="scan-estimate-compare">
+                  {t('photomap.estimateCompare', {
+                    count: estimate.stops.count,
+                    minutes: minutes(estimate.stops.seconds),
+                  })}
+                </p>
+              ) : null}
+            </>
+          ) : estimate.stops ? (
+            <p data-testid="scan-estimate">
+              {t('photomap.estimate', {
+                count: estimate.stops.count,
+                minutes: minutes(estimate.stops.seconds),
+              })}
+            </p>
+          ) : null}
+        </div>
       ) : null}
       {!connected ? (
         <p className="text-muted-foreground text-sm">{t('photomap.notConnected')}</p>
@@ -152,13 +216,13 @@ export function PhotoMapPanel() {
       {scan ? (
         <>
           <p className="tabular-nums" data-testid="scan-progress">
-            {t('photomap.scanning', {
+            {t(scan.unit === 'strips' ? 'photomap.scanningStrips' : 'photomap.scanning', {
               done: scan.done,
               total: scan.total,
               minutes: minutes(
                 scan.done > 0
                   ? ((Date.now() - scan.startedAt) / 1000 / scan.done) * (scan.total - scan.done)
-                  : (estimate ?? 0),
+                  : ((onTheMove ? estimate?.strips?.seconds : estimate?.stops?.seconds) ?? 0),
               ),
             })}
           </p>

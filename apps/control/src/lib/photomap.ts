@@ -132,7 +132,7 @@ export function visibleSize(c: CameraCalibration, size: Size, crop = CROP): Size
 }
 
 /** Evenly spaced centres so that frames of `frame` mm cover `from…to` with at most `step` apart. */
-function centres(from: number, to: number, frame: number, step: number): number[] {
+export function centres(from: number, to: number, frame: number, step: number): number[] {
   const lo = Math.min(from, to);
   const hi = Math.max(from, to);
   const span = hi - lo;

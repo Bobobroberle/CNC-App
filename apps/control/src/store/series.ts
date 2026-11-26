@@ -279,7 +279,7 @@ export const useSeries = create<SeriesStore>((set, get) => ({
     try {
       // A fresh picture of the table: what lay there before is gone.
       usePhotoMap.getState().clear();
-      if (!(await usePhotoMap.getState().scanArea(area))) return false;
+      if (!(await usePhotoMap.getState().scanArea(area, { precise: true }))) return false;
     } finally {
       set({ busy: null });
     }

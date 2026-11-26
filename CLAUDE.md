@@ -598,6 +598,63 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   `merge3` takes a sub-key the other copy lacks, inside a part both sides changed, as unchanged (as it does one level up) – a device with
   its own plate numbers does not lose them to a copy that predates them. The e2e rig believes 18 px/mm while it
   really is 20, which is why the size hint is exercised with explicit diameters there.
+- **The photo map and scanning** (`store/photomap.ts`; pure `lib/mosaic.ts`, `lib/register.ts`, `lib/strips.ts`; the tests lay pictures
+  of a made-up table, `test/synthetic.ts`, and compare with it): the map is **blended, not cut and pasted** – `Mosaic` keeps RGBA per
+  chunk plus the summed weight per pixel; a frame counts 1 over its trusted middle (`CROP`, 70 % – what `planScan` plans its overlap
+  with) and falls smoothly to 0 over the rim outside it (`edgeWeight`, `RAMP`), pixels where frames meet are the weighted mean, a frame's
+  brightness is matched to what lies there (`matchGain`, ±20 %) and the camera's vignette is taken out (`FlatField`: radial and
+  monotone, never a gain per cell – an edge of the board in every frame must not become a gradient). **A pixel is "covered" (alpha 255, the
+  only kind `mapPicture` trusts) from `COVERED` of summed weight, and a test holds every pixel inside a scanned area – turned camera,
+  vignette – to it**: tie the planning crop, the weight profile and `COVERED` together or the finders lose the rim of the scan (the series
+  spec found it). `MEMORY` caps how much earlier pictures weigh, so a newer picture of a place takes over within a few frames. The chunk
+  canvases only show the pixels (`putImageData`); a stream that cannot be read (another origin without permission) falls back to the old
+  hard crop and cannot be scanned in strips (`stripsNeedPixels`).
+  **Two ways to scan an area** (`scanArea(area, { precise })`, this device's choice in the panel `mode` · `tempo`, kept under
+  `lowrider-control.scan`, never synced; **the default is by stops** – "In Fahrt" is opt-in): **by stops** (one picture at rest per
+  point – `planScan`; what the series flow always uses, `precise: true`) and **in strips** (`planStrips` along the longer side, side by
+  side as the rows of a scan by stops so the same coverage holds, a row run in segments of at most `MAX_STRIP_MM` = 400 so a scale error,
+  the pictures waiting in memory and what one failed link can cost stay small; null – and then by stops – where the area is shorter
+  than `MIN_STRIP_FRAMES` pictures). A strip: hop to its start, a **picture at rest** (the start anchor), a **`$J=` jog** (`jogMachine`:
+  ends cleanly with `jogCancel`, a G1 move could not be stopped without a reset) along it, a picture at rest at its end.
+  **The clock is no ruler**: the reports come every 200 ms, the camera's picture is late by an unknown time and the network jitters –
+  10 ms is 0.5 mm at 50 mm/s – so `PositionTrack` (a line through the nearest reports at the time a picture was *first seen*,
+  `FrameWatch` on every screen frame; lag `stripLag`, learned from the strips with `lagFromCorrections`) is only the first guess, and
+  `solveStripSteps` places the pictures by what they show: each is registered (`registerShift`: normalised correlation of grey windows
+  on the map raster, ±(2 + 0.06·speed) mm along the strip, 0.5 mm across, texture taken out by `highPassFrame` once per frame – **not**
+  per window: a per-window mean moved with the edge of the valid region and biased every link by 1–4 %) against the one before it, **in
+  both directions** – from the start anchor and from the end anchor. **Strict, in the order of what can go wrong:** two pictures are
+  compared only where the clock already puts `LINK_MIN_OVERLAP` (35 %) of their trusted middles on one another and at the shift found
+  (two that hardly meet agree on any repeating texture, wherever the shift that makes them meet is), the window holds both pictures
+  *and* the room to move one against the other, shifts that leave little overlap still count as *other answers* (`weak`) so a repeating
+  texture cannot win by having the true shift just below the floor, and a link needs a peak clear of the edge of the search, a second
+  peak `minMargin` below it, enough texture and a correlation of `LINK_MIN_SCORE` (0.8 – a fainter link may be right but its shift is
+  noisy, and a wrong place on the map costs more than a picture taken again). A picture both chains reach is placed at their blend by the
+  distance along the strip, judged on how far it is from the chains' **common offset** (a scale error of the camera or the machine drifts
+  both alike by error × length – the blend takes that out exactly; `MAX_SCALE_ERROR` 0.5 % is what a calibration may have, beyond it
+  nothing both chains vouch for is placed; 0.5 mm from the common offset); one only one chain reaches is placed by that chain. **The
+  lag is measured first**: until it is known (`lagKnown`; reset when the camera's source or stream changes) a short slow probe (≤ 110 mm
+  at `PROBE_SPEED` 12 mm/s, where the clock's error is smaller than half a dot of the precision plate) runs before anything else; if it
+  cannot be fitted – or a later segment's predecessor could not (`poor`: ≥ 6 pictures, fewer than half placed) – the run is **given up
+  before the next jog** (`gaveUp`, store `stripsBad`: the panel says so, the estimate switches to stops, the next scan goes by stops
+  until "In Fahrt" is chosen again), so a table without texture costs the probe and one segment, not the scan. **A segment is laid down
+  only when its end anchor is in** (blended pixels cannot be taken back) – `solveAndLay` runs in slices (`turn()` after every link
+  *and* every laid picture: PAUSE and NOT-HALT must never wait for it) while the machine hops to the next segment – and **what the strips
+  left out is scanned by stops afterwards** (`holesIn`, `stripsRefill`; not for an area the map cannot hold – more chunks than
+  `MAX_CHUNKS`), so a table with too little texture ends as a slow scan, not a wrong one. A scan ends on `cancelScan` (jog cancel), on a
+  hold or an alarm (`held`: nothing more is sent, the operator decides – a resume finishes the jog) and on a lost connection; `ScanStats`
+  (`scanStats()`, also `window.lowriderMap` for the tests) says what a scan did, per segment. The simulator's camera can be made late,
+  unsteady and out of focus unseen by the app (`window.lowriderCameraLag`: `ms`, `jitterMs`, `blurPx`); `e2e/strips.spec.ts` scans the plate
+  in strips with a lag of 0.3 s ± 40 ms and holds each dot to where a scan by stops puts it, in both directions, ends a scan by cancel and
+  by PAUSE, and gives up on a board out of focus. **Measured on the simulator** (stock LowRider values): the time model
+  (`scanEstimate`: trapezoid times with the machine's acceleration, one rule for both ways) reproduces a scan by stops of the demo's
+  725 × 290 mm area to 2 % (202 s against 198 s); in strips it forecasts about ×1.5 at "Normal", ×2 at "Schnell" there, nothing at
+  "Sanft" or for areas under about 300 × 300 mm. **What the code cannot do and the tests cannot show (one list):** a table that
+  repeats itself with a pitch the clock's error can cover (a pattern of about 10 mm or less seen through a search of ±5 mm) – one
+  picture off by a period is placed a period away, and both chains agree, because they share the clock; a plain board with no
+  texture (the simulator's board in the demo scene: the run is given up there); a real camera's lag and its jitter, rolling shutter,
+  exposure time and the motion blur at speed, a real controller's report timing and its feed hold during a jog (Grbl-family firmware
+  ends a jog on a hold as Idle, the simulator as Hold – both end the scan), a real table's texture. Hence "In Fahrt" is opt-in with both
+  estimates side by side, the series flow stays by stops, and `docs/scan.md` says how to check a strip scan on the machine.
 - After a measuring move, read the position and take pictures only after `settled()`
   (`store/settle.ts`): the status report in the store may be older than the move.
 - No safety function lives in the browser; the app triggers and displays, FluidNC enforces.

@@ -135,6 +135,46 @@ let canvas: HTMLCanvasElement | null = null;
 let running = false;
 
 /**
+ * What a real camera does that the simulated one did not: it is late. The picture shows where the camera was
+ * `ms` ago, give or take `jitterMs`, and out of focus by `blurPx` (motion blur or a poor focus wipes out fine texture)
+ * – set by the tests, unseen by the app, which has to find out for itself.
+ */
+export const simulatorCameraLag = { ms: 0, jitterMs: 0, blurPx: 0 };
+(globalThis as { lowriderCameraLag?: typeof simulatorCameraLag }).lowriderCameraLag =
+  simulatorCameraLag;
+const trail: { t: number; tool: { x: number; y: number } }[] = [];
+let lastShown = 0;
+
+let blurCopy: HTMLCanvasElement | null = null;
+
+/** The picture, out of focus: drawn over itself through a blur filter (a browser without canvas filters shows it sharp). */
+function blur(ctx: CanvasRenderingContext2D, source: HTMLCanvasElement, px: number) {
+  blurCopy ??= document.createElement('canvas');
+  blurCopy.width = source.width;
+  blurCopy.height = source.height;
+  blurCopy.getContext('2d')!.drawImage(source, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.filter = `blur(${px}px)`;
+  ctx.drawImage(blurCopy, 0, 0);
+  ctx.filter = 'none';
+}
+
+/** Where the camera was `lag` ms ago, from the trail of the frames painted so far. */
+function laggedTool(now: number, current: { x: number; y: number }) {
+  trail.push({ t: now, tool: current });
+  while (trail.length > 2 && trail[1]!.t < now - 3000) trail.shift();
+  const { ms, jitterMs } = simulatorCameraLag;
+  if (ms <= 0 && jitterMs <= 0) return current;
+  // monotonic: a picture never shows an earlier place than the one before it
+  const want = Math.max(lastShown, now - ms - (Math.sin(now * 0.37) * 0.5 + 0.5) * jitterMs);
+  lastShown = want;
+  for (let i = trail.length - 1; i >= 0; i--) {
+    if (trail[i]!.t <= want) return trail[i]!.tool;
+  }
+  return trail[0]!.tool;
+}
+
+/**
  * The canvas the simulated camera paints into, at the spindle's real
  * position plus the camera offset, 10 px per mm. Created on first use.
  */
@@ -158,7 +198,11 @@ function start() {
   running = true;
   const frame = () => {
     if (!running || !canvas) return;
-    paint(canvas.getContext('2d')!);
+    paint(
+      canvas.getContext('2d')!,
+      undefined,
+      laggedTool(performance.now(), simulator().physical()),
+    );
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
@@ -176,9 +220,13 @@ export function simulatorFrame(mpos: { x: number; y: number; z: number }): HTMLC
   return frame;
 }
 
-function paint(ctx: CanvasRenderingContext2D, mpos?: { x: number; y: number; z: number }) {
+function paint(
+  ctx: CanvasRenderingContext2D,
+  mpos?: { x: number; y: number; z: number },
+  late?: { x: number; y: number },
+) {
   const sim = simulator();
-  const tool = sim.physical(mpos);
+  const tool = late ?? sim.physical(mpos);
   const cam = { x: tool.x + SIM_CAMERA.offset.x, y: tool.y + SIM_CAMERA.offset.y };
   const s = SIM_CAMERA.pxPerMm;
   const { width: w, height: h } = SIM_CAMERA;

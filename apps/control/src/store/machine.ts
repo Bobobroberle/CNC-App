@@ -263,6 +263,12 @@ interface MachineStore {
    * machine stands still (G4 P0). Refused outside the travel once homed.
    */
   moveMachine(target: { x?: number; y?: number; z?: number }, feed: number): Promise<boolean>;
+  /**
+   * A jog along one axis to a machine coordinate, at `feed` mm/min – **resolves as soon as the controller has taken
+   * it**, not when it ends: whoever sent it watches the status and can end it with `jogCancel()`, which a G1 move
+   * could not be (a stop of it needs a reset, which loses the position). Refused outside the travel once homed.
+   */
+  jogMachine(axis: 'x' | 'y', target: number, feed: number): Promise<boolean>;
   /** Joystick deflection −1…1 (Y up); 0, 0 or `stickStop()` ends the motion */
   stick(vx: number, vy: number): void;
   stickStop(): void;
@@ -1315,6 +1321,31 @@ export const useMachine = create<MachineStore>((set, get) => ({
         timeoutMs: 0,
       });
       await connection.command('G4 P0', { timeoutMs: 0 });
+      return true;
+    } catch (error) {
+      addLog(
+        'error',
+        t('calibration.moveFailed', { reason: (error as Error).message }),
+        'calibration.moveFailed',
+      );
+      return false;
+    }
+  },
+
+  async jogMachine(axis, target, feed) {
+    const { status, homed, addLog, connection: link } = get();
+    if (!connection || !status || link !== 'connected') return false;
+    const { profile } = useJob.getState();
+    const range = profile.travel[axis];
+    if (homed && profile.softLimits && (target < range.min - 0.001 || target > range.max + 0.001)) {
+      addLog('error', t('calibration.outside'), 'calibration.outside');
+      return false;
+    }
+    try {
+      forgetJogTargets(true);
+      await connection.command(
+        jogToMachine(axis === 'x' ? 'X' : 'Y', Number(target.toFixed(3)), feed),
+      );
       return true;
     } catch (error) {
       addLog(

@@ -3212,6 +3212,26 @@ export const en: DictionaryShape = {
     scanDone: 'Scan done: {count} pictures on the map.',
     scanCancelled: 'Scan cancelled after {count} pictures.',
     scanFailed: 'Scan stopped: move command not carried out.',
+    scanHeld: 'Scan stopped: the controller was held (pause or alarm).',
+    scanLost: 'Scan stopped: the connection to the controller was lost.',
+    stripsNeedPixels:
+      'The camera picture cannot be read (stream without permission) – the scan stops for every picture.',
+    stripsGiveUp:
+      'This table shows too little texture to fit the pictures of the run by – the rest is scanned with stops.',
+    stripsSkipped:
+      'The run did not suit this table (too little texture) – this goes with stops. Choose "On the move" again to try once more.',
+    stripsRefill:
+      'Places are missing after the run (too little texture to fit the pictures, or a strip was too short): {count} pictures are taken with a stop.',
+    mode: 'Kind of scan',
+    modes: { strips: 'On the move (fast)', stops: 'With stops (exact)' },
+    modeHint:
+      'On the move: the camera runs along strips without stopping; the pictures are fitted by their overlap. With stops: one picture after the other, each at rest.',
+    tempo: 'Speed of the run',
+    tempos: { gentle: 'Gentle', normal: 'Normal', fast: 'Fast' },
+    tempoHint: 'The faster, the more motion blur – run slower in poor light or with fine texture.',
+    estimateStrips: '{count} strips, about {minutes} min',
+    estimateCompare: 'With stops it would be {count} pictures, about {minutes} min.',
+    scanningStrips: 'Scanning: strip {done} of {total}, about {minutes} min to go',
   },
   recording: {
     title: 'Recording',
@@ -3493,7 +3513,7 @@ export const en: DictionaryShape = {
       twoHoles:
         'two holes, rotation, askew, align with the camera, measure the angle, registration holes',
       photomap:
-        'photo map, scan, table photo, overview, map, photo, photograph the table, aerial picture, panorama, mosaic, stitch, table picture',
+        'photo map, scan, table photo, overview, map, photo, photograph the table, aerial picture, panorama, mosaic, stitch, table picture, on the move, without stopping, strips, speed, faster scan, seamless, tiles',
       recording: 'recording, record, video, film, timelapse, clip, capture',
       connection:
         'connect, connection, address, ip, wifi, wlan, network, offline, fluidnc, websocket, disconnect, not connected, hostname, keep the screen on',
