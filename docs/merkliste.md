@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-22 von 153 erledigt.
+22 von 154 erledigt.
 
 ## Scan & Kamera
 
@@ -17,6 +17,7 @@ _Position und Schärfe der Aufnahmen, Kamera und Licht._
 - [ ] **Verzögerung an der Maschine messen** (Aufgabe) – Einen Streifen-Scan mit Aufzeichnung fahren und mit dem Auswerter die Verzögerung der Kamera bestimmen (Anleitung in docs/scan.md).
 - [ ] **Zeitstempel von ustreamer prüfen** (Aufgabe) – Am Pi mit curl nachsehen, welche Kopfzeilen der Stream pro Bild sendet und was der Stempel bedeutet (Aufnahme, Kodierung oder Senden).
 - [ ] **M62/M63 an der Jackpot prüfen** (Aufgabe) – Pulst der Ausgang wirklich in der Bewegung, ohne sie anzuhalten? Mit einer LED oder dem Oszilloskop messen.
+- [ ] **Verstreute Tischmarken als Ankerpunkte** (größeres Projekt) – Kleine gedruckte Marken (wie die der Vorrichtungen) fest auf der Opferplatte verteilen, einmal einmessen und speichern. Im Scan kennt jedes Bild mit einer Marke seine Position absolut: die Verzögerung lässt sich mitten im Lauf lernen, Maßstabsfehler werden korrigiert, und auf einem Brett ohne Maserung hat die Bildzuordnung einen Halt. Dünn halten (Papier), weil die App die Höhe der Marke nicht herausrechnet; es gibt nur 48 Nummern, nicht in jedem Bild muss eine liegen.
 
 ### Bewegungsunschärfe
 

@@ -999,6 +999,15 @@ add('test', 'An der Maschine', [
   ],
 ]);
 
+add('scan', 'Position der Aufnahmen (Timing)', [
+  [
+    'tim-h',
+    'Verstreute Tischmarken als Ankerpunkte',
+    'Kleine gedruckte Marken (wie die der Vorrichtungen) fest auf der Opferplatte verteilen, einmal einmessen und speichern. Im Scan kennt jedes Bild mit einer Marke seine Position absolut: die Verzögerung lässt sich mitten im Lauf lernen, Maßstabsfehler werden korrigiert, und auf einem Brett ohne Maserung hat die Bildzuordnung einen Halt. Dünn halten (Papier), weil die App die Höhe der Marke nicht herausrechnet; es gibt nur 48 Nummern, nicht in jedem Bild muss eine liegen.',
+    'gross',
+  ],
+]);
+
 export const ITEMS = A.map((it, i) => ({ ...it, order: i }));
 export const KINDS = {
   vorhanden: 'vorhanden',
