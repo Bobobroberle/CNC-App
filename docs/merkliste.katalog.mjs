@@ -1218,6 +1218,12 @@ add('cam', 'Zeichnen & Formen', [
     'aufgabe',
   ],
   [
+    'cam-font9',
+    'Schrift: der Block liegt auf dem Tablet unter der Karte „Zeichnen“',
+    'Der Block „Schrift“ steht jetzt als Erstes in der Karte der Auswahl, aber diese Karte liegt unter den Kacheln und „Projekt öffnen“. Im Bildschirmfoto bei Tablet-Größe (1138 × 712) beginnt das Feld der Worte am unteren Rand des Panels; nach dem Tipp auf „Text“ holt der Fokus es ins Bild, ein Tipp auf die Zeile eines Textes in der Liste tut das nicht. Denkbar: die Karte der Auswahl vor die Kacheln stellen, solange ein Teil gewählt ist, oder die Kacheln dann einklappen. Nicht gebaut.',
+    'klein',
+  ],
+  [
     'cam-font8',
     'Kommentar in der Bibliothek nennt das fehlende Lizenzfenster noch',
     'Der Kommentar zu FONT_CREDITS in packages/cam/src/font.ts sagt noch, die App habe kein Lizenzfenster („an open item of the wiring of the faces“). Seit „Schriften und Lizenzen“ stimmt das nicht mehr. Nur ein Kommentar, in dieser Stufe nicht angefasst, weil die Bibliothek nicht geändert werden sollte.',

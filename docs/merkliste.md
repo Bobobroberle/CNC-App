@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-39 von 188 erledigt.
+39 von 189 erledigt.
 
 ## Scan & Kamera
 
@@ -104,6 +104,7 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [ ] **Hershey-Schriften: Kurven sind sichtbar eckig** (kleiner Schritt) – Hershey Sans und Script liegen auf ganzen Koordinaten bei 21 Einheiten Großbuchstabenhöhe; bei 20 mm Höhe sind die Streckenstücke rechnerisch etwa 1 mm lang (Rechnung aus der Untersuchung, kein gefrästes Muster gesehen). „Modern“ (Relief SingleLine) hat echte Kurven und ist glatter, „Standard“ ebenfalls. Denkbar: die Punkte der Hershey-Kurven durch eine Spline glätten; nicht gebaut.
 - [ ] **Fehlende Zeichen: das Hinweisfeld nennt zerlegte Zeichen** (kleiner Schritt) – Ein Zeichen mit Akzent, das die Schrift nicht kennt, wird in der Liste der fehlenden Zeichen als Grundbuchstabe plus loses Zeichen genannt: ein kyrillisches „й“ erscheint als „и“ und ein einzelner Breve (im Test festgestellt, packages/cam gibt die zerlegten Teile zurück). Der Hinweis stimmt dann dem Sinn nach, liest sich aber schlecht. Besser: die Bibliothek nennt das Zeichen, wie es getippt wurde. Nicht geändert, weil die Bibliothek in dieser Stufe nicht angefasst wurde.
 - [ ] **Lizenztexte der Oberflächenschriften und der gebündelten Pakete** (Aufgabe) – Die Karte „Schriften und Lizenzen“ zeigt Hinweis und Lizenztext der drei fremden Schriften der Zeichnung. Inter und JetBrains Mono (SIL OFL 1.1; ihre Daten stecken in der einen HTML-Datei) und die gebündelten Pakete (React, three.js, lucide-react, die Bausteine von coss ui …) haben ihre Lizenzen in THIRD-PARTY.md genannt, ihre Texte stehen aber in der App nirgends. Die OFL verlangt Copyright-Zeile und Lizenztext bei jeder Kopie der Schrift; ob die @fontsource-Pakete beides in ihren Dateien mitbringen, wurde nicht nachgesehen. Nicht gebaut; dieselbe Karte wäre der Ort.
+- [ ] **Schrift: der Block liegt auf dem Tablet unter der Karte „Zeichnen“** (kleiner Schritt) – Der Block „Schrift“ steht jetzt als Erstes in der Karte der Auswahl, aber diese Karte liegt unter den Kacheln und „Projekt öffnen“. Im Bildschirmfoto bei Tablet-Größe (1138 × 712) beginnt das Feld der Worte am unteren Rand des Panels; nach dem Tipp auf „Text“ holt der Fokus es ins Bild, ein Tipp auf die Zeile eines Textes in der Liste tut das nicht. Denkbar: die Karte der Auswahl vor die Kacheln stellen, solange ein Teil gewählt ist, oder die Kacheln dann einklappen. Nicht gebaut.
 - [ ] **Kommentar in der Bibliothek nennt das fehlende Lizenzfenster noch** (Aufgabe) – Der Kommentar zu FONT_CREDITS in packages/cam/src/font.ts sagt noch, die App habe kein Lizenzfenster („an open item of the wiring of the faces“). Seit „Schriften und Lizenzen“ stimmt das nicht mehr. Nur ein Kommentar, in dieser Stufe nicht angefasst, weil die Bibliothek nicht geändert werden sollte.
 
 ### Konturen bearbeiten
