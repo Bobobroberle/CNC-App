@@ -12,7 +12,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `@lowrider/cam`: `test/golden/schild.nc` is a whole program; read the diff before accepting it)
 - `pnpm e2e` – Playwright UI tests (builds and previews `apps/control`); projects `tablet`, `desktop` and
   `ipad` (touch tests in `e2e/ipad.spec.ts`, real multi-touch through CDP; the two-sided flow on the
-  simulator in `e2e/flip.spec.ts`, series and jigs in `e2e/series.spec.ts` / `e2e/jigs.spec.ts`, the quick search in
+  simulator in `e2e/flip.spec.ts`, series and jigs in `e2e/series.spec.ts` / `e2e/jigs.spec.ts`, snapping, the gaps while
+  dragging and measuring in the drawing in `e2e/snap.spec.ts` / `e2e/measure.spec.ts`, the quick search in
   `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
   `e2e/select.spec.ts` (and `e2e/ipad.spec.ts` for touch),
   parts cut in sections on the simulator's long board in `e2e/sections.spec.ts`, the areas of the work –
@@ -439,6 +440,60 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   is `invalid-project` –, `false` reads as no key, version 1 unchanged, an old file opens as it was. Tests: `camHidden` (pure), `camHiddenStore` (program, undo,
   selection, align, rigid group, two-sided holes and notes, project), `camHiddenRunning` (a job under way), `camHiddenPanel` (the row, the note, the quick-search
   chains), `camPickAdditive`, `e2e/hide.spec.ts`.
+  **Snapping while a part is dragged – "Fangen"** (`lib/camSnap.ts`, `drag()` in `store/cam.ts`, `SnapSwitch` in `CamArrange`, `data-find="cam-snap"`): the moved thing – a part,
+  or the whole selection as ONE box – **the box of what is in sight**: a hidden member of it moves along but is no line and no edge, neither for the snap nor the guides nor the gaps (a hidden part is drawn faint and left out of the program, of aligning and of what a part is snapped to – the lines drawn must be those of the parts that are cut); the
+  **grid** keeps the box of all of it (`itemsBounds(chosen())`, what the position fields show, as it always was), which is why `snapMove` has a last argument `gridBox`; a selection with nothing of it in sight
+  gets no snap and no hints – has three lines on each axis (left,
+  right, centre; bottom, top, middle), and each snaps to **the same kind of line** of another group's box or of the entered stock (`enteredStock()`: none entered, none snapped to) when it
+  comes within `SNAP_PX` = 8 **screen** px (`SNAP_PX / vp.scale` mm: the same at every zoom). Like for like on purpose (left to left, centre to centre, right to right):
+  it never puts two parts edge to edge – a gap of 0 leaves the cutter no room; "Abstände zeigen" is how a part is put a distance from another. **There is one snap
+  and it is the grid's: `snapMove(box, move, others, stock, threshold, grid, gridBox = box)` is the only place that decides** – x and y on their own (the nearest line within the threshold wins; a tie keeps
+  the first of the targets: the other parts in list order, then the stock, edges before a middle), and where none is near the grid rounds the lower left corner
+  **word for word as `drag()` always did** (`Math.round((corner + move) / step) * step − corner` on the *start* box and the finger's raw shift – so `snapMove` takes the start box and the raw
+  move, never the moved box: rounding a box that was shifted already differs in the last float bit). No object near ⇒ byte-identical to before; `threshold` 0 ⇒ the grid alone; it starts from the raw
+  shift every time, so a snap lets go as the finger moves on. `drag().move(dx, dy, step, assist?)`: `assist = {snap: mm, gaps}` is **opt-in** (a call without it is the old behaviour –
+  the older store tests are that) and `move` answers `DragHints {guides, gaps}` (undefined without `assist`). **The candidates** (`snapTargets`) are one box per group of the *other* parts – the unit
+  that is arranged – around what of it is in sight: never a registration hole, a hidden part or a member of the selection; **a registration hole dragged alone gets no snap and no hints** (a hole put on the
+  line of a part cuts into it). One drag is still one step of undo; the toolpath is still made on `end`. **Alt (Option)** held as the finger comes down *or at any move* turns snapping
+  off for that move (`Modifiers.alt`, only there where held – every `{shift, ctrl}` that was told before reads as it did; `ViewGrab.move(p, finger?, modifiers?)` gets the third argument only where Alt is held *at that move*; `additive()`
+  ignores Alt; the key sheet has it as the `pointer` row `camSnapOff`); the gaps stay. **The switches** are `useUi.aids = {snap, gaps}` (`lowrider-control.dragAids`, both on, this device's choice,
+  no step of undo, never synced): "Fangen" – with what it does under it while it is on, and the Alt sentence as a `kbd-hint` (only where a keyboard is likely) – and "Abstände zeigen", in `CamArrange` (both render
+  branches), **together under one fold "Fangen und Abstände"** (`DragAids`, `data-testid="cam-aids"`, closed until it is opened once, then as it was left: `useUi.depth.camAids`; DESIGN.md §2 – both are on from the
+  start, so nothing is needed from them every time, and their rows and hint made the card about 140 px taller above its real actions, measured at tablet size; the quick search unfolds it for either entry through
+  `registerFold`); "Messen" stays open beside it (a mode with a result). **What the table shows, only while the finger is down**
+  (`showHints` in `TableView`, like the frame of the rubber band: a ref read into the scene and data attributes; `done()` clears it however a drag ends – lifted, a second finger, a lost touch): thin dashed
+  **guides** in the selection colour from the moved box to every box that has the line (`drawingGuides`; `data-drawing-snap` = JSON `{axis, at, from, to}`) – only where an object snapped, never for the grid.
+  **Gaps – "Abstände zeigen"** (`lib/camGaps.ts`, `gapsAround(box, others)`): on each side (left, right, up, down) the nearest box that lies across from the moved one – it overlaps it in the other axis by
+  more than float noise; two boxes that only meet at a corner are none – and the room to it (touching boxes: 0; a box that overlaps on both axes has no gap on any side, and does not hide the neighbour
+  behind it). The moved box is the one **as it is shown** (after the snap), the others are `snapTargets` (**not the stock**: the margin to its edge is an entry of the Merkliste). A dimension line from the box to the
+  neighbour in the middle of what they share, a tick at each end, the number ("12,3 mm": `mm()`, the **mono face** – the bundled webfont is asked for once with `document.fonts.load` and the picture drawn again
+  when it is there, a canvas does not wait for it – at 14 px) **above** a line that runs across and to the **right** of one that runs up, never on the part's own edge where the finger is, on a wash of `--stage-bg`
+  and kept inside the picture. **Two equal gaps on opposite sides** (`EQUAL_GAP` 0.05 mm, half of the last digit that is shown) have their lines in the selection colour *and* "= " in their words – the state is
+  never colour alone; the words stay in the text colour (the selection colour holds 4.5:1 on the stage, words need 7:1: `test/theme.test.ts`). `data-drawing-gaps` = JSON `{side, gap, equal, text, from, to}`.
+  **Decision – two switches:** the gaps have their own ("Abstände zeigen") and not "only while Fangen": someone who switches snapping off still wants the numbers, and Alt must not take them away.
+  Tests: `camSnap` (hand-checked: both axes, several candidates, ties, the edge of the threshold, the stock, a selection box, an aligned box, the grid, negative coordinates, circles by their true
+  radius), `camGaps`, `camSnapStore` (steps of undo, the stock, hidden parts, holes alone, a selection), `drawAids` (what the painter does), `e2e/snap.spec.ts`, a touch case in `e2e/ipad.spec.ts`.
+  **Measuring in the drawing – "Messen"** (`useCam.measure` and `measured {a, b}`, `MeasureSwitch` in `CamArrange`, `data-find="cam-measure"`, pure `lib/camMeasure.ts`; **not the stage tool "Messen" of Einrichten,
+  which stays as it was**): a mode of the screen like `multi` and `marquee` – no step of undo, nothing selected, nothing changed (`camSnapStore` holds the identity of the parts and the number of steps), off at `close`,
+  **in force only where its switch can be seen** (`measureOn` in `TableView`, like `frameOn`). **It ends the modes that give a tap or a drag another meaning, and they end it:** `setMeasure(true)` turns `multi`,
+  `marquee` and `placing` off; `setMulti(true)`, `setMarquee(true)` and `setPlacing(id)` turn it off – and every end of the mode, switching it off included, **takes the points away** (they are places on the
+  table, fastened to no part, and nothing would keep them in step with an edited drawing; "Messung löschen" takes them away and leaves the mode on). A tap (`tapDrawing`, first) sets A, the next B, a third starts again
+  with A alone (`measurePoint`; taken back like every tap if it is the first of a double tap – `restoreMeasure`). **A double tap is a double tap, never two points**: a finger that comes down on a point is the grab's
+  and the gesture layer never sees it, so `TableView` keeps the last tap of the measurement (`measureTapRef`: where, when, how to take it back – set by the gesture layer's tap and by a grab's tap) and `firstOfDouble`
+  asks it with the gesture layer's own `DOUBLE_TAP_MS`/`DOUBLE_TAP_SLOP`: the second tap, from the grab or from the gesture layer's tap, takes the first back and runs `fitOrZoom` (the view's double tap) – the points are
+  as they were. **Only a finger on one of the two points is taken** (`grab`, within `GRAB_PX`; it follows the finger
+  from where it lies, without a jump, and yields to a second finger; **a finger lifted on the spot on A while B is not there yet is B** – the finger takes A first, so this is the only way to a line shorter than
+  a finger – and with both set such a tap changes nothing); everything else is the view's – it pans, a tap sets a point – and a part's line is no handle (the selection's handles are not drawn while measuring,
+  the mouse pointer is a cross). The numbers on the table are drawn **over** the handles (a gap of 0 stands where a handle does), the names of A and B beyond their dots on the way out of the line. **Snapping is strict** (`contourFeatures`, `snapMeasure`, `MEASURE_SNAP_PX` = 12 screen px): the corners of a contour (the ends of an open one; a turn of at least `CORNER_DEGREES` = 30° –
+  a polygon that stands for a curve has none), the middle of an edge (between two corners, or a straight piece between curves that is at least 4 times as long as their segments: a rounded rectangle has its four edge
+  middles and no corners, a slot its two sides), the centre of a circle (`Contour.circle`, never the points of its polygon) – of every part that is not hidden, **registration holes and the back side of a two-sided
+  part included** (they lie on the table); the nearest within the reach, a tie keeps the first; **nothing clear ⇒ the point stays where it was put**. **The corners and middles of the stock are not candidates** (a Merkliste entry).
+  Alt held at the start or at a move leaves a dragged point free. `measurement(a, b)`: distance, ΔX and ΔY (B − A, y up) and the angle **counter-clockwise from the X axis, −180 < angle ≤ 180** (no −0). On the table: the line on
+  a rim, a small dot with "A"/"B" at each point and the distance with "ΔX · ΔY · angle" beside the line (`drawingMeasure`; words in the text colour, dots in the selection colour); `data-drawing-measure` = JSON `{a, b, distance, dx, dy, angle}`
+  (4 decimals). In the card: the same four numbers (2 decimals; ΔX/ΔY with a real minus or a plus; the angle with one) and "Messung löschen" (outline, 48 px) – never a toast. **Quick search:** `camSnap`, `camGaps`, `camMeasure`, each
+  with a chain `['cam-snap' | 'cam-gaps' | 'cam-measure', 'cam-multi', 'cam-draw']`. Tests: `camMeasure` (hand-checked corners, edge middles, centres, ties, the reach, distance and angle with y up), `camSnapStore`,
+  `camArrangePanel`, `drawAids`, `e2e/measure.spec.ts` (a double click included), two touch cases in `e2e/ipad.spec.ts` (a double tap included). **Not built, on purpose:** snapping while resizing or turning by the handles, arrow-key nudges that snap, a switch for
+  the measure's own snapping.
   **Every other way to load, replace or take off the program goes through the central lock**
   in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived`, `unload` and
   `restoreOriginal` do nothing while a job is under way, say why (`job.locked`, its own message group `jobLocked`)

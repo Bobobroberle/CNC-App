@@ -31,7 +31,7 @@ function mount(make: (log: string[]) => ViewGrab | null) {
     id: number,
     x: number,
     y: number,
-    keys: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean } = {},
+    keys: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean } = {},
   ) => {
     const e = new MouseEvent(type, {
       clientX: x,
@@ -186,6 +186,52 @@ describe('how a thing taken by a finger ends – and what keys were held', () =>
     expect(bare.asked).toEqual([
       ['grab', { x: 50, y: 50 }, 'touch'],
       ['tap', { x: 50, y: 50 }, 'touch'],
+    ]);
+  });
+  it('hands Alt to the grab and to a tap as `alt: true` – and to a move only where it is held at that move', () => {
+    // Alt alone is a key like the others: asked with the three keys, `alt` only where it is held
+    const alt = mount((l) => noting(l));
+    alt.fire('pointerdown', 1, 50, 50, { altKey: true });
+    expect(alt.asked).toEqual([
+      ['grab', { x: 50, y: 50 }, 'touch', { shift: false, ctrl: false, alt: true }],
+    ]);
+    const both = mount(() => null);
+    both.fire('pointerdown', 1, 50, 50, { altKey: true, shiftKey: true });
+    both.fire('pointerup', 1, 50, 50, { altKey: true, shiftKey: true });
+    expect(both.asked).toEqual([
+      ['grab', { x: 50, y: 50 }, 'touch', { shift: true, ctrl: false, alt: true }],
+      ['tap', { x: 50, y: 50 }, 'touch', { shift: true, ctrl: false, alt: true }],
+    ]);
+    // Shift without Alt keeps the shape it always had: no `alt` key at all
+    const shift = mount(() => null);
+    shift.fire('pointerdown', 1, 50, 50, { shiftKey: true });
+    expect(shift.asked[0]![3]).toStrictEqual({ shift: true, ctrl: false });
+
+    // A move hears of Alt where it is held then – pressed after the finger went down counts – and is called
+    // with two arguments where it is not
+    const moves: unknown[][] = [];
+    const watch = mount(() => ({
+      move: (...args: unknown[]) => void moves.push(args),
+      end: () => undefined,
+    }));
+    watch.fire('pointerdown', 1, 50, 50);
+    watch.fire('pointermove', 1, 80, 50);
+    watch.fire('pointermove', 1, 90, 60, { altKey: true });
+    watch.fire('pointermove', 1, 95, 60);
+    expect(moves).toEqual([
+      [
+        { x: 50, y: 50 },
+        { x: 80, y: 50 },
+      ],
+      [
+        { x: 60, y: 60 },
+        { x: 90, y: 60 },
+        { shift: false, ctrl: false, alt: true },
+      ],
+      [
+        { x: 65, y: 60 },
+        { x: 95, y: 60 },
+      ],
     ]);
   });
 });

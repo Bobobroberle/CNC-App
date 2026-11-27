@@ -107,7 +107,7 @@ describe('the table of keys', () => {
 
   it('lists the taps and drags with a modifier as pointer rows – no key event, so no clash with a key', () => {
     const pointer = SHORTCUTS.filter((s) => s.pointer).map((s) => s.id);
-    expect(pointer).toEqual(['camTapAdd', 'camBandAdd', 'jogWheel']);
+    expect(pointer).toEqual(['camTapAdd', 'camBandAdd', 'camSnapOff', 'jogWheel']);
     for (const s of SHORTCUTS.filter((x) => x.pointer)) {
       expect(s.keys, s.id).toEqual([]);
       expect(s.runs, s.id).toBeUndefined();
@@ -125,8 +125,12 @@ describe('the table of keys', () => {
         id,
       ).toEqual(id === 'camTapAdd' ? ['tap', 'tap'] : ['drag', 'drag']);
     }
+    // Alt (Option) while a part is dragged: `modifiers.alt` of the gesture layer turns snapping off for that drag
+    const snapOff = SHORTCUTS.find((s) => s.id === 'camSnapOff')!;
+    expect(snapOff.scope).toBe('drawing');
+    expect(snapOff.caps).toEqual([['alt', 'drag']]);
     // the words for the caps exist in both languages
-    for (const cap of ['tap', 'drag']) {
+    for (const cap of ['tap', 'drag', 'alt']) {
       expect(hasKey(`find.caps.${cap}`), cap).toBe(true);
     }
   });

@@ -331,6 +331,25 @@ das CAM zu sehen.
       in der Liste bleibt es, abgeblendet, und lässt sich wieder einblenden (_Alle einblenden_ steht unter
       der Liste). Ein Teil in einer Gruppe, die auch sichtbare Teile hat, bleibt Teil der Gruppe und rückt mit.
       Tasten für Gruppieren und Ausrichten gibt es noch nicht.
+    - **Fangen, Abstände, Messen:** Beim Ziehen rastet ein Teil (oder die ganze Auswahl als ein Kasten) mit
+      linker, rechter und mittlerer Kante – und unten, oben, mittig – an der gleichen Linie anderer Teile
+      und am Rohteil ein, wenn eines eingegeben ist; die Reichweite sind 8 Bildschirmpunkte, bei jedem Zoom
+      gleich. Eine gestrichelte Hilfslinie zeigt, woran es rastet, und verschwindet beim Loslassen; wo
+      nichts nahe ist, gilt das Raster wie bisher. Am Rechner schaltet die Alt-Taste (Option) das Einrasten
+      für einen Zug aus; der Schalter _Fangen_ (merkt sich das Gerät) für immer – er steht zusammen mit
+      _Abstände zeigen_ unter dem eingeklappten Eintrag _Fangen und Abstände_. Passlöcher und
+      ausgeblendete Teile sind nie Ziel (auch nicht als Teil der bewegten Auswahl: ein ausgeblendetes
+      Teil einer Gruppe rastet nicht und misst nicht), ein Passloch allein rastet nirgends ein. Mit _Abstände zeigen_
+      (eigener Schalter) erscheint beim Ziehen der Abstand zum nächsten Nachbarn auf jeder Seite, wo einer
+      gegenüberliegt, als Maßlinie mit Zahl („12,3 mm“); sind zwei Abstände gegenüber gleich, tragen
+      beide ein „=“ und stehen in der Auswahlfarbe. _Messen_ ist eine Betriebsart der Zeichnung: Ein Tipp
+      auf den Tisch setzt Punkt A, der nächste Punkt B, ein dritter beginnt neu; die Punkte rasten an
+      Ecken, Kantenmitten und Kreismitten ein (sonst bleiben sie, wo sie gesetzt wurden; Alt-Taste: frei) und
+      lassen sich mit dem Finger verschieben; ein Doppeltipp setzt keine zwei Punkte, sondern passt die
+      Ansicht an. Die Karte zeigt Abstand, ΔX, ΔY und Winkel (gegen den
+      Uhrzeigersinn von der X-Achse, Y nach hinten); _Messung löschen_ nimmt die Punkte weg. Messen ändert
+      nichts an der Zeichnung, wählt nichts aus und ist kein Schritt für _Rückgängig_. Noch nicht:
+      Fangen beim Ändern der Größe oder Drehen mit den Griffen, Abstände zum Rohteilrand.
     - **Rückgängig / Wiederholen** (100 Schritte; Änderungen an einem Feld hintereinander sind ein
       Schritt) – Löschen fragt deshalb nicht nach.
     - **Tastatur (Laptop; alle Tasten zeigt `?`):** Entf/Rücktaste löscht, Esc hebt die Auswahl auf

@@ -80,6 +80,8 @@ import {
   type HandleId,
   type Resize,
 } from '../lib/camEdit';
+import { gapsAround, type Gap } from '../lib/camGaps';
+import { snapMove, snapTargets, type SnapGuide } from '../lib/camSnap';
 import {
   contoursBox,
   holeCentre,
@@ -184,6 +186,25 @@ export interface CamProblem {
   code: Problem['code'];
 }
 
+/** The points of a measurement: none yet, A alone, or both */
+export interface Measured {
+  a: Point | null;
+  b: Point | null;
+}
+const NOTHING_MEASURED: Measured = { a: null, b: null };
+
+/** What helps a finger that drags a part: how near a line must come to snap (mm; 0 = off) and whether the gaps show */
+export interface DragAssist {
+  snap?: number;
+  gaps?: boolean;
+}
+
+/** What the table shows while a part is dragged: the lines it snapped to and the room to its neighbours */
+export interface DragHints {
+  guides: SnapGuide[];
+  gaps: Gap[];
+}
+
 /** What can be set per item of the list. */
 export type ItemPatch = Partial<
   Pick<CamItem, 'kind' | 'tabs' | 'relief' | 'depth' | 'side' | 'climb'>
@@ -238,6 +259,25 @@ interface CamStore {
    */
   marquee: boolean;
   setMarquee(on: boolean): void;
+  /**
+   * "Messen" is on: a tap on the table sets the point A, the next one the point B (a third starts again), and
+   * the distance between them is read off – a mode of the screen like `multi` and `marquee`, never a step of the
+   * drawing: nothing is selected, changed or remembered by it. It clashes with the three modes that give a tap
+   * or a drag another meaning, so it ends them when it starts and any of them ends it; it is off when the
+   * drawing is closed.
+   */
+  measure: boolean;
+  /** The two points of the measurement, work mm – places on the table, not fastened to any part */
+  measured: Measured;
+  setMeasure(on: boolean): void;
+  /** The next tap: the first sets A, the second B, a third starts again with A */
+  measurePoint(p: Point): void;
+  /** A finger moves one of the two points */
+  moveMeasure(which: 'a' | 'b', p: Point): void;
+  /** Takes the points away ("Messung löschen"); the mode stays on */
+  clearMeasure(): void;
+  /** Puts the points back as they were (a tap that turns out to be the first of a double tap) */
+  restoreMeasure(before: Measured): void;
   /** Starts an empty drawing (or keeps the open one) */
   open(): void;
   close(): void;
@@ -371,10 +411,18 @@ interface CamStore {
   ): boolean;
   /**
    * The selection follows a finger: `move` shifts it by a distance from where
-   * it lay – its lower left corner landing on a grid of `step` mm, if given –
-   * and `end` makes the job anew. Null when nothing is selected.
+   * it lay – its lower left corner landing on a grid of `step` mm, if given, or its box snapping to the lines
+   * of the other parts and of the stock where `assist.snap` says how near that must be (mm; 0 or left out: no
+   * object snap, the grid alone, exactly as before) – and `end` makes the job anew. `move` answers what the
+   * table shows meanwhile (the guides of what snapped, the gaps to the neighbours if `assist.gaps`) – only
+   * where `assist` is given. A registration hole that is dragged alone is never snapped, and a hidden part of
+   * the selection is no line and no edge: snapping, guides and gaps go by the box of what is in sight (the grid
+   * by the box of all of it, as the position fields show). Null when nothing is selected.
    */
-  drag(): { move(dx: number, dy: number, step?: number): void; end(): void } | null;
+  drag(): {
+    move(dx: number, dy: number, step?: number, assist?: DragAssist): DragHints | undefined;
+    end(): void;
+  } | null;
   /**
    * A handle of the selection follows a finger from the work point `from`:
    * a corner or side changes the size (a drawn shape by its measures,
@@ -1006,6 +1054,8 @@ export const useCam = create<CamStore>((set, get) => {
     selected: null,
     multi: false,
     marquee: false,
+    measure: false,
+    measured: NOTHING_MEASURED,
     ahead: false,
     table: null,
     open() {
@@ -1019,6 +1069,8 @@ export const useCam = create<CamStore>((set, get) => {
         selected: null,
         multi: false,
         marquee: false,
+        measure: false,
+        measured: NOTHING_MEASURED,
         tabsOpen: null,
         past: [],
         future: [],
@@ -1333,8 +1385,13 @@ export const useCam = create<CamStore>((set, get) => {
         return { ...item.tabSpec!, at: at.filter((_, i) => i !== index) };
       });
     },
-    // Putting tabs by hand happens in the panel of the thing: it is open then
-    setPlacing: (placing) => set(placing === null ? { placing } : { placing, tabsOpen: placing }),
+    // Putting tabs by hand happens in the panel of the thing: it is open then; a tap puts a tab, so it ends measuring
+    setPlacing: (placing) =>
+      set(
+        placing === null
+          ? { placing }
+          : { placing, tabsOpen: placing, measure: false, measured: NOTHING_MEASURED },
+      ),
     openTabs(id) {
       const { project, placing } = get();
       const item = project?.items.find((i) => i.id === id);
@@ -1349,8 +1406,37 @@ export const useCam = create<CamStore>((set, get) => {
       });
     },
     closeTabs: () => set({ tabsOpen: null, placing: null }),
-    setMulti: (multi) => set({ multi }),
-    setMarquee: (marquee) => set({ marquee }),
+    // A tap that takes a part in or out and a drag that draws a frame are other uses of the finger than measuring
+    setMulti: (multi) =>
+      set(multi ? { multi, measure: false, measured: NOTHING_MEASURED } : { multi }),
+    setMarquee: (marquee) =>
+      set(marquee ? { marquee, measure: false, measured: NOTHING_MEASURED } : { marquee }),
+    // Measuring takes the finger for itself: the modes that give a tap or a drag another meaning end, and the
+    // tabs that were being put by hand with them; ending it takes the points away (they are places on the table
+    // that nothing keeps in step with the drawing)
+    setMeasure: (measure) =>
+      set(
+        measure
+          ? { measure, multi: false, marquee: false, placing: null, measured: NOTHING_MEASURED }
+          : { measure, measured: NOTHING_MEASURED },
+      ),
+    measurePoint(p) {
+      const { measure, measured } = get();
+      if (!measure) return;
+      set({
+        measured: !measured.a
+          ? { a: p, b: null }
+          : !measured.b
+            ? { a: measured.a, b: p }
+            : { a: p, b: null },
+      });
+    },
+    moveMeasure(which, p) {
+      const { measure, measured } = get();
+      if (measure && measured[which]) set({ measured: { ...measured, [which]: p } });
+    },
+    clearMeasure: () => set({ measured: NOTHING_MEASURED }),
+    restoreMeasure: (measured) => set({ measured }),
     select(selected) {
       lastField = null;
       // A list of groups is one selection like any other: none is nothing, one is that group; everything
@@ -1409,16 +1495,34 @@ export const useCam = create<CamStore>((set, get) => {
       const from = new Map(project.items.map((i) => [i.id, i.placement]));
       const before = snap();
       let dragged = false;
+      // What of it is in sight: a hidden member moves along (it is in the box the position fields show, which the
+      // grid rounds) but is no line to snap by and nothing to measure a gap from – it is not cut, and a hidden
+      // part is left out of aligning and of what is snapped to alike.
+      const seen = itemsBounds(inSight(chosen()));
+      // The others and the stock hold still while the finger moves: seen once. A registration hole that is
+      // dragged alone has nothing to snap to (a hole put on a line of a part cuts into it), and nothing in
+      // sight has no lines to snap.
+      const alone = !seen || chosen().every((i) => i.registration !== undefined);
+      const targets = alone ? [] : snapTargets(project.items, get().selected);
+      const stock = alone ? null : (enteredStock()?.box ?? null);
       return {
-        move(dx, dy, step = 0) {
+        move(dx, dy, step = 0, assist) {
           const p = get().project;
           if (!p) return;
           dragged = true;
-          if (step > 0) {
-            // Round numbers for the corner, so the position can be read and typed again.
-            dx = Math.round((box.minX + dx) / step) * step - box.minX;
-            dy = Math.round((box.minY + dy) / step) * step - box.minY;
-          }
+          // Always from the finger's own shift: the snap lets go again when the finger moves on. Round numbers
+          // for the corner of the grid, so the position can be read and typed again.
+          const snapped = snapMove(
+            seen ?? box,
+            { dx, dy },
+            targets,
+            stock,
+            assist?.snap ?? 0,
+            step,
+            box,
+          );
+          dx = snapped.dx;
+          dy = snapped.dy;
           const { selected } = get();
           // Only the outline follows the finger; the toolpath is made when it lets go.
           set({
@@ -1432,6 +1536,21 @@ export const useCam = create<CamStore>((set, get) => {
               }),
             },
           });
+          if (!assist || !seen || alone) return undefined;
+          return {
+            guides: snapped.guides,
+            gaps: assist.gaps
+              ? gapsAround(
+                  {
+                    minX: seen.minX + dx,
+                    minY: seen.minY + dy,
+                    maxX: seen.maxX + dx,
+                    maxY: seen.maxY + dy,
+                  },
+                  targets,
+                )
+              : [],
+          };
         },
         end() {
           if (!dragged || !get().project) return;

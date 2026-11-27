@@ -13,17 +13,22 @@ import {
   selectionFrame,
 } from '../lib/camEdit';
 import { holeCentre, isSelected, itemAt, itemsBounds } from '../lib/camItems';
+import { MEASURE_SNAP_PX, measureFeatures, measurement, snapMeasure } from '../lib/camMeasure';
+import { SNAP_PX, type SnapGuide } from '../lib/camSnap';
 import { itemTabMarks, placeNear, tabNear } from '../lib/camTabs';
 import { provideTableBox } from '../lib/tableBox';
-import { formatNumber } from '../lib/format';
+import { formatNumber, formatSigned } from '../lib/format';
 import { jigsWithTag, tagCorners, tagLabel } from '../lib/jigs';
 import { CHUNK_MM, frameCorners } from '../lib/photomap';
 import {
   additive,
+  DOUBLE_TAP_MS,
+  DOUBLE_TAP_SLOP,
   sameView,
   zoomAround,
   type Limits,
   type Modifiers,
+  type Point,
   type Transform,
 } from '../lib/gesture';
 import {
@@ -39,13 +44,15 @@ import {
   screenToWorld,
   type Colors,
   type BlankMark,
+  type GapMark,
+  type MeasureMark,
   type TagMark,
   type Scene,
   type Viewport,
 } from '../render/draw';
 import { LayerCache } from '../render/layer';
 import { buildPaths, projection, type Extent, type JobPaths } from '../render/paths';
-import { useCam } from '../store/cam';
+import { useCam, type DragHints } from '../store/cam';
 import { useClampHits, useWorkFixtures } from '../store/clamps';
 import { cameraElement, pictureSize, useCamera } from '../store/camera';
 import { useJigs } from '../store/jigs';
@@ -157,6 +164,11 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   // The holding tabs are drawn with the drawing's defaults and follow them; putting them by hand is a mode
   const tabDefaults = useCam((s) => s.settings.tabs);
   const placing = useCam((s) => s.placing);
+  // "Messen": a mode of the screen; its two points are places on the table
+  const measuring = useCam((s) => s.measure);
+  const measured = useCam((s) => s.measured);
+  // The series flow takes the place of the cards of the drawing – and so of the switches of its modes
+  const seriesOpen = useSeries((s) => s.open);
   /** What a finger is doing to the selected part of the drawing right now */
   const [held, setHeld] = useState<'size' | 'turn' | 'move' | null>(null);
 
@@ -239,6 +251,40 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
         : undefined;
     // Putting tabs by hand: the thing must still be the selected one
     const placingNow = placing !== null && chosenIds.has(placing);
+    // Measuring (only where its switch can be seen): the two points and what lies between them
+    const measureNow = measuring && !seriesOpen && project.items.length > 0;
+    let measureMark: MeasureMark | null = null;
+    let measureData: string | undefined;
+    if (measureNow && measured.a) {
+      const { a, b } = measured;
+      const result = b ? measurement(a, b) : null;
+      measureMark = {
+        a,
+        b,
+        names: [t('cam.measure.pointA'), t('cam.measure.pointB')],
+        label: result ? t('cam.measure.live', { d: formatNumber(result.distance, 2) }) : '',
+        detail: result
+          ? t('cam.measure.liveDetail', {
+              dx: formatSigned(result.dx, 2, true),
+              dy: formatSigned(result.dy, 2, true),
+              a: formatSigned(result.angle, 1),
+            })
+          : '',
+      };
+      const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
+      measureData = JSON.stringify({
+        a: { x: r4(a.x), y: r4(a.y) },
+        b: b ? { x: r4(b.x), y: r4(b.y) } : null,
+        ...(result
+          ? {
+              distance: r4(result.distance),
+              dx: r4(result.dx),
+              dy: r4(result.dy),
+              angle: r4(result.angle),
+            }
+          : {}),
+      });
+    }
     const all = itemsBounds(project.items);
     const backItems = project.items.filter((i) => i.side === 'back');
     const holes = project.items.filter((i) => i.registration !== undefined);
@@ -274,8 +320,10 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
               outline: outline(chosen),
               box: boundsExtent(box),
               frame,
-              // A registration hole is only moved; while tabs are put by hand the handles stay away
-              handles: !placingNow && !chosen.some((i) => i.registration !== undefined),
+              // A registration hole is only moved; while tabs are put by hand or a measurement is made the handles
+              // stay away
+              handles:
+                !placingNow && !measureNow && !chosen.some((i) => i.registration !== undefined),
               label,
             }
           : null,
@@ -288,9 +336,22 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       marks,
       tabsData,
       placing: placingNow,
+      measure: measureMark,
+      measureData,
       extent: all ? boundsExtent(all) : null,
     };
-  }, [drawingOpen, project, selected, top, held, tabDefaults, placing]);
+  }, [
+    drawingOpen,
+    project,
+    selected,
+    top,
+    held,
+    tabDefaults,
+    placing,
+    measuring,
+    measured,
+    seriesOpen,
+  ]);
   const drawingRef = useRef(drawing);
   // In the drawing workspace the tap tools and the clamps are out of reach of the finger.
   const drawingOpenRef = useRef(drawingOpen);
@@ -298,7 +359,6 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   drawingRef.current = drawing;
 
   // The blanks of a series: while it is being put together, and while its program is the job.
-  const seriesOpen = useSeries((s) => s.open);
   const seriesLoaded = useSeriesLoaded();
   const seriesPlan = useSeriesPlan();
   const refused = useSeries((s) => s.refused);
@@ -411,6 +471,13 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   // The frame being drawn across the table ("Rahmen aufziehen"): only the painter and the tests see it, while
   // the finger is down – it is not part of the drawing and never makes React render
   const marqueeRef = useRef<Extent | null>(null);
+  // What a part that is dragged shows: the lines it snapped to and the gaps to its neighbours – like the frame
+  // only while the finger is down, painted and told to the tests, never part of the drawing
+  const hintsRef = useRef<{ guides: SnapGuide[]; gaps: GapMark[] } | null>(null);
+  // The last tap of the measurement: where (CSS px), when and how to take it back. A finger that comes down on a
+  // point of the measurement is the grab's, not the gesture layer's – which then never sees the second tap of a
+  // double tap – so the grab asks this to tell the second tap from a new one (see `measureOn`)
+  const measureTapRef = useRef<{ p: Point; at: number; undo: () => void } | null>(null);
   sceneRef.current = {
     paths,
     segments: analysis?.segments ?? [],
@@ -442,6 +509,9 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     drawingTabs: drawing?.tabs,
     drawingTabsGrip: drawing?.placing,
     drawingMarquee: marqueeRef.current,
+    drawingGuides: hintsRef.current?.guides,
+    drawingGaps: hintsRef.current?.gaps,
+    drawingMeasure: drawing?.measure,
     sections: sections.mark,
   };
   const followRef = useRef(follow);
@@ -522,6 +592,18 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     if (settleTimer.current) clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(scheduleDraw, SETTLE_MS + 10);
   }
+
+  // The numbers drawn on the picture (the gaps, the measurement) are set in the bundled mono face; a canvas does
+  // not wait for a webfont, so it is asked for once and the picture drawn again when it is there
+  useEffect(() => {
+    try {
+      void document.fonts
+        ?.load('600 14px "JetBrains Mono Variable"')
+        .then(scheduleDraw, () => undefined);
+    } catch {
+      // a browser without the font API keeps the fallback face
+    }
+  }, [scheduleDraw]);
 
   useEffect(
     () => () => {
@@ -605,6 +687,13 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
    */
   const tapDrawing = (vp: Viewport, u: number, v: number, modifiers?: Modifiers) => {
     const cam = useCam.getState();
+    // Measuring: a tap sets a point (A, then B, then A again) – it selects nothing and changes nothing of the
+    // drawing; taken back like every tap if it turns out to be the first of a double tap
+    if (measureOn()) {
+      const before = cam.measured;
+      cam.measurePoint(measureSpot(vp, { x: u, y: v }, modifiers?.alt === true));
+      return () => useCam.getState().restoreMeasure(before);
+    }
     const more = additive(modifiers);
     // Putting tabs by hand: a tap on the line of that part puts a tab at the nearest place (taken
     // back, like every tap, if it turns out to be the first of a double tap); beside the line it
@@ -652,6 +741,84 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     scheduleDraw();
   };
 
+  /**
+   * What a dragged part shows (null: gone): the guides of what it snapped to and the gaps to its neighbours,
+   * painted and told to the tests as data attributes. Cleared when the finger lets go, whichever way it does.
+   */
+  const showHints = (hints: DragHints | null | undefined) => {
+    const shown =
+      hints && (hints.guides.length > 0 || hints.gaps.length > 0)
+        ? {
+            guides: hints.guides,
+            gaps: hints.gaps.map(
+              (g): GapMark => ({
+                side: g.side,
+                from: g.from,
+                to: g.to,
+                equal: g.equal,
+                text: t(g.equal ? 'cam.gap.equal' : 'cam.gap.label', { mm: mm(g.gap) }),
+              }),
+            ),
+          }
+        : null;
+    hintsRef.current = shown;
+    if (sceneRef.current) {
+      sceneRef.current.drawingGuides = shown?.guides;
+      sceneRef.current.drawingGaps = shown?.gaps;
+    }
+    const el = containerRef.current;
+    if (el) {
+      const r3 = (n: number) => Math.round(n * 1e3) / 1e3;
+      if (shown && shown.guides.length > 0) {
+        el.dataset.drawingSnap = JSON.stringify(
+          shown.guides.map((g) => ({ axis: g.axis, at: r3(g.at), from: r3(g.from), to: r3(g.to) })),
+        );
+      } else delete el.dataset.drawingSnap;
+      if (shown && shown.gaps.length > 0) {
+        el.dataset.drawingGaps = JSON.stringify(
+          shown.gaps.map((g, i) => ({
+            side: g.side,
+            gap: r3(hints!.gaps[i]!.gap),
+            equal: g.equal,
+            text: g.text,
+            from: { x: r3(g.from.x), y: r3(g.from.y) },
+            to: { x: r3(g.to.x), y: r3(g.to.y) },
+          })),
+        );
+      } else delete el.dataset.drawingGaps;
+    }
+    scheduleDraw();
+  };
+
+  /**
+   * Whether a tap or a drag measures: the mode is on, and its switch can be seen – a drawing with parts on the
+   * table, the series flow not open (it takes the place of the cards, the switch with them).
+   */
+  const measureOn = () =>
+    useCam.getState().measure &&
+    !seriesOpenRef.current &&
+    (useCam.getState().project?.items.length ?? 0) > 0;
+
+  /** A point of the measurement as the finger or the pointer puts it: snapped to a clear feature, else free */
+  const measureSpot = (vp: Viewport, free: { x: number; y: number }, alt: boolean) => {
+    const items = useCam.getState().project?.items ?? [];
+    const near = alt ? null : snapMeasure(free, measureFeatures(items), MEASURE_SNAP_PX / vp.scale);
+    return near ? { x: near.x, y: near.y } : free;
+  };
+
+  /**
+   * The tap of the measurement that a tap at `p` now is the second of – a double tap – or null. It lies within the
+   * gesture layer's own time and slop of the first.
+   */
+  const firstOfDouble = (p: Point) => {
+    const first = measureTapRef.current;
+    return first !== null &&
+      performance.now() - first.at < DOUBLE_TAP_MS &&
+      Math.hypot(p.x - first.p.x, p.y - first.p.y) < DOUBLE_TAP_SLOP
+      ? first
+      : null;
+  };
+
   // Fit on new job, view change or request; on resize only until the user pans or zooms.
   const userMoved = useRef(false);
   const gesture = usePanZoom(canvasEl, {
@@ -689,7 +856,22 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
           return () => useSeries.getState().toggle(hit.id);
         }
       }
-      if (drawingRef.current) return tapDrawing(vp, u, v, modifiers);
+      if (drawingRef.current) {
+        // The second tap of a double tap whose first was a finger on a point (the gesture layer knows nothing of
+        // that one): the first is taken back and the view answers
+        const first = measureOn() ? firstOfDouble(p) : null;
+        if (first) {
+          measureTapRef.current = null;
+          first.undo();
+          fitOrZoom(p);
+          return;
+        }
+        const undo = tapDrawing(vp, u, v, modifiers);
+        // A tap of the measurement is the first of a double tap, if one follows on the spot (the gesture layer
+        // itself takes the tap back then, where the second one is its own)
+        measureTapRef.current = undo && measureOn() ? { p, at: performance.now(), undo } : null;
+        return undo;
+      }
       if (drawingOpenRef.current || !top || !status?.wco) return;
       // Taken back if this tap turns out to be the first of a double tap.
       return tapStage(
@@ -712,8 +894,64 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
         const step = vp.scale < 12 ? 1 : vp.scale < 40 ? 0.5 : 0.1;
         const done = (end: () => void) => () => {
           setHeld(null);
+          // Whichever way the finger lets go (lifted, a second finger, a lost touch) the guides and gaps go
+          showHints(null);
           end();
         };
+        // What helps while a part is dragged: snapping (a threshold the same on the screen at every zoom) unless
+        // the switch is off or Alt is held – at the start or at any move –, and the gaps unless their switch is off
+        const aids = useUi.getState().aids;
+        const assist = (keys?: Modifiers) => ({
+          snap: aids.snap && modifiers?.alt !== true && keys?.alt !== true ? SNAP_PX / vp.scale : 0,
+          gaps: aids.gaps,
+        });
+        // Measuring: only the two points can be taken – by a finger that comes down on one of them; it follows
+        // the finger (from where it lies, not jumping to it) and snaps to a clear feature unless Alt is held.
+        // Anything else is the view's (a tap there sets a point). Nothing is selected, and nothing moves.
+        if (measureOn()) {
+          const reach = GRAB_PX / vp.scale;
+          const taken = (['a', 'b'] as const)
+            .filter((k) => cam.measured[k] !== null)
+            .map((k) => ({ k, p: cam.measured[k]! }))
+            .map((h) => ({ ...h, d: Math.hypot(h.p.x - u0, h.p.y - v0) }))
+            .filter((h) => h.d <= reach)
+            .sort((x, y) => x.d - y.d)[0];
+          if (!taken) return null;
+          return {
+            move(q, _finger, keys) {
+              const [u, v] = screenToWorld(vp, q.x, q.y);
+              const free = { x: taken.p.x + (u - u0), y: taken.p.y + (v - v0) };
+              cam.moveMeasure(
+                taken.k,
+                measureSpot(vp, free, modifiers?.alt === true || keys?.alt === true),
+              );
+            },
+            end: () => undefined,
+            // Lifted on the spot: a tap. With A alone a tap that close to it is B – the only way to a line shorter
+            // than a finger (the finger takes A first); with both set it leaves them where they are. The second
+            // tap of a double tap is none of these: the first is taken back and the view answers, as everywhere
+            tap: () => {
+              const first = firstOfDouble(p);
+              if (first) {
+                measureTapRef.current = null;
+                first.undo();
+                fitOrZoom(p);
+                return;
+              }
+              const before = useCam.getState().measured;
+              if (before.b === null) {
+                cam.measurePoint(measureSpot(vp, at, modifiers?.alt === true));
+              }
+              // …and is itself the first of a double tap, if one follows
+              measureTapRef.current = {
+                p,
+                at: performance.now(),
+                undo: () => useCam.getState().restoreMeasure(before),
+              };
+            },
+            yields: true,
+          };
+        }
         // Putting tabs by hand: a tab is taken first – dragged along the line it stands on, taken
         // back by a tap. On the part's own line a finger then moves the view (and a tap puts a tab):
         // no handle and no dragging of the part itself gets in the way.
@@ -806,7 +1044,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
             let drag = member || !hit ? cam.drag() : null;
             if (drag) setHeld('move');
             return {
-              move(q) {
+              move(q, _finger, keys) {
                 if (!drag) {
                   if (hit) cam.toggleSelect(hit.group);
                   drag = cam.drag();
@@ -814,7 +1052,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
                   setHeld('move');
                 }
                 const [u, v] = screenToWorld(vp, q.x, q.y);
-                drag.move(u - u0, v - v0, step);
+                showHints(drag.move(u - u0, v - v0, step, assist(keys)));
               },
               end: done(() => drag?.end()),
               // Lifted on the spot: a tap, as if the finger had not taken hold – with the mode on `pick`
@@ -829,9 +1067,9 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
           if (drag) {
             setHeld('move');
             return {
-              move(q) {
+              move(q, _finger, keys) {
                 const [u, v] = screenToWorld(vp, q.x, q.y);
-                drag.move(u - u0, v - v0, step);
+                showHints(drag.move(u - u0, v - v0, step, assist(keys)));
               },
               end: done(drag.end),
               yields: true,
@@ -848,21 +1086,25 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       const grab = grabStage(machine(p), GRAB_PX / vp.scale);
       return grab ? { move: (q) => grab.move(machine(q)), end: () => undefined } : null;
     },
-    // Double tap: back to the whole picture – or, from there, closer to the spot.
     doubleTap(p) {
-      const vp = viewportRef.current;
-      if (!vp || size.width === 0) return;
-      const fit = toTransform(fitted());
-      const now = toTransform(vp);
-      if (sameView(now, fit)) {
-        userMoved.current = true;
-        gesture.glideTo(zoomAround(now, p, DOUBLE_TAP_ZOOM));
-      } else {
-        userMoved.current = false;
-        gesture.glideTo(fit);
-      }
+      measureTapRef.current = null;
+      fitOrZoom(p);
     },
   });
+  // Double tap: back to the whole picture – or, from there, closer to the spot.
+  function fitOrZoom(p: Point) {
+    const vp = viewportRef.current;
+    if (!vp || size.width === 0) return;
+    const fit = toTransform(fitted());
+    const now = toTransform(vp);
+    if (sameView(now, fit)) {
+      userMoved.current = true;
+      gesture.glideTo(zoomAround(now, p, DOUBLE_TAP_ZOOM));
+    } else {
+      userMoved.current = false;
+      gesture.glideTo(fit);
+    }
+  }
 
   // With a mouse, the pointer says what a press would take: a handle, a part, or the view.
   useEffect(() => {
@@ -879,7 +1121,9 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
         const [u, v] = screenToWorld(vp, e.clientX - r.left, e.clientY - r.top);
         const handle = sel?.handles ? handleAt(sel.frame, { x: u, y: v }, vp.scale) : null;
         // With "Rahmen aufziehen" on a press draws a frame (nothing is taken by a handle or a line then)
-        if (frameOn(useCam.getState().marquee) && !drawingRef.current.placing) cursor = 'crosshair';
+        if (measureOn()) cursor = 'crosshair';
+        else if (frameOn(useCam.getState().marquee) && !drawingRef.current.placing)
+          cursor = 'crosshair';
         else if (sel && handle) cursor = handleCursor(sel.frame, handle);
         else if (itemAt(items, { x: u, y: v }, GRAB_PX / vp.scale, false)) cursor = 'move';
       }
@@ -1013,6 +1257,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       data-drawing-hidden={drawing?.hiddenBoxes}
       data-drawing-tabs={drawing?.tabsData}
       data-drawing-placing={drawing?.placing ? '1' : undefined}
+      data-drawing-measure={drawing?.measureData}
       data-zone={zones
         .filter((z) => z.selected)
         .map((z) => [z.box.minU, z.box.minV, z.box.maxU, z.box.maxV].map((n) => n.toFixed(1)))

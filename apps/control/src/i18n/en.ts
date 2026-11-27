@@ -2540,6 +2540,15 @@ export const en: DictionaryShape = {
       multi: 'Multi-select',
       multiHint:
         'A tap on a part takes it into the selection or out of it again. A tap beside everything leaves the selection as it is. On a computer this also works without this switch: hold Shift or Ctrl and tap.',
+      aids: 'Snapping and gaps',
+      snap: 'Snap',
+      snapHint:
+        'While a part is dragged it snaps to edges and middles of other parts and to the stock.',
+      snapAlt: 'On a computer the Alt key (Option) turns snapping off for one drag.',
+      gaps: 'Show gaps',
+      measure: 'Measure',
+      measureHint:
+        'A tap on the table sets point A, the next tap point B, a third starts over. The points snap to corners, edge middles and circle centres (Alt key: free) and can be moved. Nothing is selected or changed by it.',
       marquee: 'Draw a frame',
       marqueeHint:
         'Drag across the table: on release every part the frame touches joins the selection. With "Multi-select" on, or with Shift or Ctrl held, they are added to the selection, otherwise they replace it. Nothing is moved by it. To move or zoom the view: two fingers or the mouse wheel.',
@@ -2604,6 +2613,26 @@ export const en: DictionaryShape = {
           centresLabel: 'Distribute vertically: equal centres',
         },
       },
+    },
+    gap: {
+      label: '{mm} mm',
+      equal: '= {mm} mm',
+    },
+    measure: {
+      pointA: 'A',
+      pointB: 'B',
+      live: '{d} mm',
+      liveDetail: 'ΔX {dx} · ΔY {dy} · {a}°',
+      title: 'Measurement',
+      onlyA: 'Point A is set. A tap on the table sets point B.',
+      distance: 'Distance',
+      dx: 'ΔX',
+      dy: 'ΔY',
+      angle: 'Angle',
+      mm: '{v} mm',
+      deg: '{v}°',
+      angleNote: 'Counter-clockwise from the X axis, Y towards the back.',
+      clear: 'Clear the measurement',
     },
     hide: {
       hide: 'Hide part',
@@ -3574,6 +3603,7 @@ export const en: DictionaryShape = {
       camDeselect: 'Let go of the selection',
       camTapAdd: 'Take a part into the selection or out of it (without "Multi-select")',
       camBandAdd: 'Draw a frame: add to the selection',
+      camSnapOff: 'Drag a part without snapping (Snap off for this drag)',
       jogXY: 'Move X and Y',
       jogZ: 'Raise and lower Z',
       jogStop: 'Stop the move',
@@ -3713,6 +3743,12 @@ export const en: DictionaryShape = {
         'multi-select, select several, several parts, extend the selection, mark several, tap several, shift click, ctrl click, shift tap, ctrl tap, multiple selection, mehrfachauswahl, umschalt tipp, illustrator',
       camMarquee:
         'draw a frame, rubber band, marquee, selection frame, drag a rectangle, lasso, select several with one drag, box select, rahmen aufziehen, auswahlrahmen',
+      camSnap:
+        'snap, snapping, magnet, guides, smart guides, align while dragging, align to edge, align to middle, align to stock, alt key, option key, without snapping, fangen, einrasten, hilfslinie',
+      camGaps:
+        'show gaps, gap, gaps, spacing, distance to neighbour, dimensions while dragging, equal gaps, equal spacing, smart spacing, dimension, abstände zeigen, abstand, lücke',
+      camMeasure:
+        'measure, measure in the drawing, ruler, tape measure, distance, two points, length, angle, delta x, delta y, messen, lineal, maß nehmen, abstand messen',
       camHide:
         'hide part, hide, eye, eye icon, invisible, do not cut, leave a part out, visibility, ausblenden, auge, verstecken',
       camShowAll:

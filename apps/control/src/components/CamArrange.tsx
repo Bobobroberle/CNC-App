@@ -4,6 +4,8 @@ import { t, type MessageKey } from '../i18n';
 import { EDGES, unitsOf, type Axis, type Edge, type Spread } from '../lib/camArrange';
 import { frameAngle, frameSize, selectionFrame } from '../lib/camEdit';
 import { isSelected, itemsBounds, partsOf, type CamItem } from '../lib/camItems';
+import { measurement } from '../lib/camMeasure';
+import { formatNumber, formatSigned } from '../lib/format';
 import { useCam } from '../store/cam';
 import { useUi } from '../store/ui';
 import { describeItem, mm, NumberField } from './camParts';
@@ -88,6 +90,137 @@ function MarqueeSwitch() {
         <p className="text-muted-foreground text-sm" data-testid="cam-marquee-hint">
           {t('cam.arrange.marqueeHint')}
         </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * "Fangen": while a part is dragged on the table its box snaps to the lines of the other parts and of the stock.
+ * On until switched off – this device's choice, no step of the drawing; Alt (Option) turns it off for one drag.
+ */
+function SnapSwitch() {
+  const snap = useUi((s) => s.aids.snap);
+  return (
+    <div className="flex flex-col" data-find="cam-snap">
+      <Label className="min-h-target gap-3 font-normal">
+        <Checkbox
+          checked={snap}
+          data-testid="cam-snap"
+          onCheckedChange={(on) => useUi.getState().setAids({ snap: on })}
+        />
+        <span>{t('cam.arrange.snap')}</span>
+      </Label>
+      {snap ? (
+        <>
+          <p className="text-muted-foreground text-sm" data-testid="cam-snap-hint">
+            {t('cam.arrange.snapHint')}
+          </p>
+          {/* Alt is a key of a computer: said only where a keyboard is likely (DESIGN.md §8) */}
+          <p className="kbd-hint text-muted-foreground text-sm" data-testid="cam-snap-alt">
+            {t('cam.arrange.snapAlt')}
+          </p>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** "Abstände zeigen": while a part is dragged the room to its neighbours shows as dimension lines. Own switch, on. */
+function GapsSwitch() {
+  const gaps = useUi((s) => s.aids.gaps);
+  return (
+    <div className="flex flex-col" data-find="cam-gaps">
+      <Label className="min-h-target gap-3 font-normal">
+        <Checkbox
+          checked={gaps}
+          data-testid="cam-gaps"
+          onCheckedChange={(on) => useUi.getState().setAids({ gaps: on })}
+        />
+        <span>{t('cam.arrange.gaps')}</span>
+      </Label>
+    </div>
+  );
+}
+
+/**
+ * "Fangen" and "Abstände zeigen" together, folded away until they are wanted: both are on from the start, so
+ * nothing is needed from them every time – and their switches and words would otherwise stand above the real
+ * actions of the card, most of all in the small sheet of the machine's screen (DESIGN.md §2). Closed until it is
+ * opened once, then as it was left (`useUi.depth`); the quick search unfolds it for either switch.
+ */
+function DragAids() {
+  const open = useUi((s) => s.depth.camAids === 'more');
+  return (
+    <Fold
+      title={t('cam.arrange.aids')}
+      testId="cam-aids"
+      open={open}
+      onOpenChange={(next) => useUi.getState().setDepth('camAids', next ? 'more' : 'simple')}
+    >
+      <div className="contents">
+        <SnapSwitch />
+        <GapsSwitch />
+      </div>
+    </Fold>
+  );
+}
+
+/**
+ * "Messen": a tap on the table sets the point A, the next one B, a third starts again; the distance, ΔX, ΔY and
+ * the angle stand on the picture and here. Nothing is selected, changed or remembered by it. A mode of the
+ * screen like the two above – it ends them (they give a tap or a drag another meaning) and they end it.
+ */
+function MeasureSwitch() {
+  const measure = useCam((s) => s.measure);
+  const { a, b } = useCam((s) => s.measured);
+  const result = a && b ? measurement(a, b) : null;
+  return (
+    <div className="flex flex-col" data-find="cam-measure">
+      <Label className="min-h-target gap-3 font-normal">
+        <Checkbox
+          checked={measure}
+          data-testid="cam-measure"
+          onCheckedChange={(on) => useCam.getState().setMeasure(on)}
+        />
+        <span>{t('cam.arrange.measure')}</span>
+      </Label>
+      {measure && !a ? (
+        <p className="text-muted-foreground text-sm" data-testid="cam-measure-hint">
+          {t('cam.arrange.measureHint')}
+        </p>
+      ) : null}
+      {measure && a ? (
+        <div className="flex flex-col gap-2" data-testid="cam-measure-result">
+          {result ? (
+            <>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 tabular-nums">
+                <dt className="font-medium">{t('cam.measure.distance')}</dt>
+                <dd className="font-mono" data-testid="cam-measure-distance">
+                  {t('cam.measure.mm', { v: formatNumber(result.distance, 2) })}
+                </dd>
+                <dt className="font-medium">{t('cam.measure.dx')}</dt>
+                <dd className="font-mono" data-testid="cam-measure-dx">
+                  {t('cam.measure.mm', { v: formatSigned(result.dx, 2, true) })}
+                </dd>
+                <dt className="font-medium">{t('cam.measure.dy')}</dt>
+                <dd className="font-mono" data-testid="cam-measure-dy">
+                  {t('cam.measure.mm', { v: formatSigned(result.dy, 2, true) })}
+                </dd>
+                <dt className="font-medium">{t('cam.measure.angle')}</dt>
+                <dd className="font-mono" data-testid="cam-measure-angle">
+                  {t('cam.measure.deg', { v: formatSigned(result.angle, 1) })}
+                </dd>
+              </dl>
+              <p className="text-muted-foreground text-sm">{t('cam.measure.angleNote')}</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground text-sm">{t('cam.measure.onlyA')}</p>
+          )}
+          <Button variant="outline" onClick={() => useCam.getState().clearMeasure()}>
+            {t('cam.measure.clear')}
+          </Button>
+        </div>
       ) : null}
     </div>
   );
@@ -303,6 +436,8 @@ export function CamArrange() {
         </div>
         <MultiSwitch />
         <MarqueeSwitch />
+        <DragAids />
+        <MeasureSwitch />
       </div>
     );
   }
@@ -333,6 +468,8 @@ export function CamArrange() {
       </div>
       <MultiSwitch />
       <MarqueeSwitch />
+      <DragAids />
+      <MeasureSwitch />
       <div className="cam-actions two">
         <Button variant="outline" data-find="cam-select-all" onClick={cam.selectAll}>
           {t('cam.arrange.all')}

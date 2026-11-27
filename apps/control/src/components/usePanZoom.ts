@@ -17,9 +17,10 @@ export interface ViewGrab {
   /**
    * The finger is at `p` now (CSS px inside the view) – less the way it went inside the tap slop, so a thing that
    * follows it starts without a jump. `finger` is where the finger really is, for a thing that is drawn to it
-   * (the corner of a frame).
+   * (the corner of a frame). `modifiers` is passed only where Alt is held at this move (a key held down
+   * during the drag counts, not only one held as the finger came down).
    */
-  move(p: Point, finger?: Point): void;
+  move(p: Point, finger?: Point, modifiers?: Modifiers): void;
   /**
    * The finger let go, or the touch was lost. `lifted` is `true` only for a finger that was lifted – not for a
    * second finger that took the grab away, a lost touch or the app being left (it is not passed then): a thing
@@ -82,10 +83,13 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
     };
     const kind = (e: PointerEvent): PointerKind =>
       e.pointerType === 'mouse' ? 'mouse' : e.pointerType === 'pen' ? 'pen' : 'touch';
-    // Shift, and Ctrl or Cmd: only given on where one is held (the wheel's own Ctrl – a pinch – is not asked)
+    // Shift, Ctrl or Cmd, and Alt: only given on where one is held (the wheel's own Ctrl – a pinch – is not
+    // asked); `alt` is left off where it is not held
     const modifiers = (e: PointerEvent): Modifiers | undefined =>
-      e.shiftKey || e.ctrlKey || e.metaKey
-        ? { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey }
+      e.shiftKey || e.ctrlKey || e.metaKey || e.altKey
+        ? e.altKey
+          ? { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: true }
+          : { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey }
         : undefined;
     // A thing on the view that follows one finger; the view rests meanwhile.
     let drag: {
@@ -165,7 +169,10 @@ export function usePanZoom(el: HTMLElement | null, host: StageViewHost): PanZoom
           if (Math.hypot(p.x - drag.start.x, p.y - drag.start.y) <= drag.slop) return;
           drag.offset = { x: p.x - drag.start.x, y: p.y - drag.start.y };
         }
-        drag.grab.move({ x: p.x - drag.offset.x, y: p.y - drag.offset.y }, p);
+        const at = { x: p.x - drag.offset.x, y: p.y - drag.offset.y };
+        // Alt held now (not only as the finger came down) is told to the thing that is dragged
+        if (e.altKey) drag.grab.move(at, p, modifiers(e));
+        else drag.grab.move(at, p);
         return;
       }
       pz.move(e.pointerId, local(e), e.timeStamp);

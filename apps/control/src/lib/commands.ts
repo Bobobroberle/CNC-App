@@ -340,6 +340,27 @@ export const COMMANDS: readonly Command[] = [
     icon: 'select',
   }),
   entry({
+    id: 'camSnap',
+    title: 'cam.arrange.snap',
+    place: 'cam',
+    anchor: ['cam-snap', 'cam-multi', 'cam-draw'],
+    icon: 'alignLeft',
+  }),
+  entry({
+    id: 'camGaps',
+    title: 'cam.arrange.gaps',
+    place: 'cam',
+    anchor: ['cam-gaps', 'cam-multi', 'cam-draw'],
+    icon: 'spreadH',
+  }),
+  entry({
+    id: 'camMeasure',
+    title: 'cam.arrange.measure',
+    place: 'cam',
+    anchor: ['cam-measure', 'cam-multi', 'cam-draw'],
+    icon: 'measure',
+  }),
+  entry({
     id: 'camHide',
     title: 'cam.hide.hide',
     place: 'cam',

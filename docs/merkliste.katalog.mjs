@@ -257,16 +257,34 @@ add('cam', 'Auswählen & Anordnen', [
   [
     'cam-snap1',
     'Fangen an Kanten, Mitten und Rohteil',
-    'Beim Schieben rastet ein Teil an Kanten und Mitten anderer Teile und am Rohteil ein, mit sichtbarer Hilfslinie.',
+    'Beim Schieben rastet ein Teil an Kanten und Mitten anderer Teile und am Rohteil ein, mit sichtbarer Hilfslinie. Gebaut als Schalter „Fangen“ (an, das Gerät merkt es sich): Das Teil – oder die ganze Auswahl als ein Kasten – rastet mit links, rechts und mittig (unten, oben, mittig) an der gleichen Linie des Kastens einer anderen Gruppe oder des eingegebenen Rohteils ein, wenn sie näher als 8 Bildschirmpunkte kommt (bei jedem Zoom gleich); x und y getrennt, das nächste gewinnt. Wo nichts nahe ist, gilt das Raster Bit für Bit wie bisher (eine einzige Rundung, in snapMove). Ziel sind nie Passlöcher, ausgeblendete Teile oder Teile der Auswahl; ein ausgeblendetes Teil der bewegten Gruppe zählt nicht mit (gemessen wird der Kasten der Teile, die nicht ausgeblendet sind; das Raster behält den Kasten der ganzen Gruppe); ein Passloch allein rastet nirgends ein. Der Schalter steht zusammen mit „Abstände zeigen“ eingeklappt unter „Fangen und Abstände“. Die gestrichelte Hilfslinie in der Auswahlfarbe steht nur, solange der Finger unten ist. Am Rechner schaltet die Alt-Taste (Option) das Einrasten für einen Zug aus (auch mitten im Zug). Bewusst nur gleiche Linien (links an links, Mitte an Mitte): Kante an Gegenkante würde Teile ohne Fräserraum aneinanderlegen – cam-snap5. Fangen beim Ändern der Größe und Drehen mit den Griffen: cam-snap4. Im Browser mit Maus und mit echten Berührungen geprüft; nicht an der Maschine.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-snap2',
     'Abstände zwischen Teilen anzeigen',
-    'Beim Schieben erscheinen die Maße zu den Nachbarn (wie bei Illustrator).',
+    'Beim Schieben erscheinen die Maße zu den Nachbarn (wie bei Illustrator). Gebaut als eigener Schalter „Abstände zeigen“ (an, das Gerät merkt es sich; unabhängig von „Fangen“): Beim Ziehen steht auf jeder Seite, wo ein Nachbarteil gegenüberliegt (er überlappt in der anderen Achse), eine Maßlinie mit der Zahl in Millimetern („12,3 mm“, Monoschrift, neben der Linie, nicht unter dem Finger). Berührende Kästen haben 0, überlappende keinen Abstand; Teile, die sich nur an einer Ecke treffen, sind keine Nachbarn. Sind zwei Abstände gegenüber gleich (auf 0,05 mm), stehen beide in der Auswahlfarbe und tragen ein „=“. Nicht gebaut: der Abstand zum Rohteilrand (cam-snap6).',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
+  ],
+  [
+    'cam-snap4',
+    'Fangen auch beim Ändern der Größe und Drehen',
+    'Die Griffe der Auswahl rasten an denselben Linien ein wie das Schieben (Größe an Kanten und Mitten, Drehen an den Winkeln anderer Teile). Bisher rastet nur das Schieben; die Griffe nutzen weiter ihr Raster und die 15°-Schritte.',
+    'klein',
+  ],
+  [
+    'cam-snap5',
+    'Fangen mit Abstand (Kante an Gegenkante)',
+    'Teile nebeneinanderlegen: Eine Kante rastet an der Gegenkante eines Nachbarn ein, aber nicht auf 0, sondern mit einem einstellbaren Abstand (zum Beispiel Fräserdurchmesser + 2 mm). Bisher rasten nur gleiche Linien; Kante an Gegenkante würde ohne Abstand Teile aneinanderlegen, die der Fräser nicht trennen kann.',
+    'klein',
+  ],
+  [
+    'cam-snap6',
+    'Abstand zum Rohteilrand beim Ziehen',
+    'Beim Ziehen auch das Maß zu den vier Rändern des Rohteils zeigen (der Rand, der stehen bleibt), wo ein Rohteil eingegeben ist. Die Abstände zeigen bisher nur Nachbarteile.',
+    'klein',
   ],
   [
     'cam-snap3',
@@ -594,9 +612,15 @@ add('cam', 'Komfort', [
   [
     'cam-ux3',
     'Messen in der Zeichnung',
-    'Abstand zwischen zwei Punkten der Zeichnung ablesen, ohne etwas zu verändern.',
+    'Abstand zwischen zwei Punkten der Zeichnung ablesen, ohne etwas zu verändern. Gebaut als Betriebsart „Messen“ (Schalter wie „Mehrfachauswahl“ und „Rahmen aufziehen“, aus beim Schließen der Zeichnung, kein Schritt für „Rückgängig“): Ein Tipp auf den Tisch setzt Punkt A, der nächste Punkt B, ein dritter beginnt neu. Die Punkte rasten nur an klaren Merkmalen ein – Ecken (Abknick ab 30°), Mitten gerader Kanten, Kreismitten, auch von Passlöchern und der Rückseite, nicht von ausgeblendeten Teilen – sonst bleiben sie, wo sie gesetzt wurden; mit der Alt-Taste (Option) sind sie frei. Ein Finger auf einem Punkt verschiebt ihn; ein Doppeltipp setzt keine zwei Punkte, sondern nimmt den ersten Tipp zurück und passt die Ansicht an. Auf dem Tisch stehen Linie, Abstand, ΔX, ΔY und der Winkel (gegen den Uhrzeigersinn von der X-Achse, Y nach hinten), in der Karte dieselben Zahlen und „Messung löschen“. Es wird nichts ausgewählt oder verändert; die Betriebsart beendet Mehrfachauswahl, Rahmen und Stege setzen und wird von ihnen beendet, mit ihrem Ende gehen die Punkte weg. Das Messen der Einrichtung (Messpunkte für den Nullpunkt) bleibt, wie es war. Nicht gebaut: Ecken und Kantenmitten des Rohteils als Ziel (cam-ux7).',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
+  ],
+  [
+    'cam-ux7',
+    'Messen: Rohteil als Ziel',
+    'Die Ecken und Kantenmitten des eingegebenen Rohteils rasten beim Messen mit ein – der Abstand eines Teils zur Rohteilecke wäre damit ein Tipp. Bisher sind nur Teile Ziel.',
+    'klein',
   ],
   [
     'cam-ux4',

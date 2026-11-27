@@ -66,16 +66,20 @@ export type PointerKind = keyof typeof TAP_SLOP;
 
 /**
  * The keys held while a finger or the mouse goes down or lifts, on a computer: Shift, and Ctrl or Cmd (`ctrl`
- * is either). Only passed on when one of them is held – a host that is given none behaves as it always did.
+ * is either), and Alt (Option on a Mac). Only passed on when one of them is held – a host that is given none
+ * behaves as it always did – and `alt` is only there when it is held, so what was told before Alt came into it
+ * reads the same.
  */
 export interface Modifiers {
   shift: boolean;
   ctrl: boolean;
+  alt?: boolean;
 }
 
 /**
  * Whether Shift or Ctrl is held: the computer's way to what a touch screen has a switch for, adding to what
- * is selected without "Mehrfachauswahl". (The mouse wheel's Ctrl – a trackpad pinch – is no part of this.)
+ * is selected without "Mehrfachauswahl". (The mouse wheel's Ctrl – a trackpad pinch – is no part of this, and
+ * neither is Alt, which turns snapping off.)
  */
 export const additive = (modifiers?: Modifiers): boolean =>
   modifiers !== undefined && (modifiers.shift || modifiers.ctrl);

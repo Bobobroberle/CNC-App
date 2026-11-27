@@ -279,6 +279,17 @@ export const SHORTCUTS: readonly Shortcut[] = [
     pointer: true,
   },
   {
+    // Alt (Option) held while a part is dragged on the table: no snapping for that drag (`modifiers.alt` of
+    // `lib/gesture.ts`, read from the pointer event)
+    id: 'camSnapOff',
+    group: 'drawing',
+    scope: 'drawing',
+    label: 'find.keys.camSnapOff',
+    caps: [['alt', 'drag']],
+    keys: [],
+    pointer: true,
+  },
+  {
     id: 'jogXY',
     group: 'drive',
     scope: 'drive',

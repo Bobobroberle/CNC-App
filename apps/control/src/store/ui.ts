@@ -127,6 +127,22 @@ const validSheet = (value: unknown): Record<string, SheetLevel> | null => {
   return out;
 };
 
+/**
+ * What helps a finger that drags a part of the drawing: its box snaps to the lines of the other parts and of
+ * the stock (`snap`) and the room to the neighbours shows (`gaps`). Both are on until the operator switches
+ * one off – this device's choice, remembered, no step of the drawing.
+ */
+export interface DragAids {
+  snap: boolean;
+  gaps: boolean;
+}
+const AIDS_KEY = 'lowrider-control.dragAids';
+const validAids = (value: unknown): DragAids | null => {
+  if (typeof value !== 'object' || value === null) return null;
+  const { snap, gaps } = value as Record<string, unknown>;
+  return { snap: snap !== false, gaps: gaps !== false };
+};
+
 /** What the stage shows in a step when the operator has not chosen otherwise (DESIGN.md §5) */
 export type StageView = 'table' | 'camera' | '3d';
 export const STEP_STAGE: Record<Step | typeof CAM, StageView> = {
@@ -154,6 +170,9 @@ interface UiStore {
   /** Depth of the panels per area (§2), remembered */
   depth: Record<string, Depth>;
   setDepth(area: string, depth: Depth): void;
+  /** Snapping and the gaps while a part of the drawing is dragged (switches of the CAM card), remembered */
+  aids: DragAids;
+  setAids(patch: Partial<DragAids>): void;
   /** The bottom sheet's rest per place (600–1023 px and upright), remembered */
   sheet: Record<string, SheetLevel>;
   setSheet(place: string, level: SheetLevel): void;
@@ -228,6 +247,14 @@ export const useUi = create<UiStore>((set) => ({
       const next = { ...s.depth, [area]: depth };
       saveJson(browserStorage, DEPTH_KEY, next);
       return { depth: next };
+    });
+  },
+  aids: loadJson(browserStorage, AIDS_KEY, validAids, { snap: true, gaps: true }),
+  setAids(patch) {
+    set((s) => {
+      const next = { ...s.aids, ...patch };
+      saveJson(browserStorage, AIDS_KEY, next);
+      return { aids: next };
     });
   },
   sheet: loadJson(browserStorage, SHEET_KEY, validSheet, {}),

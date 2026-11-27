@@ -77,6 +77,114 @@ describe('the arranging tools of the drawing', () => {
     expect(cam().multi).toBe(false);
   });
 
+  it('folds "Fangen" and "Abstände zeigen" away at first – on, so nothing is needed from them – and keeps the fold as it was left', () => {
+    useUi.getState().setAids({ snap: true, gaps: true });
+    useUi.getState().setDepth('camAids', 'simple');
+    render(<CamCard />);
+    // One line in the card, closed: the two switches and their words are in the page (the search finds them) but
+    // not shown, and a switch that is on says nothing in the card's flow
+    const fold = screen.getByTestId('cam-aids');
+    const trigger = fold.querySelector<HTMLElement>('[data-fold-trigger]')!;
+    expect(trigger.textContent).toBe(t('cam.arrange.aids'));
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('checkbox', { name: t('cam.arrange.snap') })).toBeNull();
+    fireEvent.click(trigger);
+    expect(useUi.getState().depth.camAids).toBe('more');
+    expect(screen.getByRole('checkbox', { name: t('cam.arrange.snap') })).not.toBeNull();
+    expect(screen.getByRole('checkbox', { name: t('cam.arrange.gaps') })).not.toBeNull();
+    // folded once more: as it was left
+    fireEvent.click(trigger);
+    expect(useUi.getState().depth.camAids).toBe('simple');
+    useUi.getState().setDepth('camAids', 'more');
+  });
+
+  it('switches "Fangen" and "Abstände zeigen" – on at first, remembered for this device, with or without a selection', () => {
+    useUi.getState().setAids({ snap: true, gaps: true });
+    useUi.getState().setDepth('camAids', 'more');
+    render(<CamCard />);
+    const snap = () => screen.getByRole('checkbox', { name: t('cam.arrange.snap') });
+    const gaps = () => screen.getByRole('checkbox', { name: t('cam.arrange.gaps') });
+    expect(snap().getAttribute('aria-checked')).toBe('true');
+    expect(gaps().getAttribute('aria-checked')).toBe('true');
+    // what it does is said while snapping is on – and the way to hold Alt apart, as a hint of the keyboard
+    expect(screen.getByTestId('cam-snap-hint').textContent).toBe(t('cam.arrange.snapHint'));
+    const alt = screen.getByTestId('cam-snap-alt');
+    expect(alt.textContent).toBe(t('cam.arrange.snapAlt'));
+    expect(alt.classList.contains('kbd-hint')).toBe(true);
+    // each is a full target: the label around it is the target
+    expect(snap().closest('label')).not.toBeNull();
+    expect(gaps().closest('label')).not.toBeNull();
+    fireEvent.click(snap());
+    expect(useUi.getState().aids).toEqual({ snap: false, gaps: true });
+    expect(screen.queryByTestId('cam-snap-hint')).toBeNull();
+    expect(screen.queryByTestId('cam-snap-alt')).toBeNull();
+    // no step of the drawing
+    const steps = cam().past.length;
+    act(() => cam().select(a));
+    expect(snap().getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(gaps());
+    expect(useUi.getState().aids).toEqual({ snap: false, gaps: false });
+    expect(cam().past.length).toBe(steps);
+    // and kept: what the browser stored is what the store reads again
+    expect(JSON.parse(localStorage.getItem('lowrider-control.dragAids')!)).toEqual({
+      snap: false,
+      gaps: false,
+    });
+    useUi.getState().setAids({ snap: true, gaps: true });
+  });
+
+  it('switches "Messen", says what to do, and reads the measurement in numbers with a way to clear it', () => {
+    render(<CamCard />);
+    const mode = () => screen.getByRole('checkbox', { name: t('cam.arrange.measure') });
+    expect(mode().getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByTestId('cam-measure-hint')).toBeNull();
+    expect(screen.queryByTestId('cam-measure-result')).toBeNull();
+    fireEvent.click(mode());
+    expect(cam().measure).toBe(true);
+    expect(screen.getByTestId('cam-measure-hint').textContent).toBe(t('cam.arrange.measureHint'));
+    // A alone: said, with the way to start again
+    act(() => cam().measurePoint({ x: 0, y: 0 }));
+    expect(screen.queryByTestId('cam-measure-hint')).toBeNull();
+    const result = () => screen.getByTestId('cam-measure-result');
+    expect(result().textContent).toContain(t('cam.measure.onlyA'));
+    // both: 30/40 is a 3-4-5 triangle: 50 mm, +30, +40, and 53.1° counter-clockwise
+    act(() => cam().measurePoint({ x: 30, y: 40 }));
+    expect(screen.getByTestId('cam-measure-distance').textContent).toBe('50,00 mm');
+    expect(screen.getByTestId('cam-measure-dx').textContent).toBe('+30,00 mm');
+    expect(screen.getByTestId('cam-measure-dy').textContent).toBe('+40,00 mm');
+    expect(screen.getByTestId('cam-measure-angle').textContent).toBe('53,1°');
+    expect(result().textContent).toContain(t('cam.measure.angleNote'));
+    // the other way, y down: a real minus sign, no plus
+    act(() => cam().moveMeasure('b', { x: -30, y: -40 }));
+    expect(screen.getByTestId('cam-measure-dx').textContent).toBe('−30,00 mm');
+    expect(screen.getByTestId('cam-measure-angle').textContent).toBe('−126,9°');
+    // works with a selection too, and clearing keeps the mode
+    act(() => cam().select(b));
+    expect(screen.getByTestId('cam-measure-distance').textContent).toBe('50,00 mm');
+    fireEvent.click(button(t('cam.measure.clear')));
+    expect(cam().measured).toEqual({ a: null, b: null });
+    expect(cam().measure).toBe(true);
+    expect(screen.getByTestId('cam-measure-hint')).not.toBeNull();
+    // the rows of the list and the drawing are what they were
+    expect(items()).toHaveLength(3);
+    fireEvent.click(mode());
+    expect(cam().measure).toBe(false);
+  });
+
+  it('shows the three modes as exclusive: Messen, Mehrfachauswahl and Rahmen aufziehen end one another', () => {
+    render(<CamCard />);
+    const box = (key: Parameters<typeof t>[0]) => screen.getByRole('checkbox', { name: t(key) });
+    fireEvent.click(box('cam.arrange.multi'));
+    fireEvent.click(box('cam.arrange.measure'));
+    expect(box('cam.arrange.multi').getAttribute('aria-checked')).toBe('false');
+    expect(box('cam.arrange.measure').getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(box('cam.arrange.marquee'));
+    expect(box('cam.arrange.measure').getAttribute('aria-checked')).toBe('false');
+    expect(box('cam.arrange.marquee').getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(box('cam.arrange.measure'));
+    expect(box('cam.arrange.marquee').getAttribute('aria-checked')).toBe('false');
+  });
+
   it('selects everything and inverts, from the state with a selection', () => {
     render(<CamCard />);
     act(() => cam().select(b));
@@ -347,6 +455,9 @@ describe('the arranging tools of the drawing', () => {
       'camDistribute',
       'camGroup',
       'camUngroup',
+      'camSnap',
+      'camGaps',
+      'camMeasure',
     ];
     const first = (id: string, anchors: readonly string[]) =>
       anchors.find((anchor) => document.querySelector(`[data-find~="${anchor}"]`) !== null) ??
@@ -370,6 +481,14 @@ describe('the arranging tools of the drawing', () => {
       'cam-multi',
     );
     expect(first('camAlign', COMMANDS.find((c) => c.id === 'camAlign')!.anchor)).toBe('cam-multi');
+    // the switches of dragging and measuring are there with parts, picked or not
+    for (const [id, anchor] of [
+      ['camSnap', 'cam-snap'],
+      ['camGaps', 'cam-gaps'],
+      ['camMeasure', 'cam-measure'],
+    ] as const) {
+      expect(first(id, COMMANDS.find((c) => c.id === id)!.anchor), id).toBe(anchor);
+    }
     // one part: invert has its button, grouping and aligning still lead to the switch (their rows are not there)
     act(() => cam().select(cam().project!.items[0]!.group));
     expect(first('camInvert', COMMANDS.find((c) => c.id === 'camInvert')!.anchor)).toBe(

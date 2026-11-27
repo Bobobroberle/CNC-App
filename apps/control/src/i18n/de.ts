@@ -2582,6 +2582,15 @@ export const de = {
       marquee: 'Rahmen aufziehen',
       marqueeHint:
         'Über den Tisch ziehen: Beim Loslassen kommen alle Teile in die Auswahl, die der Rahmen berührt. Mit „Mehrfachauswahl“ oder gehaltener Umschalt-/Strg-Taste kommen sie zur Auswahl dazu, sonst ersetzen sie sie. Dabei wird nichts verschoben. Die Ansicht verschieben und zoomen: zwei Finger oder das Mausrad.',
+      aids: 'Fangen und Abstände',
+      snap: 'Fangen',
+      snapHint:
+        'Beim Ziehen rastet ein Teil an Kanten und Mitten anderer Teile und am Rohteil ein.',
+      snapAlt: 'Am Rechner schaltet die Alt-Taste (Option) das Einrasten für einen Zug aus.',
+      gaps: 'Abstände zeigen',
+      measure: 'Messen',
+      measureHint:
+        'Auf den Tisch tippen setzt Punkt A, der nächste Tipp Punkt B, ein dritter beginnt von vorn. Die Punkte rasten an Ecken, Kantenmitten und Kreismitten ein (Alt-Taste: frei) und lassen sich verschieben. Dabei wird nichts ausgewählt und nichts verändert.',
       parts: '{n} Teile',
       partsOf: '{n} Teile, {m} Konturen',
       groupOf: 'Gruppe aus {m} Konturen',
@@ -2643,6 +2652,26 @@ export const de = {
           centresLabel: 'Senkrecht verteilen: gleiche Mitten',
         },
       },
+    },
+    gap: {
+      label: '{mm} mm',
+      equal: '= {mm} mm',
+    },
+    measure: {
+      pointA: 'A',
+      pointB: 'B',
+      live: '{d} mm',
+      liveDetail: 'ΔX {dx} · ΔY {dy} · {a}°',
+      title: 'Messung',
+      onlyA: 'Punkt A steht. Auf den Tisch tippen setzt Punkt B.',
+      distance: 'Abstand',
+      dx: 'ΔX',
+      dy: 'ΔY',
+      angle: 'Winkel',
+      mm: '{v} mm',
+      deg: '{v}°',
+      angleNote: 'Gegen den Uhrzeigersinn von der X-Achse, Y nach hinten.',
+      clear: 'Messung löschen',
     },
     hide: {
       hide: 'Teil ausblenden',
@@ -3627,6 +3656,7 @@ export const de = {
       camDeselect: 'Auswahl loslassen',
       camTapAdd: 'Teil in die Auswahl nehmen oder herausnehmen (ohne „Mehrfachauswahl“)',
       camBandAdd: 'Rahmen aufziehen: zur Auswahl hinzufügen',
+      camSnapOff: 'Teil ziehen ohne Einrasten (Fangen für diesen Zug aus)',
       jogXY: 'X und Y fahren',
       jogZ: 'Z heben und senken',
       jogStop: 'Fahrt anhalten',
@@ -3780,6 +3810,12 @@ export const de = {
         'mehrfachauswahl, mehrere auswählen, mehrere teile, mehrfach, auswahl erweitern, mehrere markieren, mehrere teile anfassen, mehrere antippen, multi select, shift, umschalt, umschalt tipp, strg tipp, ctrl klick, shift klick, illustrator',
       camMarquee:
         'rahmen aufziehen, auswahlrahmen, rechteck aufziehen, gummiband, lasso, mehrere mit einem zug, über mehrere teile ziehen, marquee, rubber band, rahmen, box select',
+      camSnap:
+        'fangen, einrasten, einrasten an kanten, rasten, magnet, hilfslinie, hilfslinien, ausrichten beim schieben, an kante ausrichten, an mitte ausrichten, am rohteil ausrichten, snap, snapping, smart guides, alt taste, option taste, ohne einrasten, magnetisch',
+      camGaps:
+        'abstände zeigen, abstand, abstände, abstand zum nachbarn, lücke, spalt, maß, maße beim schieben, gleiche abstände, gleichen abstand, bemaßung, distanz, gap, spacing, smart spacing, dimension',
+      camMeasure:
+        'messen, messen in der zeichnung, abstand messen, maß nehmen, lineal, maßband, zwei punkte, länge messen, winkel messen, entfernung, delta x, delta y, ruler, measure, distance, angle, tape measure',
       camHide:
         'teil ausblenden, ausblenden, auge, augensymbol, verstecken, unsichtbar, nicht fräsen, teil weglassen, sichtbarkeit, hide, eye, layer aus',
       camShowAll:

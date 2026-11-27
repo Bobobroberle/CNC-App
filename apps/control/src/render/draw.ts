@@ -1,5 +1,6 @@
 import type { Segment, Vec4 } from '@lowrider/gcode-core';
 import { frameCorners, frameHandles, type Frame } from '../lib/camEdit';
+import type { SnapGuide } from '../lib/camSnap';
 import { DEPTH_BUCKETS, traceSegment, type Extent, type JobPaths } from './paths';
 
 export interface Viewport {
@@ -93,6 +94,12 @@ export interface Scene {
   drawingHidden?: Path2D | null;
   /** The frame a finger is drawing across the table ("Rahmen aufziehen"), work XY: dashed, in the selection colour */
   drawingMarquee?: Extent | null;
+  /** The lines a dragged part has snapped to, work XY: thin, dashed, in the selection colour – only while it is dragged */
+  drawingGuides?: readonly SnapGuide[];
+  /** The room from a dragged part to its neighbours, as dimension lines with their numbers – only while it is dragged */
+  drawingGaps?: readonly GapMark[];
+  /** The measurement of "Messen": its points and what stands at the line between them */
+  drawingMeasure?: MeasureMark | null;
   /** The line a two-sided part is turned over: from x/y to x/y, work XY */
   flipLine?: readonly [number, number, number, number] | null;
   /** The part of it that is selected for arranging, with the box around it */
@@ -116,6 +123,29 @@ export interface Scene {
   drawingTabsGrip?: boolean;
   /** A part longer than the table, around the section that is the job; top view only */
   sections?: SectionsMark | null;
+}
+
+/** One gap as the table draws it: a dimension line across the room between two parts, with its number */
+export interface GapMark {
+  /** The side of the dragged part it lies on */
+  side: 'left' | 'right' | 'up' | 'down';
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  /** What stands at the line: the number, with the equals sign where the gap on the other side is as large */
+  text: string;
+  /** As large as the one on the opposite side: both are drawn in the selection colour */
+  equal: boolean;
+}
+
+/** The measurement as the table draws it, work XY */
+export interface MeasureMark {
+  a: { x: number; y: number };
+  b: { x: number; y: number } | null;
+  /** The names of the two points beside them */
+  names: readonly [string, string];
+  /** The distance, and below it ΔX, ΔY and the angle – empty while there is only A */
+  label: string;
+  detail: string;
 }
 
 /** One holding tab as the table draws it. */
@@ -415,6 +445,7 @@ export function drawTable(
     | 'drawingTabs'
     | 'drawingTabsGrip'
     | 'drawingMarquee'
+    | 'drawingGuides'
     | 'sections'
   >,
   c: Colors,
@@ -520,6 +551,24 @@ export function drawTable(
     ctx.setLineDash([]);
   }
   if (scene.drawingTabs?.length) drawTabs(ctx, vp, scene.drawingTabs, !!scene.drawingTabsGrip, c);
+  if (scene.drawingGuides?.length) {
+    // What the dragged part snapped to: a thin dashed line through the lines that meet, in the selection colour
+    ctx.strokeStyle = c.live;
+    ctx.lineWidth = px(1.25);
+    ctx.setLineDash([px(5), px(4)]);
+    ctx.beginPath();
+    for (const g of scene.drawingGuides) {
+      if (g.axis === 'x') {
+        ctx.moveTo(g.at, g.from);
+        ctx.lineTo(g.at, g.to);
+      } else {
+        ctx.moveTo(g.from, g.at);
+        ctx.lineTo(g.to, g.at);
+      }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   if (scene.drawingMarquee) {
     // The frame of the selection being drawn: a light wash and a dashed line in the selection colour
     ctx.globalAlpha = 0.12;
@@ -884,6 +933,169 @@ export function drawOverlay(
   drawTags(ctx, vp, scene, c);
   drawZoneNames(ctx, vp, scene, c);
   drawHandles(ctx, vp, scene, c);
+  // Over the handles: a number that stands where a handle does (a gap of 0, at the middle of a side) must be read
+  drawGaps(ctx, vp, scene, c);
+  drawMeasure(ctx, vp, scene, c);
+}
+
+/** The numbers on the drawing are set in the mono face (the bundled webfont: the table view loads it once) */
+const MONO =
+  '600 14px "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+
+/** Text on a light wash of the table's own background, so it reads over lines and photos alike */
+function tag(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  vp: Viewport,
+  c: Colors,
+  colour: string,
+  align: 'center' | 'left' = 'center',
+) {
+  ctx.font = MONO;
+  const width = ctx.measureText(text).width;
+  const w = width + 12;
+  const h = 22;
+  // Kept inside the picture: a number must not run off its edge
+  const left = Math.min(
+    Math.max(align === 'center' ? x - w / 2 : x, 4),
+    Math.max(4, vp.width - w - 4),
+  );
+  const top = Math.min(Math.max(y - h / 2, 4), Math.max(4, vp.height - h - 4));
+  ctx.globalAlpha = 0.88;
+  ctx.fillStyle = c.bg;
+  ctx.fillRect(left, top, w, h);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = colour;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, left + 6, top + h / 2 + 0.5);
+  ctx.textBaseline = 'alphabetic';
+}
+
+/** A line on a dark rim, so it keeps its colour over a photo of the table */
+function rimmed(
+  ctx: CanvasRenderingContext2D,
+  c: Colors,
+  colour: string,
+  width: number,
+  trace: () => void,
+) {
+  ctx.beginPath();
+  trace();
+  ctx.strokeStyle = c.bg;
+  ctx.lineWidth = width + 3;
+  ctx.stroke();
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+
+/**
+ * The gaps of a dragged part: a dimension line across each, with a short tick at both ends and the number
+ * beside it – above a line that runs across, to the right of one that runs up, never on the part's own
+ * edge where the finger is. Two equal gaps on opposite sides have their lines in the selection colour and an "="
+ * in their text, so the state never shows by colour alone.
+ */
+function drawGaps(
+  ctx: CanvasRenderingContext2D,
+  vp: Viewport,
+  scene: Pick<Scene, 'drawingGaps'>,
+  c: Colors,
+) {
+  const gaps = scene.drawingGaps;
+  if (!gaps || gaps.length === 0) return;
+  ctx.setTransform(vp.dpr, 0, 0, vp.dpr, 0, 0);
+  ctx.setLineDash([]);
+  ctx.lineCap = 'butt';
+  const TICK = 6;
+  for (const g of gaps) {
+    const [x1, y1] = worldToScreen(vp, g.from.x, g.from.y);
+    const [x2, y2] = worldToScreen(vp, g.to.x, g.to.y);
+    const colour = g.equal ? c.live : c.tool;
+    const across = g.side === 'left' || g.side === 'right';
+    rimmed(ctx, c, colour, 1.5, () => {
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      for (const [x, y] of [
+        [x1, y1],
+        [x2, y2],
+      ] as const) {
+        if (across) {
+          ctx.moveTo(x, y - TICK);
+          ctx.lineTo(x, y + TICK);
+        } else {
+          ctx.moveTo(x - TICK, y);
+          ctx.lineTo(x + TICK, y);
+        }
+      }
+    });
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    // The words stay in the plain text colour (the selection colour is a line colour: 7:1 is for text) – the
+    // equals sign in them says what the colour of the lines says
+    if (across) tag(ctx, g.text, mx, my - 20, vp, c, c.tool);
+    else tag(ctx, g.text, mx + 12, my, vp, c, c.tool, 'left');
+  }
+  // What the rest of the overlay (and the next frame's table) expects
+  ctx.lineCap = 'round';
+}
+
+/**
+ * The measurement: a line from A to B on a rim, a small round handle at each point (the finger's target is
+ * larger than the dot) with its name beside it, and the distance with ΔX, ΔY and the angle at the middle of
+ * the line, on the side that is up on the screen.
+ */
+function drawMeasure(
+  ctx: CanvasRenderingContext2D,
+  vp: Viewport,
+  scene: Pick<Scene, 'drawingMeasure'>,
+  c: Colors,
+) {
+  const m = scene.drawingMeasure;
+  if (!m) return;
+  ctx.setTransform(vp.dpr, 0, 0, vp.dpr, 0, 0);
+  ctx.setLineDash([]);
+  ctx.lineCap = 'round';
+  const [ax, ay] = worldToScreen(vp, m.a.x, m.a.y);
+  const b = m.b ? worldToScreen(vp, m.b.x, m.b.y) : null;
+  if (b) {
+    rimmed(ctx, c, c.tool, 1.5, () => {
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(b[0], b[1]);
+    });
+  }
+  // The name stands beyond its dot, on the line's own way out – so a short line has its names apart and the
+  // numbers (at the middle) clear of them; A alone has it to the upper right
+  const dot = (x: number, y: number, name: string, from: readonly [number, number] | null) => {
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = c.live;
+    ctx.fill();
+    ctx.strokeStyle = c.tool;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    const away = from ? Math.hypot(x - from[0], y - from[1]) : 0;
+    const [ux, uy] = away > 1 ? [(x - from![0]) / away, (y - from![1]) / away] : [0.7, -0.7];
+    tag(ctx, name, x + ux * 20, y + uy * 20, vp, c, c.tool);
+  };
+  dot(ax, ay, m.names[0], b);
+  if (b) dot(b[0], b[1], m.names[1], [ax, ay]);
+  if (b && m.label) {
+    const mx = (ax + b[0]) / 2;
+    const my = (ay + b[1]) / 2;
+    // Beside the line, on its upper side (a vertical one: to the right), clear of the dots
+    const steep = Math.abs(b[1] - ay) > 3 * Math.abs(b[0] - ax);
+    if (steep) {
+      tag(ctx, m.label, mx + 12, my - 14, vp, c, c.tool, 'left');
+      tag(ctx, m.detail, mx + 12, my + 12, vp, c, c.tool, 'left');
+    } else {
+      tag(ctx, m.label, mx, my - 36, vp, c, c.tool);
+      tag(ctx, m.detail, mx, my - 12, vp, c, c.tool);
+    }
+  }
+  ctx.textAlign = 'start';
 }
 
 /** Drawn size of a handle of the selected part of the drawing, CSS px (its touch target is larger) */

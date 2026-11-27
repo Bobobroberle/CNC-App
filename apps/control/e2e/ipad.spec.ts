@@ -1630,3 +1630,195 @@ test('the eye of a part is a full target, and a hidden part is out of reach of a
     .poll(async () => table.getAttribute('data-drawing-selected'))
     .toBe('100.0,40.0,130.0,70.0');
 });
+
+test('a part dragged by finger snaps to a line: guide and gaps while the finger is down, gone when it lifts, one step of undo', async ({
+  page,
+}) => {
+  await openApp(page);
+  const cam = await drawThreePlates(page);
+  const arrange = cam.getByTestId('cam-arrange');
+  const table = page.getByTestId('table-view');
+  const touch = await Touch.on(page);
+  await restingTable(page);
+  await arrange.getByRole('button', { name: 'Auswahl aufheben' }).tap();
+  await expect(table).not.toHaveAttribute('data-drawing-selected');
+  const view = await restingTable(page);
+  // Three plates: A 0 0 40 20 · B 100 40 130 70 · C 60 100 110 110. A's left edge 0.8 of the threshold beside C's
+  // left edge (60), closer to the line than to the grid's whole mm
+  const off = Math.min((0.8 * 8) / view.scale, 1.4);
+  expect(off).toBeGreaterThan(0.6);
+  const box = async () =>
+    ((await table.getAttribute('data-drawing-selected')) ?? '').split(',').map(Number);
+  const snap = async () => table.getAttribute('data-drawing-snap');
+  // The switches are full targets – the two that are on stand folded under one line, itself a full target
+  const fold = arrange.getByRole('button', { name: 'Fangen und Abstände' });
+  expect((await fold.boundingBox())!.height).toBeGreaterThanOrEqual(47.5);
+  await fold.tap();
+  await expect(arrange.getByRole('checkbox', { name: 'Fangen', exact: true })).toBeVisible();
+  for (const name of ['Fangen', 'Abstände zeigen', 'Messen']) {
+    const row = cam.getByText(name, { exact: true }).locator('xpath=ancestor::label');
+    expect((await row.boundingBox())!.height, name).toBeGreaterThanOrEqual(47.5);
+  }
+  await page.waitForTimeout(400);
+  const grip = await tableSpot(page, { x: 10, y: 0 });
+  expect(await onStage(page, grip)).toBe(true);
+  await touch.start({ id: 1, x: grip.x, y: grip.y });
+  // Past the slop first, along x: the plate then follows the finger without a lag in y
+  await touch.move([{ id: 1, x: grip.x + 14, y: grip.y }], 1);
+  await touch.move(
+    [{ id: 1, x: grip.x + 14 + (60 + off) * view.scale, y: grip.y - 30 * view.scale }],
+    10,
+  );
+  await expect.poll(snap).not.toBeNull();
+  const guides = JSON.parse((await snap())!) as { axis: string; at: number }[];
+  expect(guides.map((g) => [g.axis, g.at])).toEqual([['x', 60]]);
+  const gaps = JSON.parse((await table.getAttribute('data-drawing-gaps'))!) as {
+    side: string;
+    gap: number;
+  }[];
+  expect(gaps.map((g) => [g.side, g.gap])).toEqual([
+    ['right', 0],
+    ['up', 50],
+  ]);
+  expect(await rested(page, box)).toEqual([60, 30, 100, 50]);
+  // The view rests meanwhile
+  expect(await tableGeometry(page)).toEqual(view);
+  await touch.end();
+  await expect.poll(snap).toBeNull();
+  await expect(table).not.toHaveAttribute('data-drawing-gaps');
+  expect(await rested(page, box)).toEqual([60, 30, 100, 50]);
+  // One step of undo brings it back
+  await cam.getByRole('button', { name: 'Rückgängig', exact: true }).tap();
+  await expect.poll(box).toEqual([0, 0, 40, 20]);
+
+  // A touch the system takes away leaves nothing of the guides behind
+  await page.waitForTimeout(400);
+  await arrange.getByRole('button', { name: 'Auswahl aufheben' }).tap();
+  await touch.start({ id: 1, x: grip.x, y: grip.y });
+  await touch.move([{ id: 1, x: grip.x + 14, y: grip.y }], 1);
+  await touch.move(
+    [{ id: 1, x: grip.x + 14 + (60 + off) * view.scale, y: grip.y - 30 * view.scale }],
+    10,
+  );
+  await expect.poll(snap).not.toBeNull();
+  await touch.cancel();
+  await expect.poll(snap).toBeNull();
+  await expect(table).not.toHaveAttribute('data-drawing-gaps');
+});
+
+test('measuring by finger: taps set A and B on corners, a finger on a point moves it, beside it the view pans', async ({
+  page,
+}) => {
+  await openApp(page);
+  const cam = await drawThreePlates(page);
+  const arrange = cam.getByTestId('cam-arrange');
+  const table = page.getByTestId('table-view');
+  const touch = await Touch.on(page);
+  await restingTable(page);
+  await arrange.getByRole('button', { name: 'Auswahl aufheben' }).tap();
+  const view = await restingTable(page);
+  const measured = async () => {
+    const text = await table.getAttribute('data-drawing-measure');
+    return text === null
+      ? null
+      : (JSON.parse(text) as {
+          a: { x: number; y: number };
+          b: { x: number; y: number } | null;
+        });
+  };
+  await cam.getByText('Messen', { exact: true }).tap();
+  await expect(arrange.getByRole('checkbox', { name: 'Messen', exact: true })).toBeChecked();
+  const spot = async (x: number, y: number) => {
+    const at = await tableSpot(page, { x, y });
+    expect(await onStage(page, at), `${x},${y} is on the stage`).toBe(true);
+    return at;
+  };
+  // A and B: a finger's width beside two corners – both snap to the corner
+  await page.waitForTimeout(400);
+  const a = await spot(1, 1);
+  await touch.tap(a.x, a.y);
+  await expect.poll(measured).toMatchObject({ a: { x: 0, y: 0 }, b: null });
+  await page.waitForTimeout(400);
+  const b = await spot(131, 71);
+  await touch.tap(b.x, b.y);
+  await expect.poll(async () => (await measured())?.b).toEqual({ x: 130, y: 70 });
+  await expect(arrange.getByTestId('cam-measure-distance')).toHaveText('147,65 mm');
+  // Nothing was selected
+  await expect(table).not.toHaveAttribute('data-drawing-selected');
+
+  // A finger on B's point takes it and carries it to a spot beside the corner 100 40: it snaps there
+  await page.waitForTimeout(400);
+  const handle = await spot(130, 70);
+  const target = await spot(101, 41);
+  await touch.start({ id: 1, x: handle.x, y: handle.y });
+  await touch.move([{ id: 1, x: handle.x + 14, y: handle.y }], 1);
+  await touch.move([{ id: 1, x: target.x + 14, y: target.y }], 10);
+  await touch.end();
+  await expect.poll(async () => (await measured())?.b).toEqual({ x: 100, y: 40 });
+  expect(await tableGeometry(page)).toEqual(view);
+
+  // Beside the points one finger pans the view
+  await page.waitForTimeout(400);
+  const empty = await spot(30, 60);
+  await touch.start({ id: 1, x: empty.x, y: empty.y });
+  await touch.move([{ id: 1, x: empty.x + 70, y: empty.y }], 8);
+  await touch.end();
+  await expect
+    .poll(async () => (await tableGeometry(page)).originX)
+    .toBeGreaterThan(view.originX + 20);
+  expect((await measured())?.b).toEqual({ x: 100, y: 40 });
+  await expect(table).not.toHaveAttribute('data-drawing-selected');
+});
+
+test('measuring by finger: a double tap fits or zooms the view and takes its first tap back – the points stay', async ({
+  page,
+}) => {
+  await openApp(page);
+  const cam = await drawThreePlates(page);
+  const arrange = cam.getByTestId('cam-arrange');
+  const table = page.getByTestId('table-view');
+  const touch = await Touch.on(page);
+  await restingTable(page);
+  await arrange.getByRole('button', { name: 'Auswahl aufheben' }).tap();
+  const measured = async () => {
+    const text = await table.getAttribute('data-drawing-measure');
+    return text === null ? null : (JSON.parse(text) as { a: unknown; b: unknown });
+  };
+  await cam.getByText('Messen', { exact: true }).tap();
+  await expect(arrange.getByRole('checkbox', { name: 'Messen', exact: true })).toBeChecked();
+  const spot = async (x: number, y: number) => {
+    const at = await tableSpot(page, { x, y });
+    expect(await onStage(page, at), `${x},${y} is on the stage`).toBe(true);
+    return at;
+  };
+  await page.waitForTimeout(400);
+  const a = await spot(1, 1);
+  await touch.tap(a.x, a.y);
+  await expect.poll(measured).toMatchObject({ a: { x: 0, y: 0 }, b: null });
+  await page.waitForTimeout(400);
+  const b = await spot(131, 71);
+  await touch.tap(b.x, b.y);
+  await expect.poll(async () => (await measured())?.b).toEqual({ x: 130, y: 70 });
+  const pair = await measured();
+  const before = await restingTable(page);
+
+  // A double tap on a free spot is not two points: the first tap is taken back – A and B are as they were – and
+  // the view answers: from a view that is not the whole table's, the whole table
+  await page.waitForTimeout(400);
+  const free = await spot(30, 60);
+  await touch.tap(free.x, free.y);
+  await touch.tap(free.x, free.y);
+  await expect
+    .poll(async () => Math.abs((await tableGeometry(page)).scale / before.scale - 1))
+    .toBeGreaterThan(0.01);
+  const whole = await restingTable(page);
+  expect(await measured()).toEqual(pair);
+  // …and from the whole table the next one comes closer to the spot
+  await page.waitForTimeout(400);
+  await touch.tap(free.x, free.y);
+  await touch.tap(free.x, free.y);
+  await expect
+    .poll(async () => (await tableGeometry(page)).scale / whole.scale)
+    .toBeCloseTo(2.5, 1);
+  expect(await measured()).toEqual(pair);
+});

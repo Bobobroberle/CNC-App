@@ -97,6 +97,15 @@ describe.each([
     expect(on('--stage-cut', '--stage-bg')).toBeGreaterThanOrEqual(4.5);
     expect(on('--stage-text', '--stage-bg')).toBeGreaterThanOrEqual(7);
   });
+
+  it('sets the numbers on the picture – the gaps, the measurement – at 7:1, and its lines at 4.5:1, on the ground', () => {
+    // The words are drawn on a light wash of `--stage-bg` in the text colour; the lines of two equal gaps and the
+    // points of a measurement are in the selection colour – a colour for lines and dots, not for words
+    expect(on('--stage-text', '--stage-bg')).toBeGreaterThanOrEqual(7);
+    expect(on('--stage-select', '--stage-bg')).toBeGreaterThanOrEqual(4.5);
+    // …and the selection colour is no colour of a fault
+    expect(theme['--stage-select']).not.toBe(theme['--destructive']);
+  });
 });
 
 describe('the two themes', () => {

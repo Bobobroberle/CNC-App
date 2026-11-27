@@ -148,6 +148,8 @@ test('the key sheet lists the taps with a key held', async ({ page }) => {
   const sheet = page.locator('.keys-sheet');
   await expect(sheet).toContainText('Teil in die Auswahl nehmen oder herausnehmen');
   await expect(sheet).toContainText('Rahmen aufziehen: zur Auswahl hinzufügen');
+  // Alt while a part is dragged: no snapping for that drag
+  await expect(sheet).toContainText('Teil ziehen ohne Einrasten');
 });
 
 /** The frame "Rahmen aufziehen" draws, from one work point to another, with the mouse held down meanwhile */

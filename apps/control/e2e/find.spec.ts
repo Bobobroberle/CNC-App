@@ -532,6 +532,16 @@ test('the arranging entries lead to something that is there: the card of the dra
   await find(page, 'Gruppieren', 'Gruppieren', 'Zeichnen/CAM');
   await landed(page, 'cam-draw');
   await faded('cam-draw');
+  // The switches of dragging and measuring are in the same card: with nothing drawn the search lands on the drawing
+  await find(page, 'einrasten', 'Fangen', 'Zeichnen/CAM');
+  await landed(page, 'cam-draw');
+  await faded('cam-draw');
+  await find(page, 'Abstände zeigen', 'Abstände zeigen', 'Zeichnen/CAM');
+  await landed(page, 'cam-draw');
+  await faded('cam-draw');
+  await find(page, 'messen in der zeichnung', 'Messen', 'Zeichnen/CAM');
+  await landed(page, 'cam-draw');
+  await faded('cam-draw');
   // Parts, nothing picked: "Alles auswählen" is its own button, the others lead to the switch beside it
   const add = page.getByTestId('cam-add');
   await add.getByRole('button', { name: 'Rechteck', exact: true }).click();
@@ -543,6 +553,26 @@ test('the arranging entries lead to something that is there: the card of the dra
   await find(page, 'Auswahl umkehren', 'Auswahl umkehren', 'Zeichnen/CAM');
   await landed(page, 'cam-multi');
   await faded('cam-multi');
+  // With parts the three switches are there themselves – the two that are on stand folded in the card, and the
+  // search unfolds them – and nothing was switched by going there
+  const folded = page.getByRole('button', { name: 'Fangen und Abstände' });
+  await expect(folded).toHaveAttribute('aria-expanded', 'false');
+  for (const [query, title, anchor, name, testId] of [
+    ['einrasten', 'Fangen', 'cam-snap', 'Fangen', 'cam-snap'],
+    ['Abstände zeigen', 'Abstände zeigen', 'cam-gaps', 'Abstände zeigen', 'cam-gaps'],
+    ['messen in der zeichnung', 'Messen', 'cam-measure', 'Messen', 'cam-measure'],
+  ] as const) {
+    // (read where it stands, folded or not: a hidden control has no role to ask for)
+    const before = await page.getByTestId(testId).getAttribute('aria-checked');
+    await find(page, query, title, 'Zeichnen/CAM');
+    await landed(page, anchor);
+    await faded(anchor);
+    await expect(page.getByRole('checkbox', { name, exact: true })).toHaveAttribute(
+      'aria-checked',
+      before!,
+    );
+  }
+  await expect(folded).toHaveAttribute('aria-expanded', 'true');
   // Everything picked: invert has its button, aligning its panel – nothing was pressed by going there
   await page.getByRole('button', { name: 'Alles auswählen', exact: true }).click();
   await find(page, 'Auswahl umkehren', 'Auswahl umkehren', 'Zeichnen/CAM');
