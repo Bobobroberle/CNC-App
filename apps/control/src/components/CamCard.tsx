@@ -9,6 +9,7 @@ import {
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { t } from '../i18n';
 import { camKey, typingInto } from '../lib/camKeys';
+import { colorOf, effective } from '../lib/camGroups';
 import { isSelected, partsOf } from '../lib/camItems';
 import { wishedPlace } from '../lib/camOrder';
 import { cutterLabel, fitsKind, TOOL_NOTE_EFFECT } from '../lib/camTools';
@@ -29,6 +30,7 @@ import { useMachine } from '../store/machine';
 import { useCamCutters } from '../store/camTools';
 import { useSeries } from '../store/series';
 import { CamTabs } from './CamTabs';
+import { ColorGroups, ColorPill, colorLetter } from './CamColors';
 import { Feature } from './Feature';
 import { useUi } from '../store/ui';
 import { useJobUnderWay } from '../store/underway';
@@ -140,7 +142,13 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
   // The eye: a hidden part is not cut and out of reach on the table; its row is set apart (dashed, a word), never faded and never smaller
   const hidden = item.hidden === true;
   const settings = useCam((s) => s.settings);
+  // What its colour (`lib/camGroups.ts`) sets: the values the fields below show where the part has none of its own
+  const colors = useCam((s) => s.project?.colors);
+  const eff = effective(item, colors, settings);
+  const color = colorOf(item);
   const drawingTool = useWorkshop((s) => s.tools.find((x) => x.id === settings.toolId));
+  // The cutter the part has when it names none: its colour's, else the drawing's
+  const inheritedTool = useWorkshop((s) => s.tools.find((x) => x.id === eff.toolId));
   // Where the program cuts it among the parts cut the same way (none: it is not cut – hidden, too large …)
   const cutPlace = useCam((s) => s.cutOrder[item.id]);
   // … and where its number asks to be cut: the number is a key to sort by, so it is compared by its place among the
@@ -162,7 +170,7 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
   // (what the cards above the list make of any change of the selection – all of it, not only this row's box)
   const selection = useCam((s) => s.selected);
   const cam = useCam.getState();
-  const usual = item.kind === 'on' ? settings.engraveDepth : settings.depth;
+  const usual = eff.inherited;
   // The box is tapped where it is, again and again. What grows or shrinks above it with the selection (the card
   // of the selection, the align panel) or with the eye (a part of a set hidden takes the align panel away, shown
   // it brings it back) must not take the row from under the finger: after the change it goes back to where it
@@ -213,6 +221,8 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
         >
           {n}. {describeItem(item)}
         </button>
+        {/* The colour group: a mark of a fixed size, the letter in the text colour – it changes no height */}
+        {color !== undefined ? <ColorPill id={color} /> : null}
         {hidden ? <span className="cam-state">{t('cam.hide.state')}</span> : null}
         {/* A part with a place of its own among the parts cut the same way. The number is where the program really cuts
             it (read from the program that was made); where that is not the place that was asked for – a wish that
@@ -330,7 +340,14 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
             >
               {DIRECTIONS.map((d) => (
                 <option key={d} value={d}>
-                  {t(`cam.directions.${d}`)}
+                  {d === 'job' && color !== undefined && eff.from.climb === 'color'
+                    ? t('cam.colors.likeColor', {
+                        letter: colorLetter(color),
+                        value: t(
+                          eff.climb ? 'cam.directions.climb' : 'cam.directions.conventional',
+                        ),
+                      })
+                    : t(`cam.directions.${d}`)}
                 </option>
               ))}
             </NativeSelect>
@@ -366,11 +383,21 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
               }}
             >
               <option value="">
-                {t('cam.tools.likeDrawing', {
-                  tool: drawingTool
-                    ? `T${drawingTool.number} ${drawingTool.name}, Ø ${formatNumber(drawingTool.diameter, 1)}`
-                    : t('cam.tools.gone', { id: settings.toolId }),
-                })}
+                {/* what the part is cut with where it names none: its colour's cutter, else the drawing's */}
+                {t(
+                  color !== undefined && eff.from.toolId === 'color'
+                    ? 'cam.colors.likeColor'
+                    : 'cam.tools.likeDrawing',
+                  {
+                    letter: color === undefined ? '' : colorLetter(color),
+                    value: inheritedTool
+                      ? `T${inheritedTool.number} ${inheritedTool.name}, Ø ${formatNumber(inheritedTool.diameter, 1)}`
+                      : t('cam.tools.gone', { id: eff.toolId }),
+                    tool: drawingTool
+                      ? `T${drawingTool.number} ${drawingTool.name}, Ø ${formatNumber(drawingTool.diameter, 1)}`
+                      : t('cam.tools.gone', { id: settings.toolId }),
+                  },
+                )}
               </option>
               {asked !== undefined && !choosable.some((x) => x.id === asked) ? (
                 <option value={asked}>{t('cam.tools.gone', { id: asked })}</option>
@@ -640,6 +667,8 @@ export function CamCard() {
             {relieved ? (
               <p className="text-muted-foreground text-sm">{t('cam.reliefHint')}</p>
             ) : null}
+            {/* Below the list, folded: what the colours set (never above it – the finger in the list must not be moved) */}
+            <ColorGroups />
             {backText ? (
               <p className="text-muted-foreground text-sm">{t('flip.backText')}</p>
             ) : null}

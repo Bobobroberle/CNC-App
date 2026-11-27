@@ -1992,3 +1992,80 @@ test('the cutter of a part: a full target in reach under a finger – a choice m
   const text = readFileSync(await (await download).path(), 'utf8');
   expect(text.split('\n').filter((l) => /^T\d+ M6$/.test(l))).toEqual(['T4 M6', 'T1 M6']);
 });
+
+test('the colours: full targets in reach under a finger – a colour gives its part a depth, and no row moves', async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).tap();
+  const cam = page.getByTestId('cam-card');
+  await drawShape(page, 'Rechteck', { 'Breite (mm)': '60', 'Höhe (mm)': '40' });
+  await drawShape(page, 'Rechteck', {
+    'Breite (mm)': '30',
+    'Höhe (mm)': '30',
+    'X links (mm)': '100',
+    'Y unten (mm)': '0',
+  });
+  const scroller = cam.locator('xpath=ancestor::*[contains(@class,"panel-body")][1]');
+  const rows = cam.getByTestId('cam-contours').getByRole('listitem');
+  const geometry = () =>
+    rows.evaluateAll((els) =>
+      els.map((e) => {
+        const r = e.getBoundingClientRect();
+        return [r.top, r.height];
+      }),
+    );
+  await cam.getByTestId('cam-contours').getByRole('button', { name: /^1\. / }).tap();
+  const choice = cam
+    .getByTestId('cam-arrange')
+    .getByRole('combobox', { name: 'Farbe', exact: true });
+  await choice.scrollIntoViewIfNeeded();
+  let where = await inReach(page, choice, scroller);
+  expect(where.box.height).toBeGreaterThanOrEqual(47.5);
+  expect(where.inside && where.reached, JSON.stringify(where)).toBe(true);
+  const still = await geometry();
+  await choice.selectOption('a');
+  await expect(page.getByTestId('cam-color-pill')).toHaveCount(1);
+  await page.waitForTimeout(150);
+  for (const [i, [top, height]] of (await geometry()).entries()) {
+    expect(Math.abs(top! - still[i]![0]!), `row ${i + 1} top`).toBeLessThan(0.5);
+    expect(Math.abs(height! - still[i]![1]!), `row ${i + 1} height`).toBeLessThan(0.5);
+  }
+  // The card below the list, opened with a tap: the depth, the direction and the cutter are full targets in reach
+  await cam
+    .getByTestId('cam-colors')
+    .getByRole('button', { name: 'Farbgruppen', exact: true })
+    .tap();
+  const card = page.getByTestId('cam-color-a');
+  for (const control of [
+    card.getByRole('textbox', { name: 'Tiefe (mm) von Farbe A', exact: true }),
+    card.getByRole('combobox', { name: 'Laufrichtung von Farbe A', exact: true }),
+    card.getByRole('combobox', { name: 'Werkzeug von Farbe A', exact: true }),
+  ]) {
+    await control.scrollIntoViewIfNeeded();
+    where = await inReach(page, control, scroller);
+    expect(where.box.height).toBeGreaterThanOrEqual(47.5);
+    expect(where.inside && where.reached, JSON.stringify(where)).toBe(true);
+  }
+  // A finger on the depth gets the app's number pad, which knows the field's name and its unit from the label ("(mm)")
+  const depth = card.getByRole('textbox', { name: 'Tiefe (mm) von Farbe A', exact: true });
+  const pad = page.locator('[data-slot="numpad"]');
+  await expect(pad).toHaveCount(0);
+  await depth.tap();
+  await expect(pad).toBeVisible();
+  await expect(pad.locator('[data-slot="numpad-label"]')).toHaveText('Tiefe (mm) von Farbe A');
+  await expect(pad).toContainText('mm');
+  // (a key tapped while the pad is just opening is ignored: the tap that opened it must not press one)
+  await page.waitForTimeout(500);
+  await pad.locator('[data-key="3"]').tap();
+  await expect(depth).toHaveValue('3');
+  await pad.locator('[data-slot="numpad-done"]').tap();
+  await expect(pad).toHaveCount(0);
+  const download = page.waitForEvent('download');
+  await cam.getByRole('button', { name: 'Als .nc speichern' }).tap();
+  const text = readFileSync(await (await download).path(), 'utf8');
+  const z = [...text.matchAll(/\bZ(-?\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]));
+  // (the coloured plate is cut to 3 mm, the other keeps the drawing's 6)
+  expect(z).toContain(-3);
+  expect(z).toContain(-6);
+});

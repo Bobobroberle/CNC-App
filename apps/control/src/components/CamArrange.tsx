@@ -31,6 +31,7 @@ import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control'
 import { Textarea } from '../ui/textarea';
 import { Fold } from './Fold';
 import { OrderPanel, PathPanel } from './CamPath';
+import { ColorSelect } from './CamColors';
 
 /** Whole numbers for columns and rows, at least 1. */
 const count = (v: number | undefined) => Math.max(1, Math.round(v ?? 1));
@@ -771,6 +772,8 @@ export function CamArrange() {
           </Button>
         </div>
       ) : null}
+      {/* One choice for the whole selection, always as tall as itself: the rows below the card never move */}
+      {!hole ? <ColorSelect /> : null}
       {one && sketch?.type === 'text' ? <TextFields key={key} item={one} sketch={sketch} /> : null}
       <div className="grid gap-2 grid-cols-3 items-end">
         {one && sketch && shownSketch

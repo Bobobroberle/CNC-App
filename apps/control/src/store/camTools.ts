@@ -12,12 +12,14 @@ import { useWorkshop } from './workshop';
  */
 export function useCamCutters(): CutterPlan {
   const items = useCam((s) => s.project?.items);
+  // (the cutter of a colour is the cutter of its parts: a colour edited changes the plan)
+  const colors = useCam((s) => s.project?.colors);
   const settings = useCam((s) => s.settings);
   const tools = useWorkshop((s) => s.tools);
   const spindle = useWorkshop((s) => s.settings.spindle);
   return useMemo(
-    () => planCutters(items ?? [], settings, tools, spindle),
-    [items, settings, tools, spindle],
+    () => planCutters(items ?? [], settings, tools, spindle, colors),
+    [items, colors, settings, tools, spindle],
   );
 }
 

@@ -2744,6 +2744,41 @@ export const de = {
       allHidden: 'Alle Teile sind ausgeblendet – es gibt nichts zu fräsen.',
       noTabs: 'Ein ausgeblendetes Teil hat keine Stege auf dem Tisch – erst einblenden.',
     },
+    colors: {
+      title: 'Farbgruppen',
+      select: 'Farbe',
+      none: 'Keine',
+      mixed: 'verschieden',
+      option: '{letter} · {name}',
+      names: { a: 'Orange', b: 'Limette', c: 'Türkis', d: 'Rosa' },
+      pill: 'Farbe {letter}, {name}',
+      hint: 'Eine Farbe gibt allen ihren Teilen dieselbe Tiefe, Laufrichtung, dasselbe Werkzeug und dieselben Steg-Vorgaben. Was ein Teil selbst eingestellt hat, geht vor. Leere Felder gelten wie in der Zeichnung. Die Reihenfolge der Schnitte hat nichts mit der Farbe zu tun, und Bearbeitung, Stege an/aus und Ecken freistellen stellt jedes Teil selbst ein.',
+      empty:
+        'Noch keine Farbe vergeben: ein Teil auswählen und oben bei „Farbe“ eine wählen. Dann steht sie hier.',
+      parts: 'Teile: {n}',
+      hiddenParts: 'davon ausgeblendet: {n}',
+      depth: 'Tiefe (mm)',
+      depthOf: 'Tiefe (mm) von Farbe {letter}',
+      engraveDepth: 'Gravurtiefe (mm)',
+      engraveDepthOf: 'Gravurtiefe (mm) von Farbe {letter}',
+      direction: 'Laufrichtung',
+      directionOf: 'Laufrichtung von Farbe {letter}',
+      tool: 'Werkzeug',
+      toolOf: 'Werkzeug von Farbe {letter}',
+      toolHint:
+        'Ein V-Fräser, Kugelfräser oder Bohrer gilt nur für Gravur und Bohren: andere Teile dieser Farbe werden mit dem Werkzeug der Zeichnung gefräst – das steht dann unter „Ansehen und übergeben“.',
+      tabCount: 'Anzahl Stege',
+      tabCountOf: 'Anzahl Stege von Farbe {letter}',
+      tabWidth: 'Stegbreite (mm)',
+      tabWidthOf: 'Stegbreite (mm) von Farbe {letter}',
+      tabHeight: 'Steghöhe (mm)',
+      tabHeightOf: 'Steghöhe (mm) von Farbe {letter}',
+      likeColor: 'Wie Farbe {letter} ({value})',
+      likeDrawing: 'Wie die Zeichnung ({value})',
+      tabs: 'Stege',
+      droppedOf: 'Farbe {letter}: {field}',
+      droppedTable: 'Farben',
+    },
     group: {
       group: 'Gruppieren',
       ungroup: 'Gruppierung aufheben',
@@ -3014,7 +3049,7 @@ export const de = {
       askew:
         'Die Passlöcher liegen schräg zueinander: So passt das gewendete Teil nicht auf die Stifte. Eines verschieben (es rastet ein) oder neu vorschlagen lassen.',
       tools:
-        'Teil {rows} wird mit einem eigenen Werkzeug gefräst. Eine Zeichnung für beide Seiten fräst alles mit dem Werkzeug der Zeichnung – es wird kein Programm gemacht, bis kein Teil ein eigenes Werkzeug hat oder „Von beiden Seiten fräsen“ aus ist.',
+        'Teil {rows} wird mit einem anderen Werkzeug als dem der Zeichnung gefräst (einem eigenen oder dem seiner Farbe). Eine Zeichnung für beide Seiten fräst alles mit dem Werkzeug der Zeichnung – es wird kein Programm gemacht, bis kein Teil ein anderes Werkzeug hat oder „Von beiden Seiten fräsen“ aus ist.',
     },
     title: 'Beidseitig: {name}',
     stepsLabel: 'Ablauf beidseitig fräsen',
@@ -3090,7 +3125,7 @@ export const de = {
     needsMotif: 'Zuerst das Motiv zeichnen: einen Text, ein Logo, eine Form.',
     notTwoSided: 'Eine Serie wird von einer Seite gefräst: „Von beiden Seiten fräsen“ ausschalten.',
     ownTools:
-      'Die Serie fräst alles mit dem Werkzeug der Zeichnung. Teil {rows} hat ein eigenes Werkzeug: bei „Wie die Zeichnung“ lassen.',
+      'Die Serie fräst alles mit dem Werkzeug der Zeichnung. Teil {rows} hat ein anderes Werkzeug (ein eigenes oder das seiner Farbe): bei „Wie die Zeichnung“ lassen.',
     title: 'Serie: {name}',
     back: 'Zur Zeichnung',
     stepsLabel: 'Schritte der Serie',
@@ -4114,6 +4149,10 @@ export const de = {
         'gruppieren, gruppe, zusammenfassen, teile verbinden, zu einer gruppe, zusammen bewegen, gruppe bilden, group, illustrator',
       camUngroup:
         'gruppierung aufheben, gruppe auflösen, gruppe trennen, einzelne konturen, konturen einzeln wählen, aus einer datei einzeln wählen, aufteilen, ungroup, entgruppieren',
+      camColors:
+        'farbgruppen, farbgruppe, farben, gruppe, ebene, ebenen, layer, tiefe je farbe, tiefe pro farbe, werkzeug je farbe, werkzeug pro farbe, laufrichtung je farbe, stege je farbe, bearbeitungsgruppe, estlcam, farbzuordnung, nach farbe fräsen, color groups, colour groups, layers',
+      camColor:
+        'farbe, farbe zuweisen, farbe vergeben, farbe wählen, teil einfärben, einfärben, farbe geben, orange, limette, türkis, rosa, buchstabe a, color, colour, assign colour, assign color, ebene zuweisen, layer zuweisen',
       tabsAvoid:
         'ecken meiden, stege meiden ecken, steg nicht auf die ecke, stege auf gerade stücke, stege nicht in der ecke, haltestege ecken, tabs ecken, tabs corners, avoid corners, stege ecke vermeiden, stege verschieben, stege in die mitte',
       camRoute:

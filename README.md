@@ -433,6 +433,20 @@ das CAM zu sehen.
     und für eine Kontur oder Tasche nicht; für die stehen sie ausgegraut, mit dem Grund im Namen. Ein Werkzeug,
     das es in der Liste nicht mehr gibt oder das als Messtaster markiert ist, wird nicht gefräst: das Teil
     nimmt das Werkzeug der Zeichnung, und die Karte _3 · Ansehen und übergeben_ sagt es.
+    **Farbgruppen:** Teile, die gleich gefräst werden, bekommen eine Farbe – **A Orange, B Limette, C Türkis,
+    D Rosa** (mehr sind unter den Farben der Oberfläche nicht auseinanderzuhalten). Das Feld _Farbe_ steht in
+    der Karte der Auswahl und gilt für alle gewählten Teile in einem Schritt (ein Passloch bekommt keine); auf
+    der Zeile des Teils steht eine kleine Marke mit dem Buchstaben, auf dem Tisch-Bild der Umriss in der Farbe und
+    der Buchstabe am Teil – der Buchstabe sagt die Farbe, die Farbe stimmt nur zu. Was eine Farbe einstellt, steht
+    in der Karte _Farbgruppen_ unter der Liste (zugeklappt, bis man sie öffnet; sie zeigt nur Farben, die ein Teil
+    trägt): _Tiefe_, _Gravurtiefe_, _Laufrichtung_, _Werkzeug_ und unter _Mehr Optionen_ die Vorgaben der Haltestege
+    (_Anzahl_, _Breite_, _Höhe_). Leere Felder gelten wie in der Zeichnung; was ein Teil selbst eingestellt hat
+    (eigene Tiefe, Laufrichtung, Werkzeug, Stege), geht vor der Farbe. Eine Farbe stellt **nicht** die Art der Bearbeitung,
+    Stege an/aus oder die Ecken ein, und die Reihenfolge der Schnitte ist keine Sache der Farbe. Eine Farbe ohne
+    Werte ändert das Programm nicht. Ein V-Fräser als Werkzeug einer Farbe gilt nur für Gravur und Bohren (andere
+    Teile der Farbe nehmen das Werkzeug der Zeichnung, die Karte sagt es); beidseitiges Fräsen und die Serie lehnen ein
+    anderes Werkzeug ab. Eine Farbe, die kein Teil mehr trägt, verliert ihre Werte (_Rückgängig_ bringt sie mit dem
+    Teil zurück); in der Projektdatei stehen Farben und ihre Werte (Version 2, sobald eine Farbe vergeben ist).
   - _3 · Ansehen und übergeben_ – die Bahnen stehen schon auf dem Tisch-Bild und werden bei jeder
     Änderung neu gemacht. Reihenfolge: Bohrungen, Taschen und Gravuren, Ausschnitte, die Außenkontur
     jedes Teils zuletzt – was in einer Kontur liegt, vor ihr; dazwischen kurze Wege. Was nicht geht

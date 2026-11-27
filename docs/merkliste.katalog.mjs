@@ -631,9 +631,9 @@ add('cam', 'Komfort', [
   [
     'cam-ux4',
     'Farben als Bearbeitungsgruppen',
-    'Teile einer Farbe teilen sich Tiefe, Werkzeug und Reihenfolge (wie die Farbzuordnung in Estlcam).',
+    'Teile einer Farbe teilen sich Tiefe, Werkzeug und Laufrichtung (wie die Farbzuordnung in Estlcam). Gebaut: Vier Farben A–D (Orange, Limette, Türkis, Rosa) – mehr lassen sich unter den Farben, die die Oberfläche für Störung, Schnitt, Auswahl, Fertig und Aktuell vergibt, nicht sauber auseinanderhalten (im Entwurf aus den Farbwerten gerechnet: Orange und Limette ΔE 12 bei Rot-Grün-Schwäche, Türkis und Rosa 17–22 bei Protan; die Schwelle „um 10–12 kaum zu unterscheiden“ ist eine Faustregel, nicht aus dem Projekt). Ein Teil hat höchstens eine Farbe: das Feld „Farbe“ in der Karte der Auswahl gilt für alle gewählten Teile in einem Schritt (ein Passloch nie; ein ausgeblendetes Teil behält sie und zählt als „ausgeblendet“; ein neues Teil bekommt keine – cam-col3). Eine Farbe trägt nur, was an einem Teil schon „ungesetzt“ sein kann: Tiefe, Gravurtiefe, Laufrichtung, Werkzeug und die Vorgaben der Haltestege (Anzahl, Breite, Höhe). Es gilt Teil vor Farbe vor Zeichnung, je Wert, und das rechnet eine einzige Funktion (lib/camGroups.ts, effective): das Programm, die Prüfung von Vorder- und Rückseite gegeneinander, die Stegmarken auf dem Tisch, die Serie, die Platzhalter der Felder und die Obergrenze der Passzahl beim Lesen einer Projektdatei fragen sie; was gezeichnet ist, ist, was gefräst wird. Eine Farbe ohne Werte lässt das Programm Zeichen für Zeichen, wie es ohne Farbe ist (Test mit Außenkontur, Tasche, Bohrungen und Gravur). NICHT von der Farbe getragen: die Art der Bearbeitung, Stege an/aus und Ecken freistellen (das sind je Teil immer feste Werte – cam-col5) und die Reihenfolge der Schnitte (cam-col1). Die Karte „Farbgruppen“ liegt unter der Liste (damit nichts unter dem Finger wegrutscht), ist zugeklappt, bis sie einmal geöffnet wurde, und zeigt nur Farben, die ein Teil trägt, mit ihren Teilen; eine Farbe, die kein Teil mehr trägt, hat keine Werte mehr („Rückgängig“ bringt sie mit dem Teil zurück). Wert und Zuweisung sind Schritte von „Rückgängig“, die Tabelle wird dabei ersetzt, nie überlagert. Auf dem Tisch: der Umriss in der Farbe, 2 px auf einem Rand der Tischfarbe (lesbar auch auf einem Foto); der Buchstabe am Teil ist der Träger, die Farbe das Zweite, ein Zustand nie nur durch Farbe; nur in der Zeichnung, nicht im 3D-Bild und nicht im Lauf (die Kontraste der vier Farben gegen Tisch und Karte stehen in test/theme.test.ts, wie sie auf einem Bildschirm in der Werkstatt aussehen, ist ungeprüft). In der Liste eine kleine Marke fester Größe mit dem Buchstaben, ohne dass sich die Höhe einer Zeile ändert (gemessen in e2e/colors.spec.ts, auch im 800 × 600 Blatt). Projektdatei: Version 2, sobald ein Teil eine Farbe hat oder die Tabelle etwas setzt (eine ältere App würde Farben und Tiefen stumm verwerfen und lehnt die Datei deshalb ab); ohne das bleibt sie Version 1 Zeichen für Zeichen wie bisher; Werte außerhalb ihrer Grenzen werden weggelassen und gemeldet, ein Werkzeug, das die Werkstatt nicht hat, bleibt gewählt und wird gesagt. Ein V-Fräser, Kugelfräser oder Bohrer als Werkzeug einer Farbe gilt nur für Gravur und Bohren – andere Teile der Farbe werden mit dem Werkzeug der Zeichnung gefräst, die Karte sagt es; Wenden und Serie lehnen ein Werkzeug einer Farbe ab wie das eines Teils (cam-path21, cam-path22). Nicht an der Maschine geprüft.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-ux5',
@@ -1234,6 +1234,46 @@ add('scan', 'Bewegungsunschärfe', [
     'Belichtung und Bild an der echten Kamera prüfen',
     'Am Pi die Ausgabe von v4l2-ctl -d /dev/video0 --list-ctrls-menus mit der Karte in den Kameraeinstellungen vergleichen; die Belichtung setzen, während ustreamer läuft, und im Bild nachsehen, ob sie wirkt; ustreamer neu starten und prüfen, ob der Companion die Werte zurückschreibt; „Aus der Kamera übernehmen“ im Scan-Panel gegen den Wert halten, den v4l2-ctl zeigt. Offene Fragen stehen in docs/offene-fragen.md (12).',
     'aufgabe',
+  ],
+]);
+
+// Reste der Arbeit an den Farbgruppen (cam-ux4): nicht gebaut, mit Grund
+add('cam', 'Komfort', [
+  [
+    'cam-col1',
+    'Reihenfolge je Farbe',
+    'Eine Farbe soll auch sagen, in welcher Reihenfolge ihre Teile gefräst werden. Nicht gebaut, weil offen ist, wie das zu „Früher/Später“ je Teil (CamItem.seq) passt und zur Marke „Nr. n (Wunsch m)“, die den wahren Platz aus dem Programm liest. Eine Lesart aus dem Entwurf: eine Zahl je Farbe, die Arbeitsgänge gleicher Art ordnet (Bohrungen, Taschen, Gravuren, Innenkonturen, Außenkonturen bleiben in ihrer Reihenfolge, innen vor außen auch) – sie müsste gegen die Zahl des Teils festgelegt werden (Farbe zuerst, Teil danach?). Farbblöcke nacheinander über alle Arten ginge nicht ohne Änderung der Bibliothek und widerspräche „was innen liegt, vor dem Außenschnitt“. Die Karte sagt heute ausdrücklich, dass die Reihenfolge keine Sache der Farbe ist.',
+    'klein',
+  ],
+  [
+    'cam-col2',
+    'Farben aus den Ebenen einer DXF-Datei',
+    'Die Ebenen einer DXF-Datei bleiben beim Lesen an den Konturen erhalten (Contour.layer, auch in der Projektdatei); im Code nachgesehen: sie werden nur gesetzt und weitergereicht, nichts wertet sie aus. „Ebenen als Farben übernehmen“ könnte bis zu vier Ebenen auf A–D legen. Nicht gebaut: Es gibt keine Regel für mehr als vier Ebenen, und SVG-Strichfarben liest die Bibliothek nicht (im Entwurf nachgesehen: kein Treffer in svg.ts). Heute vergibt man Farben von Hand.',
+    'klein',
+  ],
+  [
+    'cam-col3',
+    'Ein neues Teil erbt die Farbe der Auswahl',
+    'Ein Teil, das neu gezeichnet wird, hat keine Farbe – auch wenn das gewählte Teil eine hat. Ob ein neues Teil die Farbe der Auswahl bekommen soll, ist eine Frage des Bedieners (es würde still Tiefe und Werkzeug ändern); heute: kein Erbe, die Farbe wird dem Teil gegeben.',
+    'klein',
+  ],
+  [
+    'cam-col4',
+    'Mehr als vier Farben',
+    'Vier Farben A–D, weil mehr unter den reservierten Farben der Oberfläche nicht auseinanderzuhalten sind (Entwurf: eine fünfte und sechste – Gelb, Sand – liegen unter Farbfehlsichtigkeit bei ΔE 5–9 zu Limette und 3–7 zu Orange und nahe am „Aktuell“-Bernstein). Mit dem Buchstaben als einzigem Träger gingen mehr; dann müssten Tisch, Liste und Karte noch gelesen werden können (nicht geprüft).',
+    'klein',
+  ],
+  [
+    'cam-col5',
+    'Eine Farbe, die die Art der Bearbeitung trägt („Auf Teile anwenden“)',
+    'In Estlcam bestimmt die Farbe auch die Bearbeitung. Hier tragen Farben nur Werte, die an einem Teil schon „ungesetzt“ sein können; Art, Stege an/aus und Ecken freistellen sind je Teil immer feste Werte. Ein „Erbe“ dafür würde CamItem und das Dateiformat ändern. Möglich wäre eine Handlung „Auf Teile dieser Farbe anwenden“, die diese Werte in die Teile schreibt (ein Schritt von „Rückgängig“) – danach eigene Werte des Teils, keine Vererbung. Nicht gebaut.',
+    'klein',
+  ],
+  [
+    'cam-col6',
+    'Farben im 3D-Bild',
+    'Die Farben gibt es nur in der Zeichnung auf dem Tisch. Im 3D-Bild und im Lauf bedeuten die Farben der Oberfläche „im Material“, „fertig“, „aktuell“; Gruppenfarben kämen dort dazu. Nicht gebaut: „Farbe nur mit Bedeutung“ (Projektbeschreibung).',
+    'klein',
   ],
 ]);
 

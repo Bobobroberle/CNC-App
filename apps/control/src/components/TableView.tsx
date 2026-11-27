@@ -55,6 +55,7 @@ import { buildPaths, projection, type Extent, type JobPaths } from '../render/pa
 import { useCam, type DragHints } from '../store/cam';
 import { useCamCutters } from '../store/camTools';
 import { drawnTabMarks } from '../lib/camTools';
+import { colorOf, colorsInUse, tabDefaultsOf } from '../lib/camGroups';
 import { useClampHits, useWorkFixtures } from '../store/clamps';
 import { cameraElement, pictureSize, useCamera } from '../store/camera';
 import { useJigs } from '../store/jigs';
@@ -165,6 +166,8 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   const selected = useCam((s) => s.selected);
   // The holding tabs are drawn with the drawing's defaults and follow them; putting them by hand is a mode
   const tabDefaults = useCam((s) => s.settings.tabs);
+  // … with the colour of each part: its colour may set the count, width and height of its tabs
+  const groupColors = useCam((s) => s.project?.colors);
   // … and the places of tabs kept off the corners are the cutter's – each part's own (`lib/camTools.ts`, the plan the
   // program is made from): the picture follows a choice of cutter and the diameter of it in the tool list
   const cutters = useCamCutters();
@@ -232,7 +235,11 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       label = t('cam.live.place', { x: mm(box.minX), y: mm(box.minY) });
     }
     // The holding tabs of every thing that has them – the places the toolpath is cut with
-    const marks = drawnTabMarks(project.items, tabDefaults, cutters);
+    const marks = drawnTabMarks(
+      project.items,
+      (i) => tabDefaultsOf(i, groupColors, tabDefaults),
+      cutters,
+    );
     const chosenIds = new Set(chosen.map((i) => i.id));
     const byItem = new Map<number, typeof marks>();
     for (const m of marks) byItem.set(m.item, [...(byItem.get(m.item) ?? []), m]);
@@ -291,7 +298,6 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       });
     }
     const all = itemsBounds(project.items);
-    const backItems = project.items.filter((i) => i.side === 'back');
     const holes = project.items.filter((i) => i.registration !== undefined);
     // The flip line of a two-sided part: through the middle between its registration holes.
     let flipLine: [number, number, number, number] | null = null;
@@ -311,11 +317,43 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       .map((i) => itemsBounds([i]))
       .map((b) => (b ? [b.minX, b.minY, b.maxX, b.maxY].map((n) => n.toFixed(1)).join() : ''))
       .join(';');
+    // The colour groups: a coloured part that is cut is drawn in its colour (a hidden one stays grey and dashed), the
+    // plain outline is left to the parts without one; each carries its letter, but not the selected one (its handles
+    // sit there)
+    const cut = project.items.filter((i) => i.hidden !== true);
+    const plain = (i: (typeof cut)[number]) => colorOf(i) === undefined;
+    const colored = colorsInUse(cut).map((color) => {
+      const mine = cut.filter((i) => colorOf(i) === color);
+      const front = mine.filter((i) => i.side !== 'back');
+      const back = mine.filter((i) => i.side === 'back');
+      return {
+        color,
+        front: front.length > 0 ? outline(front) : null,
+        back: back.length > 0 ? outline(back) : null,
+      };
+    });
+    const letters = cut.flatMap((i) => {
+      const color = colorOf(i);
+      const b = color === undefined || chosenIds.has(i.id) ? null : itemsBounds([i]);
+      return color && b ? [{ color, box: boundsExtent(b) }] : [];
+    });
+    const colorsData =
+      colored.length > 0
+        ? JSON.stringify(
+            colored.map(({ color }) => ({
+              color,
+              parts: cut.filter((i) => colorOf(i) === color).map((i) => i.id),
+            })),
+          )
+        : undefined;
     return {
-      outline: outline(project.items.filter((i) => i.side !== 'back' && i.hidden !== true)),
-      back: backItems.some((i) => i.hidden !== true)
-        ? outline(backItems.filter((i) => i.hidden !== true))
+      outline: outline(cut.filter((i) => i.side !== 'back' && plain(i))),
+      back: cut.some((i) => i.side === 'back' && plain(i))
+        ? outline(cut.filter((i) => i.side === 'back' && plain(i)))
         : null,
+      colored,
+      letters,
+      colorsData,
       hidden: hiddenItems.length > 0 ? outline(hiddenItems) : null,
       hiddenBoxes: hiddenItems.length > 0 ? hiddenBoxes : undefined,
       flipLine,
@@ -352,6 +390,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     top,
     held,
     tabDefaults,
+    groupColors,
     cutters,
     placing,
     measuring,
@@ -510,6 +549,8 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     drawing: drawing?.outline,
     drawingBack: drawing?.back,
     drawingHidden: drawing?.hidden,
+    drawingColored: drawing?.colored,
+    drawingLetters: drawing?.letters,
     flipLine: drawing?.flipLine,
     drawingSelected: drawing?.selected,
     drawingTabs: drawing?.tabs,
@@ -1261,6 +1302,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       }
       data-drawing-label={drawing?.selected?.label ?? undefined}
       data-drawing-hidden={drawing?.hiddenBoxes}
+      data-drawing-colors={drawing?.colorsData}
       data-drawing-tabs={drawing?.tabsData}
       data-drawing-placing={drawing?.placing ? '1' : undefined}
       data-drawing-measure={drawing?.measureData}

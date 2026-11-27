@@ -1,11 +1,13 @@
 import type { CutSettings, OperationKind } from '@lowrider/cam';
 import { toolOwnValues, type SpindleLimits, type Tool } from '@lowrider/workshop';
 import type { CamSettings } from '../store/cam';
+import { effective, type ColorTable } from './camGroups';
 import type { CamItem } from './camItems';
 import { itemTabMarks } from './camTabs';
 
 /**
- * Which cutter each part of a drawing is cut with – the one place that says it. `generate` makes the program
+ * Which cutter each part of a drawing is cut with – the one place that says it (the part's own, else its colour's –
+ * `effective` in `lib/camGroups.ts` – else the drawing's). `generate` makes the program
  * from it, and everything that draws or measures what the program will cut (the places of the tabs, the helix
  * range, the gap of the nesting, the summary under "Ansehen und übergeben") asks the same plan, so what is
  * drawn is what is cut.
@@ -164,6 +166,7 @@ export function planCutters(
   settings: PlanSettings,
   tools: readonly Tool[],
   spindle: SpindleLimits,
+  colors?: ColorTable,
 ): CutterPlan {
   const drawingTool = tools.find((x) => x.id === settings.toolId) ?? null;
   const drawing = cutterOf(settings.toolId, drawingTool, settings, spindle, false);
@@ -183,8 +186,9 @@ export function planCutters(
     if (item.registration !== undefined || item.hidden === true || item.kind === 'none') return;
     let id = settings.toolId;
     let tool = drawingTool;
-    const asked = item.toolId;
-    if (asked !== undefined && asked !== settings.toolId) {
+    // The part's own cutter, else the one of its colour, else the drawing's (a cutter that is the drawing's is no choice)
+    const asked = effective(item, colors, settings).toolId;
+    if (asked !== settings.toolId) {
       const found = tools.find((x) => x.id === asked);
       if (!found) say({ code: 'missing', rows: [row], tool: asked });
       else if (found.probe === true) say({ code: 'probe', rows: [row], tool: found.name });
@@ -247,9 +251,18 @@ export const diameterOfItem = (plan: CutterPlan, item: Pick<CamItem, 'id'>): num
  */
 export const drawnTabMarks = (
   items: readonly CamItem[],
-  defaults: Parameters<typeof itemTabMarks>[1],
+  defaults:
+    | Parameters<typeof itemTabMarks>[1]
+    | ((item: CamItem) => Parameters<typeof itemTabMarks>[1]),
   plan: CutterPlan,
-) => items.flatMap((i) => itemTabMarks(i, defaults, diameterOfItem(plan, i)));
+) =>
+  items.flatMap((i) =>
+    itemTabMarks(
+      i,
+      typeof defaults === 'function' ? defaults(i) : defaults,
+      diameterOfItem(plan, i),
+    ),
+  );
 
 /** The widest cutter of the program, mm – what a gap between parts must leave room for */
 export const widestCutter = (plan: CutterPlan): number =>

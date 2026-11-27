@@ -188,6 +188,13 @@
   --stage-done: #15803d;
   --stage-current: #b45309;
   --stage-select: #7e22ce; /* what is selected on the picture */
+  /* The colour groups A–D of a drawing (outline of their parts, the swatch of their pill). Four, because no more
+     are told apart under the colours the guide reserves (red for faults, blue for the cut and the primary action,
+     violet for the selection, green for done, amber for the current). The letter is the carrier; the colour agrees. */
+  --stage-group-a: #c2410c;
+  --stage-group-b: #4d7c0f;
+  --stage-group-c: #0e7490;
+  --stage-group-d: #be185d;
 
   /* A layer floating over the camera picture */
   --material: color-mix(in srgb, var(--card) 88%, transparent);
@@ -251,6 +258,10 @@
   --stage-done: #22c55e;
   --stage-current: #f59e0b;
   --stage-select: #c084fc;
+  --stage-group-a: #fb923c;
+  --stage-group-b: #a3e635;
+  --stage-group-c: #22d3ee;
+  --stage-group-d: #f472b6;
 }
 
 /* Sunlit workshop or "Kontrast erhöhen": firmer edges, brighter secondary text */

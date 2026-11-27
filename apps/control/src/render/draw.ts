@@ -1,5 +1,6 @@
 import type { Segment, Vec4 } from '@lowrider/gcode-core';
 import { frameCorners, frameHandles, type Frame } from '../lib/camEdit';
+import { COLOR_IDS, type ColorId } from '../lib/camGroups';
 import type { SnapGuide } from '../lib/camSnap';
 import { DEPTH_BUCKETS, traceSegment, type Extent, type JobPaths } from './paths';
 
@@ -28,6 +29,8 @@ export interface Colors {
   tool: string;
   live: string;
   text: string;
+  /** The colour groups A–D of the drawing (plain colours: a canvas cannot read `color-mix`) */
+  groups: Readonly<Record<ColorId, string>>;
 }
 
 export function readColors(element: Element): Colors {
@@ -46,6 +49,10 @@ export function readColors(element: Element): Colors {
     tool: v('--stage-text'),
     live: v('--stage-select'),
     text: v('--stage-muted'),
+    groups: Object.fromEntries(COLOR_IDS.map((id) => [id, v(`--stage-group-${id}`)])) as Record<
+      ColorId,
+      string
+    >,
   };
 }
 
@@ -92,6 +99,14 @@ export interface Scene {
   drawingBack?: Path2D | null;
   /** The parts that are hidden (not cut): faint and dashed, in the muted colour – never the colour of a fault */
   drawingHidden?: Path2D | null;
+  /**
+   * The parts that have a colour (`lib/camGroups.ts`): each colour its own outline, 2 px in the colour on a rim of the
+   * table's ground (so it reads on a photo), the back of a two-sided part dashed like the others'. The plain
+   * outline (`drawing`) is left to the parts without one.
+   */
+  drawingColored?: readonly ColoredOutline[];
+  /** The letter of each coloured part, at its box: the letter is the carrier of the colour, the colour only the second */
+  drawingLetters?: readonly ColorLetter[];
   /** The frame a finger is drawing across the table ("Rahmen aufziehen"), work XY: dashed, in the selection colour */
   drawingMarquee?: Extent | null;
   /** The lines a dragged part has snapped to, work XY: thin, dashed, in the selection colour – only while it is dragged */
@@ -123,6 +138,19 @@ export interface Scene {
   drawingTabsGrip?: boolean;
   /** A part longer than the table, around the section that is the job; top view only */
   sections?: SectionsMark | null;
+}
+
+/** The outline of the parts of one colour: the front, and the back of a two-sided part seen through it */
+export interface ColoredOutline {
+  color: ColorId;
+  front: Path2D | null;
+  back: Path2D | null;
+}
+
+/** The letter of a coloured part, set at the upper left of its box (work XY) */
+export interface ColorLetter {
+  color: ColorId;
+  box: Extent;
 }
 
 /** One gap as the table draws it: a dimension line across the room between two parts, with its number */
@@ -440,6 +468,8 @@ export function drawTable(
     | 'drawing'
     | 'drawingBack'
     | 'drawingHidden'
+    | 'drawingColored'
+    | 'drawingLetters'
     | 'flipLine'
     | 'drawingSelected'
     | 'drawingTabs'
@@ -515,12 +545,36 @@ export function drawTable(
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
   }
+  for (const g of scene.drawingColored ?? []) {
+    // A colour group: its parts' outline 2 px in its colour, on a rim of the ground (it reads over a photo too). The
+    // selection, drawn after, lies over it; a hidden part is not here – it stays grey and dashed
+    if (!g.front) continue;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = c.bg;
+    ctx.lineWidth = px(5);
+    ctx.stroke(g.front);
+    ctx.strokeStyle = c.groups[g.color];
+    ctx.lineWidth = px(2);
+    ctx.stroke(g.front);
+  }
   if (scene.drawingBack) {
     // The back, seen through the part: dashed, like a hidden edge in a drawing.
     ctx.strokeStyle = c.tool;
     ctx.lineWidth = px(1);
     ctx.setLineDash([px(5), px(4)]);
     ctx.stroke(scene.drawingBack);
+    ctx.setLineDash([]);
+  }
+  for (const g of scene.drawingColored ?? []) {
+    // … and the back of a coloured part keeps its dash, in the colour
+    if (!g.back) continue;
+    ctx.strokeStyle = c.bg;
+    ctx.lineWidth = px(5);
+    ctx.setLineDash([px(5), px(4)]);
+    ctx.stroke(g.back);
+    ctx.strokeStyle = c.groups[g.color];
+    ctx.lineWidth = px(2);
+    ctx.stroke(g.back);
     ctx.setLineDash([]);
   }
   if (scene.flipLine) {
@@ -581,7 +635,43 @@ export function drawTable(
     ctx.strokeRect(...box(scene.drawingMarquee));
     ctx.setLineDash([]);
   }
+  drawLetters(ctx, vp, scene.drawingLetters, c);
   ctx.setTransform(vp.dpr, 0, 0, vp.dpr, 0, 0);
+}
+
+/** A box smaller than this on the screen, CSS px, has no letter: it would hide the part it names */
+export const LETTER_MIN_PX = 20;
+
+/**
+ * The letters of the colour groups: each coloured part carries its letter at the upper left of its box, set in the
+ * text colour on a wash of the table's ground – the letter says the colour, the colour of the outline only
+ * agrees. None for a box smaller than `LETTER_MIN_PX` (the caller leaves out the selected part: its handles sit
+ * there).
+ */
+function drawLetters(
+  ctx: CanvasRenderingContext2D,
+  vp: Viewport,
+  letters: readonly ColorLetter[] | undefined,
+  c: Colors,
+) {
+  if (!letters || letters.length === 0) return;
+  ctx.setTransform(vp.dpr, 0, 0, vp.dpr, 0, 0);
+  ctx.setLineDash([]);
+  for (const l of letters) {
+    const [left, top] = worldToScreen(vp, l.box.minU, l.box.maxV);
+    const [right, bottom] = worldToScreen(vp, l.box.maxU, l.box.minV);
+    if (Math.min(Math.abs(right - left), Math.abs(bottom - top)) < LETTER_MIN_PX) continue;
+    tag(
+      ctx,
+      l.color.toUpperCase(),
+      Math.min(left, right) + 14,
+      Math.min(top, bottom) + 14,
+      vp,
+      c,
+      c.tool,
+    );
+  }
+  ctx.textAlign = 'start';
 }
 
 /**

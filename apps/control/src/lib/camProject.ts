@@ -7,6 +7,14 @@ import {
   type Sketch,
   type TextOptions,
 } from '@lowrider/cam';
+import {
+  COLOR_LIMITS,
+  isColorId,
+  ownedDepth,
+  tidyColors,
+  type ColorTable,
+  type ColorValues,
+} from './camGroups';
 import type { CamItem, TabSpec } from './camItems';
 import { MAX_SEQ } from './camOrder';
 import { PATH_LIMITS, takesEntry, takesPeck } from './camPath';
@@ -47,10 +55,15 @@ export interface ProjectFile {
   /** Diameter of the cutter the drawing was made with, mm: a cutter of the same id that is another now is said */
   toolDiameter?: number;
   /**
-   * Version 2, with `toolId` on a part: the diameters of the cutters the parts name (their tool-list ids), mm –
-   * as `toolDiameter` for the drawing's own: one of the same id that is another now is said.
+   * Version 2, with `toolId` on a part: the diameters of the cutters the parts name (their tool-list ids) – and the
+   * colours' –, mm: as `toolDiameter` for the drawing's own, one of the same id that is another now is said.
    */
   toolDiameters?: Record<string, number>;
+  /**
+   * Version 2, with colour groups: what each colour a part carries sets (depth, engraving depth, direction, cutter,
+   * defaults of the tabs). Left off where no colour sets anything.
+   */
+  colors?: ColorTable;
 }
 
 /** Why a file is not opened – stable codes, the app has a German text for each. */
@@ -91,12 +104,14 @@ const drawnAsTyped = (s: AnySketch): boolean =>
 /**
  * The oldest version of the format that holds this drawing. 1 as long as nothing in it needs a newer reader – such
  * a file is written exactly as it always was, and an older build opens it as ever. 2 once a part names a cutter of
- * its own (`toolId`): an older build would ignore the key and cut every part with one cutter, so it must refuse
- * the file (`newer-version`) instead. **The one place that decides:** a later addition to the format extends this
- * condition, never writes a version by itself.
+ * its own (`toolId`) or a colour group is in use (a part carries a colour, or the table sets something): an older
+ * build would ignore the keys and cut every part with one cutter and the drawing's depths – a colour that sets
+ * a depth would come back as the drawing's – so it must refuse the file (`newer-version`) instead. **The one place
+ * that decides:** a later addition to the format extends this condition, never writes a version by itself.
  */
-export function projectVersion(project: Pick<CamProject, 'items'>): number {
-  return project.items.some((i) => i.toolId !== undefined) ? 2 : PROJECT_VERSION;
+export function projectVersion(project: Pick<CamProject, 'items' | 'colors'>): number {
+  const named = project.items.some((i) => i.toolId !== undefined || i.color !== undefined);
+  return named || tidyColors(project.colors) !== undefined ? 2 : PROJECT_VERSION;
 }
 
 /** The drawing as it is saved: without what is made from it (`contours`), with how it is cut. */
@@ -108,6 +123,7 @@ export function projectToFile(
   toolDiameters?: Readonly<Record<string, number>>,
 ): ProjectFile {
   const named = toolDiameters && Object.keys(toolDiameters).length > 0;
+  const colors = tidyColors(project.colors);
   return {
     format: PROJECT_FORMAT,
     version: projectVersion(project),
@@ -120,6 +136,7 @@ export function projectToFile(
         : kept,
     ),
     settings,
+    ...(colors ? { colors } : {}),
     ...(toolDiameter !== undefined ? { toolDiameter } : {}),
     ...(named ? { toolDiameters } : {}),
   };
@@ -308,6 +325,9 @@ function itemOf(v: unknown): SavedItem | null {
   // The cutter of a part: the id of a tool of the list (the file does not know the list: a tool this workshop lacks stays
   // chosen and is said when the file is opened). A registration hole is drilled with the drawing's cutter, never its own
   if (v.toolId !== undefined && (!toolIdOf(v.toolId) || v.registration !== undefined)) return null;
+  // The colour group of a part: one of the four, and never on a registration hole (there are two, drilled with the
+  // drawing's cutter)
+  if (v.color !== undefined && (!isColorId(v.color) || v.registration !== undefined)) return null;
   // How a pocket is entered, how a hole is drilled, the place among the parts cut the same way: a value of
   // the wrong kind or outside what the fields take refuses the file (the cutter and the depth of a part are not
   // known here, so the bounds are the outer ones of the fields – the library holds a value to its cutter)
@@ -352,6 +372,7 @@ function itemOf(v: unknown): SavedItem | null {
     relief: v.relief,
     ...(v.depth !== undefined ? { depth: v.depth } : {}),
     ...(v.climb !== undefined ? { climb: v.climb } : {}),
+    ...(v.color !== undefined ? { color: v.color as CamItem['color'] } : {}),
     ...(v.toolId !== undefined ? { toolId: v.toolId as string } : {}),
     // The ramp is the absence of an entry; what means nothing without another – or in another kind of cut – is not kept
     // (the drawing never holds it either: `setItem` drops it with the kind)
@@ -449,6 +470,63 @@ function settingsOf(v: unknown): { settings: Partial<CamSettings>; dropped: stri
   return { settings: out, dropped };
 }
 
+/**
+ * What the colour groups of a file set, read like the cutting settings: a value outside its field's range, of the
+ * wrong kind or for a colour there is not is left out, not guessed – and said (`dropped`, as `colors.a.depth` or
+ * `colors` for the whole table). The table that is left says only what it holds: no entry that says nothing. A tool
+ * id is only a well-formed id here: the file does not know the tool list (a tool this workshop lacks is said when the
+ * file is opened, like those of single parts).
+ */
+function colorsOf(v: unknown): { colors: ColorTable | undefined; dropped: string[] } {
+  if (v === undefined) return { colors: undefined, dropped: [] };
+  if (!isObject(v)) return { colors: undefined, dropped: ['colors'] };
+  const out: ColorTable = {};
+  const dropped: string[] = [];
+  let foreign = false;
+  for (const [id, raw] of Object.entries(v)) {
+    if (!isColorId(id)) {
+      foreign = true;
+      continue;
+    }
+    if (!isObject(raw)) {
+      dropped.push(`colors.${id}`);
+      continue;
+    }
+    const values: ColorValues = {};
+    for (const key of ['depth', 'engraveDepth'] as const) {
+      if (raw[key] === undefined) continue;
+      const { min, max } = COLOR_LIMITS[key];
+      if (within(raw[key], min, max)) values[key] = raw[key];
+      else dropped.push(`colors.${id}.${key}`);
+    }
+    if (raw.climb !== undefined) {
+      if (typeof raw.climb === 'boolean') values.climb = raw.climb;
+      else dropped.push(`colors.${id}.climb`);
+    }
+    if (raw.toolId !== undefined) {
+      if (toolIdOf(raw.toolId)) values.toolId = raw.toolId;
+      else dropped.push(`colors.${id}.toolId`);
+    }
+    if (raw.tabs !== undefined) {
+      if (!isObject(raw.tabs)) dropped.push(`colors.${id}.tabs`);
+      else {
+        const tabs: NonNullable<ColorValues['tabs']> = {};
+        for (const key of ['count', 'width', 'height'] as const) {
+          const n = raw.tabs[key];
+          if (n === undefined) continue;
+          const { min, max } = COLOR_LIMITS[key];
+          if (within(n, min, max) && (key !== 'count' || Number.isSafeInteger(n))) tabs[key] = n;
+          else dropped.push(`colors.${id}.tabs.${key}`);
+        }
+        if (Object.keys(tabs).length > 0) values.tabs = tabs;
+      }
+    }
+    if (Object.keys(values).length > 0) out[id] = values;
+  }
+  if (foreign) dropped.push('colors');
+  return { colors: tidyColors(out), dropped };
+}
+
 /** The diameters of the cutters the parts name: an object of tool ids and diameters (mm) – null where it is anything else */
 function toolDiametersOf(v: unknown): Record<string, number> | null {
   if (v === undefined) return {};
@@ -499,11 +577,15 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
     return { error: 'invalid-project' };
   const read = settingsOf(raw.settings);
   const { settings, dropped } = read;
+  // What the colours of the drawing set (a part's own value, and a colour's, both count for the bounds below)
+  const groups = colorsOf(raw.colors);
+  dropped.push(...groups.dropped);
+  const { colors } = groups;
   // A file that does not say is read as off – not as what a new drawing starts with: the stored drawing keeps
   // the program it made (the "Ecken meiden" of the tabs is read the same way, in `settingsOf` and `openProject`)
   settings.routeShort ??= false;
   // So many passes is no way to cut (and would stall the drawing): this stepdown is left out
-  const deepest = Math.max(settings.depth ?? 0, ...items.map((i) => i.depth ?? 0));
+  const deepest = Math.max(settings.depth ?? 0, ...items.map((i) => ownedDepth(i, colors) ?? 0));
   if (settings.stepdown !== undefined && Math.ceil(deepest / settings.stepdown) > MAX_PASSES) {
     delete settings.stepdown;
     dropped.push('stepdown');
@@ -513,7 +595,8 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
   if (
     items.some(
       (i) =>
-        i.peck !== undefined && Math.ceil((i.depth ?? settings.depth ?? 0) / i.peck) > MAX_PASSES,
+        i.peck !== undefined &&
+        Math.ceil((ownedDepth(i, colors) ?? settings.depth ?? 0) / i.peck) > MAX_PASSES,
     )
   ) {
     return { error: 'invalid-project' };
@@ -526,6 +609,7 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
       twoSided,
       skipped: {},
       notes: [],
+      ...(colors ? { colors } : {}),
     },
     settings,
     dropped,

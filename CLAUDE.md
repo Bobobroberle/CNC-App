@@ -14,7 +14,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `ipad` (touch tests in `e2e/ipad.spec.ts`, real multi-touch through CDP; the two-sided flow on the
   simulator in `e2e/flip.spec.ts`, series and jigs in `e2e/series.spec.ts` / `e2e/jigs.spec.ts`, snapping, the gaps while
   dragging and measuring in the drawing in `e2e/snap.spec.ts` / `e2e/measure.spec.ts`, the quick search in
-  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the toolpath options in `e2e/toolpath-options.spec.ts`, several tools in one program in `e2e/tools.spec.ts`, the further shapes in `e2e/shapes.spec.ts`, nesting in `e2e/nest.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
+  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the toolpath options in `e2e/toolpath-options.spec.ts`, several tools in one program in `e2e/tools.spec.ts`, the colour groups in `e2e/colors.spec.ts`, the further shapes in `e2e/shapes.spec.ts`, nesting in `e2e/nest.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
   `e2e/select.spec.ts` (and `e2e/ipad.spec.ts` for touch),
   parts cut in sections on the simulator's long board in `e2e/sections.spec.ts`, the areas of the work –
   the start, its confirmations, the overrides, a lost connection – in `e2e/steps.spec.ts`, the jog
@@ -287,7 +287,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   the edits as always. **Project files** (`lib/camProject.ts`, `saveProject`/`openProject` in `store/cam.ts`, buttons "Projekt
   speichern" in "Ansehen und übergeben" and "Projekt öffnen …" under the shapes): the drawing (sketches, contours as `source` +
   `placement` – never the derived `contours` –, how each part is cut, the two-sided state, the cutting settings) as
-  `*.lowrider.json`, format `lowrider-cam-project` version 1 (version 2 where a part names a cutter – "Several tools" below). Reading is strict and refuses with stable codes (`too-large`,
+  `*.lowrider.json`, format `lowrider-cam-project` version 1 (version 2 where a part names a cutter or a colour group is in use – "Several tools" and "Colour groups" below). Reading is strict and refuses with stable codes (`too-large`,
   `invalid-json`, `wrong-format`, `newer-version`, `invalid-project`; non-finite numbers, duplicate ids, 2000 items / 400 000
   points; a name with control characters or over 120 characters – it goes into the program header and the file name –, ids that
   are no safe integers, a circle that is not where its polygon is, a back side without the two-sided state, a part deeper than
@@ -318,8 +318,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   over a corner moves to the nearest clear place – see "Toolpath options" below**), `at: []` is no tab, an open contour has none.
   `width` is **the material that stays on the part** – the cutter lifts over `width + toolDiameter`, and the table's marker is the bar of the
   true width. `CamItem.tabs` stays the switch; `tabSpec` (`mode` auto | manual, own `count`/`width`/`height`, `at: {c, u}[]` with `c` the
-  contour of the item) overrides the drawing's defaults (`settings.tabs`, "Standard-…" under Erweitert) value by value;
-  `itemTabs(item, c, defaults)` is the one way to the effective `Tabs` of a contour (`itemOperation(item, settings, c)`, the two-sided
+  contour of the item) overrides the defaults of the drawing (`settings.tabs`, "Standard-…" under Erweitert) **or of its colour ("Colour groups" below)** value by value;
+  `itemTabs(item, c, defaults)` is the one way to the effective `Tabs` of a contour (the defaults are `effective(item, colors, settings).tabDefaults`, never `settings.tabs` read by hand) (`itemOperation(item, settings, c)`, the two-sided
   `loose` note through `itemHasTabs`: **a part is held only where every closed contour of it has a tab – by hand a place on each (a grid of
   holes needs one per hole), spread a count above 0; `looseContours` names the ones that have none and the panel says how many**),
   `tidySpec` drops a spec that says nothing. The cutter walks beside the drawn line, so the toolpath lifts at the nearest place of the loop
@@ -414,7 +414,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   **Several tools in one program – "Werkzeug von Teil n"** (`CamItem.toolId`, `lib/camTools.ts`, `store/camTools.ts`, the field in `ItemRow`,
   `toolpaths` with a list of `ToolSettings`, `toGcode` with `blocks`; Merkliste cam-path8): a part names a cutter of the tool list (`toolId`; absent =
   the drawing's `settings.toolId`, the key is left off, never `undefined`; `setItem`, `copies` – so duplicate, paste, array – and undo carry it).
-  **`planCutters(items, settings, tools, spindle)` (pure) is the one place that says which cutter each part is cut with, and everything asks it:**
+  **`planCutters(items, settings, tools, spindle, colors?)` (pure) is the one place that says which cutter each part is cut with – the part's own, else its colour's ("Colour groups" below), else the drawing's – and everything asks it:**
   `generate` (the program), `manualTabs`, the table's tab marks (`itemTabMarks(…, diameterOfItem(plan, item))` through `useCamCutters`), the helix range
   (`CamPath`), the nesting gap (the widest cutter), `insert`'s hole decision (`defaultOperations` with a diameter per contour – only where a part has a
   cutter of its own; else the one number, as ever), the summary line, the series and the two-sided guards. A hidden part, a part that is "nicht
@@ -444,9 +444,9 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   (a second one, or one alone) in a two-sided drawing is the flip note `tools` (`blocksFlip`, no program, no plan, in either order of the edits; a project file that
   carries both opens whole and shows the note), and `seriesOwnToolRows()` closes the series (`begin`, `make`, the card's button with `series-own-tools`); sections work on
   the program text and keep every `T`/`M6` line (tested). **Project file:** optional `toolId` per item (a safe id: ≤ 120 characters, no control characters;
-  never on a registration hole), optional `toolDiameters` (tool id → mm, written for the tools the parts name); **version 2 exactly where a part carries a `toolId`**
-  (`projectVersion(project)` – the ONE helper that decides, which later additions extend; `PROJECT_VERSION` is 1, the version a drawing is written as while it needs nothing newer,
-  `PROJECT_VERSION_MAX` 2 what is read; an older build refuses 2 with `newer-version` instead of cutting everything with one cutter; a file without `toolId` is written as version 1,
+  never on a registration hole), optional `toolDiameters` (tool id → mm, written for the tools the parts name); **version 2 exactly where a part carries a `toolId` – or a colour is in use ("Colour groups" below)**
+  (`projectVersion(project)` – the ONE helper that decides, which later additions extend – the colour groups did; `PROJECT_VERSION` is 1, the version a drawing is written as while it needs nothing newer,
+  `PROJECT_VERSION_MAX` 2 what is read; an older build refuses 2 with `newer-version` instead of cutting everything with one cutter; a file with neither is written as version 1,
   key for key as before); `openProject` answers `partTools: { missing, differ }` (the ids this list lacks – the part stays on it – and the ones with another diameter here; said in the
   log like `toolMissing`/`toolDiffers`). **The part's start after a change asks first** (start warning `toolChange`, above). **The simulator** takes the width of each cutter at its `M6`
   from the program's header (`Simulator.toolDiameters`, set by `simulatedCutter` from `useJob.header`; a move carries the radius it was queued with); a program without such a header keeps
@@ -455,6 +455,47 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `camToolsProject`, `camToolsFlip` (flip, series, sections), `camToolsRunning`, `camToolsPanel`, `camToolsAnalysis`, `simulator`, `startHook`, `run`, `e2e/tools.spec.ts` (desktop and tablet: the field, the
   two blocks, the row measured before and after a choice, the 800 × 600 sheet, the clash of numbers, a CAM-made two-tool job on the simulator whose cuts are measured: the engraving 3 mm wide, the outline 8 mm, and
   the second part asks first), a touch case in `e2e/ipad.spec.ts`.
+  **Colour groups – "Farbgruppen"** (`CamItem.color`, `CamProject.colors`, pure `lib/camGroups.ts`, `components/CamColors.tsx`; Merkliste cam-ux4): **four colours A–D**
+  (`'a'|'b'|'c'|'d'`; more are not told apart under the colours the guide reserves – red for faults, blue for the cut and the primary action, violet for the selection, green for
+  done, amber for the current; the survey measured it). A part has at most one; a registration hole never (the store refuses it, the file reader refuses it); a hidden part keeps
+  its colour and counts as "ausgeblendet" in the card. **A colour carries ONLY what can already be unset on a part:** `depth` (cuts and drills), `engraveDepth` (`kind 'on'`), `climb`, `toolId`
+  and the tab defaults `tabs.{count,width,height}` (`ColorValues`) – **not** the kind of cut, tabs on/off or the relief (always concrete on a part), **and not the order of the cuts** (how a
+  colour's order would compose with `CamItem.seq` and the badge that reads the real place from `cutOrder` is open: Merkliste cam-col1). **`effective(item, colors, settings)` is the one
+  function** (`{ depth, inherited, engraveDepth, climb, toolId, tabDefaults, from }`, part > colour > drawing per value, `from` says which; `tabDefaultsOf` is its tab part) and everything that
+  computes such a value asks it: `itemOperation(item, settings, contour, colors)` (the library gets `undefined` depth and climb exactly where neither the part nor a colour sets one, so
+  **a colour that sets nothing gives the program of a drawing without colours, byte for byte** – `camGroupsStore`, with an outline, pocket, holes and an engraving), `depthOf` and the
+  `itemHasTabs` of `generate` (what `checkSides` checks is what is cut – `camGroupsFlip`), `manualTabs`, the table's tab marks (`drawnTabMarks` takes a function per item) and `CamTabs` (the
+  placeholders of the part's own tab values are the colour's), `planCutters` (the part's cutter is `effective(...).toolId`; the notes `missing`/`probe`/`kind` are per part), `seriesMotif`
+  (a series carries the colour's depth, direction and tabs; **its cutter is only the refusal** – `seriesOwnToolRows` and the two-sided note `tools` name parts whose colour has another cutter than
+  the drawing's, like a part's own), the placeholders and the first choice of the direction and cutter fields in `ItemRow`, the file reader's bounds for the number of passes
+  (`ownedDepth`). **Where the table lives: `CamProject.colors`**, not `CamSettings`: it is on every `Snapshot` (`snap`, `restore` replaces it – never overlays –, `alongWith` rides on `snap`), so
+  assigning a colour and editing a value are both steps of undo (`setColor`: its own step like the eye; `setColorValue`: coalesced by value, `color:<id>:<keys>`); copies carry the colour (`copies`),
+  `group`/`ungroup` change nothing, a new part gets none, everything through `remember()` + `update()` so the job lock and `ahead` hold (`camGroupsRunning`). **The key is left off wherever it is empty**
+  (`project.colors`, `item.color`, an entry that sets nothing): **`update()` takes the values of a colour that no part carries away** (`pruneColors`; undo brings them back with the part) – so the card, the
+  file and the file's version always agree; `clear()` follows (an emptied drawing starts without colours). `setColorValue` clamps to the reader's ranges (`COLOR_LIMITS`, the same as the
+  fields and `MAX_DEPTH`) and does nothing for a colour no part carries. **Project file:** `color` per item (one of `a`–`d`, else `invalid-project`; on a registration hole `invalid-project`), optional
+  `colors` read like `SETTING_RANGES` – a value out of range, of the wrong type or for a colour there is not is **left out and said** (`dropped`: `colors.a.depth`, `colors.a.tabs.count`, `colors`;
+  `droppedName` in `CamColors.tsx` makes the words), never a refusal –, written only where something is set; a cutter of a colour the workshop lacks stays chosen and is said like a part's (`partTools`;
+  `saveProject` writes its diameter into `toolDiameters`); **version 2 where a part carries a colour or the table sets something** (`projectVersion`: an older build would drop colours and the
+  depths they set silently, so it must refuse the file), version 1 byte for byte otherwise. **UI:** the choice "Farbe" is a `NativeSelect` in the card of the selection (`ColorSelect`, `data-find="cam-color"`,
+  for ALL selected parts in one step, "verschieden" where they differ; always the same height, so no row below it moves; none for a selection of registration holes alone); the row of a part shows a
+  **small pill of a fixed size** (`ColorPill`, `.cam-color-pill`: the letter in `--foreground` on `--card`, the colour only as its frame – `test/theme.test.ts` reads the rule –, assistive name "Farbe A, Orange"), which changes no
+  height (`e2e/colors.spec.ts` measures every row's top and height before and after, at tablet size and in the 800 × 600 sheet). **The card "Farbgruppen" lies BELOW the list** (like the note of hidden parts: what
+  the finger just tapped must not move away) **as a `Fold` of its own** (not nested in "Erweitert" – two folds deep would hide it from the list it belongs to; `data-find="cam-colors"`, `useUi.depth.camColors`, closed
+  until opened once, `registerFold` for the search): only the colours some part carries, each with its parts ("Teile: n", "davon ausgeblendet: m"), the depth and engraving depth (placeholder = the drawing's, a
+  `Deviation` dot where they differ), the direction, the cutter (all tools that are no probe, a gone one stays visible, a hint for a V-bit) and – under that colour's own "Mehr Optionen" (`camColorA`…) – the tab defaults, plus one
+  sentence that a part's own value goes first and that the order of the cuts is not a colour's matter. Its fields carry their own names ("Tiefe (mm) von Farbe A": the visible label first) – a Base UI `FieldLabel`
+  would take the name over from the control, and four colours must not each have a field called "Tiefe (mm)". **On the table** (`drawingColored`, `drawingLetters` in `render/draw.ts`, built in `TableView`): the
+  outline of a coloured part that is cut is a path of its own per colour, 2 px in the colour on a rim of `--stage-bg` (readable on a photo), parts without a colour stay 1 px `--stage-text`, a hidden part stays grey and
+  dashed, the back of a two-sided part keeps its dash in the colour, the selection (violet, drawn after) lies over it. **The LETTER is the carrier** (a label at the upper left of each coloured part's box, `--stage-text` on
+  a wash of `--stage-bg`, left out at the selected part and for boxes under `LETTER_MIN_PX` = 20 px), the colour the second – a state never by colour alone. Tokens `--stage-group-a`…`d` (plain hex in both themes, read through
+  `readColors().groups`; dark `#fb923c #a3e635 #22d3ee #f472b6`, light `#c2410c #4d7c0f #0e7490 #be185d`), held by `test/theme.test.ts` to ≥ 4.5:1 on `--stage-bg` and `--card` and to differ from the colours that mean
+  something. Colours exist **only in the CAM place** (not in the 3D picture or the run view: "colour only with meaning"). Quick search: `camColors` (`['cam-colors','cam-how']`) and `camColor`
+  (`['cam-color','cam-multi','cam-draw']`), words in both languages. **Not built (Merkliste):** the order per colour (cam-col1), colours from the layers of a DXF file (cam-col2), a new part inheriting the selection's colour (cam-col3),
+  more than four colours (cam-col4), a colour that carries the kind of cut – "Auf Teile anwenden" (cam-col5), colours in the 3D picture (cam-col6). **Not verified:** how the colours look on a screen in the workshop (the
+  contrasts are computed from the values; orange and pink may read reddish – DESIGN.md §7 keeps red for faults). Tests: `camGroups` (pure, hand-checked precedence), `camGroupsStore`, `camGroupsProject`, `camGroupsRunning`,
+  `camGroupsFlip` (two-sided check, series), `camGroupsPanel`, `drawColors`, `theme`, `commands`, `e2e/colors.spec.ts` (desktop and tablet: depth in the program with a part keeping its own, a second cutter, the card, the rows
+  measured, the table's pixels, undo, the project file, the 800 × 600 sheet, the light theme), `e2e/find.spec.ts`, a touch case in `e2e/ipad.spec.ts`.
   **Selecting several, aligning, distributing, grouping** (`lib/camSelect.ts`, `lib/camArrange.ts`, `store/cam.ts`, `CamArrange.tsx`, the rows
   in `CamCard.tsx`): `Selection` is `null` · a group number · `'all'` · `readonly number[]` (two or more groups, in the order of the list;
   `normalise`: none is null, one is the number – so every reader of a single group, `typeof selected === 'number'`, keeps its meaning).

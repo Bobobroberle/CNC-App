@@ -2705,6 +2705,41 @@ export const en: DictionaryShape = {
       allHidden: 'All parts are hidden – there is nothing to cut.',
       noTabs: 'A hidden part has no tabs on the table – show it first.',
     },
+    colors: {
+      title: 'Colour groups',
+      select: 'Colour',
+      none: 'None',
+      mixed: 'differs',
+      option: '{letter} · {name}',
+      names: { a: 'Orange', b: 'Lime', c: 'Turquoise', d: 'Pink' },
+      pill: 'Colour {letter}, {name}',
+      hint: 'A colour gives all its parts the same depth, direction, tool and tab defaults. What a part has set itself goes first. Empty fields are as in the drawing. The order of the cuts has nothing to do with the colour, and the kind of cut, tabs on or off and freed corners are set by each part.',
+      empty:
+        'No colour given yet: select a part and pick one under “Colour” above. Then it shows here.',
+      parts: 'Parts: {n}',
+      hiddenParts: 'of those hidden: {n}',
+      depth: 'Depth (mm)',
+      depthOf: 'Depth (mm) of colour {letter}',
+      engraveDepth: 'Engraving depth (mm)',
+      engraveDepthOf: 'Engraving depth (mm) of colour {letter}',
+      direction: 'Direction',
+      directionOf: 'Direction of colour {letter}',
+      tool: 'Tool',
+      toolOf: 'Tool of colour {letter}',
+      toolHint:
+        'A V-bit, ball cutter or drill is for engraving and drilling only: other parts of this colour are cut with the drawing’s tool – the note is under “Look and hand over”.',
+      tabCount: 'Number of tabs',
+      tabCountOf: 'Number of tabs of colour {letter}',
+      tabWidth: 'Tab width (mm)',
+      tabWidthOf: 'Tab width (mm) of colour {letter}',
+      tabHeight: 'Tab height (mm)',
+      tabHeightOf: 'Tab height (mm) of colour {letter}',
+      likeColor: 'As colour {letter} ({value})',
+      likeDrawing: 'As the drawing ({value})',
+      tabs: 'Tabs',
+      droppedOf: 'Colour {letter}: {field}',
+      droppedTable: 'Colours',
+    },
     group: {
       group: 'Group',
       ungroup: 'Ungroup',
@@ -2971,7 +3006,7 @@ export const en: DictionaryShape = {
       askew:
         'The registration holes lie askew to each other: the turned part will not fit the pins. Move one (it snaps) or have them proposed anew.',
       tools:
-        'Part {rows} is cut with a tool of its own. A drawing for both sides cuts everything with the drawing’s tool – no program is made until no part has a tool of its own or “Machine from both sides” is off.',
+        'Part {rows} is cut with another tool than the drawing’s (one of its own or its colour’s). A drawing for both sides cuts everything with the drawing’s tool – no program is made until no part has another tool or “Machine from both sides” is off.',
     },
     title: 'Both sides: {name}',
     stepsLabel: 'Steps of machining both sides',
@@ -3046,7 +3081,7 @@ export const en: DictionaryShape = {
     needsMotif: 'Draw the motif first: a text, a logo, a shape.',
     notTwoSided: 'A series is cut from one side: switch “Machine from both sides” off.',
     ownTools:
-      'The series cuts everything with the drawing’s tool. Part {rows} has a tool of its own: leave it at “As the drawing”.',
+      'The series cuts everything with the drawing’s tool. Part {rows} has another tool (one of its own or its colour’s): leave it at “As the drawing”.',
     title: 'Series: {name}',
     back: 'To the drawing',
     stepsLabel: 'Steps of the series',
@@ -4044,6 +4079,10 @@ export const en: DictionaryShape = {
         'group, group parts, combine, put together, move together, make a group, gruppieren, illustrator',
       camUngroup:
         'ungroup, ungroup parts, take apart, split a group, pick single contours, single contours of a file, gruppierung aufheben, release group',
+      camColors:
+        'colour groups, color groups, colour group, colours, colors, group, layer, layers, depth per colour, depth per color, tool per colour, tool per color, direction per colour, tabs per colour, processing group, estlcam, assign by colour, cut by colour, farbgruppen, farben, ebene, tiefe je farbe, werkzeug je farbe',
+      camColor:
+        'colour, color, assign a colour, assign a color, give a colour, pick a colour, colour a part, colour the part, orange, lime, turquoise, pink, letter a, layer, assign layer, farbe, farbe zuweisen, teil einfärben, ebene zuweisen',
       tabsAvoid:
         'avoid corners, tabs avoid corners, tab not on the corner, tabs on straight stretches, tabs corners, hold-down tabs corners, move tabs off corners, ecken meiden, stege meiden ecken',
       camRoute:

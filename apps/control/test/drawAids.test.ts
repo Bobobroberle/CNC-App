@@ -25,6 +25,7 @@ const colors: Colors = {
   tool: 'TOOL',
   live: 'SELECT',
   text: 'TEXT',
+  groups: { a: 'GA', b: 'GB', c: 'GC', d: 'GD' },
 };
 
 class FakePath {

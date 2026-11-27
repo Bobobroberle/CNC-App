@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n';
 import type { CamItem } from '../lib/camItems';
+import { tabDefaultsOf } from '../lib/camGroups';
 import { looseContours, TAB_LIMITS, tabsMissing, tabValues } from '../lib/camTabs';
 import { useCam } from '../store/cam';
 import { mm, NumberField } from './camParts';
@@ -22,7 +23,10 @@ import { Reason } from '../ui/tooltip';
  * makes it push the rows below it away.
  */
 export function CamTabs({ item, n }: { item: CamItem; n: number }) {
-  const defaults = useCam((s) => s.settings.tabs);
+  // The defaults of this part: the drawing's, with its colour's count, width and height over them
+  const drawing = useCam((s) => s.settings.tabs);
+  const colors = useCam((s) => s.project?.colors);
+  const defaults = useMemo(() => tabDefaultsOf(item, colors, drawing), [item, colors, drawing]);
   const placing = useCam((s) => s.placing === item.id);
   const [tooMany, setTooMany] = useState(false);
   // It opens where the button that opened it stood, and that button is gone with the tap. A row low in the list

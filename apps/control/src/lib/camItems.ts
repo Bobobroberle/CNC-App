@@ -14,6 +14,7 @@ import {
   type AnySketch,
   type TextOptions,
 } from '@lowrider/cam';
+import type { ColorId } from './camGroups';
 
 /**
  * How the holding tabs of one thing are made, where it differs from the drawing's defaults
@@ -82,6 +83,12 @@ export interface CamItem {
   depth?: number;
   /** Climb (true) or conventional (false) milling of this part; undefined takes the job's setting */
   climb?: boolean;
+  /**
+   * The colour group of this part (A–D, `lib/camGroups.ts`): the values it shares with the other parts of the colour –
+   * depth, direction, cutter, defaults of the tabs – unless the part has its own. Absent: no colour (the key is left
+   * off, so a project file stays as an older app wrote it). Never on a registration hole; a hidden part keeps it.
+   */
+  color?: ColorId;
   /**
    * The cutter of this part: a tool of the tool list (its id); undefined takes the drawing's (`settings.toolId`).
    * Where parts name more than one cutter the program is one program with a tool change between them. The key

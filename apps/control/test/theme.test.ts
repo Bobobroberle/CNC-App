@@ -108,6 +108,80 @@ describe.each([
   });
 });
 
+describe.each([
+  ['dark', dark],
+  ['light', light],
+])('the colour groups of a drawing, %s theme', (_name, theme) => {
+  const GROUPS = ['--stage-group-a', '--stage-group-b', '--stage-group-c', '--stage-group-d'];
+  const on = (fg: string, bg: string) => contrast(theme[fg]!, theme[bg]!);
+
+  it('are plain colours the canvas can read, four of them', () => {
+    for (const name of GROUPS) expect(theme[name], name).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(new Set(GROUPS.map((name) => theme[name])).size).toBe(4);
+  });
+
+  it('read as lines at 4.5:1 on the ground of the table and on the cards, where the swatch of a pill sits', () => {
+    for (const name of GROUPS) {
+      expect(on(name, '--stage-bg'), `${name} on the stage`).toBeGreaterThanOrEqual(4.5);
+      expect(on(name, '--card'), `${name} on a card`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('are none of the colours that mean something: a fault, the selection, the cut, done, the current, the primary action', () => {
+    const MEANING = [
+      '--destructive',
+      '--stage-select',
+      '--stage-cut',
+      '--stage-done',
+      '--stage-current',
+      '--primary',
+      '--success',
+      '--warning',
+      '--probe',
+      '--stage-text',
+      '--stage-muted',
+    ];
+    for (const name of GROUPS) {
+      for (const meaning of MEANING) {
+        expect(theme[name], `${name} / ${meaning}`).not.toBe(theme[meaning]);
+      }
+    }
+  });
+
+  it('leave the letter that names them the carrier: the text colour on the card is 7:1 and on a wash of the ground too', () => {
+    // the pill's letter is `--foreground` on `--card`; on the table it is `--stage-text` on a wash of `--stage-bg`
+    expect(on('--foreground', '--card')).toBeGreaterThanOrEqual(7);
+    expect(on('--stage-text', '--stage-bg')).toBeGreaterThanOrEqual(7);
+  });
+});
+
+describe('the pill that carries a colour in the list', () => {
+  const rooms = readFileSync(join(__dirname, '../src/styles/rooms.css'), 'utf8');
+  const rule = (selector: string) =>
+    [...rooms.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+      .map((m) => ({ selector: m[1]!.replace(/\/\*[\s\S]*?\*\//g, '').trim(), body: m[2]! }))
+      .find((r) => r.selector === selector)?.body;
+
+  it('has a fixed size, writes its letter in the text colour on the card’s fill, and frames itself in the colour', () => {
+    const body = rule('.cam-color-pill')!;
+    expect(body).toMatch(/width:\s*1\.75rem/);
+    expect(body).toMatch(/height:\s*1\.75rem/);
+    expect(body).toMatch(/color:\s*var\(--foreground\)/);
+    expect(body).toMatch(/background:\s*var\(--card\)/);
+    expect(body).toMatch(/border:[^;]*var\(--swatch/);
+    // no opacity anywhere in it (it would fall below the contrast of the guide), and it is no taller than a line
+    expect(body).not.toMatch(/opacity/);
+  });
+
+  it('takes the swatch of each colour from the token of the same letter', () => {
+    for (const id of ['a', 'b', 'c', 'd']) {
+      expect(rule(`.cam-color-pill[data-color='${id}']`), id).toMatch(
+        new RegExp(`--swatch:\\s*var\\(--stage-group-${id}\\)`),
+      );
+    }
+  });
+});
+
 describe('the two themes', () => {
   it('use the tokens of DESIGN.md for dark', () => {
     expect(dark).toMatchObject({

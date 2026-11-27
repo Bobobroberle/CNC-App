@@ -9,6 +9,7 @@ import { useCam } from '../store/cam';
 import { useMachine } from '../store/machine';
 import { useUi } from '../store/ui';
 import { focusNewText } from './CamArrange';
+import { droppedName } from './CamColors';
 import { Fold } from './Fold';
 import { Icon, type IconName } from './Icon';
 import { Alert } from '../ui/alert';
@@ -167,9 +168,7 @@ export function CamAdd() {
               addLog('error', t('cam.project.toolMissing'), 'cam.project.toolMissing');
             }
             if (result.dropped) {
-              const names = result.dropped.map((key) =>
-                t(`cam.${key === 'tabs' ? 'tabCount' : key}` as 'cam.depth'),
-              );
+              const names = result.dropped.map(droppedName);
               addLog(
                 'error',
                 t('cam.project.settingsDropped', { list: names.join(', ') }),

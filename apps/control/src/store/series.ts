@@ -118,7 +118,7 @@ export function seriesOwnToolRows(): number[] {
   const { project, settings } = useCam.getState();
   if (!project) return [];
   const { tools, settings: ws } = useWorkshop.getState();
-  return planCutters(project.items, settings, tools, ws.spindle)
+  return planCutters(project.items, settings, tools, ws.spindle, project.colors)
     .cutters.filter((c) => c.id !== settings.toolId)
     .flatMap((c) => c.rows)
     .sort((a, b) => a - b);
@@ -137,11 +137,13 @@ export function seriesMotif(): MotifPart[] {
       if (item.tabSpec?.mode === 'manual' && tabsOn(item) && !item.textStyle) {
         return item.contours.map((c, k) => ({
           contours: [c],
-          ...itemOperation(item, settings, k),
+          ...itemOperation(item, settings, k, project.colors),
           ...text,
         }));
       }
-      return [{ contours: item.contours, ...itemOperation(item, settings), ...text }];
+      return [
+        { contours: item.contours, ...itemOperation(item, settings, 0, project.colors), ...text },
+      ];
     });
 }
 

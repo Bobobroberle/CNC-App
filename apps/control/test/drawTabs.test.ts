@@ -15,6 +15,7 @@ const colors: Colors = {
   tool: 'TOOL',
   live: 'SELECT',
   text: 'TEXT',
+  groups: { a: 'GA', b: 'GB', c: 'GC', d: 'GD' },
 };
 
 /** Paths that remember how they were drawn, and a canvas that writes down what it is told. */

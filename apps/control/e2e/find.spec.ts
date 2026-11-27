@@ -627,6 +627,37 @@ test('the toolpath entries lead to something that is there: the cards of the dra
   await expect(page.getByTestId('cam-entry-ramp')).toHaveCount(0);
 });
 
+test('the colour entries lead to something that is there: the cards of the drawing while no part is, the field and the card of the list when it is', async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  const faded = (anchor: string) =>
+    expect(page.locator(`[data-find~="${anchor}"]`)).not.toHaveClass(/found/);
+  // Nothing drawn: the card of the colours and the choice are not there – the chains end in the cards that always are
+  await find(page, 'farbgruppen', 'Farbgruppen', 'Zeichnen/CAM');
+  await landed(page, 'cam-how');
+  await faded('cam-how');
+  await find(page, 'farbe zuweisen', 'Farbe', 'Zeichnen/CAM');
+  await landed(page, 'cam-draw');
+  await faded('cam-draw');
+  // A part drawn and selected: the choice of the colour is in the card of the selection, the card of the colours is
+  // folded below the list – the search shows the first and unfolds the second, and gives nothing a colour
+  const add = page.getByTestId('cam-add');
+  await add.getByRole('button', { name: 'Rechteck', exact: true }).click();
+  await find(page, 'farbe zuweisen', 'Farbe', 'Zeichnen/CAM');
+  await landed(page, 'cam-color');
+  await faded('cam-color');
+  await expect(page.getByRole('combobox', { name: 'Farbe', exact: true })).toHaveValue('');
+  const folded = page.getByRole('button', { name: 'Farbgruppen', exact: true });
+  await expect(folded).toHaveAttribute('aria-expanded', 'false');
+  await find(page, 'tiefe je farbe', 'Farbgruppen', 'Zeichnen/CAM');
+  await landed(page, 'cam-colors');
+  await expect(folded).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('cam-color-pill')).toHaveCount(0);
+  await expect(page.getByTestId('cam-colors')).toContainText('Noch keine Farbe vergeben');
+});
+
 test('in the drawing its own keys go on working beside the global ones', async ({ page }) => {
   await openApp(page);
   await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();

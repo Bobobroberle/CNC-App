@@ -382,6 +382,22 @@ export const COMMANDS: readonly Command[] = [
     anchor: ['cam-group', 'cam-multi', 'cam-draw'],
     icon: 'ungroup',
   }),
+  // Colour groups: the card below the list (folded, there wherever a part is: the chain ends in the card of the list)
+  // and the choice of the colour in the card of the selection (with a selection; else the card that always is)
+  entry({
+    id: 'camColors',
+    title: 'cam.colors.title',
+    place: 'cam',
+    anchor: ['cam-colors', 'cam-how'],
+    icon: 'group',
+  }),
+  entry({
+    id: 'camColor',
+    title: 'cam.colors.select',
+    place: 'cam',
+    anchor: ['cam-color', 'cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
   // How a pocket is entered, how a hole is drilled and where a part comes among the ones cut the same way: the card
   // of the selection shows them for the one part that is selected – where it is not there the chain ends in the card
   // that always is

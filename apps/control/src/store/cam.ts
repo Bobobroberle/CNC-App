@@ -132,6 +132,15 @@ import {
   type CutterPlan,
   type ToolNote,
 } from '../lib/camTools';
+import {
+  colorable,
+  effective,
+  pruneColors,
+  withColorValues,
+  type ColorId,
+  type ColorPatch,
+  type ColorTable,
+} from '../lib/camGroups';
 import { textBlockCentre } from '../lib/series';
 import { inViewSpot } from '../lib/tableBox';
 import type { FlipMethod, FlipPlan } from '../lib/flip';
@@ -207,6 +216,12 @@ export interface CamProject {
   skipped: Record<string, number>;
   /** What the SVG reader left out or assumed at the last import */
   notes: SvgNote[];
+  /**
+   * What the colour groups set (`lib/camGroups.ts`): only the colours a part carries, only what they set – the key
+   * is left off where nothing is (so a drawing without colours is the project it always was). A colour no part
+   * carries has no values: `update` takes them away.
+   */
+  colors?: ColorTable;
 }
 
 /** Something that cannot be cut, by the row of the list (0-based). */
@@ -286,6 +301,8 @@ interface Snapshot {
   items: CamItem[];
   twoSided: TwoSided | null;
   selected: Selection;
+  /** The colour table as it was (absent: none) – going back replaces the table, it never overlays it */
+  colors?: ColorTable;
   /**
    * Only the step that opening a project makes carries these (and the step back from it): the
    * name and the cutting settings come with the drawing – going back brings them back too.
@@ -415,6 +432,19 @@ interface CamStore {
   setHidden(id: number, hidden: boolean): void;
   /** Every hidden part shown again, as one step */
   showAll(): void;
+  /**
+   * The colour group of parts (`lib/camGroups.ts`): `color` for the parts of the selection (every part of the groups
+   * that are selected, hidden ones too; a registration hole never), or null to take it away – `ids` names the parts
+   * instead. One step of undo (it is no field that merges with the next), one `update`: the job lock and `ahead` hold
+   * as for every change. Nothing happens, and nothing is remembered, where every part has the colour already.
+   */
+  setColor(color: ColorId | null, ids?: readonly number[]): void;
+  /**
+   * What a colour sets for its parts: a number is brought into its range, a key with `undefined` takes the value away
+   * (the drawing's again). Only for a colour a part carries – no part, nothing to change. Changes of the same values in a
+   * row are one step to undo, and going back brings the table back as it was.
+   */
+  setColorValue(color: ColorId, patch: ColorPatch): void;
   /**
    * Own values for the holding tabs of a thing – a number, or undefined to take the drawing's default
    * again; a number is brought into its range (the count into whole numbers). Changes of one value
@@ -663,13 +693,27 @@ const toolDiameter = (settings: CamSettings) =>
 let cutWith: string | null = null;
 
 /** The cutters of the drawing as it stands: which part is cut with which (`lib/camTools.ts`) */
-const cutterPlan = (items: readonly CamItem[], settings: CamSettings): CutterPlan =>
+const cutterPlan = (
+  items: readonly CamItem[],
+  settings: CamSettings,
+  colors?: ColorTable,
+): CutterPlan =>
   planCutters(
     items,
     settings,
     useWorkshop.getState().tools,
     useWorkshop.getState().settings.spindle,
+    colors,
   );
+
+/** The ids of the tool list a drawing names besides its own cutter: the cutters of single parts and of its colours */
+const namedTools = (project: Pick<CamProject, 'items' | 'colors'>): Set<string> =>
+  new Set([
+    ...project.items.flatMap((i) => (i.toolId === undefined ? [] : [i.toolId])),
+    ...Object.values(project.colors ?? {}).flatMap((c) =>
+      c.toolId === undefined ? [] : [c.toolId],
+    ),
+  ]);
 
 /** Steps the drawing can go back */
 const HISTORY = 100;
@@ -708,21 +752,28 @@ const through = (kind: OperationKind) => kind === 'outside' || kind === 'inside'
 
 /**
  * How an item of the drawing is cut: its operation without the contour it belongs to – `contour`
- * names which of the item's contours it is for (its tabs may stand at places of their own).
+ * names which of the item's contours it is for (its tabs may stand at places of their own). The values
+ * that its colour may set (`colors`: depth, direction, the defaults of the tabs) are asked of `effective`; where
+ * neither the part nor a colour sets one the library is left to fall back on the drawing's, exactly as without colours.
  */
 export function itemOperation(
   item: CamItem,
   settings: CamSettings,
   contour = 0,
+  colors?: ColorTable,
 ): Omit<Operation, 'contour'> {
+  const eff = effective(item, colors, settings);
   return {
     kind: item.kind,
-    depth: item.depth ?? (item.kind === 'on' ? settings.engraveDepth : undefined),
-    tabs: itemTabs(item, contour, settings.tabs),
+    depth: item.kind === 'on' || eff.from.depth !== 'drawing' ? eff.depth : undefined,
+    tabs: itemTabs(item, contour, eff.tabDefaults),
     relief: (through(item.kind) || item.kind === 'pocket') && item.relief ? item.relief : undefined,
     // its own direction, where it has one to choose (a stale one from another kind does not count);
     // else the job's (the library falls back)
-    climb: through(item.kind) || item.kind === 'pocket' ? item.climb : undefined,
+    climb:
+      (through(item.kind) || item.kind === 'pocket') && eff.from.climb !== 'drawing'
+        ? eff.climb
+        : undefined,
     // how a pocket is entered and a hole drilled: only where the kind takes it (a peck on anything else is
     // a problem the library would say)
     entry: takesEntry(item.kind) ? item.entry : undefined,
@@ -832,7 +883,19 @@ export const useCam = create<CamStore>((set, get) => {
   let lastField: string | null = null;
   const snap = (): Snapshot | null => {
     const { project, selected } = get();
-    return project && { items: project.items, twoSided: project.twoSided, selected };
+    return (
+      project && {
+        items: project.items,
+        twoSided: project.twoSided,
+        selected,
+        ...(project.colors ? { colors: project.colors } : {}),
+      }
+    );
+  };
+  /** The project with the colour table replaced – the key is left off where there is none */
+  const withColors = (p: CamProject, colors: ColorTable | undefined): CamProject => {
+    const { colors: _was, ...rest } = p;
+    return colors ? { ...rest, colors } : rest;
   };
   /**
    * Keeps the drawing as it was (by default: as it is now, before a change)
@@ -946,11 +1009,15 @@ export const useCam = create<CamStore>((set, get) => {
     // Places by hand on a contour the thing no longer has (a grid made smaller) go with it
     const held = withHoles(items.map(pruneTabs), p.twoSided);
     set({
-      project: {
-        ...p,
-        items: held.items,
-        twoSided: p.twoSided && { ...p.twoSided, autoHoles: held.auto },
-      },
+      // A colour no part carries any more has no values (undo brings them back with the part)
+      project: withColors(
+        {
+          ...p,
+          items: held.items,
+          twoSided: p.twoSided && { ...p.twoSided, autoHoles: held.auto },
+        },
+        pruneColors(p.colors, held.items),
+      ),
       // A group the drawing no longer has is no longer selected
       selected: pruneSelection(selected, held.items),
     });
@@ -1126,15 +1193,16 @@ export const useCam = create<CamStore>((set, get) => {
     // The first choices look at the whole drawing: a circle in an outline is a hole. A hole is a circle the cutter
     // fits: where parts have a cutter of their own each contour is judged by its own (the new things by the
     // drawing's) – and where none has, by the one number, exactly as it always was
-    const plan = cutterPlan(p.items, settings);
-    const diameters = p.items.some((i) => i.toolId !== undefined)
-      ? [
-          ...p.items
-            .filter((i) => i.hidden !== true)
-            .flatMap((i) => i.contours.map(() => diameterOfItem(plan, i))),
-          ...placed.flat().map(() => toolDiameter(settings)),
-        ]
-      : toolDiameter(settings);
+    const plan = cutterPlan(p.items, settings, p.colors);
+    const diameters =
+      p.items.some((i) => i.toolId !== undefined) || plan.other
+        ? [
+            ...p.items
+              .filter((i) => i.hidden !== true)
+              .flatMap((i) => i.contours.map(() => diameterOfItem(plan, i))),
+            ...placed.flat().map(() => toolDiameter(settings)),
+          ]
+        : toolDiameter(settings);
     const fresh = defaultOperations([...before, ...placed.flat()], diameters, settings.tabs);
     const group = nextId++;
     let at = before.length;
@@ -1158,7 +1226,11 @@ export const useCam = create<CamStore>((set, get) => {
     const p = get().project!;
     lastField = null;
     set({
-      project: { ...p, twoSided: to.twoSided, ...(to.name !== undefined ? { name: to.name } : {}) },
+      // (the colour table is replaced by the step's – never overlaid: going back past the first colour has none)
+      project: withColors(
+        { ...p, twoSided: to.twoSided, ...(to.name !== undefined ? { name: to.name } : {}) },
+        to.colors,
+      ),
       ...(to.settings ? { settings: to.settings } : {}),
     });
     update(to.items, to.selected);
@@ -1245,9 +1317,7 @@ export const useCam = create<CamStore>((set, get) => {
       // The diameters of the cutters the parts name, so that another tool list can say when one is another there
       const library = useWorkshop.getState().tools;
       const named: Record<string, number> = {};
-      for (const id of new Set(
-        project.items.flatMap((i) => (i.toolId === undefined ? [] : [i.toolId])),
-      )) {
+      for (const id of namedTools(project)) {
         const tool = library.find((x) => x.id === id);
         if (tool) named[id] = tool.diameter;
       }
@@ -1271,13 +1341,15 @@ export const useCam = create<CamStore>((set, get) => {
           ...i,
           contours: place(i.source, i.placement),
         }));
+        // The colours of the file that a part carries (a table that names others is left with the ones in use)
+        const colors = pruneColors(parsed.project.colors, parsed.project.items);
         set((s) => {
           const merged = { ...s.settings, ...(toolMissing ? rest : parsed.settings) };
           // What the file does not say is off, not what is set now: a stored drawing is cut as it was made
           // (`routeShort` is always in what is read; "Ecken meiden" is the file's own, or off)
           const { avoidCorners: _now, ...tabs } = merged.tabs;
           return {
-            project: { ...parsed.project, items },
+            project: withColors({ ...parsed.project, items }, colors),
             settings: {
               ...merged,
               tabs:
@@ -1318,7 +1390,12 @@ export const useCam = create<CamStore>((set, get) => {
           : undefined;
       // The cutters of single parts: a tool the list lacks stays chosen and is said (the part is cut with the drawing's
       // meanwhile); one of the same id with another diameter is said too
-      const named = [...new Set(parsed.project.items.flatMap((i) => i.toolId ?? []))];
+      const named = [
+        ...namedTools({
+          items: parsed.project.items,
+          colors: pruneColors(parsed.project.colors, parsed.project.items),
+        }),
+      ];
       const all = useWorkshop.getState().tools;
       const missing = named.filter((id) => !all.some((x) => x.id === id));
       const differ = named.flatMap((id) => {
@@ -1440,6 +1517,8 @@ export const useCam = create<CamStore>((set, get) => {
       if (p.items.length > 0) remember();
       const twoSided = p.twoSided && { ...p.twoSided, autoHoles: true };
       set({
+        // The colours go with the parts: a colour no part carries has no values, and an emptied drawing starts
+        // without any (undo brings them back with the parts)
         project: { ...EMPTY, name: p.name, twoSided },
         problems: [],
         cutOrder: {},
@@ -1512,6 +1591,39 @@ export const useCam = create<CamStore>((set, get) => {
       remember();
       update(p.items.map((i) => withHidden(i, false)));
     },
+    setColor(color, ids) {
+      const p = get().project;
+      if (!p) return;
+      const taken = new Set(ids ?? chosen().map((i) => i.id));
+      const targets = p.items.filter(
+        (i) => taken.has(i.id) && colorable(i) && (i.color ?? null) !== color,
+      );
+      if (targets.length === 0) return;
+      // Its own step each time, like the eye (no `field` merges two of them)
+      remember();
+      const marked = new Set(targets.map((i) => i.id));
+      update(
+        p.items.map((i) => {
+          if (!marked.has(i.id)) return i;
+          const { color: _was, ...rest } = i;
+          return color === null ? rest : { ...rest, color };
+        }),
+      );
+    },
+    setColorValue(color, patch) {
+      const p = get().project;
+      if (!p || !p.items.some((i) => i.color === color && colorable(i))) return;
+      const next = withColorValues(p.colors, color, patch);
+      // The same table (a value typed that is there already, a key taken away that was not set): nothing to change
+      if (next === p.colors) return;
+      // A number being typed is one step with the next of the same values; the table comes back with the step
+      const keys = Object.keys(patch).flatMap((k) =>
+        k === 'tabs' ? Object.keys(patch.tabs ?? {}).map((t) => `tabs.${t}`) : [k],
+      );
+      remember(snap(), `color:${color}:${keys.join()}`);
+      set({ project: withColors(p, next) });
+      update(p.items);
+    },
     setTabs(id, patch) {
       const keys = (['count', 'width', 'height'] as const).filter((k) => k in patch);
       const corners = 'avoidCorners' in patch;
@@ -1557,9 +1669,10 @@ export const useCam = create<CamStore>((set, get) => {
       // What the automatic spread makes now, contour by contour, is where one starts
       // – the very places the cut lifts at (`operationTabSites` with the operation it is cut with, and the
       // cutter the part is cut with)
-      const tool = diameterOfItem(cutterPlan(project!.items, settings), item);
+      const tool = diameterOfItem(cutterPlan(project!.items, settings, project!.colors), item);
+      const defaults = effective(item, project!.colors, settings).tabDefaults;
       const at = item.contours.flatMap((contour, c) => {
-        const tabs = itemTabs(item, c, settings.tabs);
+        const tabs = itemTabs(item, c, defaults);
         return tabs
           ? operationTabSites(contour, { kind: item.kind, tabs }, { toolDiameter: tool }).map(
               (site) => ({ c, u: site.u }),
@@ -2026,7 +2139,7 @@ export const useCam = create<CamStore>((set, get) => {
       const gap = Math.min(
         typed !== undefined && Number.isFinite(typed) && typed >= 0
           ? typed
-          : defaultNestGap(widestCutter(cutterPlan(project.items, settings))),
+          : defaultNestGap(widestCutter(cutterPlan(project.items, settings, project.colors))),
         reach,
       );
       const rotate = options.rotate === true;
@@ -2180,7 +2293,7 @@ export const useCam = create<CamStore>((set, get) => {
       const { project, settings } = get();
       // The cutters this program is made for (the picture of the drawing – `useCamCutters` – asks the same plan):
       // `afterToolEdit` asks again when the tool list changes
-      const cutPlan = cutterPlan(project?.items ?? [], settings);
+      const cutPlan = cutterPlan(project?.items ?? [], settings, project?.colors);
       cutWith = planSignature(cutPlan, useWorkshop.getState().settings.spindle);
       // What is cut: a hidden part is not (the program does not mention it – not even as a part without work)
       const parts = project ? inSight(partsOf(project.items)) : [];
@@ -2223,8 +2336,8 @@ export const useCam = create<CamStore>((set, get) => {
             cut: c.cut,
           }))
         : null;
-      const depthOf = (item: CamItem) =>
-        item.depth ?? (item.kind === 'on' ? settings.engraveDepth : settings.depth);
+      // (what the two sides are checked against is what is cut: the part's own depth, its colour's, the drawing's)
+      const depthOf = (item: CamItem) => effective(item, project.colors, settings).depth;
       /** The toolpath of one side (null: of everything), its contours laid as they are cut. */
       const side = (which: Side | null, lay = (contours: Contour[]) => contours) => {
         const contours: Contour[] = [];
@@ -2237,7 +2350,7 @@ export const useCam = create<CamStore>((set, get) => {
           lay(item.contours).forEach((c, k) => {
             operations.push({
               contour: contours.length,
-              ...itemOperation(item, settings, k),
+              ...itemOperation(item, settings, k, project.colors),
               ...own,
             });
             contours.push(c);
@@ -2279,7 +2392,7 @@ export const useCam = create<CamStore>((set, get) => {
           contours: item.contours,
           depth: depthOf(item),
           // Held only where a tab is cut: none by hand, or none by count, leaves the part loose
-          tabs: itemHasTabs(item, settings.tabs),
+          tabs: itemHasTabs(item, effective(item, project.colors, settings).tabDefaults),
         }));
         const backUsed = parts.some((i) => i.side === 'back' && i.kind !== 'none');
         if (!backUsed) notes.push({ code: 'no-back' });
@@ -2408,7 +2521,7 @@ useCam.subscribe((s) => {
 function afterToolEdit(): void {
   const { project, settings, remake } = useCam.getState();
   if (!project || cutWith === null) return;
-  const plan = cutterPlan(project.items, settings);
+  const plan = cutterPlan(project.items, settings, project.colors);
   if (planSignature(plan, useWorkshop.getState().settings.spindle) === cutWith) return;
   remake();
 }
