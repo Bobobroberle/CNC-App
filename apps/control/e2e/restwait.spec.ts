@@ -331,12 +331,21 @@ test('pictures taken while the camera picture still changed are said once, with 
   await camera(page, { ms: 150, jitterMs: 40, noise: 2 });
   await page.waitForTimeout(800);
   await watchPictures(page);
-  // learned at 0.15 s; from the fifth picture on the camera is 5 s late the moment the machine stops – the picture is
-  // still being delivered of the move (it does not come, in fact: the stream stands still) when the longest wait is over
+  // learned at 0.15 s; from the fifth picture on the camera is 5 s late the moment the machine stops: its stream stands still at
+  // first (the simulator's picture time never goes back) and then shows older scenes. What is asserted is the warning; what the
+  // pictures do is printed – two of them were taken early on a replayed older stop and lay one hop from the tool (docs/scan.md)
   await lagJumpAtStop(page, 5000, 5);
   const run = await scan(page, AREA, false);
   const line = `unsure: ${run.stats.rest.adaptive} adaptive, ${run.stats.rest.fixed} fixed, ${run.stats.rest.unsure} unsure, ${run.stats.rest.extended} extended`;
   console.log(line);
+  console.log(
+    'POINTS',
+    run.stats.rest.points.join(' '),
+    'ERR',
+    run.pictures.map((p) => p.err?.toFixed(3)).join(' '),
+    'PAUSE',
+    run.pictures.map((p) => p.pause.toFixed(0)).join(' '),
+  );
   expect(run.stats.rest.unsure, line).toBeGreaterThanOrEqual(1);
   // one warning for the scan, with the number of those pictures and of all the stops
   await expect(

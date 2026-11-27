@@ -81,8 +81,11 @@ vor dem ersten Scan und nach einem Kamerawechsel rechnet sie mit der festen Zeit
 `ms`, `jitterMs`, `noise`); jedes Bild wird in dem Augenblick, in dem die App es liest, mit dem verglichen, was der Simulator wirklich unter der Spindel hat (`shown` gegen
 `physical()`): keines darf mehr als 0,02 mm daneben liegen. Dazu: eine Verzögerung, die in dem Moment auf 1 s springt, in dem die Maschine hält, nachdem sie bei 0,15 s gelernt wurde;
 eine Kamera, die bei jedem Halt 0,4 s lang nichts Neues liefert (`frozen`); ein Tisch ohne Struktur (`flat`); eine Kamera, die von Anfang an nichts liefert; eine Kamera ohne Rauschen. Die
-Simulator-Kamera kann dabei nur **Stillstände** zeigen: ein Sprung der Verzögerung hält die Bilder an (das Bild eines Zeitpunkts wird nie früher als das davor), sie liefert nie ein stehendes Bild von vor der Fahrt mit frischem Rauschen. Die Wächter, die das
-verhindern sollen (die Fahrt im Bild gesehen, die Maschine ruht nach zwei Meldungen auf 0,02 mm, nicht vor der gelernten Zeit), prüfen deshalb die Einzeltests in `test/restWait.test.ts` an einem Modell mit stehendem Vorbild, langsamen und
+Simulator-Kamera zeigt einen Sprung der Verzögerung zuerst als **Stillstand** (das Bild eines Zeitpunkts wird nie früher als das davor) und danach als **ältere Szenen mit frischem Rauschen** – eine Kamera, die einen früheren Halt noch einmal zeigt;
+ein stehendes Bild von vor der Fahrt, das gar nichts von der Fahrt zeigt, liefert sie nicht. **Gemessen** (`e2e/restwait.spec.ts`, „said once“ gibt es aus): bei 0,15 s gelernt, dann ab dem Halt des fünften Bildes 5 s zu spät – von 8 Bildern wurden 2 als
+„adaptiv“ genommen (0,56 und 0,83 s nach der Ruhemeldung) und lagen **52 mm** (eine Fahrt) vom Werkzeug entfernt: der wiedergegebene frühere Halt erfüllte „Fahrt gesehen“, „ruhig“ und „Maschine ruht“, und die falsche Zeit ging in das Gelernte ein. Die feste Zeit läge dort ebenso
+daneben (die Kamera zeigt einen alten Halt), die Wartezeit ist also nicht schlechter als vorher – aber ihr Beleg trägt bei einer Kamera, die Sekunden zu spät ist, nicht; die Tests decken 0 bis 1 s ab. Die Wächter, die das bei kleineren Verzögerungen verhindern sollen
+(die Fahrt im Bild gesehen, die Maschine ruht nach zwei Meldungen auf 0,02 mm, nicht vor der gelernten Zeit), prüfen die Einzeltests in `test/restWait.test.ts` an einem Modell mit stehendem Vorbild, langsamen und
 schwingenden Meldungen; jeder wurde einmal herausgenommen, und ein Test schlug fehl. **Eine naive Wartezeit** (350 ms nach der Ruhemeldung bei 0,4 s Verzögerung) **und ein „ruhig“ nach der Uhr ohne neue Bilder** nehmen am selben Modell ein Bild von vor
 dem Halt (`shows what the shortcuts it does not take would have done`). Die Millimeter, die hier früher standen (0,925 mm bei 350 ms; 5,7 und 7,2 mm bei der springenden Verzögerung und beim Aussetzen), stammen aus einem einmaligen Versuch am Simulator,
 der nicht aufbewahrt ist – kein Test im Baum wiederholt sie.
@@ -117,7 +120,8 @@ wurde bei 25 Bildern über die feste Zeit hinaus gewartet, und kein Bild lag dan
 ändert), zeigt bei der festen Zeit noch den vorigen Halt: ruhig und mit neuen Bildern, die Fahrt ist im Bild noch nicht zu sehen – dann gibt es keinen Beleg (zweite Bedingung), und das Bild wird wie bisher bei der festen Zeit genommen, ohne als
 unsicher gezählt zu werden. **Dieses Bild kann von vor dem Halt sein** (`test/restWait.test.ts`, „takes no shortcut on a picture that shows nothing of the move“ legt es fest). Die App hat die Fahrt auf früheren Punkten gesehen und könnte hier
 mehr erwarten, aber sie kann ein stehendes Bild von vor der Fahrt nicht von einer blanken Stelle des Tisches unterscheiden, die nie etwas zeigt (Merkliste `tim-j`: nur mit einem Maß für die Struktur im Bild, das an der echten Kamera zu messen wäre). Das ist das
-Verhalten vor dieser Änderung, nicht besser.
+Verhalten vor dieser Änderung, nicht besser. **Dazu gehört der Fall der Wiedergabe:** eine Kamera, die mehrere Sekunden zu spät ist, zeigt ältere Halte, und einer davon kann als Beleg gelten (oben: 52 mm daneben, früh genommen); auch das unterscheidet die App nicht von diesem Halt
+(Merkliste `tim-j`).
 
 **Was das nicht zeigt.** Der Gewinn ergibt sich aus der Bauweise des Simulators: seine Kamera ist genau so spät, wie der Test sie einstellt, sein Rauschen ist gleichmäßig (2 Graustufen je Pixel,
 für jedes Bild neu), die Maschine schwingt nicht nach, und die Beruhigungszeit von 600 ms wurde dort nie gebraucht. Bei 0,8 s Verzögerung – nahe an der festen Zeit – gibt es keinen Gewinn, und die Pause ist 11 % länger, weil
