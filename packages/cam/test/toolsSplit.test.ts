@@ -26,8 +26,11 @@ const motionOf = (s: Segment) => ({
   length: s.length,
 });
 
-describe('a program with two tools, split at its tool change and run apart', () => {
-  const { program } = twoToolSign();
+describe.each([
+  ['with the feeds of each tool of its own', false],
+  ['with the same feeds for both tools', true],
+])('a program with two tools %s, split at its tool change and run apart', (_, sameFeeds) => {
+  const { program } = twoToolSign([1, 2], sameFeeds);
   const parts = splitAtToolChanges(program);
   const full = analyzeProgram(program);
 

@@ -28,7 +28,11 @@ const settings: CutSettings = {
   allowance: 0.3,
 };
 
-export function twoToolSign(numbers: [number, number] = [1, 2]) {
+/**
+ * `sameFeeds`: the V-bit cuts with the end mill's feeds (as when the app fills every tool from the one set of job
+ * values): a part that begins with a feed move of the same feed as the last move before the tool change.
+ */
+export function twoToolSign(numbers: [number, number] = [1, 2], sameFeeds = false) {
   const text = textContours('Fräse\nNr. 1', { height: 12, x: 60, y: 42, align: 'center' });
   const shapes = [
     rectangle(0, 0, 120, 70, 8),
@@ -56,7 +60,12 @@ export function twoToolSign(numbers: [number, number] = [1, 2]) {
       number: numbers[1],
       name: 'V-bit 60',
       rpm: 12000,
-      cut: { ...settings, toolDiameter: 1, feed: 600, plungeFeed: 200, allowance: 0 },
+      cut: {
+        ...settings,
+        toolDiameter: 1,
+        ...(sameFeeds ? {} : { feed: 600, plungeFeed: 200 }),
+        allowance: 0,
+      },
     },
   ];
   const result = toolpaths([...shapes, ...text.contours], operations, tools);
