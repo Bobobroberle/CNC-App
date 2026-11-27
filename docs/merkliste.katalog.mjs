@@ -1094,6 +1094,52 @@ add('cam', 'Bahnen & Strategien', [
   ],
 ]);
 
+// Reste aus dem Review der Fräsbahnen (Tranche C): gefunden, nicht gebaut
+add('cam', 'Bahnen & Strategien', [
+  [
+    'cam-path19',
+    'Helix: das Feld zeigt auch eine Zahl, die nicht gefräst wird',
+    'Wer eine Helixbreite außerhalb von „Fräser + 0,5 mm bis 2 × Fräser“ tippt, sieht im Feld, in der Datei und im Speicher diese Zahl; gefräst wird der nächste erlaubte Wert, und der Hinweis darunter nennt das. Besser: die tatsächliche Breite neben dem Feld zeigen („gefräst mit 12 mm“) oder die getippte Zahl auf den Bereich des Fräsers setzen (die Datei muss die äußeren Grenzen behalten).',
+    'klein',
+  ],
+  [
+    'cam-path20',
+    'Reihenfolge: Verschieben kann Teile ohne Nummer anderer Arten umordnen',
+    'Früher/Später auf einem Teil verspricht nur die Reihenfolge seiner Art. In einer Reihe von Zufallsläufen änderte sich in etwa 13 von 1000 Verschiebungen auch die Reihenfolge einer anderen Art; wahrscheinlich, weil die Bibliothek die kürzere Route nur nimmt, wenn der ganze Eilgang wirklich kürzer ist, und eine Nummer diese Entscheidung kippen kann (nicht weiter verfolgt). Behebung: im Hinweis sagen oder die verdrängten Teile mit nummerieren.',
+    'klein',
+  ],
+]);
+
+add('cam', 'Auswählen & Anordnen', [
+  [
+    'cam-arr9',
+    'Verschachteln in einem eigenen, zugeklappten Feld',
+    'Der Block „Verschachteln“ (Titel, Hinweis, Abstand, Drehen, Knopf, Ergebnis) steht aufgeklappt im Feld „Ausrichten und verteilen“ und macht die Karte ab zwei ausgewählten Teilen etwa 300 px höher – für eine Funktion, die ein eingegebenes Rohteil braucht. DESIGN.md §2 und das Vorbild „Fangen und Abstände“ sprechen für ein eigenes Feld, bis zum ersten Öffnen zu, mit der Suche über registerFold.',
+    'klein',
+  ],
+  [
+    'cam-ux8',
+    'Teilnamen in der Liste am Touchgerät ganz lesbar',
+    'Der Name jeder Zeile ist eine Zeile lang und wird abgeschnitten (damit kein Kürzel die Zeilenhöhe ändert); der ganze Name steht nur im Titel der Zeile, den ein Finger nicht lesen kann. Die neuen Formen haben die längsten Namen („Zahnrad mit 16 Zähnen, Ø 60 mm“). Der ganze Name steht in der Karte der Auswahl, sobald die Zeile angetippt ist; besser wäre eine zweite, kleinere Zeile mit fester Höhe oder ein längerer Fingerdruck.',
+    'klein',
+  ],
+]);
+
+add('cam', 'Import, Export, Projekt', [
+  [
+    'cam-io6',
+    'Projektdatei: Rechteck mit Eckenradien über 5 m verliert die Skizze',
+    'Ein Rechteck mit einzelnen Eckenradien, breiter als 5000 mm, wird so gespeichert, wie es getippt wurde, und verliert beim Öffnen still seine Skizze (die Konturen bleiben und sind schneidbar). Dasselbe Rechteck ohne Radien behält die Skizze. Für eine LowRider unrealistisch; die Behebung wäre, beim Schreiben auf die Grenze zu setzen.',
+    'klein',
+  ],
+  [
+    'cam-io7',
+    'Projektdatei Version 1: eine ältere App liest neue Felder ohne Meldung',
+    'Die Version bleibt 1 (wie bei „hidden“ und „tabSpec“), also öffnet eine ältere App eine Datei mit Eckenradien, neuen Formen, Nummer, Eintauchen, Spanbrechen oder „Ecken meiden“, ohne zu warnen: die Skizzen und Felder fallen weg, die Teile bleiben schneidbar, schneiden aber bei „Ecken meiden“ anders. Gemessen mit dem Stand vor der Tranche. Die Antwort ist die Dokumentation – oder künftig Version 2 nur dann, wenn eines dieser Felder vorkommt.',
+    'klein',
+  ],
+]);
+
 add('test', 'An der Maschine', [
   [
     'o10',

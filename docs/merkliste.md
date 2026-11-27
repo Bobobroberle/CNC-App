@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-38 von 174 erledigt.
+38 von 180 erledigt.
 
 ## Scan & Kamera
 
@@ -80,6 +80,8 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [ ] **Verschachteln: Rand zum Rohteil einstellbar** (kleiner Schritt) – Ein Abstand zum Rand des Rohteils, damit ein Fräser, der außen um ein Teil am Rand läuft, nicht über das Rohteil hinausfährt. Heute ist der Rand 0.
 - [ ] **Verschachteln auf mehrere Platten** (größeres Projekt) – Teile, die auf das Rohteil nicht mehr passen, auf eine zweite Platte legen (eine zweite Zeichnung oder ein zweites Programm), statt sie liegen zu lassen.
 - [ ] **Verschachteln: nicht Ausgewähltes meiden** (kleiner Schritt) – Teile, die nicht ausgewählt sind und liegen bleiben, als belegte Fläche behandeln, damit die gepackten Teile nicht darauf kommen. Heute bleiben sie liegen und können unter gepackten Teilen liegen – die Karte nennt diese Teile und warnt davor (nicht aber ein Teil, das ganz im Rahmen eines gepackten liegt: das geht mit, wie ein Loch in einer Platte).
+- [ ] **Verschachteln in einem eigenen, zugeklappten Feld** (kleiner Schritt) – Der Block „Verschachteln“ (Titel, Hinweis, Abstand, Drehen, Knopf, Ergebnis) steht aufgeklappt im Feld „Ausrichten und verteilen“ und macht die Karte ab zwei ausgewählten Teilen etwa 300 px höher – für eine Funktion, die ein eingegebenes Rohteil braucht. DESIGN.md §2 und das Vorbild „Fangen und Abstände“ sprechen für ein eigenes Feld, bis zum ersten Öffnen zu, mit der Suche über registerFold.
+- [ ] **Teilnamen in der Liste am Touchgerät ganz lesbar** (kleiner Schritt) – Der Name jeder Zeile ist eine Zeile lang und wird abgeschnitten (damit kein Kürzel die Zeilenhöhe ändert); der ganze Name steht nur im Titel der Zeile, den ein Finger nicht lesen kann. Die neuen Formen haben die längsten Namen („Zahnrad mit 16 Zähnen, Ø 60 mm“). Der ganze Name steht in der Karte der Auswahl, sobald die Zeile angetippt ist; besser wäre eine zweite, kleinere Zeile mit fester Höhe oder ein längerer Fingerdruck.
 
 ### Zeichnen & Formen
 
@@ -139,6 +141,8 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [ ] **Hinweise der Bahnen auch in der Serie** (kleiner Schritt) – Die Serie auf Rohlingen nimmt Eintauchen, Spanbrechen und die Nummer der Reihenfolge aus der Zeichnung mit, ihr Programm behält aber nur die Fahrten: passt eine Helix nicht und wird mit der Rampe eingetaucht, sagt die Serie das nicht (die Zeichnung sagt es). Kein Test setzt in der Serie eine dieser Wahlen und fräst es – nur dass sie mitkommen.
 - [ ] **Vorbohren an einem Punkt** (kleiner Schritt) – Vor dem Fräsen einer Tasche an einem Punkt (etwa dem Einstieg) bohren, mit dem Bohrer oder dem Fräser. Braucht einen eigenen Schritt im Programm und gehört zu „mehrere Werkzeuge in einem Programm“, wenn ein anderer Bohrer dafür gedacht ist.
 - [ ] **Zentrieren vor dem Bohren** (kleiner Schritt) – Ein Loch vor dem Bohren flach ankörnen (Zentrierbohrer oder Gravur-Fräser), damit der Bohrer nicht wandert. Ein zusätzlicher Schritt je Bohrung, meist mit einem anderen Werkzeug.
+- [ ] **Helix: das Feld zeigt auch eine Zahl, die nicht gefräst wird** (kleiner Schritt) – Wer eine Helixbreite außerhalb von „Fräser + 0,5 mm bis 2 × Fräser“ tippt, sieht im Feld, in der Datei und im Speicher diese Zahl; gefräst wird der nächste erlaubte Wert, und der Hinweis darunter nennt das. Besser: die tatsächliche Breite neben dem Feld zeigen („gefräst mit 12 mm“) oder die getippte Zahl auf den Bereich des Fräsers setzen (die Datei muss die äußeren Grenzen behalten).
+- [ ] **Reihenfolge: Verschieben kann Teile ohne Nummer anderer Arten umordnen** (kleiner Schritt) – Früher/Später auf einem Teil verspricht nur die Reihenfolge seiner Art. In einer Reihe von Zufallsläufen änderte sich in etwa 13 von 1000 Verschiebungen auch die Reihenfolge einer anderen Art; wahrscheinlich, weil die Bibliothek die kürzere Route nur nimmt, wenn der ganze Eilgang wirklich kürzer ist, und eine Nummer diese Entscheidung kippen kann (nicht weiter verfolgt). Behebung: im Hinweis sagen oder die verdrängten Teile mit nummerieren.
 
 ### Prüfen & Simulieren
 
@@ -154,6 +158,8 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [ ] **Vorlagen-Bibliothek** (größeres Projekt) – Häufige Teile (Untersetzer, Schlüsselbrett, Schilder) als Vorlage mit Maßen zum Einstellen.
 - [ ] **Mehrere Zeichnungen gleichzeitig** (größeres Projekt) – Zeichnungen in Reitern, Teile zwischen ihnen kopieren.
 - [ ] **Benannte Teile und Nummern** (kleiner Schritt) – Jedes Teil bekommt einen Namen; auf Wunsch eine Nummer im Bild und im Programmkopf.
+- [ ] **Projektdatei: Rechteck mit Eckenradien über 5 m verliert die Skizze** (kleiner Schritt) – Ein Rechteck mit einzelnen Eckenradien, breiter als 5000 mm, wird so gespeichert, wie es getippt wurde, und verliert beim Öffnen still seine Skizze (die Konturen bleiben und sind schneidbar). Dasselbe Rechteck ohne Radien behält die Skizze. Für eine LowRider unrealistisch; die Behebung wäre, beim Schreiben auf die Grenze zu setzen.
+- [ ] **Projektdatei Version 1: eine ältere App liest neue Felder ohne Meldung** (kleiner Schritt) – Die Version bleibt 1 (wie bei „hidden“ und „tabSpec“), also öffnet eine ältere App eine Datei mit Eckenradien, neuen Formen, Nummer, Eintauchen, Spanbrechen oder „Ecken meiden“, ohne zu warnen: die Skizzen und Felder fallen weg, die Teile bleiben schneidbar, schneiden aber bei „Ecken meiden“ anders. Gemessen mit dem Stand vor der Tranche. Die Antwort ist die Dokumentation – oder künftig Version 2 nur dann, wenn eines dieser Felder vorkommt.
 
 ### Komfort
 

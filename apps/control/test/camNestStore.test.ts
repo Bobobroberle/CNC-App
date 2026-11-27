@@ -163,6 +163,23 @@ describe('packing parts onto the stock', () => {
     expect(boxes()).toEqual(before);
   });
 
+  it('holds a typed gap to the longer side of the stock: a part larger than the stock is never reported as placed', () => {
+    // 1e20 used to be absorbed by the library's float arithmetic and put the 200 × 200 plate at the stock's origin
+    cam().add([rectangle(300, 300, 200, 200)]);
+    cam().add([rectangle(600, 300, 50, 50)]);
+    stock(0, 0, 100, 100);
+    cam().selectAll();
+    const before = boxes();
+    const report = cam().nest({ gap: 1e20 })!;
+    expect(report.gap).toBe(100);
+    expect(report.unplaced).toHaveLength(1);
+    // the plate that does not fit stays where it was
+    expect(boxes()[0]).toEqual(before[0]);
+    // the small one is on the stock
+    const [x0, y0, x1, y1] = boxes()[1]!;
+    expect([x0, y0, x1, y1].every((v) => v >= 0 && v <= 100)).toBe(true);
+  });
+
   it('turns a part by 90° where that is allowed and the part is long: the box after the turn, about its own corner', () => {
     // 100 × 20 on a stock 30 wide and 200 high that starts at (50, 20): only turned does it fit – 20 × 100
     cam().add([rectangle(400, 400, 100, 20)]);

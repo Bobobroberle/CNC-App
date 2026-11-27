@@ -1932,10 +1932,15 @@ export const useCam = create<CamStore>((set, get) => {
       const stock = enteredStock();
       if (!project || !stock) return null;
       const typed = options.gap;
-      const gap =
+      // A gap beyond the stock's longer side leaves room for no part: it is held there, so a huge number (the
+      // fields take 1e20) cannot make the library's float arithmetic place a part that lies outside the stock
+      const reach = Math.max(stock.box.maxX - stock.box.minX, stock.box.maxY - stock.box.minY);
+      const gap = Math.min(
         typed !== undefined && Number.isFinite(typed) && typed >= 0
           ? typed
-          : defaultNestGap(toolDiameter(settings));
+          : defaultNestGap(toolDiameter(settings)),
+        reach,
+      );
       const rotate = options.rotate === true;
       const plan = planNest(project.items, selected, stock.box, { gap, rotate });
       if (!plan) return null;
