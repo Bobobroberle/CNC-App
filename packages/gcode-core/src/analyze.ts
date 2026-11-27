@@ -13,7 +13,17 @@ export interface ProgramAnalysis {
   bounds: Bounds;
   /** Feed moves only (what touches material) */
   cutBounds: Bounds;
+  /**
+   * The tools the program uses (feed moves and tool changes), sorted by number. For the order the program
+   * uses them in – what "the first tool" means – see `toolOrder`.
+   */
   tools: number[];
+  /**
+   * The same tools in the order of their first use in the program: a feed move with the tool or a tool change
+   * to it, whichever comes first. `tools` is sorted by number, so its first entry is the first tool only where the
+   * program happens to use them in rising order; ask `toolOrder[0]` for the tool the job starts with.
+   */
+  toolOrder: number[];
   usesRotary: boolean;
   /** Min/max programmed feed of G94 feed moves (mm/min), null if none */
   feedRange: { min: number; max: number } | null;
@@ -34,25 +44,39 @@ export function analyzeProgram(text: string, options: AnalyzeOptions = {}): Prog
   const { segments, events } = result;
 
   const tools = new Set<number>();
+  /** In the order of first use; a tool change stands before the segment that follows it */
+  const toolOrder = new Set<number>();
   let usesRotary = false;
   let rapidLength = 0;
   let feedLength = 0;
   let minFeed = Infinity;
   let maxFeed = -Infinity;
+  const changes = events.filter((e) => e.kind === 'toolChange');
+  let nextChange = 0;
   for (const s of segments) {
+    for (
+      ;
+      nextChange < changes.length && changes[nextChange]!.segmentIndex <= s.index;
+      nextChange++
+    ) {
+      toolOrder.add(changes[nextChange]!.tool!);
+    }
     if (s.from.a !== s.to.a) usesRotary = true;
     if (s.motion === 'rapid') {
       rapidLength += s.length;
     } else {
       feedLength += s.length;
       tools.add(s.tool);
+      toolOrder.add(s.tool);
       if (s.feedMode === 'unitsPerMinute') {
         minFeed = Math.min(minFeed, s.feed);
         maxFeed = Math.max(maxFeed, s.feed);
       }
     }
   }
-  for (const e of events) if (e.kind === 'toolChange') tools.add(e.tool!);
+  // The changes after the last segment
+  for (; nextChange < changes.length; nextChange++) toolOrder.add(changes[nextChange]!.tool!);
+  for (const e of changes) tools.add(e.tool!);
 
   return {
     lineCount: splitLines(text).length,
@@ -62,6 +86,7 @@ export function analyzeProgram(text: string, options: AnalyzeOptions = {}): Prog
     bounds: programBounds(segments),
     cutBounds: programBounds(segments, { includeRapids: false }),
     tools: [...tools].sort((a, b) => a - b),
+    toolOrder: [...toolOrder],
     usesRotary,
     feedRange: minFeed <= maxFeed ? { min: minFeed, max: maxFeed } : null,
     rapidLength,

@@ -20,6 +20,11 @@ export interface RouteTask {
   waits: readonly (readonly number[])[];
   /** A point standing for the operation, to estimate the way from one to the next */
   anchor: readonly Point[];
+  /**
+   * The cutter of each operation (equal numbers: the same cutter). Where given, `improve` takes no
+   * reversal that would need more tool changes between the operations it moves; absent: the cutter does not matter.
+   */
+  tool?: readonly number[];
 }
 
 /** A change of the estimated length smaller than this is none (mm) */
@@ -192,12 +197,17 @@ export function overridden(order: readonly number[], task: RouteTask): number[] 
   return [...found];
 }
 
+/** Whether the tool must be changed between two operations (0 or 1); there is nothing to change before the first or after the last */
+function changes(tool: readonly number[], x: number | undefined, y: number | undefined): number {
+  return x !== undefined && y !== undefined && tool[x] !== tool[y] ? 1 : 0;
+}
+
 /**
  * A shorter order of the same operations: 2-opt on the length of the way through the operations' anchor
  * points, from `from`, that takes a reversal of a stretch of the order only if it shortens that way
- * *and* the rules still allow the result. So it is never longer than the order it started from, by
- * the estimate – `toolpaths` makes sure of it with the real moves. An order that does not keep the rules
- * itself is returned as it is. Gives up after `budget` units of work (see `ROUTE_BUDGET`; the best order
+ * *and* the rules still allow the result *and* – with `task.tool` – it needs no more tool changes. So it is
+ * never longer than the order it started from, by the estimate – `toolpaths` makes sure of it with the real
+ * moves. An order that does not keep the rules itself is returned as it is. Gives up after `budget` units of work (see `ROUTE_BUDGET`; the best order
  * so far), the same on every machine.
  *
  * The rules are asked only inside the stretch that is turned round: what stands before it is cut with
@@ -240,6 +250,13 @@ export function improve(
         let change = distance(before, task.anchor[tail]!) - distance(before, task.anchor[head]!);
         if (b < n - 1) change += to(head, best[b + 1]!) - to(tail, best[b + 1]!);
         if (change >= -GAIN) continue;
+        // Turning the stretch round keeps the changes inside it; only the two joins to its neighbours differ
+        if (
+          task.tool &&
+          changes(task.tool, best[a - 1], tail) + changes(task.tool, head, best[b + 1]) >
+            changes(task.tool, best[a - 1], head) + changes(task.tool, tail, best[b + 1])
+        )
+          continue;
         const allowed = fits(a, b);
         used += way.work - counted;
         counted = way.work;

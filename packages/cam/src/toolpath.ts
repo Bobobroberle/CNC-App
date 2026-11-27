@@ -141,8 +141,60 @@ export interface Operation {
    * without, by route. The rank order never changes, and neither does cutting what lies inside a
    * contour before the contour: where a number would break that, the operation comes later and the
    * problem `order-overridden` says so. A value that is no number is the same as absent.
+   *
+   * With several tools (`ToolSettings`) the numbers order the operations of one rank *on the cutter in
+   * the spindle*: that cutter finishes what is free of its rank first, and only then is the tool changed
+   * to the one whose operation has the lowest number (a number never asks for a tool change that the rank
+   * does not need). Such a passed-over number is not reported as `order-overridden`.
    */
   seq?: number;
+  /**
+   * The cutter this operation uses: its place in the list of `ToolSettings` given to `toolpaths`; absent
+   * is the first one. Every measure of the cut that depends on the cutter (the offsets, the pocket's
+   * stepover, the helix, the width of a tab, whether a hole is drilled or bored) comes from that cutter's
+   * own `cut`. A number that is no place in the list is a `RangeError`.
+   */
+  tool?: number;
+}
+
+/**
+ * One cutter of a program with several tools (`toolpaths`, third argument). Which operation uses which is
+ * `Operation.tool`, a place in the list of these.
+ */
+export interface ToolSettings {
+  /**
+   * The T number the program names the cutter by: a whole number from 1 (0 is what a controller starts with and
+   * what the app's lookups take for "no tool"). **The number is the cutter's identity**: entries with the same
+   * number are one cutter that is mounted once (their diameters must be equal – a `RangeError` otherwise –
+   * and each operation still cuts with the feeds and depths of the entry it names).
+   */
+  number: number;
+  /** What the program's header calls it; absent: only the number */
+  name?: string;
+  /** Spindle speed in the block of this cutter, rpm; absent: the `rpm` of the program (`ProgramOptions`) */
+  rpm?: number;
+  /** Everything the cutter cuts with – diameter, feeds, stepdown, stepover, depth … – its own, apart from the other cutters' */
+  cut: CutSettings;
+}
+
+/**
+ * A run of operations cut with one cutter: where the tool change to it stands in a program. The moves of
+ * the block are `moves[start]` up to, not including, `moves[end]`; the first block starts with the program's
+ * first cut and a later one is where `toGcode` writes the change (lift, `M5`, `T… M6`, spindle on).
+ */
+export interface ToolBlock {
+  /** The place in the list of `ToolSettings` of the first operation of the block */
+  tool: number;
+  /** The T number of the block */
+  number: number;
+  name?: string;
+  /** The cutter's diameter, mm */
+  diameter: number;
+  rpm?: number;
+  start: number;
+  end: number;
+  /** How many operations were cut in it (operations that cut nothing – `tool-too-large` and the like – are in no block) */
+  operations: number;
 }
 
 /** A move in work coordinates; `feed` null means rapid. */
@@ -910,6 +962,12 @@ export interface Toolpath {
    * missing, those that could not be cut have an empty span – and where each one's moves lie.
    */
   cuts: CutSpan[];
+  /**
+   * Only for a call with a list of `ToolSettings`: the runs of operations cut with one cutter, in the order
+   * they are cut – the tool changes are between them. One block where only one cutter cuts, none for a
+   * drawing that cuts nothing. Absent for a call with one `CutSettings`.
+   */
+  blocks?: ToolBlock[];
 }
 
 export interface ToolpathOptions {
@@ -918,7 +976,8 @@ export interface ToolpathOptions {
    * always. `'short'`: that route made shorter – the operations of a rank are reordered (2-opt on the way
    * through them) wherever the rules for the order allow, and the result is used only if the program's
    * rapid travel (`rapidLength`) is really shorter than the nearest route's; else it is the nearest route.
-   * Never longer, never more or other cuts than `'nearest'`: only the order, and so where each cut begins.
+   * Never longer, never more or other cuts than `'nearest'`: only the order, and so where each cut begins. With
+   * several tools also never more tool changes than the nearest route needs.
    */
   route?: 'nearest' | 'short';
 }
@@ -978,6 +1037,60 @@ interface PocketGeometry {
   corners: ReliefCorner[];
 }
 
+/** The cutters of a call: what the settings come to when they are one `CutSettings` (a list of one without a number) or a list */
+interface Cutter {
+  number: number | undefined;
+  name: string | undefined;
+  rpm: number | undefined;
+  cut: CutSettings;
+}
+
+/**
+ * The cutters a call of `toolpaths` has: checks a list (a `RangeError` for an empty one, a number that is not a
+ * whole number from 1, two entries with one number and two diameters) and that every operation names a cutter of it.
+ */
+function cuttersOf(
+  settings: CutSettings | readonly ToolSettings[],
+  operations: readonly Operation[],
+): Cutter[] {
+  const listed = Array.isArray(settings);
+  const cutters: Cutter[] = listed
+    ? (settings as readonly ToolSettings[]).map((t) => ({
+        number: t.number,
+        name: t.name,
+        rpm: t.rpm,
+        cut: t.cut,
+      }))
+    : [{ number: undefined, name: undefined, rpm: undefined, cut: settings as CutSettings }];
+  if (cutters.length === 0) throw new RangeError('toolpaths: the list of tools is empty');
+  cutters.forEach((t, i) => {
+    if (listed && !(Number.isSafeInteger(t.number) && t.number! >= 1)) {
+      throw new RangeError(
+        `toolpaths: tool ${i} has the number ${t.number}, not a whole number from 1`,
+      );
+    }
+    const same = cutters.slice(0, i).find((u) => u.number === t.number);
+    if (same && same.cut.toolDiameter !== t.cut.toolDiameter) {
+      throw new RangeError(
+        `toolpaths: tools with the number ${t.number} have the diameters ${same.cut.toolDiameter} and ${t.cut.toolDiameter}`,
+      );
+    }
+  });
+  operations.forEach((op, i) => {
+    const place = op.tool ?? 0;
+    if (!Number.isInteger(place) || place < 0 || place >= cutters.length) {
+      throw new RangeError(`toolpaths: operation ${i} names tool ${op.tool} of ${cutters.length}`);
+    }
+  });
+  return cutters;
+}
+
+/** Whether `a` comes before `b`, compared key by key */
+function before(a: readonly number[], b: readonly number[]): boolean {
+  for (let k = 0; k < a.length; k++) if (a[k] !== b[k]) return a[k]! < b[k]!;
+  return false;
+}
+
 /**
  * The toolpaths of a drawing in a sensible order: holes first, then
  * pockets, engravings, cut-outs and the outlines that free the parts last –
@@ -988,16 +1101,29 @@ interface PocketGeometry {
  * first (see `Operation.seq`). The tool starts from the work zero, or from
  * `from` (where an earlier toolpath left it). `cuts` says in which order the
  * operations were cut and where their moves lie.
+ *
+ * **Several tools:** pass a list of `ToolSettings` instead of one `CutSettings`, and name the cutter of an
+ * operation with `Operation.tool`. All the operations of all the cutters are ordered together – the rank,
+ * and what lies inside a contour before the contour, hold across cutters: an engraving with a V-bit in a
+ * part that an end mill cuts out is engraved first. Among the operations that are free of the lowest rank
+ * the one with the cutter that is mounted comes first (fewer tool changes; a change back to an earlier cutter
+ * is as good as to a new one), then the numbers (`seq`), then the nearest. Every measure of an
+ * operation comes from its own cutter's `cut`. The result has `blocks`, the runs of one cutter – give them to
+ * `toGcode` to write the tool changes. A list whose cutters are all but one unused is the program of that
+ * cutter alone. Mistakes in the list are a `RangeError` (see `ToolSettings`, `Operation.tool`).
  */
 export function toolpaths(
   contours: readonly Contour[],
   operations: readonly Operation[],
-  s: CutSettings,
+  settings: CutSettings | readonly ToolSettings[],
   from: Point = { x: 0, y: 0 },
   options: ToolpathOptions = {},
 ): Toolpath {
-  const r = s.toolDiameter / 2;
-  const allowance = Math.max(0, s.allowance ?? 0);
+  const cutters = cuttersOf(settings, operations);
+  const listed = Array.isArray(settings);
+  /** The cutter an operation cuts with; its identity is the number (the place in a list of one) */
+  const cutterOf = (op: Operation) => cutters[op.tool ?? 0]!;
+  const identOf = (op: Operation) => cutterOf(op).number ?? 0;
   const shapes = contours.map(shapeOf);
 
   // What does not depend on where the tool comes from is worked out once per operation, however many orders are tried
@@ -1024,6 +1150,8 @@ export function toolpaths(
     seq: seqs,
     waits,
     anchor: todo.map(({ op }) => shapes[op.contour]!.centre),
+    // A search for a shorter route must not add tool changes
+    tool: listed ? todo.map(({ op }) => identOf(op)) : undefined,
   };
 
   /** The whole program, the operations picked by the rules (the nearest next) or in the order given */
@@ -1036,6 +1164,10 @@ export function toolpaths(
 
     const cut = (op: Operation, index: number) => {
       const c = contours[op.contour]!;
+      // Everything that depends on the cutter comes from the cutter of this operation
+      const s = cutterOf(op).cut;
+      const r = s.toolDiameter / 2;
+      const allowance = Math.max(0, s.allowance ?? 0);
       const depth = op.depth ?? s.depth;
       const depths = passDepths(depth, s.stepdown);
       const finish = [-depth];
@@ -1183,38 +1315,66 @@ export function toolpaths(
       }
     };
 
+    const blocks: ToolBlock[] = [];
+    /** The cutter that is mounted: the one of the operation that cut last (an operation that cut nothing changes no tool) */
+    let mounted: number | undefined;
     const open = new Set(todo.keys());
     for (let k = 0; open.size > 0; k++) {
       let pick = given ? given[k]! : -1;
       if (!given) {
-        let best: [rank: number, wish: number, travel: number] = [Infinity, Infinity, Infinity];
+        let best: number[] = [Infinity, Infinity, Infinity, Infinity];
         for (const i of open) {
           if (waits[i]!.some((j) => open.has(j))) continue;
-          const rank = task.rank[i]!;
-          // The operator's numbers first, then the nearest
-          const wish = seqs[i] ?? Infinity;
-          const travel = travelTo(shapes[todo[i]!.op.contour]!, at);
-          if (
-            rank < best[0] ||
-            (rank === best[0] && (wish < best[1] || (wish === best[1] && travel < best[2])))
-          ) {
+          // The lowest rank, then the cutter that is mounted, then the operator's numbers, then the nearest
+          const key = [
+            task.rank[i]!,
+            mounted === undefined || identOf(todo[i]!.op) === mounted ? 0 : 1,
+            seqs[i] ?? Infinity,
+            travelTo(shapes[todo[i]!.op.contour]!, at),
+          ];
+          if (before(key, best)) {
             pick = i;
-            best = [rank, wish, travel];
+            best = key;
           }
         }
       }
       open.delete(pick);
       order.push(pick);
       const start = moves.length;
-      cut(todo[pick]!.op, todo[pick]!.index);
-      cuts.push({ op: todo[pick]!.index, start, end: moves.length });
+      const { op, index } = todo[pick]!;
+      cut(op, index);
+      cuts.push({ op: index, start, end: moves.length });
+      if (moves.length > start) {
+        const ident = identOf(op);
+        if (listed) {
+          if (ident !== mounted) {
+            const cutter = cutterOf(op);
+            blocks.push({
+              tool: op.tool ?? 0,
+              number: ident,
+              name: cutter.name,
+              diameter: cutter.cut.toolDiameter,
+              rpm: cutter.rpm,
+              start,
+              end: start,
+              operations: 0,
+            });
+          }
+          const block = blocks[blocks.length - 1]!;
+          block.end = moves.length;
+          block.operations++;
+        }
+        mounted = ident;
+      }
     }
     if (seqs.some((q) => q !== undefined)) {
       for (const i of overridden(order, task)) {
         problems.push({ contour: todo[i]!.op.contour, code: 'order-overridden' });
       }
     }
-    return { path: { moves, problems, cuts }, order };
+    const path: Toolpath = { moves, problems, cuts };
+    if (listed) path.blocks = blocks;
+    return { path, order, changes: Math.max(0, blocks.length - 1) };
   };
 
   const nearest = run();
@@ -1222,8 +1382,9 @@ export function toolpaths(
   const shorter = improve(nearest.order, from, task);
   if (shorter.every((v, i) => v === nearest.order[i])) return nearest.path;
   const other = run(shorter);
-  // The estimate is by anchor points; the program itself decides
-  return rapidLength(other.path.moves, from) < rapidLength(nearest.path.moves, from) - 1e-9
+  // The estimate is by anchor points; the program itself decides – and it must not need more tool changes
+  return other.changes <= nearest.changes &&
+    rapidLength(other.path.moves, from) < rapidLength(nearest.path.moves, from) - 1e-9
     ? other.path
     : nearest.path;
 }
