@@ -287,6 +287,23 @@ export const en: DictionaryShape = {
     },
     underWay: 'Hidden, but the flow is under way for the loaded job: it stays in sight.',
   },
+  licences: {
+    title: 'Fonts and licences',
+    hint: 'The fonts "Simple", "Script" and "Modern" of the drawing come from third-party data. Their licences require this notice and the licence text to be passed on with the software – here they are, with no network needed. "Standard" is the app\'s own font and needs none.',
+    notice: "The author's notice",
+    source: 'Source: {name}',
+    textOf: 'Licence text: {name}',
+    usedBy: 'Applies to: {faces}.',
+    sources: {
+      simplex: 'Hershey Sans 1-stroke',
+      script: 'Hershey Script 1-stroke',
+      modern: 'Relief SingleLine',
+    },
+    names: {
+      hershey: 'Hershey Fonts',
+      ofl: 'SIL Open Font License 1.1',
+    },
+  },
   appearance: {
     title: 'Appearance',
     theme: 'Colour scheme',
@@ -2582,6 +2599,14 @@ export const en: DictionaryShape = {
       label: 'Text (several lines are fine)',
       placeholder: 'e.g. Workshop',
       height: 'Letter height (mm)',
+      block: 'Lettering',
+      font: 'Font',
+      fonts: {
+        standard: 'Standard',
+        simplex: 'Simple',
+        script: 'Script',
+        modern: 'Modern',
+      },
       more: 'Lettering: alignment and spacing',
       align: 'Align the lines',
       aligns: {
@@ -2592,7 +2617,11 @@ export const en: DictionaryShape = {
       spacing: 'Letter spacing (± %)',
       lineSpacing: 'Line spacing (%)',
       hint: 'The letter height is the height of the capitals. Single-line font for engraving: the cutter follows each letter once, the width of the stroke comes from the tool (a V-bit or a thin end mill).',
-      missing: 'The font does not have these characters, they stay blank: {list}',
+      missing: 'The font "{font}" does not have these characters, they stay blank: {list}',
+      nothing:
+        'The font "{font}" has none of these characters, there would be nothing to cut: {list}. The text engraved so far stays, in the font "{kept}".',
+      elsewhere: 'Pick another font – available in: {faces}.',
+      nowhere: 'None of the fonts has them all.',
     },
     arrange: {
       hint: 'To change a part, tap it on the table or in the list.',
@@ -3158,7 +3187,7 @@ export const en: DictionaryShape = {
       'Names or numbers per blank: put a text into the drawing first – it gives size and place.',
     unnamed: 'No name left for {blanks} – not engraved.',
     spare: '{count} names are left over: no blank for them.',
-    missing: 'The font cannot engrave these characters: {list}',
+    missing: 'The font "{font}" cannot engrave these characters: {list}',
     misfit:
       'The motif runs over the edge (or comes closer than 1 mm): blank {list}. Make the motif smaller or tap these blanks to leave them out.',
     accuracy: {
@@ -3958,6 +3987,10 @@ export const en: DictionaryShape = {
       inputs: 'inputs, limit switches, switches, sensors, probe, pins, end stops, test switch',
       features:
         'functions, hide, show, unhide, switch, hide series, hide jigs, hide macros, fewer cards, tidy, rarely used, features',
+      textFont:
+        'font, typeface, choose font, script, handwriting, single line, single-line, hershey, relief, modern, simple, standard, letters, text, lettering style',
+      licences:
+        'licence, licences, license, licenses, licence text, font licence, ofl, open font license, hershey, relief singleline, copyright, notice, third party, credits, about',
       appearance:
         'appearance, colour scheme, color scheme, light, dark, theme, dark mode, light mode, look, contrast',
       toolZero:

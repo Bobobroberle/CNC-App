@@ -266,6 +266,15 @@ export const COMMANDS: readonly Command[] = [
   draw('shapeGear', 'cam.shapes.gear', 'shape-gear', 'gear'),
   draw('shapeSpiral', 'cam.shapes.spiral', 'shape-spiral', 'spiral'),
   draw('shapeText', 'cam.shapes.text', 'shape-text', 'text'),
+  // The face of a text: the select is in the block "Schrift" of the card of a selected text – where no text is
+  // selected the chain ends in the card that always is (it holds the tile "Text")
+  entry({
+    id: 'textFont',
+    title: 'cam.text.font',
+    place: 'cam',
+    anchor: ['text-font', 'cam-draw'],
+    icon: 'text',
+  }),
   draw('importFile', 'cam.importFile', 'shape-file', 'file'),
   draw('projectOpen', 'cam.project.open', 'project-open'),
   draw('projectSave', 'cam.project.save', 'project-save'),
@@ -566,6 +575,7 @@ export const COMMANDS: readonly Command[] = [
   settings('piUpdate', 'update.title', 'connection', 'pi-update'),
   settings('appearance', 'appearance.title', 'machine', 'appearance'),
   settings('features', 'features.title', 'machine', 'features'),
+  settings('licences', 'licences.title', 'machine', 'licences'),
   settings('profile', 'machine.profile', 'machine', 'profile'),
   settings('travel', 'machine.travel', 'machine', 'travel'),
   settings('machineLimits', 'limits.title', 'machine', 'machine-limits'),

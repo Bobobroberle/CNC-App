@@ -291,6 +291,23 @@ export const de = {
     },
     underWay: 'Ausgeblendet, aber der Ablauf läuft für den geladenen Job: er bleibt sichtbar.',
   },
+  licences: {
+    title: 'Schriften und Lizenzen',
+    hint: 'Die Schriften „Einfach“, „Schreibschrift“ und „Modern“ des Zeichnens stammen aus fremden Daten. Ihre Lizenzen verlangen, dass dieser Hinweis und der Lizenztext mit der Software weitergegeben werden – hier stehen sie, auch ohne Netz. „Standard“ ist die eigene Schrift der App und braucht keinen.',
+    notice: 'Hinweis des Urhebers',
+    source: 'Quelle: {name}',
+    textOf: 'Lizenztext: {name}',
+    usedBy: 'Gilt für: {faces}.',
+    sources: {
+      simplex: 'Hershey Sans 1-stroke',
+      script: 'Hershey Script 1-stroke',
+      modern: 'Relief SingleLine',
+    },
+    names: {
+      hershey: 'Hershey Fonts',
+      ofl: 'SIL Open Font License 1.1',
+    },
+  },
   appearance: {
     title: 'Darstellung',
     theme: 'Farbschema',
@@ -2621,6 +2638,14 @@ export const de = {
       label: 'Text (mehrere Zeilen möglich)',
       placeholder: 'z. B. Werkstatt',
       height: 'Schrifthöhe (mm)',
+      block: 'Schrift',
+      font: 'Schriftart',
+      fonts: {
+        standard: 'Standard',
+        simplex: 'Einfach',
+        script: 'Schreibschrift',
+        modern: 'Modern',
+      },
       more: 'Schrift: Ausrichtung und Abstände',
       align: 'Zeilen ausrichten',
       aligns: {
@@ -2631,7 +2656,11 @@ export const de = {
       spacing: 'Buchstabenabstand (± %)',
       lineSpacing: 'Zeilenabstand (%)',
       hint: 'Die Schrifthöhe ist die Höhe der Großbuchstaben. Einlinien-Schrift zum Gravieren: Der Fräser fährt jeden Buchstaben einmal nach, die Strichbreite kommt vom Werkzeug (V-Fräser oder dünner Schaftfräser).',
-      missing: 'Diese Zeichen kennt die Schrift nicht, sie bleiben frei: {list}',
+      missing: 'Diese Zeichen gibt es in der Schrift „{font}“ nicht, sie bleiben frei: {list}',
+      nothing:
+        'In der Schrift „{font}“ gibt es keines dieser Zeichen, es wäre nichts zu fräsen: {list}. Gefräst wird weiter der bisherige Text in der Schrift „{kept}“.',
+      elsewhere: 'Eine andere Schrift wählen – vorhanden in: {faces}.',
+      nowhere: 'Keine der Schriften hat sie alle.',
     },
     arrange: {
       hint: 'Zum Ändern ein Teil auf dem Tisch oder in der Liste antippen.',
@@ -3204,7 +3233,7 @@ export const de = {
       'Namen oder Nummern je Rohling: Dafür zuerst einen Text in die Zeichnung setzen – er gibt Größe und Platz vor.',
     unnamed: 'Kein Name mehr für {blanks} – ohne Gravur.',
     spare: '{count} Namen bleiben übrig: kein Rohling mehr dafür.',
-    missing: 'Diese Zeichen kann die Schrift nicht gravieren: {list}',
+    missing: 'Diese Zeichen kann die Schrift „{font}“ nicht gravieren: {list}',
     misfit:
       'Das Motiv ragt über den Rand (oder kommt ihm näher als 1 mm): Rohling {list}. Das Motiv kleiner machen oder diese Rohlinge antippen und auslassen.',
     accuracy: {
@@ -4019,6 +4048,10 @@ export const de = {
         'eingänge, endschalter, schalter, sensoren, taster, pins, limit switch, inputs, endlagen testen',
       features:
         'funktionen, ausblenden, einblenden, verstecken, anzeigen, schalter, serie ausblenden, vorrichtungen ausblenden, makros ausblenden, weniger karten, aufgeräumt, selten gebraucht, features, hide',
+      textFont:
+        'schriftart, schrift wählen, font, schreibschrift, handschrift, einlinig, einlinienschrift, hershey, relief, modern, einfach, standard, buchstaben, text, schriftschnitt',
+      licences:
+        'lizenz, lizenzen, lizenztext, schrift lizenz, ofl, open font license, hershey, relief singleline, urheber, copyright, hinweis, fremde daten, drittanbieter, third party, about, über',
       appearance:
         'darstellung, farbschema, hell, dunkel, theme, dark mode, light mode, aussehen, design, kontrast',
       toolZero:

@@ -141,6 +141,7 @@ import {
   type ColorPatch,
   type ColorTable,
 } from '../lib/camGroups';
+import { canonicalFace } from '../lib/camText';
 import { textBlockCentre } from '../lib/series';
 import { inViewSpot } from '../lib/tableBox';
 import type { FlipMethod, FlipPlan } from '../lib/flip';
@@ -311,8 +312,11 @@ interface Snapshot {
   settings?: CamSettings;
 }
 
-/** A text as `addText` takes it: its height and how its lines are set. */
-export type TextSetting = Pick<TextOptions, 'height' | 'spacing' | 'lineSpacing' | 'align'>;
+/** A text as `addText` takes it: its height, how its lines are set and the face (absent: the standard one). */
+export type TextSetting = Pick<
+  TextOptions,
+  'height' | 'spacing' | 'lineSpacing' | 'align' | 'font'
+>;
 
 interface CamStore {
   project: CamProject | null;
@@ -1452,9 +1456,12 @@ export const useCam = create<CamStore>((set, get) => {
         spacing: options.spacing ?? 0,
         lineSpacing: options.lineSpacing ?? 1.6,
         align: options.align ?? 'left',
+        ...(options.font ? { font: options.font } : {}),
       });
     },
-    addSketch(sketch, view = null, at) {
+    addSketch(given, view = null, at) {
+      // One spelling of the face: the standard one is no key (the twin check below compares the JSON)
+      const sketch = canonicalFace(given);
       const { missing, ...made } = fromSketch(sketch);
       const b = ownBox(sketch, made.source);
       if (!b) return missing;
@@ -1490,9 +1497,10 @@ export const useCam = create<CamStore>((set, get) => {
       insert([{ ...made, sketch, placement }]);
       return missing;
     },
-    setSketch(id, sketch, field) {
+    setSketch(id, given, field) {
       const item = get().project?.items.find((i) => i.id === id);
       if (!item?.sketch) return [];
+      const sketch = canonicalFace(given);
       const { missing, source } = fromSketch(sketch);
       // A text without a stroke (no words yet) keeps what it shows.
       if (source.length === 0) return missing;

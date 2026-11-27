@@ -14,7 +14,7 @@
     "typecheck": "pnpm -r typecheck",
     "e2e": "pnpm --filter @lowrider/control e2e",
     "format": "prettier --write .",
-    "check": "pnpm typecheck && pnpm coverage && pnpm build",
+    "check": "pnpm typecheck && pnpm build && pnpm coverage",
     "bundle": "pnpm build && node scripts/bundle.mjs && node scripts/simulator-page.mjs",
     "test:pi": "python3 -m unittest discover -s scripts/pi",
     "icons": "pnpm --filter @lowrider/control icons"

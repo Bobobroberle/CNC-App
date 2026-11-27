@@ -12,12 +12,36 @@ import {
 } from 'node:fs';
 import { writeZip } from './zip.mjs';
 
+// The licence texts of the single-line text faces travel inside the app: Einstellungen → Maschine → Schriften und Lizenzen
+// shows them, imported as text from licenses/ when the app is built. The Hershey conditions and the SIL OFL ask for them
+// to be handed on with the data – so a build whose HTML does not hold them is no release. They sit in the script as JS
+// strings: every whole line of plain ASCII without a quote or backslash must be there as it is.
+const built = readFileSync('apps/control/dist/index.html', 'utf8');
+for (const name of ['Hershey-Fonts-notice.txt', 'Relief-SingleLine-OFL.txt']) {
+  const lines = readFileSync(`licenses/${name}`, 'utf8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 30 && /^[\x20-\x7e]+$/.test(line) && !/["'`\\<>$]/.test(line));
+  const lacking = lines.filter((line) => !built.includes(line));
+  if (lines.length < 5 || lacking.length > 0) {
+    throw new Error(
+      `the licence text licenses/${name} is not in the built app (${lacking.length} of ${lines.length} lines missing: ${lacking[0] ?? 'too few lines to check'})`,
+    );
+  }
+}
+
 // Nothing of an earlier build stays: the zip is made of what lies in release/pi, and the Pi refuses what it does not know
 rmSync('release/pi', { recursive: true, force: true });
 mkdirSync('release/pi', { recursive: true });
 copyFileSync('apps/control/dist/index.html', 'release/lowrider-control.html');
 copyFileSync('apps/companion/dist/companion.mjs', 'release/companion.mjs');
 copyFileSync('profiles/lowrider-v4.json', 'release/lowrider-v4.json');
+// The notices of what the app holds, as plain files beside the single HTML file (the app shows the text faces' own).
+// Not into release/pi: the Pi refuses a zip with a name it does not know.
+rmSync('release/licenses', { recursive: true, force: true });
+mkdirSync('release/licenses', { recursive: true });
+copyFileSync('THIRD-PARTY.md', 'release/THIRD-PARTY.md');
+for (const f of readdirSync('licenses')) copyFileSync(`licenses/${f}`, `release/licenses/${f}`);
 copyFileSync('apps/control/dist/index.html', 'release/pi/lowrider-control.html');
 copyFileSync('apps/companion/dist/companion.mjs', 'release/pi/companion.mjs');
 // setup.sh and what it sources (lib.sh), the guard for updates from the app, the sensor script – and release.json,
