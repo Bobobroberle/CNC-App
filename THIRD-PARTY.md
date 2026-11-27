@@ -71,8 +71,9 @@ from `futural.jhf` and `scripts.jhf` of <https://github.com/kamalmostafa/hershey
 the licence excludes. Only the outlines are Hershey's: the accented letters, ß, „, €, ° and the other characters the
 data lacks are drawn by the library from its own glyphs, scaled to the face (`font.ts`), and nothing of the
 repository's GPL-licensed library code is used. The licence of the data requires that the acknowledgements below
-are distributed with the font data: they are in the header of both data files and in `FONT_CREDITS`, which the
-app shows. The notice as it comes with the Hershey fonts in SVG (<https://www.evilmadscientist.com>):
+are distributed with the font data: they are in the header of both data files and in `FONT_CREDITS` (the library
+exports it; the app is to show it where it shows its licences – the header comments do not reach the one-file
+release). The notice as it comes with the Hershey fonts in SVG (<https://www.evilmadscientist.com>):
 
 > The Hershey Fonts are a set of vector fonts with a liberal license.
 >
@@ -93,9 +94,9 @@ The `COPYING` file of the kamalmostafa repository gives the data the same two co
 Dr. A. V. Hershey, James Hurt" (word for word in its `hershey-fonts.notes`, where item 2 names the NTIS and reads "…
 the U.S. NTIS (which organization holds the rights to the distribution and use of the font data in that particular
 format)…"); both wordings are quoted in the data files. The `.jhf` files themselves carry no header. The SVG fonts
-of the npm package `hersheytext` (same data, with Latin-1 letters added by its maker) were read and compared, but
-nothing is taken from them: they differ from the originals in a few glyphs (the Script `^` has two strokes there and
-three in the `.jhf`), and their ß ç Ç £ ¸ are not Hershey's.
+of the npm package `hersheytext` (the same data with further letters, whose origin could not be verified) were read
+and compared, but nothing is taken from them: they differ from the originals in at least one glyph (the Script `^`
+has two strokes there and three in the `.jhf`), and their ß ç Ç £ ¸ are drawn with curves and are not Hershey's.
 
 ## Relief SingleLine
 

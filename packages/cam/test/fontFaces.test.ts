@@ -137,6 +137,16 @@ describe('the characters of the faces', () => {
     }
   });
 
+  it('writes a tab and a no-break space as a blank, in every face', () => {
+    for (const id of FONT_IDS) {
+      for (const blank of ['\t', '\u00a0']) {
+        const t = set(`I${blank}I`, id);
+        expect(t.missing).toEqual([]);
+        expect(t.contours).toEqual(set('I I', id).contours);
+      }
+    }
+  });
+
   it('says what a face cannot write and leaves a blank for it, as the standard face does', () => {
     for (const id of FONT_IDS) {
       // ☺ is in no face; Æ and Ł are in the fonts but were left out (the standard face lacks them too).
@@ -274,7 +284,7 @@ describe('the dimensions of the faces', () => {
         ] as const) {
           const up = dots(cap, cap.normalize('NFD')[0]!);
           const low = dots(small, small.normalize('NFD')[0]!);
-          expect(up).toHaveLength(id === 'modern' ? 2 : 2);
+          expect(up).toHaveLength(2);
           expect(low).toHaveLength(2);
           expect(Math.min(...ys(up)) - Math.min(...ys(low))).toBeCloseTo(lift, 5);
           expect(Math.max(...ys(up)) - Math.max(...ys(low))).toBeCloseTo(lift, 5);
@@ -345,7 +355,7 @@ describe('the dimensions of the faces', () => {
       same('…', '...', id);
       same('ẞ', 'SS', id);
       same('a\tb', 'a b', id);
-      same('a b', 'a b', id);
+      same('a\u00a0b', 'a b', id);
     }
     // Relief has its own, and they are not the plain ones.
     expect(set('–', 'modern').contours).not.toEqual(set('-', 'modern').contours);
@@ -355,7 +365,7 @@ describe('the dimensions of the faces', () => {
     expect(set('ẞ', 'modern').contours).not.toEqual(set('SS', 'modern').contours);
     // …but a tab and a no-break space are blanks, and so is the minus its hyphen.
     same('a\tb', 'a b', 'modern');
-    same('a b', 'a b', 'modern');
+    same('a\u00a0b', 'a b', 'modern');
     // The minus sign is Relief's own, longer than its hyphen.
     expect(set('−', 'modern').width).toBeGreaterThan(set('-', 'modern').width);
   });

@@ -23,7 +23,8 @@
  * - Hershey (.jhf: one record per character, 96 records = ASCII 32 to 126 and one more that is skipped): the vertices
  *   are read as they are (integers, y down, relative to the ASCII value of 'R'), turned into "y up, baseline 0, glyph cell
  *   starting at x = 0": x_cell = x − left, y_up = (−y) + 9 (the baseline of both faces is y = −9: the lowest point of
- *   'H', checked), so the capitals are 21 high, small letters 14, descenders reach −7. The advance of a glyph is the font's own
+ *   'H', checked), so the capitals are 21 high; the x is 14 high and the descenders reach −7 in Sans, 9 and −12 in Script (the
+ *   small letters of the Script are small). The advance of a glyph is the font's own
  *   (right − left), NOT ink width + a gap: Hershey's letters have designed room (an A sits close to a V, an H
  *   far from an H) and the Script face is drawn so that its letters meet (the exit stroke of an `a` ends where the
  *   entry stroke of the next letter starts) – a uniform gap would break both. `ink` is where the strokes really lie

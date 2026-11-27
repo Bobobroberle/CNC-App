@@ -299,7 +299,7 @@ function movePath(d: string, k: number, dx: number, dy: number): string {
 
 /** Other ways to write a character, for a face that lacks the character itself (the standard face's `ALIASES`). */
 function aliasesFor(has: (ch: string) => boolean): Record<string, string> {
-  const out: Record<string, string> = { '\t': ' ', ' ': ' ' };
+  const out: Record<string, string> = { '\t': ' ', '\u00a0': ' ' };
   const dash = has('–') ? '–' : '-';
   const table: [string, string][] = [
     ['“', '"'],
