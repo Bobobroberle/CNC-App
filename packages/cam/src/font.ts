@@ -1,26 +1,56 @@
-import { ellipsePoints, quadraticPoints } from './curves';
+import { cubicPoints, ellipsePoints, quadraticPoints } from './curves';
+import { MODERN } from './fonts/modern';
+import { SCRIPT } from './fonts/script';
+import { SIMPLEX } from './fonts/simplex';
 import type { Contour, Point } from './geometry';
 import { applyToPoint, compose, rotation, scaling, translation, type Matrix } from './transform';
 
 /**
- * A single-line font for engraving: every letter is a few strokes the tool
- * centre follows, built from straight lines and arcs like the lettering on
- * technical drawings. It covers German (ÄÖÜäöüß), digits, the usual
- * punctuation and – through combining marks – the accents of neighbouring
- * languages. The glyphs are our own data: nothing is loaded at runtime.
+ * Single-line fonts for engraving: every letter is a few strokes the tool
+ * centre follows. The font `'standard'` is our own, built from straight lines
+ * and arcs like the lettering on technical drawings; it covers German
+ * (ÄÖÜäöüß), digits, the usual punctuation and – through combining marks –
+ * the accents of neighbouring languages. Its glyphs are our own data:
+ * nothing is loaded at runtime. Three more faces (`FontId`) are converted
+ * offline from open data by scripts/fonts/convert.mjs into `fonts/*.ts`
+ * (Hershey Sans and Script 1-stroke, Relief SingleLine; their notices are in
+ * those files, THIRD-PARTY.md and `FONT_CREDITS`); every text picks one face
+ * (`TextOptions.font`, absent = standard, and then everything is exactly as
+ * it always was).
  *
- * Glyph units: capital letters are 10 high, small letters 7, descenders
- * reach −3; x runs from 0 to the glyph's width. A glyph is written as
+ * Glyph units (standard): capital letters are 10 high, small letters 7,
+ * descenders reach −3; x runs from 0 to the glyph's width. A glyph is
+ * written as
  *   M x y            start a stroke
  *   L x y            line
  *   O cx cy rx ry a0 a1   start a stroke with an arc of an ellipse (degrees, a1 > a0 = counter-clockwise)
  *   E cx cy rx ry a0 a1   continue the stroke with such an arc
  *   Q x1 y1 x y      quadratic curve
+ *   C x1 y1 x2 y2 x y     cubic curve (the converted faces)
+ * Every face has its own unit: `FaceData.cap` is what the capitals measure
+ * in it (standard 10, Hershey 21, Relief 680) and `height` of a text stays
+ * the height of the capitals in mm for all of them.
  */
-interface Glyph {
-  /** Width in glyph units, without the room to the next letter */
+export interface FontGlyph {
+  /**
+   * Width in glyph units. In the standard face the ink is exactly this wide and `gap` is the room to the next
+   * letter. In a converted face it is the advance the font designed (side room included, `gap` 0): Hershey
+   * letters have room that differs from letter to letter and the script letters are drawn to meet.
+   */
   w: number;
   d: string;
+  /**
+   * Where the strokes really lie inside the advance, left and right (glyph units) – absent in the standard
+   * face, where that is 0 to `w`. A line is set so that its ink, not its advance, starts at the anchor.
+   */
+  ink?: readonly [number, number];
+}
+
+/** A combining mark: drawn for a small letter with x = 0 in the middle of the glyph's advance */
+export interface FontMark {
+  d: string;
+  /** Hangs under the baseline and is never lifted */
+  below?: boolean;
 }
 
 const CAP = 10;
@@ -31,7 +61,7 @@ const GAP = 2;
 const S = 'O3 7.4 2.8 2.6 30 270 E3 2.4 3 2.4 90 -150';
 const BOWL = '2.5 3.5 2.5 3.5';
 
-const GLYPHS: Record<string, Glyph> = {
+const GLYPHS: Record<string, FontGlyph> = {
   ' ': { w: 3, d: '' },
   A: { w: 7, d: 'M0 0 L3.5 10 L7 0 M1.05 3 L5.95 3' },
   B: {
@@ -151,7 +181,7 @@ const GLYPHS: Record<string, Glyph> = {
  * Combining marks, drawn for a small letter with x = 0 in its middle; over
  * a tall letter they are lifted. `below` marks hang under the baseline.
  */
-const MARKS: Record<string, { d: string; below?: boolean }> = {
+const MARKS: Record<string, FontMark> = {
   '̈': { d: 'M-1.3 8.8 L-1.3 9.6 M1.3 8.8 L1.3 9.6' },
   '́': { d: 'M-0.8 8.4 L0.8 9.9' },
   '̀': { d: 'M-0.8 9.9 L0.8 8.4' },
@@ -177,6 +207,181 @@ const ALIASES: Record<string, string> = {
   ẞ: 'SS',
 };
 
+/**
+ * A face as it is generated into `fonts/*.ts` by scripts/fonts/convert.mjs: the glyphs of an open font in the
+ * packed grammar above, in the font's own units. What the library adds at load time (never in the generated files, so
+ * no own work stands under the licence of the data): the glyphs of the standard face that the data lacks (ß „ € ° · × Ø ø
+ * …), scaled to the face's capital height, and the combining marks the data lacks.
+ */
+export interface FaceData {
+  /** What the capital letters measure in the unit of this face (the height of the H) */
+  cap: number;
+  /** The height of the x */
+  small: number;
+  /**
+   * How far a mark that sits over small letters is lifted over a tall one (capitals, digits, ascenders), where the
+   * font has its own marks and says it (Relief: 125, not cap − small = 135); default `cap − small`
+   */
+  lift?: number;
+  /** The advance of a blank (and of a character the face cannot write) */
+  space: number;
+  /** The room a borrowed glyph gets at each side – what a capital or digit of this face has */
+  side: number;
+  /** The characters that rise above half of the way from the x-height to the capitals (they take the lifted mark) */
+  tall: string;
+  /** The notice that must be shown with the face (`FONT_CREDITS`) */
+  credit: string;
+  glyphs: Record<string, FontGlyph>;
+  /** The font's own combining marks, relative to the middle of the base glyph's advance */
+  marks?: Record<string, FontMark>;
+}
+
+/** The faces a text can be set in: `'standard'` is our own font (and the default), the others come from open data. */
+export const FONT_IDS = ['standard', 'simplex', 'script', 'modern'] as const;
+export type FontId = (typeof FONT_IDS)[number];
+export const DEFAULT_FONT: FontId = 'standard';
+/** Whether something – read from a file, say – names a face. */
+export const isFontId = (v: unknown): v is FontId =>
+  typeof v === 'string' && (FONT_IDS as readonly string[]).includes(v);
+
+/**
+ * The notice that belongs with each face where one is required (null for our own): the app shows it where it shows
+ * its licences, because the comment in the data files does not survive into the one-file release. The licence texts
+ * are in THIRD-PARTY.md and licenses/.
+ */
+export const FONT_CREDITS: Readonly<Record<FontId, string | null>> = {
+  standard: null,
+  simplex: SIMPLEX.credit,
+  script: SCRIPT.credit,
+  modern: MODERN.credit,
+};
+
+interface Face {
+  cap: number;
+  small: number;
+  /** Lift of the marks over a tall letter */
+  lift: number;
+  /** Room added to every glyph's advance: `GAP` for the standard face, 0 where the advances are designed */
+  gap: number;
+  space: number;
+  glyphs: Record<string, FontGlyph>;
+  marks: Record<string, FontMark>;
+  aliases: Record<string, string>;
+  tall: (key: string) => boolean;
+  /** Whether the glyphs say where their ink lies (`FontGlyph.ink`): a line is then set by its ink */
+  inked: boolean;
+}
+
+const r3 = (v: number) => Math.round(v * 1000) / 1000;
+
+/**
+ * A path of the grammar with its numbers scaled by `k` and moved by (dx, dy); the angles of arcs stay. Used to
+ * take a glyph or mark of the standard face over into a face with another capital height.
+ */
+function movePath(d: string, k: number, dx: number, dy: number): string {
+  return [...d.matchAll(/([MLOEQC])([^MLOEQC]*)/g)]
+    .map(([, command, rest]) => {
+      const arc = command === 'O' || command === 'E';
+      const n = rest!.trim().split(/\s+/).map(Number);
+      return (
+        command +
+        n
+          .map((v, i) => {
+            if (arc && i > 3) return v;
+            if (arc && i > 1) return r3(v * k);
+            return r3(v * k + (i % 2 === 0 ? dx : dy));
+          })
+          .join(' ')
+      );
+    })
+    .join(' ');
+}
+
+/** Other ways to write a character, for a face that lacks the character itself (the standard face's `ALIASES`). */
+function aliasesFor(has: (ch: string) => boolean): Record<string, string> {
+  const out: Record<string, string> = { '\t': ' ', ' ': ' ' };
+  const dash = has('–') ? '–' : '-';
+  const table: [string, string][] = [
+    ['“', '"'],
+    ['”', '"'],
+    ['‘', "'"],
+    ['’', "'"],
+    ['‚', ','],
+    ['—', dash],
+    ['–', '-'],
+    ['−', '-'],
+    ['…', '...'],
+    ['ẞ', 'SS'],
+  ];
+  for (const [from, to] of table) if (!has(from)) out[from] = to;
+  return out;
+}
+
+/**
+ * A face from generated data. What the data lacks of the standard face's characters is taken from the standard
+ * face scaled to this face's capital height with `side` room at each side (a character with an alias – the en dash
+ * where the face has a hyphen – is not borrowed), and so are the marks (over the face's own x-height). The ink of
+ * such a glyph is taken as its advance in the standard face: a few of those glyphs (`)`, `€` …) lie up to 0.07 of a
+ * standard unit inside it or outside, which moves the end of a line by at most 0.15 % of the capital height.
+ */
+function faceFrom(data: FaceData): Face {
+  const k = data.cap / CAP;
+  const has = (ch: string) => Object.hasOwn(data.glyphs, ch);
+  const aliases = aliasesFor(has);
+  const glyphs: Record<string, FontGlyph> = { ...data.glyphs };
+  for (const [ch, g] of Object.entries(GLYPHS)) {
+    if (has(ch) || Object.hasOwn(aliases, ch)) continue;
+    glyphs[ch] = {
+      w: r3(g.w * k + 2 * data.side),
+      ink: [data.side, r3(data.side + g.w * k)],
+      d: movePath(g.d, k, data.side, 0),
+    };
+  }
+  const marks: Record<string, FontMark> = { ...data.marks };
+  for (const [ch, m] of Object.entries(MARKS)) {
+    if (Object.hasOwn(marks, ch)) continue;
+    // Over a small letter of the standard face (SMALL high) the mark sits where it does; here over the x of this face.
+    marks[ch] = m.below
+      ? { d: movePath(m.d, k, 0, 0), below: true }
+      : { d: movePath(m.d, k, 0, data.small - SMALL * k) };
+  }
+  const tall = new Set([...data.tall]);
+  return {
+    cap: data.cap,
+    small: data.small,
+    lift: data.lift ?? data.cap - data.small,
+    gap: 0,
+    space: data.space,
+    glyphs,
+    marks,
+    aliases,
+    tall: (key) => tall.has(key),
+    inked: true,
+  };
+}
+
+const FACES: Record<FontId, Face> = {
+  // The standard face wraps the tables above, with the expressions it always had.
+  standard: {
+    cap: CAP,
+    small: SMALL,
+    lift: CAP - SMALL,
+    gap: GAP,
+    space: GLYPHS[' ']!.w,
+    glyphs: GLYPHS,
+    marks: MARKS,
+    aliases: ALIASES,
+    tall: (key) => /[A-ZØbdfhklt0-9]/.test(key),
+    inked: false,
+  },
+  simplex: faceFrom(SIMPLEX),
+  script: faceFrom(SCRIPT),
+  modern: faceFrom(MODERN),
+};
+
+/** The face of an option; whatever is no `FontId` (an unvalidated file) is the standard face. */
+const faceOf = (id: unknown): Face => FACES[isFontId(id) ? id : DEFAULT_FONT];
+
 type Stroke = Point[];
 
 /** The strokes of a glyph description, in glyph units. */
@@ -184,7 +389,7 @@ function strokes(d: string, tolerance: number): Stroke[] {
   const out: Stroke[] = [];
   let stroke: Stroke = [];
   const deg = Math.PI / 180;
-  for (const [, command, rest] of d.matchAll(/([MLOEQ])([^MLOEQ]*)/g)) {
+  for (const [, command, rest] of d.matchAll(/([MLOEQC])([^MLOEQC]*)/g)) {
     const n = rest!.trim().split(/\s+/).map(Number);
     const at = stroke[stroke.length - 1]!;
     if (command === 'M' || command === 'O') {
@@ -196,6 +401,16 @@ function strokes(d: string, tolerance: number): Stroke[] {
     } else if (command === 'Q') {
       stroke.push(
         ...quadraticPoints(at, { x: n[0]!, y: n[1]! }, { x: n[2]!, y: n[3]! }, tolerance),
+      );
+    } else if (command === 'C') {
+      stroke.push(
+        ...cubicPoints(
+          at,
+          { x: n[0]!, y: n[1]! },
+          { x: n[2]!, y: n[3]! },
+          { x: n[4]!, y: n[5]! },
+          tolerance,
+        ),
       );
     } else {
       const points = ellipsePoints(
@@ -218,13 +433,22 @@ function strokes(d: string, tolerance: number): Stroke[] {
   return out;
 }
 
-/** Every character the font can engrave (accented letters are built from these and the marks). */
+/** Every character the standard font can engrave (accented letters are built from these and the marks). */
 export const FONT_CHARACTERS: readonly string[] = Object.keys(GLYPHS);
+
+/**
+ * Every character a face can engrave without a mark (accented letters are built from these and the marks): for the
+ * standard face `FONT_CHARACTERS`. Includes the dotless `ı` and `ȷ`, which stand in for i and j under a mark.
+ */
+export const fontCharacters = (font: FontId = DEFAULT_FONT): readonly string[] =>
+  Object.keys(faceOf(font).glyphs);
 
 export type TextAlign = 'left' | 'center' | 'right';
 
 export interface TextOptions {
-  /** Height of the capital letters, mm */
+  /** Which face (default `'standard'`, our own); an id that is none is read as the default */
+  font?: FontId;
+  /** Height of the capital letters, mm – in every face */
   height: number;
   /** Extra room between letters as a fraction of the height; 0 is the font's own, negative is tighter */
   spacing?: number;
@@ -264,39 +488,57 @@ interface Placed {
   y: number;
 }
 
-/** The glyphs of one line and its width in glyph units (without the room after the last letter). */
+/**
+ * The glyphs of one line and its width in glyph units (without the room after the last letter). In a face whose glyphs
+ * say where their ink lies, the line is moved so that its ink starts at x = 0 and `width` is the extent of the ink – the
+ * strokes of the letters, the whole advance of a blank – so the anchor lies on what is drawn, as it does in the
+ * standard face, and a text keeps its place when the face is changed.
+ */
 function layoutLine(
   line: string,
+  face: Face,
   gap: number,
   missing: Set<string>,
 ): { placed: Placed[]; width: number } {
   const placed: Placed[] = [];
   let x = 0;
-  let base: { glyph: Glyph; x: number; tall: boolean } | null = null;
-  const chars = [...line.normalize('NFD')].flatMap((ch) => [...(ALIASES[ch] ?? ch)]);
+  let base: { glyph: FontGlyph; x: number; tall: boolean } | null = null;
+  let lo = Infinity;
+  let hi = -Infinity;
+  const reach = (from: number, to: number) => {
+    lo = Math.min(lo, from);
+    hi = Math.max(hi, to);
+  };
+  const chars = [...line.normalize('NFD')].flatMap((ch) => [...(face.aliases[ch] ?? ch)]);
   chars.forEach((ch, i) => {
-    const mark = MARKS[ch];
+    const mark = face.marks[ch];
     if (mark) {
       if (!base) return;
       // Over a capital or a letter with an ascender the mark sits higher.
-      const lift = mark.below || !base.tall ? 0 : CAP - SMALL;
+      const lift = mark.below || !base.tall ? 0 : face.lift;
       placed.push({ d: mark.d, x: base.x + base.glyph.w / 2, y: lift });
       return;
     }
     // A mark above takes the place of the dot of i and j.
-    const next = MARKS[chars[i + 1] ?? ''];
+    const next = face.marks[chars[i + 1] ?? ''];
     const key = next && !next.below ? ({ i: 'ı', j: 'ȷ' }[ch] ?? ch) : ch;
-    const glyph = GLYPHS[key];
+    const glyph = face.glyphs[key];
     if (!glyph) {
       missing.add(ch);
       base = null;
-      x += GLYPHS[' ']!.w + gap;
+      reach(x, x + face.space);
+      x += face.space + gap;
       return;
     }
     placed.push({ d: glyph.d, x, y: 0 });
-    base = { glyph, x, tall: /[A-ZØbdfhklt0-9]/.test(key) };
+    reach(x + (glyph.ink?.[0] ?? 0), x + (glyph.ink?.[1] ?? glyph.w));
+    base = { glyph, x, tall: face.tall(key) };
     x += glyph.w + gap;
   });
+  if (face.inked && lo !== Infinity) {
+    for (const p of placed) p.x -= lo;
+    return { placed, width: hi - lo };
+  }
   return { placed, width: Math.max(0, x - gap) };
 }
 
@@ -307,15 +549,16 @@ function layoutLine(
  * lines follow below, and `angle` turns the whole text around the anchor.
  */
 export function textContours(text: string, options: TextOptions): TextLayout {
-  const scale = options.height / CAP;
-  const gap = GAP + (options.spacing ?? 0) * CAP;
-  const pitch = (options.lineSpacing ?? 1.6) * CAP;
+  const face = faceOf(options.font);
+  const scale = options.height / face.cap;
+  const gap = face.gap + (options.spacing ?? 0) * face.cap;
+  const pitch = (options.lineSpacing ?? 1.6) * face.cap;
   const align = options.align ?? 'left';
   const tolerance = (options.tolerance ?? 0.01) / scale;
   const missing = new Set<string>();
-  const lines = text.split(/\r?\n/).map((line) => layoutLine(line, gap, missing));
-  const block = CAP + (lines.length - 1) * pitch;
-  const top = options.vertical === 'middle' ? block / 2 - CAP : 0;
+  const lines = text.split(/\r?\n/).map((line) => layoutLine(line, face, gap, missing));
+  const block = face.cap + (lines.length - 1) * pitch;
+  const top = options.vertical === 'middle' ? block / 2 - face.cap : 0;
   const pose: Matrix = compose(
     compose(translation(options.x ?? 0, options.y ?? 0), rotation(options.angle ?? 0)),
     scaling(scale),

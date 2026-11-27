@@ -1,4 +1,11 @@
-import { textContours, type TextAlign, type TextOptions } from './font';
+import {
+  DEFAULT_FONT,
+  isFontId,
+  textContours,
+  type FontId,
+  type TextAlign,
+  type TextOptions,
+} from './font';
 import { contourBounds, type Bounds, type Contour } from './geometry';
 import { circle, ellipse, gear, rectangle, slot, spiral, star, type Radii } from './shapes';
 
@@ -28,6 +35,11 @@ export type Sketch =
       spacing: number;
       lineSpacing: number;
       align: TextAlign;
+      /**
+       * The face the text is set in (`FontId`). Absent is the standard face: `tidySketch` drops the key for it, so a
+       * text in the standard face has the same sketch (and the same JSON) it always had.
+       */
+      font?: FontId;
     };
 
 /**
@@ -139,13 +151,17 @@ export function tidySketch(s: AnySketch): AnySketch {
         py: atLeast(s.py),
       };
     }
-    case 'text':
+    case 'text': {
+      // The standard face is the absence of the key (one spelling for it), and so is an id that is none.
+      const { font, ...rest } = s;
       return {
-        ...s,
+        ...rest,
         height: atLeast(s.height),
         spacing: Number.isFinite(s.spacing) ? s.spacing : 0,
         lineSpacing: atLeast(s.lineSpacing, 0.1),
+        ...(isFontId(font) && font !== DEFAULT_FONT ? { font } : {}),
       };
+    }
     case 'ellipse':
       return { type: 'ellipse', rx: radius(s.rx), ry: radius(s.ry) };
     case 'star': {
@@ -180,12 +196,13 @@ export function tidySketch(s: AnySketch): AnySketch {
   }
 }
 
-/** How a text sketch is set: its anchor is the origin, on the first baseline. */
+/** How a text sketch is set: its anchor is the origin, on the first baseline. `font` is there only where the sketch has one. */
 export const sketchTextOptions = (s: Sketch & { type: 'text' }): TextOptions => ({
   height: s.height,
   spacing: s.spacing,
   lineSpacing: s.lineSpacing,
   align: s.align,
+  ...(s.font ? { font: s.font } : {}),
 });
 
 /**
@@ -373,7 +390,9 @@ const isRadii = (v: unknown): v is Radii => Array.isArray(v) && v.length === 4 &
  * (`tidySketch`), or null where it cannot be trusted and the item should keep the contours it has.
  * Accepted is a sketch of a known type whose measures are numbers that are finite (a text: a string and one
  * of the three alignments); a length is above 0 and at most `SKETCH_MAX`, a radius above 0 and at most
- * `SKETCH_LIMITS.radius.max` (a spiral's may be 0, not below), a count above 0; a rectangle's `r` is any
+ * `SKETCH_LIMITS.radius.max` (a spiral's may be 0, not below), a count above 0; a text's `font`, where there is
+ * one, must be a `FontId` – any other value (a face a newer version knew, a wrong type) refuses the sketch like every
+ * other bad field, so the item keeps the contours it has; a rectangle's `r` is any
  * number and its `radii` four numbers. A count or radius that is too large or too small for its shape is not
  * refused but brought in by `tidySketch` (a star of 99 tips has 32), as the app has always done with a
  * grid; a length or radius above the limits is refused – nobody draws it, and it would make a very
@@ -400,12 +419,14 @@ export function validateSketch(value: unknown): AnySketch | null {
       return length(v.d) && positive(v.nx) && positive(v.ny) && length(v.px) && length(v.py)
         ? tidySketch({ type: 'grid', d: v.d, nx: v.nx, ny: v.ny, px: v.px, py: v.py })
         : null;
-    case 'text':
+    case 'text': {
+      const font = v.font;
       return typeof v.text === 'string' &&
         length(v.height) &&
         num(v.spacing) &&
         num(v.lineSpacing) &&
-        (v.align === 'left' || v.align === 'center' || v.align === 'right')
+        (v.align === 'left' || v.align === 'center' || v.align === 'right') &&
+        (font === undefined || isFontId(font))
         ? tidySketch({
             type: 'text',
             text: v.text,
@@ -413,8 +434,10 @@ export function validateSketch(value: unknown): AnySketch | null {
             spacing: v.spacing,
             lineSpacing: v.lineSpacing,
             align: v.align,
+            ...(font === undefined ? {} : { font }),
           })
         : null;
+    }
     case 'ellipse':
       return reach(v.rx) && reach(v.ry)
         ? tidySketch({ type: 'ellipse', rx: v.rx, ry: v.ry })

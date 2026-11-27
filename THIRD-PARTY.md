@@ -3,7 +3,8 @@
 LowRider Control ships as one HTML file with everything in it. Besides the packages listed in
 `apps/control/package.json` (bundled by the build under their own licences: React, Base UI, Tailwind
 CSS, three.js, zustand, fflate, esptool-js, lucide-react, class-variance-authority, clsx,
-tailwind-merge), three things are copied into the repository or the bundle:
+tailwind-merge), these are copied into the repository or the bundle: the UI components, the interface fonts
+and the data of the single-line text faces (Hershey, Relief SingleLine).
 
 ## coss ui
 
@@ -58,3 +59,59 @@ Project Authors (<https://github.com/JetBrains/JetBrainsMono>).
 The icons of the shell (status bar, steps, menu, action bar) come from **Lucide** through the
 package `lucide-react` (ISC licence, <https://lucide.dev>); only the icons that are used end up in
 the bundle.
+
+## Hershey fonts
+
+The text faces "Einfach" (Hershey Sans 1-stroke) and "Schreibschrift" (Hershey Script 1-stroke) of the CAM
+(`packages/cam/src/fonts/simplex.ts` and `script.ts`) are the **Hershey Fonts**: vector fonts created by Dr. A. V.
+Hershey at the U. S. National Bureau of Standards, in the `.jhf` form of James Hurt (Cognition, Inc.). They are read
+from `futural.jhf` and `scripts.jhf` of <https://github.com/kamalmostafa/hershey-fonts> (which has them from
+<http://emergent.unpythonic.net/software/hershey>), fetched 2026-11-27, and converted offline by
+`scripts/fonts/convert.mjs` into the library's own packed stroke format – not into the format of the U.S. NTIS, which
+the licence excludes. Only the outlines are Hershey's: the accented letters, ß, „, €, ° and the other characters the
+data lacks are drawn by the library from its own glyphs, scaled to the face (`font.ts`), and nothing of the
+repository's GPL-licensed library code is used. The licence of the data requires that the acknowledgements below
+are distributed with the font data: they are in the header of both data files and in `FONT_CREDITS`, which the
+app shows. The notice as it comes with the Hershey fonts in SVG (<https://www.evilmadscientist.com>):
+
+> The Hershey Fonts are a set of vector fonts with a liberal license.
+>
+> USE RESTRICTION:
+> This distribution of the Hershey Fonts may be used by anyone for any purpose, commercial or otherwise,
+> providing that:
+>
+> 1. The following acknowledgements must be distributed with the font data:
+>    - The Hershey Fonts were originally created by Dr. A. V. Hershey while working at the U. S. National
+>      Bureau of Standards.
+>    - The format of the Font data in this distribution was originally created by James Hurt, Cognition,
+>      Inc., 900 Technology Park Drive, Billerica, MA 01821 (mit-eddie!ci-dandelion!hurt)
+> 2. The font data in this distribution may be converted into any other format \*EXCEPT\* the format
+>    distributed by the U.S. NTIS where each point is described in eight bytes as "xxx yyy:", where xxx and
+>    yyy are the coordinate values as ASCII numbers.
+
+The `COPYING` file of the kamalmostafa repository gives the data the same two conditions under "Copyright: 1967
+Dr. A. V. Hershey, James Hurt" (word for word in its `hershey-fonts.notes`, where item 2 names the NTIS and reads "…
+the U.S. NTIS (which organization holds the rights to the distribution and use of the font data in that particular
+format)…"); both wordings are quoted in the data files. The `.jhf` files themselves carry no header. The SVG fonts
+of the npm package `hersheytext` (same data, with Latin-1 letters added by its maker) were read and compared, but
+nothing is taken from them: they differ from the originals in a few glyphs (the Script `^` has two strokes there and
+three in the `.jhf`), and their ß ç Ç £ ¸ are not Hershey's.
+
+## Relief SingleLine
+
+The text face "Modern" (`packages/cam/src/fonts/modern.ts`) is converted from **Relief SingleLine**
+(<https://github.com/isdat-type/Relief-SingleLine>, the file `fonts/open_svg/ReliefSingleLineSVG-Regular.svg`,
+branch `master` as fetched on 2026-11-27, commit not pinned; the converter checks its SHA-256). It is licensed under
+the SIL Open Font License, Version 1.1, whose text is kept in the repository as
+`licenses/Relief-SingleLine-OFL.txt` (copied unchanged from the upstream `OFL.txt`). The data in the app is a
+**Modified Version** in the sense of the OFL – the outlines converted into stroke data, stub strokes, kerning and
+glyphs the app does not use left out – and so stays under the OFL (condition 5); the data file says so in its
+header and `FONT_CREDITS` carries the notice. Copyright line of the upstream `OFL.txt`:
+
+> Copyright 2022 The Relief SingleLine Project Authors (https://github.com/isdat-type/Relief-SingleLine)
+>
+> This Font Software is licensed under the SIL Open Font License, Version 1.1.
+
+The SVG font file names 2021 in its metadata ("Copyright 2021 The Relief SingleLine Project Authors"), the upstream
+`OFL.txt` 2022: both are given in the data file, which of them is the intended year could not be told from the
+files. No Reserved Font Name follows the copyright line.
