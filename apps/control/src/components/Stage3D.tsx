@@ -10,6 +10,7 @@ import { DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, TAP_MS, TAP_SLOP } from '../lib/gesture
 import { reducedMotion } from '../lib/spring';
 import {
   defaultStock,
+  firstTool,
   GANTRY_CLEARANCE,
   GANTRY_DEPTH,
   jobCollisions,
@@ -71,7 +72,7 @@ export function Stage3D() {
   const stlInput = useRef<HTMLInputElement>(null);
 
   const tool = useMemo(() => {
-    const n = currentTool ?? analysis?.tools[0] ?? 0;
+    const n = currentTool ?? (analysis ? firstTool(analysis) : 0);
     const t1 = toolForJob(tools, setup.toolMap, n, headerDiameter);
     return t1 ?? { ...DEFAULT_TOOLS[0]!, diameter: toolDiameter };
   }, [currentTool, analysis, tools, setup.toolMap, toolDiameter, headerDiameter]);

@@ -120,6 +120,15 @@ describe('what a start asks to confirm (§6.4)', () => {
     ]);
     expect(pendingWarnings(['zero'], ['zero'])).toEqual([]);
   });
+
+  it('asks after a tool change – every time: a new cutter is a new length', () => {
+    expect(startWarnings({ ...SAFE, toolChanged: true })).toEqual(['toolChange']);
+    expect(startWarnings({ ...SAFE, toolChanged: false })).toEqual([]);
+    // (a start that follows no change – the first part, or a part with the tool before it – is as ever)
+    expect(startWarnings(SAFE)).toEqual([]);
+    expect(pendingWarnings(['toolChange'], ['toolChange'])).toEqual(['toolChange']);
+    expect(pendingWarnings(['zero', 'toolChange'], ['zero', 'toolChange'])).toEqual(['toolChange']);
+  });
 });
 
 describe('overrides', () => {

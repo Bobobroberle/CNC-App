@@ -353,6 +353,10 @@ export const de = {
       title: 'Messtaster als Werkzeug',
       text: 'Ein Werkzeug dieses Jobs ist als Messtaster markiert, und das Programm schaltet die Spindel ein. Ein Messtaster darf nie drehen – ist wirklich ein Fräser eingespannt?',
     },
+    toolChange: {
+      title: 'Werkzeug gewechselt – Länge neu gemessen?',
+      text: 'Dieser Teil fräst mit einem anderen Werkzeug als der vorige. Jedes Werkzeug ist anders lang: Ohne neu zu messen (Sensor oder Platte, in der Karte des Wechsels) fräst der neue Fräser zu hoch oder in das Werkstück. Die App kann nicht wissen, ob gemessen wurde.',
+    },
   },
   console: {
     filter: 'Zeilen im Protokoll',
@@ -2515,6 +2519,10 @@ export const de = {
       saved: 'Projekt gespeichert: {name}',
       toolMissing:
         'Das Werkzeug des Projekts gibt es in dieser Werkzeugliste nicht – es bleibt das gewählte.',
+      partToolsMissing:
+        'Werkzeuge einzelner Teile gibt es in dieser Werkzeugliste nicht: {list} – diese Teile werden mit dem Werkzeug der Zeichnung gefräst, bis ein Werkzeug da ist oder ein anderes gewählt wird.',
+      partToolsDiffer:
+        'Werkzeuge einzelner Teile hatten im Projekt einen anderen Durchmesser als hier: {list} – die Bahnen werden mit den jetzigen gerechnet.',
       settingsDropped:
         'Aus der Datei nicht übernommen (Werte, die keine Maschine hat): {list} – es bleibt, was jetzt eingestellt ist.',
       toolDiffers:
@@ -2834,6 +2842,33 @@ export const de = {
     climb: 'Gleichlauf (sonst Gegenlauf)',
     direction: 'Laufrichtung von Teil {n}',
     directions: { job: 'Laufrichtung wie der Job', climb: 'Gleichlauf', conventional: 'Gegenlauf' },
+    partTool: 'Werkzeug von Teil {n}',
+    partToolTitle: 'Werkzeug eines Teils',
+    tools: {
+      likeDrawing: 'Wie die Zeichnung ({tool})',
+      noProgram:
+        'So lässt sich kein Programm machen – siehe die Hinweise unter „Ansehen und übergeben“.',
+      gone: 'Fehlt in der Liste: {id}',
+      kindOnly: 'nur Gravur und Bohren',
+      several: '{count} Werkzeuge in einem Programm: {list}.',
+      changeHint:
+        'Zwischen zwei Werkzeugen hält der Job zum Wechseln an – nach jedem Wechsel die Länge neu messen.',
+      one: 'Das Programm fräst mit {tool} statt mit dem Werkzeug der Zeichnung.',
+      noValues:
+        '{tool} hat keine eigenen Schnittwerte und fräst mit Vorschub, Drehzahl und Zustellung der Zeichnung. Eigene Werte stehen in der Werkzeugliste.',
+      notes: {
+        missing:
+          'Teil {rows}: Das gewählte Werkzeug „{tool}“ gibt es in der Werkzeugliste nicht mehr – gefräst wird mit dem Werkzeug der Zeichnung.',
+        probe:
+          'Teil {rows}: „{tool}“ ist als Messtaster markiert und darf nicht drehen – gefräst wird mit dem Werkzeug der Zeichnung.',
+        kind: 'Teil {rows}: „{tool}“ kann nur gravieren und bohren, nicht diese Bearbeitung – gefräst wird mit dem Werkzeug der Zeichnung.',
+        number:
+          '„{tool}“ hat die Nummer T{number}. Ein Programm mit mehreren Werkzeugen braucht für jedes eine ganze Nummer ab 1 – in der Werkzeugliste ändern. Es wird kein Programm gemacht.',
+        clash:
+          'Die Nummer T{number} haben „{tool}“ und „{other}“ – die Steuerung könnte sie nicht unterscheiden. In der Werkzeugliste eine Nummer ändern. Es wird kein Programm gemacht.',
+        gone: 'Das Werkzeug der Zeichnung gibt es in der Werkzeugliste nicht mehr, aber Teil {rows} wird damit neben anderen Werkzeugen gefräst – ohne seine Nummer geht das nicht. Ein Werkzeug der Zeichnung wählen. Es wird kein Programm gemacht.',
+      },
+    },
     routeShort: 'Fahrwege kürzen',
     routeShortNote:
       'Ordnet die Schnitte einer Art – etwa alle Bohrungen – so, dass die Eilgänge dazwischen kürzer werden. Es wird nichts anderes gefräst, nur die Reihenfolge ändert sich, und der Weg wird nie länger als ohne.',
@@ -2978,6 +3013,8 @@ export const de = {
         'Noch nichts auf der Rückseite: bei einer Kontur „Rückseite“ wählen. Bis dahin entsteht ein normaler Job für eine Seite.',
       askew:
         'Die Passlöcher liegen schräg zueinander: So passt das gewendete Teil nicht auf die Stifte. Eines verschieben (es rastet ein) oder neu vorschlagen lassen.',
+      tools:
+        'Teil {rows} wird mit einem eigenen Werkzeug gefräst. Eine Zeichnung für beide Seiten fräst alles mit dem Werkzeug der Zeichnung – es wird kein Programm gemacht, bis kein Teil ein eigenes Werkzeug hat oder „Von beiden Seiten fräsen“ aus ist.',
     },
     title: 'Beidseitig: {name}',
     stepsLabel: 'Ablauf beidseitig fräsen',
@@ -3052,6 +3089,8 @@ export const de = {
       'Dasselbe Motiv – oder je ein Name – auf viele Rohlinge, die verstreut auf dem Tisch liegen: Untersetzer, Schlüsselanhänger, Brettchen. Die Kamera findet Lage und Drehung, einzeln ausrichten entfällt.',
     needsMotif: 'Zuerst das Motiv zeichnen: einen Text, ein Logo, eine Form.',
     notTwoSided: 'Eine Serie wird von einer Seite gefräst: „Von beiden Seiten fräsen“ ausschalten.',
+    ownTools:
+      'Die Serie fräst alles mit dem Werkzeug der Zeichnung. Teil {rows} hat ein eigenes Werkzeug: bei „Wie die Zeichnung“ lassen.',
     title: 'Serie: {name}',
     back: 'Zur Zeichnung',
     stepsLabel: 'Schritte der Serie',
@@ -4079,6 +4118,8 @@ export const de = {
         'ecken meiden, stege meiden ecken, steg nicht auf die ecke, stege auf gerade stücke, stege nicht in der ecke, haltestege ecken, tabs ecken, tabs corners, avoid corners, stege ecke vermeiden, stege verschieben, stege in die mitte',
       camRoute:
         'fahrwege kürzen, fahrweg, wege kürzen, kürzere wege, eilgang, eilgänge, leerfahrten, leerfahrt, weniger fahren, route, reihenfolge optimieren, schnitte ordnen, bohrungen ordnen, travel, rapid, rapids, 2-opt, kürzester weg, handlungsreisender, zeit sparen',
+      camPartTool:
+        'werkzeug eines teils, anderes werkzeug, mehrere werkzeuge, zwei werkzeuge, werkzeugwechsel, werkzeug wechseln, werkzeug pro teil, gravurfräser, gravierfräser, vfräser, v-bit, vbit, kugelfräser, bohrer, ein programm, t1 t2, t2, m6, tool change, multi tool, several tools, per part',
       camEntry:
         'eintauchen, helix, wendel, schraubenlinie, spirale eintauchen, einbohren, taschen eintauchen, rampe, gerade eintauchen, senkrecht eintauchen, plunge, ramp, helical, tasche anfangen, einstechen',
       camHelix:

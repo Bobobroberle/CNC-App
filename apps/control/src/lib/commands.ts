@@ -294,6 +294,15 @@ export const COMMANDS: readonly Command[] = [
     anchor: ['cam-tabs-avoid', 'cam-avoid-default', 'cam-how'],
   }),
   draw('camTool', 'cam.tool', 'cam-tool', 'tool'),
+  // The cutter of a single part: the field is in every row of the list (with a part on the table); with nothing drawn
+  // the chain ends in the card of the list, which always is
+  entry({
+    id: 'camPartTool',
+    title: 'cam.partToolTitle',
+    place: 'cam',
+    anchor: ['cam-part-tool', 'cam-how'],
+    icon: 'tool',
+  }),
   draw('camAdvanced', 'cam.advanced', 'cam-advanced'),
   // Shorter rapid travel: a box of "Erweitert", which is part of the card that is always there
   entry({

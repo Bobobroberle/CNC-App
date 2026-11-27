@@ -52,6 +52,7 @@ import {
   type SvgNote,
   type Tabs,
   type TextOptions,
+  type ToolSettings,
 } from '@lowrider/cam';
 import { splitLines } from '@lowrider/gcode-core';
 import { suggestFor, toolOwnValues } from '@lowrider/workshop';
@@ -120,6 +121,17 @@ import { defaultNestGap, planNest } from '../lib/camNest';
 import { holdFactor, magnified, scaledShape } from '../lib/camScale';
 import { clampPath, takesEntry, takesPeck, type Entry, type PathValue } from '../lib/camPath';
 import { fixturesInWork } from '../lib/clamps';
+import {
+  DEFAULT_TOOL,
+  diameterOfItem,
+  fitsKind,
+  planCutters,
+  planSignature,
+  stepoverShare,
+  widestCutter,
+  type CutterPlan,
+  type ToolNote,
+} from '../lib/camTools';
 import { textBlockCentre } from '../lib/series';
 import { inViewSpot } from '../lib/tableBox';
 import type { FlipMethod, FlipPlan } from '../lib/flip';
@@ -171,11 +183,20 @@ export interface TwoSided {
 export type CamFlipNote =
   | FlipNote
   | { code: 'no-thickness' | 'no-back' | 'askew' }
-  | { code: 'hole-on-cut' | 'hole-in-part' | 'hole-off-stock'; hole: 1 | 2 };
+  | { code: 'hole-on-cut' | 'hole-in-part' | 'hole-off-stock'; hole: 1 | 2 }
+  /**
+   * A part is cut with another cutter than the drawing's: a two-sided job is one cutter's – the library cuts the
+   * back by what the front did and a tool change in the front would end "front done" too early. `rows` are the
+   * parts (0-based) – no program is made while this stands.
+   */
+  | { code: 'tools'; rows: number[] };
 
 /** Notes that keep the job from being handed over: it would not come out right. */
 export const blocksFlip = (note: CamFlipNote) =>
-  note.code === 'no-thickness' || note.code === 'askew' || note.code === 'hole-on-cut';
+  note.code === 'no-thickness' ||
+  note.code === 'askew' ||
+  note.code === 'hole-on-cut' ||
+  note.code === 'tools';
 
 export interface CamProject {
   name: string;
@@ -248,7 +269,7 @@ export interface NestReport {
 
 /** What can be set per item of the list. */
 export type ItemPatch = Partial<
-  Pick<CamItem, 'kind' | 'tabs' | 'relief' | 'depth' | 'side' | 'climb'>
+  Pick<CamItem, 'kind' | 'tabs' | 'relief' | 'depth' | 'side' | 'climb' | 'toolId'>
 >;
 
 interface AddOptions {
@@ -291,6 +312,12 @@ interface CamStore {
   cutOrder: Readonly<Record<number, CutPlace>>;
   /** For a part machined from both sides: what to know before it is handed over */
   flipNotes: CamFlipNote[];
+  /**
+   * What the cutters of the parts say (`lib/camTools.ts`): a part whose own cutter cannot stand is cut with the
+   * drawing's (`cut-differently`), a tool list that a program with several cutters cannot be made from makes no
+   * program at all (`refused`, and the table is left as `generate` leaves it for a drawing with nothing to cut).
+   */
+  toolNotes: ToolNote[];
   /** What the arranging acts on */
   selected: Selection;
   /**
@@ -341,6 +368,14 @@ interface CamStore {
     | {
         toolMissing: boolean;
         toolDiffers?: { file: number; now: number };
+        /**
+         * The cutters that single parts name (version 2 of the file): the ids this tool list lacks – those parts are cut
+         * with the drawing's cutter and the card says so – and the ones whose diameter is another here than in the file
+         */
+        partTools?: {
+          missing: string[];
+          differ: { id: string; name: string; file: number; now: number }[];
+        };
         /** Settings of the file that no machine would have – left out, what is set now stays */
         dropped?: string[];
       }
@@ -617,13 +652,24 @@ function initialSettings(): CamSettings {
   };
 }
 
-/** What a drawing is cut with when its cutter is not in the tool list (any more), mm */
-const DEFAULT_TOOL = 6;
+/** The drawing's own cutter: its diameter, mm (`DEFAULT_TOOL` where it is not in the tool list any more) */
 const toolDiameter = (settings: CamSettings) =>
   useWorkshop.getState().tools.find((t) => t.id === settings.toolId)?.diameter ?? DEFAULT_TOOL;
 
-/** The cutter of the program made last: its id and diameter, mm (see `afterToolEdit`) */
-let cutWith: { id: string; diameter: number } | null = null;
+/**
+ * What of the tool list the program made last was made from (`planSignature`: the numbers, names, diameters and own
+ * values of the cutters in use, the notes) – see `afterToolEdit`
+ */
+let cutWith: string | null = null;
+
+/** The cutters of the drawing as it stands: which part is cut with which (`lib/camTools.ts`) */
+const cutterPlan = (items: readonly CamItem[], settings: CamSettings): CutterPlan =>
+  planCutters(
+    items,
+    settings,
+    useWorkshop.getState().tools,
+    useWorkshop.getState().settings.spindle,
+  );
 
 /** Steps the drawing can go back */
 const HISTORY = 100;
@@ -689,15 +735,6 @@ export function itemOperation(
 
 /** The cutter of the drawing: its diameter, mm. */
 export const camToolDiameter = (settings: CamSettings) => toolDiameter(settings);
-
-/**
- * The cutter of the drawing as a hook: what is drawn depends on it (the places of tabs kept off the corners
- * are the cutter's), so a picture must follow a change of the cutter, or of its diameter in the tool list.
- */
-export function useCamToolDiameter(): number {
-  const toolId = useCam((s) => s.settings.toolId);
-  return useWorkshop((s) => s.tools.find((t) => t.id === toolId)?.diameter ?? DEFAULT_TOOL);
-}
 
 /** Room between the cut around a part and the rim of a registration hole beside it, mm */
 const HOLE_ROOM = 6;
@@ -1086,12 +1123,19 @@ export const useCam = create<CamStore>((set, get) => {
     // (a hidden part is not cut: a circle inside its outline is no hole of anything)
     const before = p.items.filter((i) => i.hidden !== true).flatMap((i) => i.contours);
     const placed = made.map((m) => place(m.source, m.placement));
-    // The first choices look at the whole drawing: a circle in an outline is a hole.
-    const fresh = defaultOperations(
-      [...before, ...placed.flat()],
-      toolDiameter(settings),
-      settings.tabs,
-    );
+    // The first choices look at the whole drawing: a circle in an outline is a hole. A hole is a circle the cutter
+    // fits: where parts have a cutter of their own each contour is judged by its own (the new things by the
+    // drawing's) – and where none has, by the one number, exactly as it always was
+    const plan = cutterPlan(p.items, settings);
+    const diameters = p.items.some((i) => i.toolId !== undefined)
+      ? [
+          ...p.items
+            .filter((i) => i.hidden !== true)
+            .flatMap((i) => i.contours.map(() => diameterOfItem(plan, i))),
+          ...placed.flat().map(() => toolDiameter(settings)),
+        ]
+      : toolDiameter(settings);
+    const fresh = defaultOperations([...before, ...placed.flat()], diameters, settings.tabs);
     const group = nextId++;
     let at = before.length;
     const items = made.map((m, k): CamItem => {
@@ -1164,6 +1208,7 @@ export const useCam = create<CamStore>((set, get) => {
     problems: [],
     cutOrder: {},
     flipNotes: [],
+    toolNotes: [],
     selected: null,
     multi: false,
     marquee: false,
@@ -1181,6 +1226,7 @@ export const useCam = create<CamStore>((set, get) => {
         problems: [],
         cutOrder: {},
         flipNotes: [],
+        toolNotes: [],
         selected: null,
         multi: false,
         marquee: false,
@@ -1195,7 +1241,17 @@ export const useCam = create<CamStore>((set, get) => {
       }),
     saveProject() {
       const { project, settings } = get();
-      return project ? projectToText(project, settings, new Date(), toolDiameter(settings)) : null;
+      if (!project) return null;
+      // The diameters of the cutters the parts name, so that another tool list can say when one is another there
+      const library = useWorkshop.getState().tools;
+      const named: Record<string, number> = {};
+      for (const id of new Set(
+        project.items.flatMap((i) => (i.toolId === undefined ? [] : [i.toolId])),
+      )) {
+        const tool = library.find((x) => x.id === id);
+        if (tool) named[id] = tool.diameter;
+      }
+      return projectToText(project, settings, new Date(), toolDiameter(settings), named);
     },
     openProject(text) {
       const parsed = parseProject(text);
@@ -1233,6 +1289,7 @@ export const useCam = create<CamStore>((set, get) => {
             problems: [],
             cutOrder: {},
             flipNotes: [],
+            toolNotes: [],
           };
         });
         update(items, null, false);
@@ -1248,6 +1305,7 @@ export const useCam = create<CamStore>((set, get) => {
           problems: kept.problems,
           cutOrder: kept.cutOrder,
           flipNotes: kept.flipNotes,
+          toolNotes: kept.toolNotes,
         });
         return { error: 'invalid-project' as const };
       }
@@ -1258,9 +1316,22 @@ export const useCam = create<CamStore>((set, get) => {
         library && file !== undefined && Math.abs(library.diameter - file) > 1e-6
           ? { file, now: library.diameter }
           : undefined;
+      // The cutters of single parts: a tool the list lacks stays chosen and is said (the part is cut with the drawing's
+      // meanwhile); one of the same id with another diameter is said too
+      const named = [...new Set(parsed.project.items.flatMap((i) => i.toolId ?? []))];
+      const all = useWorkshop.getState().tools;
+      const missing = named.filter((id) => !all.some((x) => x.id === id));
+      const differ = named.flatMap((id) => {
+        const tool = all.find((x) => x.id === id);
+        const file = Object.hasOwn(parsed.toolDiameters, id) ? parsed.toolDiameters[id] : undefined;
+        return tool && file !== undefined && Math.abs(tool.diameter - file) > 1e-6
+          ? [{ id, name: tool.name, file, now: tool.diameter }]
+          : [];
+      });
       return {
         toolMissing,
         ...(toolDiffers ? { toolDiffers } : {}),
+        ...(missing.length > 0 || differ.length > 0 ? { partTools: { missing, differ } } : {}),
         ...(parsed.dropped.length > 0 ? { dropped: parsed.dropped } : {}),
       };
     },
@@ -1373,6 +1444,7 @@ export const useCam = create<CamStore>((set, get) => {
         problems: [],
         cutOrder: {},
         flipNotes: [],
+        toolNotes: [],
         selected: null,
       });
       offStage();
@@ -1386,6 +1458,9 @@ export const useCam = create<CamStore>((set, get) => {
         p.items.map((i) => {
           if (i.id !== id) return i;
           const next = { ...i, ...patch };
+          // The cutter of a part: the key is only there for a choice ("wie die Zeichnung" has none). (A registration
+          // hole is made anew by every `update` – it never keeps one: it is drilled with the drawing's.)
+          if (next.toolId === undefined) delete next.toolId;
           // The place among the parts cut the same way meant something in the old kind – and on the old side – only
           if (
             (patch.kind !== undefined && patch.kind !== i.kind) ||
@@ -1394,6 +1469,18 @@ export const useCam = create<CamStore>((set, get) => {
             delete next.seq;
           }
           if (patch.kind !== undefined && patch.kind !== i.kind) {
+            // … a V-bit, ball cutter or drill chosen for engraving or drilling does not go along to a cut it cannot make
+            const asked = next.toolId;
+            if (
+              asked !== undefined &&
+              patch.toolId === undefined &&
+              !fitsKind(
+                useWorkshop.getState().tools.find((x) => x.id === asked) ?? { kind: 'flat' },
+                next.kind,
+              )
+            ) {
+              delete next.toolId;
+            }
             // … and a way to enter a pocket or to drill a hole means nothing on any other cut
             if (!takesEntry(next.kind)) {
               delete next.entry;
@@ -1468,8 +1555,9 @@ export const useCam = create<CamStore>((set, get) => {
       if (!item || !tabsOn(item)) return false;
       if (item.tabSpec?.mode === 'manual') return true;
       // What the automatic spread makes now, contour by contour, is where one starts
-      // – the very places the cut lifts at (`operationTabSites` with the operation it is cut with)
-      const tool = toolDiameter(settings);
+      // – the very places the cut lifts at (`operationTabSites` with the operation it is cut with, and the
+      // cutter the part is cut with)
+      const tool = diameterOfItem(cutterPlan(project!.items, settings), item);
       const at = item.contours.flatMap((contour, c) => {
         const tabs = itemTabs(item, c, settings.tabs);
         return tabs
@@ -1938,7 +2026,7 @@ export const useCam = create<CamStore>((set, get) => {
       const gap = Math.min(
         typed !== undefined && Number.isFinite(typed) && typed >= 0
           ? typed
-          : defaultNestGap(toolDiameter(settings)),
+          : defaultNestGap(widestCutter(cutterPlan(project.items, settings))),
         reach,
       );
       const rotate = options.rotate === true;
@@ -2075,10 +2163,10 @@ export const useCam = create<CamStore>((set, get) => {
             : Math.max(0.01, Number(s.depthPerPass.toFixed(1)));
       }
       if (s.stepover !== undefined) {
-        const share = s.stepover / tool.diameter;
-        patch.stepover = Math.min(
-          1,
-          Math.max(0.01, Number(share.toFixed(own.stepover !== undefined ? 3 : 2))),
+        patch.stepover = stepoverShare(
+          s.stepover,
+          tool.diameter,
+          own.stepover !== undefined ? 3 : 2,
         );
       }
       if (Object.keys(patch).length > 0) get().setSettings(patch);
@@ -2090,18 +2178,51 @@ export const useCam = create<CamStore>((set, get) => {
     generate(opts) {
       const take = opts?.take === true;
       const { project, settings } = get();
-      // The cutter this program is made for (and the picture of the drawing – `useCamToolDiameter` – follows the
-      // same one): `afterToolEdit` asks it again when the tool list changes
-      cutWith = { id: settings.toolId, diameter: toolDiameter(settings) };
+      // The cutters this program is made for (the picture of the drawing – `useCamCutters` – asks the same plan):
+      // `afterToolEdit` asks again when the tool list changes
+      const cutPlan = cutterPlan(project?.items ?? [], settings);
+      cutWith = planSignature(cutPlan, useWorkshop.getState().settings.spindle);
       // What is cut: a hidden part is not (the program does not mention it – not even as a part without work)
       const parts = project ? inSight(partsOf(project.items)) : [];
       if (!project || parts.length === 0) {
-        set({ problems: [], cutOrder: {}, flipNotes: [] });
+        set({ problems: [], cutOrder: {}, flipNotes: [], toolNotes: [] });
         offStage(take);
         return false;
       }
-      const tool = toolDiameter(settings);
-      const cut: CutSettings = { ...settings, toolDiameter: tool };
+      // A tool list that the program cannot be made from (a T number twice, none, the drawing's own cutter gone
+      // from the list beside others), and a two-sided job with a cutter of its own on a part: no program – the
+      // table is as a drawing with nothing to cut leaves it (a job under way keeps its program, the drawing is
+      // ahead), and the card says why. Never a throw: the library raises a RangeError for exactly these.
+      const two = project.twoSided;
+      const alien = cutPlan.cutters
+        .filter((c) => c.id !== settings.toolId)
+        .flatMap((c) => c.rows)
+        .sort((a, b) => a - b);
+      if (cutPlan.refused || (two && alien.length > 0)) {
+        set({
+          problems: [],
+          cutOrder: {},
+          flipNotes: two && alien.length > 0 ? [{ code: 'tools', rows: alien }] : [],
+          toolNotes: cutPlan.notes,
+        });
+        offStage(take);
+        return false;
+      }
+      // One cutter: the program as it always was (plain settings, no T word, the cutter's own speed); with several:
+      // the list of cutters and the blocks of the runs. With one cutter that is not the drawing's, it cuts with its
+      // own values.
+      const several = cutPlan.cutters.length >= 2;
+      const base = cutPlan.cutters[0] ?? cutPlan.drawing;
+      const tool = base.diameter;
+      const cut: CutSettings = base.cut;
+      const cutters: ToolSettings[] | null = several
+        ? cutPlan.cutters.map((c) => ({
+            number: c.tool!.number,
+            name: c.tool!.name,
+            rpm: c.rpm,
+            cut: c.cut,
+          }))
+        : null;
       const depthOf = (item: CamItem) =>
         item.depth ?? (item.kind === 'on' ? settings.engraveDepth : settings.depth);
       /** The toolpath of one side (null: of everything), its contours laid as they are cut. */
@@ -2112,19 +2233,25 @@ export const useCam = create<CamStore>((set, get) => {
         project.items.forEach((item, row) => {
           if (item.registration !== undefined || item.hidden === true) return;
           if (which && item.side !== which) return;
+          const own = cutters ? { tool: cutPlan.of.get(item.id) ?? 0 } : {};
           lay(item.contours).forEach((c, k) => {
-            operations.push({ contour: contours.length, ...itemOperation(item, settings, k) });
+            operations.push({
+              contour: contours.length,
+              ...itemOperation(item, settings, k),
+              ...own,
+            });
             contours.push(c);
             rows.push(row);
           });
         });
         // The route of the cuts of one kind: shorter, where the drawing asks for it (`operations` and `contours`
         // go in step, so an operation's index is its contour's)
-        const path = toolpaths(contours, operations, cut, undefined, {
+        const path = toolpaths(contours, operations, cutters ?? cut, undefined, {
           route: settings.routeShort ? 'short' : 'nearest',
         });
         return {
           moves: path.moves,
+          blocks: path.blocks,
           problems: path.problems.map((q) => ({ row: rows[q.contour]!, code: q.code })),
           // What was really cut, in the order it was cut in: the part and the kind of each
           cuts: path.cuts
@@ -2133,7 +2260,6 @@ export const useCam = create<CamStore>((set, get) => {
         };
       };
 
-      const two = project.twoSided;
       const holes = project.items.filter((i) => i.registration !== undefined);
       const notes: CamFlipNote[] = [];
       let front = side(two ? 'front' : null);
@@ -2195,17 +2321,32 @@ export const useCam = create<CamStore>((set, get) => {
         ),
         cutOrder: Object.fromEntries(places),
         flipNotes: notes,
+        toolNotes: cutPlan.notes,
       });
       const moves = [...drilled, ...front.moves];
       if (moves.length === 0) {
         offStage(take);
         return false;
       }
-      const program = (m: readonly Move[], name: string) =>
-        toGcode(m, { name, rpm: settings.rpm, safeZ: settings.safeZ });
+      // The tool blocks go with the moves of the very call that made them: the registration holes drilled in front
+      // of them (only a two-sided job has them, and that has one cutter) would shift every block – so with holes
+      // there are none. A program of one block is the plain one, and its speed is that block's cutter's.
+      const blocks = drilled.length === 0 ? front.blocks : undefined;
+      const rpm = blocks && blocks.length === 1 ? (blocks[0]!.rpm ?? settings.rpm) : base.rpm;
+      const program = (m: readonly Move[], name: string, withBlocks?: typeof blocks) =>
+        toGcode(m, {
+          name,
+          rpm,
+          safeZ: settings.safeZ,
+          ...(withBlocks ? { blocks: withBlocks } : {}),
+        });
       const names = jobNames(project.name);
       const sides = plan && back ? { plan, back } : null;
-      const frontCode = program(moves, sides ? `${project.name} Vorderseite` : project.name);
+      const frontCode = program(
+        moves,
+        sides ? `${project.name} Vorderseite` : project.name,
+        blocks,
+      );
       const backCode = sides ? program(sides.back.moves, `${project.name} Rueckseite`) : null;
       if (!mayLoad(take, { front: frontCode, back: backCode })) return false;
       if (sides) {
@@ -2220,8 +2361,8 @@ export const useCam = create<CamStore>((set, get) => {
         useFlip.getState().setPlan(null);
       }
       set({ table: sides ? names.front : names.single });
-      // The tool circle on the stage is the drawing's cutter.
-      useJob.getState().setToolDiameter(tool);
+      // The tool circle on the stage is the cutter the program starts with.
+      useJob.getState().setToolDiameter(blocks?.[0]?.diameter ?? tool);
       set({ ahead: false });
       return true;
     },
@@ -2257,16 +2398,18 @@ useCam.subscribe((s) => {
   }
 });
 
-// The program is cut with the diameter of the chosen cutter as the tool list has it, and what the table draws of it –
-// the places of tabs kept off the corners are the cutter's – follows the tool list at once (`useCamToolDiameter`). So
-// where the diameter of that cutter is edited in the tool list the program is made anew: otherwise the picture would
-// show the places of the new diameter while the program on the table still lifts at the old ones. `remake` keeps every
-// rule of the program lock (a job under way keeps its program – the drawing is `ahead` – and a program that is not the
-// drawing's own is left alone). Choosing another cutter in the drawing is `set` + `remake` already.
+// The program is cut with the cutters as the tool list has them – their diameters, T numbers, names and own cutting
+// values – and what the table draws of it (the places of tabs kept off the corners are the cutter's) follows the tool
+// list at once (`useCamCutters`). So where any of that is edited for a cutter in use, or for the drawing's own, the
+// program is made anew: otherwise the picture would show the places of the new diameter while the program on the
+// table still lifts at the old ones, and a program with several cutters would still name the old number. `remake`
+// keeps every rule of the program lock (a job under way keeps its program – the drawing is `ahead` – and a program
+// that is not the drawing's own is left alone). Choosing another cutter in the drawing is `set` + `remake` already.
 function afterToolEdit(): void {
   const { project, settings, remake } = useCam.getState();
-  if (!project || !cutWith || cutWith.id !== settings.toolId) return;
-  if (Math.abs(toolDiameter(settings) - cutWith.diameter) < 1e-9) return;
+  if (!project || cutWith === null) return;
+  const plan = cutterPlan(project.items, settings);
+  if (planSignature(plan, useWorkshop.getState().settings.spindle) === cutWith) return;
   remake();
 }
 useWorkshop.subscribe(afterToolEdit);

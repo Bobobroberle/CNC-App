@@ -513,9 +513,9 @@ add('cam', 'Bahnen & Strategien', [
   [
     'cam-path8',
     'Mehrere Werkzeuge in einem Programm',
-    'Zum Beispiel V-Fräser für die Schrift und Schaftfräser für den Ausschnitt, mit Werkzeugwechsel.',
+    'Zum Beispiel V-Fräser für die Schrift und Schaftfräser für den Ausschnitt, mit Werkzeugwechsel. Gebaut: Jedes Teil der Liste hat ein Feld „Werkzeug von Teil n“ (Voreinstellung „Wie die Zeichnung“; es erscheint, wenn die Werkzeugliste mehr als einen Fräser hat). Nennen die Teile mehr als ein Werkzeug, ist es ein Programm mit Werkzeugwechsel: die Werkzeuge im Kopf, „Tn M6“ vor dem ersten Schnitt und an jedem Wechsel, die Drehzahl des neuen Werkzeugs danach; die Karte „Ansehen und übergeben“ nennt die Werkzeuge in der Reihenfolge des Programms. Jedes andere Werkzeug fräst mit seinen eigenen Schnittwerten aus der Werkzeugliste (Vorschub, Eintauchvorschub, Zustellung, Bahnabstand, Drehzahl); hat es keine, nimmt es die der Zeichnung und die Karte sagt es; das Werkzeug der Zeichnung nimmt immer die Werte der Zeichnung. Die Reihenfolge der Arten bleibt (Bohrungen, Taschen, Gravuren, Innenkonturen, Außenkonturen zuletzt), innerhalb einer Art kommt zuerst, was das eingespannte Werkzeug fräst; eine Nummer von „Früher/Später“, die dafür übergangen wird, meldet die App nicht als Hinweis, die Marke „Nr. n (Wunsch m)“ zeigt aber den wahren Platz. Mit einem Werkzeug bleibt jedes Programm Zeichen für Zeichen wie bisher (Test gegen das von Hand gebaute Programm von früher, die Goldenen und die Dateien vor der Fräsbahn-Tranche). Ein V-Fräser, Kugelfräser, Fasenfräser oder Bohrer ist nur für Gravur und Bohren wählbar: die Bibliothek rechnet jeden Fräser als Zylinder seines Durchmessers, ein V-Fräser schneidet aber je nach Tiefe breiter oder schmaler – das ist nicht gerechnet (V-Carving: cam-path7). Nur wo mindestens zwei Werkzeuge im Programm stehen und ihre Nummern genannt werden müssen: Kommt eine T-Nummer in der Werkzeugliste zweimal vor (auch bei einem Werkzeug, das die Zeichnung nicht braucht), ist sie keine ganze Zahl ab 1, oder fehlt das Werkzeug der Zeichnung in der Liste, entsteht kein Programm (die Karte sagt warum; ein Job, der läuft, behält seines); mit einem Werkzeug prüft nichts davon, das Programm bleibt das von früher; ein Werkzeug eines Teils, das es nicht mehr gibt, ein Messtaster oder ein V-Fräser für eine Kontur wird durch das Werkzeug der Zeichnung ersetzt und sagt es. Eine Änderung eines Werkzeugs in der Liste macht das Programm neu. Projektdatei: Version 2 genau dann, wenn ein Teil ein eigenes Werkzeug nennt (eine ältere App lehnt sie ab); ohne ein solches Teil bleibt die Datei Version 1 Zeichen für Zeichen wie bisher. Der Start eines Teils nach einem Wechsel fragt nach der gemessenen Länge (zweiter Halt, bei jedem Wechsel). Im Simulator schneidet jedes Teil so breit wie sein Werkzeug (der Simulator liest den Durchmesser je T-Nummer aus dem Kopf des Programms: Gravur 3 mm, Ausschnitt 8 mm gemessen in e2e/tools.spec.ts); ein Programm ohne solchen Kopf behält die eine Breite. NICHT gebaut und eigene Einträge: Wenden und Serie mit mehreren Werkzeugen (cam-path21, cam-path22), Messen nach dem Wechsel erzwingen und auch beim Streamen (cam-path23), Kollisions- und Spannmittelprüfung je Werkzeug (cam-path24), die Werkzeug-Identität eines Programms mit einem Werkzeug (cam-path25). Nicht an der Maschine geprüft: ein echter Werkzeugwechsel mit dem Programm (ob die Steuerung nach dem Wechsel richtig weiterfräst, ob G43.1 nach einem Teil bleibt – docs/offene-fragen.md).',
     'gross',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-path9',
@@ -1161,6 +1161,40 @@ add('scan', 'Position der Aufnahmen (Timing)', [
     'Verstreute Tischmarken als Ankerpunkte',
     'Kleine gedruckte Marken (wie die der Vorrichtungen) fest auf der Opferplatte verteilen, einmal einmessen und speichern. Im Scan kennt jedes Bild mit einer Marke seine Position absolut: die Verzögerung lässt sich mitten im Lauf lernen, Maßstabsfehler werden korrigiert, und auf einem Brett ohne Maserung hat die Bildzuordnung einen Halt. Dünn halten (Papier), weil die App die Höhe der Marke nicht herausrechnet; es gibt nur 48 Nummern, nicht in jedem Bild muss eine liegen.',
     'gross',
+  ],
+]);
+
+// Reste der Arbeit an „Mehrere Werkzeuge in einem Programm“ (cam-path8): nicht gebaut, mit Grund
+add('cam', 'Bahnen & Strategien', [
+  [
+    'cam-path21',
+    'Wenden mit mehreren Werkzeugen',
+    'Eine Zeichnung für beide Seiten fräst heute alles mit dem Werkzeug der Zeichnung; hat ein Teil ein eigenes, entsteht kein Programm und die Karte sagt warum (in beiden Reihenfolgen, auch bei einer Projektdatei mit beidem getestet). Grund: Die Bibliothek schneidet die Rückseite nach dem, was die Vorderseite tat, die Passlöcher werden mit dem Werkzeug der Zeichnung gebohrt, und der Ablauf „Wenden“ hält die Vorderseite für fertig, sobald ein SD-Teil endet – bei einem Programm mit Werkzeugwechsel nach dem ersten Teil (nach dem Code in store/flip.ts, nicht ausprobiert; der Ablauf der Abschnitte prüft auf das letzte Teil, dieser nicht). Zu tun: den Ablauf auf das letzte Teil prüfen lassen, die Passlöcher und die Prüfungen der Seiten je Werkzeug rechnen, dann die Sperre aufheben.',
+    'gross',
+  ],
+  [
+    'cam-path22',
+    'Serie mit mehreren Werkzeugen',
+    'Die Serie auf Rohlingen fräst alles mit dem Werkzeug der Zeichnung; hat ein Teil ein eigenes, öffnet sie nicht (Knopf zu, Grund in der Karte) und macht kein Programm. Grund: Sie schneidet Rohling für Rohling mit einem Aufruf je Rohling und einem Satz Werte; mit mehreren Werkzeugen würde das Werkzeug bei jedem Rohling wechseln. Gebraucht wird eine Schleife „erst alle Rohlinge mit dem einen, dann mit dem anderen“ und Prüfungen der Passung je Werkzeug.',
+    'gross',
+  ],
+  [
+    'cam-path23',
+    'Messen nach dem Werkzeugwechsel erzwingen',
+    'Gebaut ist nur eine Frage: Der Start eines Teils nach einem Wechsel (SD-Karte) fragt bei jedem Wechsel „Werkzeug gewechselt – Länge neu gemessen?“ und verlangt einen zweiten Halt. Die App weiß dabei nicht, ob gemessen wurde („gemessen“ ist in der Karte des Wechsels nur ein lokaler Zustand), und beim Streamen fragt „Job fortsetzen“ nichts. Besser: ein Speicher „seit dem Wechsel gemessen“ (Sensor oder Platte), der die Frage nur stellt, wo nicht gemessen wurde, und auch den Weg des Streamens sperrt oder fragt. Ob G43.1 nach dem Wechsel eines Teils gilt, ist offen (docs/offene-fragen.md).',
+    'klein',
+  ],
+  [
+    'cam-path24',
+    'Kollisions- und Spannmittelprüfung je Werkzeug',
+    'Die Prüfung gegen Rohteil, Halter, Portal und Spannmittel nimmt ein Werkzeug für das ganze Programm – jetzt das, mit dem das Programm beginnt (die Reihenfolge des Programms, nicht die kleinste Nummer; getestet für die Spannmittel und für die Kollisionsprüfung), vorher das mit der kleinsten Nummer. Bei einem Programm mit mehreren Werkzeugen sind Auskragung, Halter und Durchmesser der anderen nicht geprüft. Die Segmente tragen ihre T-Nummer; die Prüfungen ließen sich je Nummer aufrufen und die Treffer zusammenführen.',
+    'klein',
+  ],
+  [
+    'cam-path25',
+    'Ein Programm mit einem Werkzeug sagt nicht, welches',
+    'Das Programm aus der Zeichnung mit einem Werkzeug hat keinen Kopf und kein T-Wort (damit es Zeichen für Zeichen das von früher bleibt). Die Karten des Jobs (Werkzeuge des Jobs, Kollision, Spannmittel) lösen es deshalb wie ein Programm ohne T-Wort auf – nach dem Code das erste Werkzeug der Liste, nicht das der Zeichnung (gelesen in lib/setup.ts toolForJob, nicht gemessen). Behebung: ein Kopf „(Tn D=…)“ auch bei einem Werkzeug, was die Programme und Goldenen ändert und eine Entscheidung des Betreibers ist.',
+    'klein',
   ],
 ]);
 

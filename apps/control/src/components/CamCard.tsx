@@ -11,6 +11,7 @@ import { t } from '../i18n';
 import { camKey, typingInto } from '../lib/camKeys';
 import { isSelected, partsOf } from '../lib/camItems';
 import { wishedPlace } from '../lib/camOrder';
+import { cutterLabel, fitsKind, TOOL_NOTE_EFFECT } from '../lib/camTools';
 import { downloadText } from '../lib/download';
 import { formatNumber } from '../lib/format';
 import {
@@ -25,6 +26,7 @@ import {
 import { useFlip } from '../store/flip';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
+import { useCamCutters } from '../store/camTools';
 import { useSeries } from '../store/series';
 import { CamTabs } from './CamTabs';
 import { Feature } from './Feature';
@@ -70,6 +72,8 @@ function flipNoteText(note: CamFlipNote): string {
     case 'hole-in-part':
     case 'hole-off-stock':
       return t(`flip.notes.${note.code}`, { n: note.hole });
+    case 'tools':
+      return t('flip.notes.tools', { rows: note.rows.map((r) => r + 1).join(', ') });
     default:
       return t(`flip.notes.${note.code}`);
   }
@@ -136,6 +140,7 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
   // The eye: a hidden part is not cut and out of reach on the table; its row is set apart (dashed, a word), never faded and never smaller
   const hidden = item.hidden === true;
   const settings = useCam((s) => s.settings);
+  const drawingTool = useWorkshop((s) => s.tools.find((x) => x.id === settings.toolId));
   // Where the program cuts it among the parts cut the same way (none: it is not cut – hidden, too large …)
   const cutPlace = useCam((s) => s.cutOrder[item.id]);
   // … and where its number asks to be cut: the number is a key to sort by, so it is compared by its place among the
@@ -147,6 +152,13 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
   );
   const twoSided = useCam((s) => s.project?.twoSided != null);
   const sided = twoSided && item.kind !== 'none';
+  // The cutter of this part: every tool of the list that is no probe (a V-bit, ball cutter or drill only where the cut
+  // can be made with it – the others are listed, closed, with the reason in their own words); a choice that is no
+  // longer in that list stays visible, so the field never says "wie die Zeichnung" for a part that asks for another
+  const tools = useWorkshop((s) => s.tools);
+  const choosable = tools.filter((x) => x.probe !== true);
+  const asked = item.toolId;
+  const showTool = item.kind !== 'none' && (choosable.length > 1 || asked !== undefined);
   // (what the cards above the list make of any change of the selection – all of it, not only this row's box)
   const selection = useCam((s) => s.selected);
   const cam = useCam.getState();
@@ -260,7 +272,7 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
       >
         ×
       </Button>
-      {through(item.kind) || hasCorners(item) || hasDirection(item) || sided ? (
+      {through(item.kind) || hasCorners(item) || hasDirection(item) || sided || showTool ? (
         <div className="cam-options">
           {sided ? (
             <NativeSelect
@@ -340,6 +352,40 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
               ))}
             </NativeSelect>
           ) : null}
+          {showTool ? (
+            <NativeSelect
+              aria-label={t('cam.partTool', { n })}
+              data-find="cam-part-tool"
+              data-testid="cam-part-tool"
+              value={asked ?? ''}
+              onChange={(e) => {
+                hold();
+                cam.setItem(item.id, {
+                  toolId: e.target.value === '' ? undefined : e.target.value,
+                });
+              }}
+            >
+              <option value="">
+                {t('cam.tools.likeDrawing', {
+                  tool: drawingTool
+                    ? `T${drawingTool.number} ${drawingTool.name}, Ø ${formatNumber(drawingTool.diameter, 1)}`
+                    : t('cam.tools.gone', { id: settings.toolId }),
+                })}
+              </option>
+              {asked !== undefined && !choosable.some((x) => x.id === asked) ? (
+                <option value={asked}>{t('cam.tools.gone', { id: asked })}</option>
+              ) : null}
+              {choosable.map((x) => {
+                const fits = fitsKind(x, item.kind);
+                return (
+                  <option key={x.id} value={x.id} disabled={!fits && x.id !== asked}>
+                    T{x.number} {x.name} (Ø {formatNumber(x.diameter, 1)})
+                    {fits ? '' : ` – ${t('cam.tools.kindOnly')}`}
+                  </option>
+                );
+              })}
+            </NativeSelect>
+          ) : null}
         </div>
       ) : null}
       {panel ? <CamTabs item={item} n={n} /> : null}
@@ -396,6 +442,13 @@ function Drawing() {
   const ahead = useCam((s) => s.ahead);
   const fileName = useJob((s) => s.fileName);
   const running = useJobUnderWay();
+  // No program can be made from the drawing as it stands (a tool list it cannot be made from, a two-sided job with a
+  // cutter of a part's own): the tap would do nothing – the button says why it is closed
+  const noProgram = useCam(
+    (s) =>
+      s.toolNotes.some((n) => TOOL_NOTE_EFFECT[n.code] === 'refused') ||
+      s.flipNotes.some((n) => n.code === 'tools'),
+  );
   if (!project) return null;
   // Another program lies on the table (this drawing's job, aligned; a file opened since): the
   // drawing changes nothing there – one tap puts it there, and not while a job is under way.
@@ -424,8 +477,8 @@ function Drawing() {
           <p>{why}</p>
           <Button
             variant="outline"
-            disabled={running}
-            reason={t('cam.jobRuns')}
+            disabled={running || noProgram}
+            reason={running ? t('cam.jobRuns') : t('cam.tools.noProgram')}
             data-testid="cam-show-drawing"
             onClick={() => useCam.getState().remake({ take: true })}
           >
@@ -451,6 +504,10 @@ export function CamCard() {
   const settings = useCam((s) => s.settings);
   const problems = useCam((s) => s.problems);
   const flipNotes = useCam((s) => s.flipNotes);
+  const toolNotes = useCam((s) => s.toolNotes);
+  const cutters = useCamCutters();
+  // The order the program on the table uses its tools in (read from it, as the places of the order are)
+  const toolsUsed = useJob((s) => s.analysis?.toolOrder);
   const flipPlan = useFlip((s) => s.plan);
   const cam = useCam.getState();
   const tools = useWorkshop((s) => s.tools);
@@ -491,6 +548,33 @@ export function CamCard() {
   // The library says of every problem whether the contour is not cut at all or cut, but differently
   const notCut = problems.filter((p) => PROBLEM_EFFECT[p.code] === 'not-cut');
   const differently = problems.filter((p) => PROBLEM_EFFECT[p.code] === 'cut-differently');
+  // The cutters: what the tool list says to the drawing – a part whose own cutter cannot stand is cut with the
+  // drawing's (a note), a tool list a program cannot be made from makes none (the red list)
+  const toolRefused = toolNotes.filter((n) => TOOL_NOTE_EFFECT[n.code] === 'refused');
+  const toolDifferent = toolNotes.filter((n) => TOOL_NOTE_EFFECT[n.code] === 'cut-differently');
+  const toolNoteText = (n: (typeof toolNotes)[number]) =>
+    t(`cam.tools.notes.${n.code}`, {
+      rows: n.rows.map((r) => r + 1).join(', '),
+      tool: n.tool ?? '',
+      other: n.other ?? '',
+      number: n.number ?? 0,
+    });
+  // The cutters in the order the program uses them – where the program on the table is the drawing's own and as
+  // current as the drawing; else as the list names them
+  const inOrder =
+    made &&
+    !ahead &&
+    toolsUsed &&
+    cutters.cutters.every((c) => c.tool && toolsUsed.includes(c.tool.number))
+      ? [...cutters.cutters].sort(
+          (a, b) => toolsUsed.indexOf(a.tool!.number) - toolsUsed.indexOf(b.tool!.number),
+        )
+      : cutters.cutters;
+  // A part with a cutter of its own is cut with it: series and two-sided jobs cut with the drawing's alone
+  const ownRows = cutters.cutters
+    .filter((c) => c.id !== settings.toolId)
+    .flatMap((c) => c.rows)
+    .sort((a, b) => a - b);
 
   return (
     <div className="workspace" data-testid="cam-card">
@@ -709,6 +793,45 @@ export function CamCard() {
       <Card className="gap-3 p-4" data-find="cam-done">
         <CardTitle render={<h2 />}>{t('cam.steps.done')}</CardTitle>
         <p className="text-muted-foreground text-sm">{t('cam.look')}</p>
+        {/* Which cutters the program uses – one that is not the drawing's, or several with a change between them */}
+        {!cutters.refused &&
+        !flipNotes.some((n) => n.code === 'tools') &&
+        (cutters.cutters.length >= 2 || ownRows.length > 0) ? (
+          <div className="flex flex-col gap-1" data-testid="cam-tools-summary">
+            <p className="text-sm font-medium">
+              {cutters.cutters.length >= 2
+                ? t('cam.tools.several', {
+                    count: cutters.cutters.length,
+                    list: inOrder.map(cutterLabel).join(' · '),
+                  })
+                : t('cam.tools.one', { tool: cutterLabel(cutters.cutters[0]!) })}
+            </p>
+            {cutters.cutters.length >= 2 ? (
+              <p className="text-muted-foreground text-sm">{t('cam.tools.changeHint')}</p>
+            ) : null}
+            {/* A cutter without values of its own cuts with the drawing's: a V-bit at an end mill's feed – said */}
+            {cutters.cutters
+              .filter((c) => c.id !== settings.toolId && !c.ownValues)
+              .map((c) => (
+                <p
+                  key={c.id}
+                  className="text-muted-foreground text-sm"
+                  data-testid="cam-tools-values"
+                >
+                  {t('cam.tools.noValues', { tool: cutterLabel(c) })}
+                </p>
+              ))}
+          </div>
+        ) : null}
+        {toolRefused.length > 0 ? (
+          <ul className="diagnostics" data-testid="cam-tool-notes">
+            {toolRefused.map((n, i) => (
+              <li key={i} className="error" data-code={n.code}>
+                {toolNoteText(n)}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {/* What is not cut at all, and – apart – what is cut but not as asked: the second is a note, not a fault */}
         {notCut.length > 0 ? (
           <ul className="diagnostics" data-testid="cam-problems">
@@ -719,13 +842,18 @@ export function CamCard() {
             ))}
           </ul>
         ) : null}
-        {differently.length > 0 ? (
+        {differently.length > 0 || toolDifferent.length > 0 ? (
           <div className="flex flex-col gap-1" data-testid="cam-differences">
             <p className="text-sm font-medium">{t('cam.differs')}</p>
             <ul className="diagnostics">
               {differently.map((p, i) => (
                 <li key={i} data-testid="cam-difference" data-code={p.code}>
                   {t(`cam.problems.${p.code}`, { n: p.row + 1, min: formatNumber(MIN_PECK, 2) })}
+                </li>
+              ))}
+              {toolDifferent.map((n, i) => (
+                <li key={`tool${i}`} data-testid="cam-difference" data-code={`tool-${n.code}`}>
+                  {toolNoteText(n)}
                 </li>
               ))}
             </ul>
@@ -750,9 +878,13 @@ export function CamCard() {
               ? t('cam.jobRuns')
               : parts.length > 0 && shown.length === 0
                 ? t('cam.hide.allHidden')
-                : 'missing'
+                : toolRefused.length > 0
+                  ? t('cam.tools.noProgram')
+                  : 'missing'
           }
-          disabled={shown.length === 0 || flipNotes.some(blocksFlip) || running}
+          disabled={
+            shown.length === 0 || flipNotes.some(blocksFlip) || toolRefused.length > 0 || running
+          }
           data-testid="cam-hand-over"
           onClick={() => {
             // With the job made, the next step is the job itself.
@@ -801,7 +933,11 @@ export function CamCard() {
           <Button
             reason="missing"
             variant="outline"
-            disabled={!shown.some((i) => i.kind !== 'none') || project.twoSided !== null}
+            disabled={
+              !shown.some((i) => i.kind !== 'none') ||
+              project.twoSided !== null ||
+              ownRows.length > 0
+            }
             onClick={() => {
               cam.select(null);
               useSeries.getState().begin();
@@ -811,6 +947,10 @@ export function CamCard() {
           </Button>
           {project.twoSided !== null ? (
             <p className="text-muted-foreground text-sm">{t('series.notTwoSided')}</p>
+          ) : ownRows.length > 0 ? (
+            <p className="text-muted-foreground text-sm" data-testid="series-own-tools">
+              {t('series.ownTools', { rows: ownRows.map((r) => r + 1).join(', ') })}
+            </p>
           ) : !shown.some((i) => i.kind !== 'none') ? (
             <p className="text-muted-foreground text-sm">{t('series.needsMotif')}</p>
           ) : null}

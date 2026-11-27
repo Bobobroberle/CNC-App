@@ -224,6 +224,54 @@ describe('simulated FluidNC', () => {
     expect(sim.marks[0]).toMatchObject({ r: 3, z: -93 });
   });
 
+  it('takes the width of the cutter of a T number at its tool change – and what was queued before the change keeps its own', () => {
+    const sim = new Simulator();
+    sim.toolRadius = 3;
+    sim.toolDiameters = { 1: 6, 2: 3 };
+    // all of it is queued before anything moves: the change to T2 is already known when the first hole is cut
+    for (const line of [
+      'T1 M6',
+      'G90 G53 G1 Z-84 F6000',
+      'G90 G53 G1 Z-60 F6000',
+      'G90 G53 G0 X200',
+      'T2 M6',
+      'G90 G53 G1 Z-84 F6000',
+    ]) {
+      sim.line(line);
+    }
+    run(sim, 6);
+    // the holes of T1 (where the machine stood) are 6 wide, the one of T2 (200 along) is 3 wide
+    const near = sim.marks.filter((m) => m.x < 180);
+    const far = sim.marks.filter((m) => m.x > 190);
+    expect(near.length).toBeGreaterThan(0);
+    expect(far.length).toBeGreaterThan(0);
+    expect(near.every((m) => m.r === 3)).toBe(true);
+    expect(far.every((m) => m.r === 1.5)).toBe(true);
+    expect(sim.marks.some((m) => m.z === -84)).toBe(true);
+  });
+
+  it('a tool change changes nothing about the width where the app told no diameter (as it always was)', () => {
+    const sim = new Simulator();
+    sim.toolRadius = 3;
+    for (const line of [
+      'T1 M6',
+      'G90 G53 G1 Z-84 F6000',
+      'G90 G53 G0 X200',
+      'T2 M6',
+      'G90 G53 G1 Z-84 F6000',
+    ]) {
+      sim.line(line);
+    }
+    run(sim, 6);
+    expect(sim.marks.length).toBeGreaterThan(1);
+    expect(sim.marks.every((m) => m.r === 3)).toBe(true);
+    // …and a T number it was not told about keeps the cutter that was in
+    sim.toolDiameters = { 1: 6 };
+    for (const line of ['T9 M6', 'G90 G53 G0 X300', 'G90 G53 G1 Z-90 F6000']) sim.line(line);
+    run(sim, 6);
+    expect(sim.marks.every((m) => m.r === 3)).toBe(true);
+  });
+
   describe('turning its board over', () => {
     /** A board lying square at 100/100, so the numbers can be checked by hand. */
     const square = () => {

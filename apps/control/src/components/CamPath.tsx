@@ -11,7 +11,8 @@ import {
 } from '../lib/camPath';
 import type { CamItem } from '../lib/camItems';
 import { formatNumber } from '../lib/format';
-import { useCam, useCamToolDiameter } from '../store/cam';
+import { useCam } from '../store/cam';
+import { useItemDiameter } from '../store/camTools';
 import { useUi } from '../store/ui';
 import { mm, NumberField } from './camParts';
 import { Fold } from './Fold';
@@ -60,7 +61,8 @@ export function PathPanel({ item, n }: { item: CamItem; n: number }) {
 
 /** How a pocket is entered: the three ways, what each means, and for the helix the width of its hole. */
 function Entering({ item, n }: { item: CamItem; n: number }) {
-  const tool = useCamToolDiameter();
+  // The cutter this part is cut with: the helix is held to its range
+  const tool = useItemDiameter(item);
   const cam = useCam.getState();
   const entry: Entry = item.entry ?? 'ramp';
   const range = helixRange(tool);

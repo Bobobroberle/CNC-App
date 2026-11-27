@@ -14,7 +14,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `ipad` (touch tests in `e2e/ipad.spec.ts`, real multi-touch through CDP; the two-sided flow on the
   simulator in `e2e/flip.spec.ts`, series and jigs in `e2e/series.spec.ts` / `e2e/jigs.spec.ts`, snapping, the gaps while
   dragging and measuring in the drawing in `e2e/snap.spec.ts` / `e2e/measure.spec.ts`, the quick search in
-  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the toolpath options in `e2e/toolpath-options.spec.ts`, the further shapes in `e2e/shapes.spec.ts`, nesting in `e2e/nest.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
+  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the toolpath options in `e2e/toolpath-options.spec.ts`, several tools in one program in `e2e/tools.spec.ts`, the further shapes in `e2e/shapes.spec.ts`, nesting in `e2e/nest.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
   `e2e/select.spec.ts` (and `e2e/ipad.spec.ts` for touch),
   parts cut in sections on the simulator's long board in `e2e/sections.spec.ts`, the areas of the work –
   the start, its confirmations, the overrides, a lost connection – in `e2e/steps.spec.ts`, the jog
@@ -121,9 +121,13 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   - **Fräsen, view Fräsen** (`RunScreen.tsx`): **the start is the action bar's primary action and a hold**
     (`ActionBar` → `requestStart`); everything it hangs on is `useStart()` (`store/start.ts`), so
     bar, panel and confirmation never disagree. What must be confirmed before a start (§6.4: no
-    zero, tool below the safe height while the program travels first, a probe as the tool) is
+    zero, tool below the safe height while the program travels first, a probe as the tool, **a part
+    that follows a tool change** – `toolChange`: "Werkzeug gewechselt – Länge neu gemessen?") is
     pure in `lib/startChecks.ts`; the hold then opens `StartConfirm` instead of starting, and the
-    start is a second hold in there (zero and Z once per job, a probe every time). While a job
+    start is a second hold in there (zero and Z once per job, a probe and a tool change every time:
+    `pendingWarnings`; `useStart` sets `toolChanged` where the part before this one had another tool –
+    only the SD route's part starts, the streamed "Job fortsetzen" is not a start and asks nothing, see the
+    Merkliste entry cam-path23). While a job
     runs: figures in 48–72 px, `Override` (50–150 %, `clampOverride`; a slider never without ±
     and "100 %"), pause as the primary action, going on as a hold, abort through `AbortDialog`.
     At the end `useRun.summary` and "Nächstes Teil: gleicher Job" (`nextPiece` – it starts
@@ -138,7 +142,13 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
     zone as the empty state), `store/recent.ts` ("Zuletzt verwendet", `openJobFiles` for one or
     several files, the zeros a job was started with), `WorkpieceCard` (material, stock).
   - **Fräsen, view Prüfen – the job's tools**: `JobTools.tsx` over `useJobTools` (`store/jobTools.ts`) and the pure
-    `lib/jobTools.ts` (state, issues, alternatives). `Tool.probe` marks a probe.
+    `lib/jobTools.ts` (state, issues, alternatives). `Tool.probe` marks a probe. **Its rows are in the order the program
+    uses its tools (`analysis.toolOrder`), not by number, so row 0 is the tool the job starts with – the one the pictures
+    draw – and "the first tool" is `firstTool(analysis)` (`lib/setup.ts`: `toolOrder[0]`) for the collision check
+    (`store/readiness.ts`), the clamp check (`store/clamps.ts`) and the cards of the program (a program that uses T2 before T1 starts
+    with T2; `tools` is sorted by number and its first entry is not that). Both checks still use that ONE tool's size for the whole program
+    (a per-tool check is the Merkliste entry cam-path24). A program with several tools is held against the diameter its
+    header names for each T number (`(T2 D=3 …)`), not the first header diameter for all.**
   - **Fräsen, view Prüfen – the check**: `Timeline.tsx` under the 3D picture (in the panel while the stage shows
     something else), operations from `lib/operations.ts` – only what the program itself names,
     nothing guessed; the checklist is the readiness list (`depth`, `tools`, `limits` are its
@@ -182,7 +192,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   Alert, Badge, Field/Label/Input/Textarea, Checkbox, SegmentedControl, Tabs, Collapsible
   (through `components/Fold.tsx`: `Section` and every folded part; it unfolds at once, so a control inside never moves under the finger), Dialog, ScrollArea, Progress,
   Kbd – plus our own: `NativeSelect` (a native `<select>` in the Input's look: the iPad's own picker
-  is the better list) and the guide's components `Stepper`, `StatusBadge`, `Dro`, `Toast`,
+  is the better list; it fades only where the `<select>` itself is disabled – `has-[select:disabled]`, not the registry's `has-disabled`, which a closed `<option>`
+  triggers: the cutter field of a part has closed choices, and the whole field fell to 64 % opacity until `e2e/hide.spec.ts` measured it) and the guide's components `Stepper`, `StatusBadge`, `Dro`, `Toast`,
   `Reason` (`tooltip.tsx`: why a control is disabled, on tap – never hover alone), `Sheet` (bottom
   sheet with three rests and labelled buttons in its handle) and `Numpad`. **To add one:** fetch `https://coss.com/ui/r/<name>.json`, put its file into
   `src/ui/` with relative imports, format it with prettier, and give it the app's touch size there
@@ -276,7 +287,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   the edits as always. **Project files** (`lib/camProject.ts`, `saveProject`/`openProject` in `store/cam.ts`, buttons "Projekt
   speichern" in "Ansehen und übergeben" and "Projekt öffnen …" under the shapes): the drawing (sketches, contours as `source` +
   `placement` – never the derived `contours` –, how each part is cut, the two-sided state, the cutting settings) as
-  `*.lowrider.json`, format `lowrider-cam-project` version 1. Reading is strict and refuses with stable codes (`too-large`,
+  `*.lowrider.json`, format `lowrider-cam-project` version 1 (version 2 where a part names a cutter – "Several tools" below). Reading is strict and refuses with stable codes (`too-large`,
   `invalid-json`, `wrong-format`, `newer-version`, `invalid-project`; non-finite numbers, duplicate ids, 2000 items / 400 000
   points; a name with control characters or over 120 characters – it goes into the program header and the file name –, ids that
   are no safe integers, a circle that is not where its polygon is, a back side without the two-sided state, a part deeper than
@@ -293,8 +304,9 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   library's `tabSites` with the operation's tabs, the cutter's diameter and the kind of cut) – and both the toolpath (`cut` → `loopWalk`) and
   the table's drawing ask it, so what is drawn is what is cut** (the places of "Ecken meiden" depend on the cutter and on the kind, so a call of
   `tabSites` with a `Tabs` alone is wrong: `makeMarks`, `manualTabs` and the cut all go through `operationTabSites`, `itemTabMarks` takes the
-  diameter and its cache key holds it with the kind and the flag; `useCamToolDiameter()` makes the picture follow a change of cutter, **and a change of the diameter of the chosen cutter in the tool list makes the program anew** –
-  `afterToolEdit`, a subscription on the workshop store that compares with the diameter `generate()` last cut with (`cutWith`) and calls `remake()`, so the job lock holds
+  diameter and its cache key holds it with the kind and the flag; `useCamCutters()` (`store/camTools.ts`) makes the picture follow a change of cutter – each part's own, see "Several tools" below – **and a change of the tool
+  list that the program depends on (diameter, number, own values …) makes the program anew** –
+  `afterToolEdit`, a subscription on the workshop store that compares the signature of what `generate()` last made the program from (`planSignature`, `cutWith`) and calls `remake()`, so the job lock holds
   and a job under way keeps its program with the drawing `ahead`; without it the picture showed the places of the new diameter while the program on the table still lifted at
   the old ones; `test/camAvoidCorners.test.ts`). A site is a fraction `0 ≤ u < 1` of the
   *drawn* contour's length from its first point (in the order of its points – so it names the same spot of the part after a move, turn,
@@ -399,6 +411,50 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
     `test/camPathPanel.test.tsx` and `e2e/find.spec.ts` follow the chains. Tests: `camAvoidCorners` (old files, strict reading, drawing = cut with a
     hand-checked plate and a sweep of shapes × kinds × counts), `camToolpathOptions`, `camOrder`, `camPath`, `camPathPanel`,
     `e2e/toolpath-options.spec.ts`.
+  **Several tools in one program – "Werkzeug von Teil n"** (`CamItem.toolId`, `lib/camTools.ts`, `store/camTools.ts`, the field in `ItemRow`,
+  `toolpaths` with a list of `ToolSettings`, `toGcode` with `blocks`; Merkliste cam-path8): a part names a cutter of the tool list (`toolId`; absent =
+  the drawing's `settings.toolId`, the key is left off, never `undefined`; `setItem`, `copies` – so duplicate, paste, array – and undo carry it).
+  **`planCutters(items, settings, tools, spindle)` (pure) is the one place that says which cutter each part is cut with, and everything asks it:**
+  `generate` (the program), `manualTabs`, the table's tab marks (`itemTabMarks(…, diameterOfItem(plan, item))` through `useCamCutters`), the helix range
+  (`CamPath`), the nesting gap (the widest cutter), `insert`'s hole decision (`defaultOperations` with a diameter per contour – only where a part has a
+  cutter of its own; else the one number, as ever), the summary line, the series and the two-sided guards. A hidden part, a part that is "nicht
+  fräsen" and a registration hole count for no cutter (the holes follow the drawing's). **With ONE cutter the code path is today's by construction**: plain `CutSettings`,
+  no `Operation.tool`, no blocks, `toGcode` with that cutter's speed – the programs of every existing drawing are byte for byte as before (goldens, the
+  `test/fixtures/old*` programs, `camToolsStore`: a drawing whose parts all name the drawing's own tool equals one that names none, and both equal
+  the plain `toolpaths` + `toGcode` made by hand); the drawing's own cutter always cuts with the DRAWING's values (`Tool.cutting` is not laid over it), another
+  cutter cuts with its own values (`toolOwnValues`: feed, plunge feed, stepdown, stepover, speed) over the drawing's, and says so in the summary where it has none
+  (`cam-tools-values`). With two or more cutters the list of `ToolSettings` goes to `toolpaths` (each operation gets its `tool` place **in `generate`'s `side()`,
+  never in `itemOperation` – the series passes plain `CutSettings`, where `tool: 1` throws**) and `path.blocks` to `toGcode` (header `(Tn D=… name)`, `Tn M6`, the speed
+  of the block); a list that comes back as ONE block (the other cutter's only cut was `tool-too-large`) is the plain program with that block's speed and diameter
+  (`blocks[0].rpm`, `job.toolDiameter`). **`blocks` go to `toGcode` only where no registration hole is drilled in front of them** (the library throws for
+  blocks that do not tile the moves; a two-sided job is one cutter's, so it never has both). The rank order and "what lies inside a contour before it"
+  hold across cutters; within a rank the library takes the cutter that is mounted first, so a V-bit engraving before the outline is one change. **A non-flat
+  cutter (V-bit, ball, chamfer, drill) is chosen only for `on` and `drill`** (`fitsKind`; the library models every cutter as a flat cylinder of its diameter – a V-bit
+  really cuts wider or narrower with depth: not modelled, V-carving is cam-path7): the field lists the others closed (`<option disabled>`) with "nur Gravur und Bohren" in their
+  label, a change of kind drops a choice that no longer fits (as it drops `seq`), a probe is not offered, and what a project file carries anyway is cut with the drawing's
+  cutter and said. **`generate()` never throws from an edit:** what the library would raise a `RangeError` for is checked first (`ToolNote`, `TOOL_NOTE_EFFECT`):
+  `refused` – a T number twice **anywhere in the tool list** (the change card and every lookup name the FIRST tool with a number), a T number that is no whole number from 1, the drawing's own
+  cutter gone from the list beside other cutters – makes NO program (the table is left as `offStage` leaves it: a job under way keeps its program and the drawing
+  is `ahead`; `cam-tool-notes`, the hand-over and the download are closed with the reason), checked only where two or more cutters name their numbers (a drawing with one
+  cutter whose tool has number 0 keeps its program); `cut-differently` – a part's cutter that is gone (`missing`, it stays chosen and is cut with it again once the tool is back), a probe,
+  or a V-bit for a contour – is cut with the drawing's and listed under "Gefräst, aber anders als gewünscht". **The program is made anew when ANY of it changes in the
+  tool list** (`afterToolEdit`, a subscription on the workshop store that compares `planSignature` – number, name, diameter, kind, probe, own values of the
+  drawing's cutter and of those in use, the notes, the spindle's limits – with the one of the program made last; `cutWith`): never a stale T number or
+  diameter, with the job lock holding as for every `remake`. **Flip and series are one cutter's – the drawing's:** a part with any other cutter than the drawing's
+  (a second one, or one alone) in a two-sided drawing is the flip note `tools` (`blocksFlip`, no program, no plan, in either order of the edits; a project file that
+  carries both opens whole and shows the note), and `seriesOwnToolRows()` closes the series (`begin`, `make`, the card's button with `series-own-tools`); sections work on
+  the program text and keep every `T`/`M6` line (tested). **Project file:** optional `toolId` per item (a safe id: ≤ 120 characters, no control characters;
+  never on a registration hole), optional `toolDiameters` (tool id → mm, written for the tools the parts name); **version 2 exactly where a part carries a `toolId`**
+  (`projectVersion(project)` – the ONE helper that decides, which later additions extend; `PROJECT_VERSION` is 1, the version a drawing is written as while it needs nothing newer,
+  `PROJECT_VERSION_MAX` 2 what is read; an older build refuses 2 with `newer-version` instead of cutting everything with one cutter; a file without `toolId` is written as version 1,
+  key for key as before); `openProject` answers `partTools: { missing, differ }` (the ids this list lacks – the part stays on it – and the ones with another diameter here; said in the
+  log like `toolMissing`/`toolDiffers`). **The part's start after a change asks first** (start warning `toolChange`, above). **The simulator** takes the width of each cutter at its `M6`
+  from the program's header (`Simulator.toolDiameters`, set by `simulatedCutter` from `useJob.header`; a move carries the radius it was queued with); a program without such a header keeps
+  its one radius. **Not built (Merkliste):** flip with several tools (cam-path21), series with several tools (cam-path22), measuring forced after a change, also for the streamed route
+  (cam-path23), collision and clamp checks per tool (cam-path24), the identity of a one-cutter program (it names no tool: the cards take the library's first, cam-path25). Tests: `camToolsStore`,
+  `camToolsProject`, `camToolsFlip` (flip, series, sections), `camToolsRunning`, `camToolsPanel`, `camToolsAnalysis`, `simulator`, `startHook`, `run`, `e2e/tools.spec.ts` (desktop and tablet: the field, the
+  two blocks, the row measured before and after a choice, the 800 × 600 sheet, the clash of numbers, a CAM-made two-tool job on the simulator whose cuts are measured: the engraving 3 mm wide, the outline 8 mm, and
+  the second part asks first), a touch case in `e2e/ipad.spec.ts`.
   **Selecting several, aligning, distributing, grouping** (`lib/camSelect.ts`, `lib/camArrange.ts`, `store/cam.ts`, `CamArrange.tsx`, the rows
   in `CamCard.tsx`): `Selection` is `null` · a group number · `'all'` · `readonly number[]` (two or more groups, in the order of the list;
   `normalise`: none is null, one is the number – so every reader of a single group, `typeof selected === 'number'`, keeps its meaning).
@@ -634,8 +690,9 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `loadDerived`); the back follows the front's pose. The readiness list carries the flow
   (`flip` item). After a move, wait for the status report to show it before centring the camera.
 - The simulator (`sim/`) runs files from its own SD card, cuts as wide and deep as the job's cutter
+  (at an `M6` the cutter of that T number, where `toolDiameters` – read from the program's header – knows it)
   and turns its board over (`flipBoard`); `window.lowriderSimulator` is there for the e2e tests,
-  which check two-sided jobs against what was really cut (`e2e/flip.spec.ts`).
+  which check two-sided jobs against what was really cut (`e2e/flip.spec.ts`) and a CAM-made two-tool job (`e2e/tools.spec.ts`).
 - Series on scattered blanks (`components/SeriesCard.tsx`, `store/series.ts`, `lib/series.ts`,
   finder `lib/blanks.ts`): blanks are things on the table – machine XY, like clamps; the program is
   written against the X/Y work zero as it is and made anew when that zero moves (`startSeries`,

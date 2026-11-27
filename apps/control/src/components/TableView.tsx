@@ -15,7 +15,7 @@ import {
 import { holeCentre, isSelected, itemAt, itemsBounds } from '../lib/camItems';
 import { MEASURE_SNAP_PX, measureFeatures, measurement, snapMeasure } from '../lib/camMeasure';
 import { SNAP_PX, type SnapGuide } from '../lib/camSnap';
-import { itemTabMarks, placeNear, tabNear } from '../lib/camTabs';
+import { placeNear, tabNear } from '../lib/camTabs';
 import { provideTableBox } from '../lib/tableBox';
 import { formatNumber, formatSigned } from '../lib/format';
 import { jigsWithTag, tagCorners, tagLabel } from '../lib/jigs';
@@ -52,7 +52,9 @@ import {
 } from '../render/draw';
 import { LayerCache } from '../render/layer';
 import { buildPaths, projection, type Extent, type JobPaths } from '../render/paths';
-import { useCam, useCamToolDiameter, type DragHints } from '../store/cam';
+import { useCam, type DragHints } from '../store/cam';
+import { useCamCutters } from '../store/camTools';
+import { drawnTabMarks } from '../lib/camTools';
 import { useClampHits, useWorkFixtures } from '../store/clamps';
 import { cameraElement, pictureSize, useCamera } from '../store/camera';
 import { useJigs } from '../store/jigs';
@@ -163,8 +165,9 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   const selected = useCam((s) => s.selected);
   // The holding tabs are drawn with the drawing's defaults and follow them; putting them by hand is a mode
   const tabDefaults = useCam((s) => s.settings.tabs);
-  // … and the places of tabs kept off the corners are the cutter's: the picture follows its diameter
-  const cutter = useCamToolDiameter();
+  // … and the places of tabs kept off the corners are the cutter's – each part's own (`lib/camTools.ts`, the plan the
+  // program is made from): the picture follows a choice of cutter and the diameter of it in the tool list
+  const cutters = useCamCutters();
   const placing = useCam((s) => s.placing);
   // "Messen": a mode of the screen; its two points are places on the table
   const measuring = useCam((s) => s.measure);
@@ -229,7 +232,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       label = t('cam.live.place', { x: mm(box.minX), y: mm(box.minY) });
     }
     // The holding tabs of every thing that has them – the places the toolpath is cut with
-    const marks = project.items.flatMap((i) => itemTabMarks(i, tabDefaults, cutter));
+    const marks = drawnTabMarks(project.items, tabDefaults, cutters);
     const chosenIds = new Set(chosen.map((i) => i.id));
     const byItem = new Map<number, typeof marks>();
     for (const m of marks) byItem.set(m.item, [...(byItem.get(m.item) ?? []), m]);
@@ -349,7 +352,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     top,
     held,
     tabDefaults,
-    cutter,
+    cutters,
     placing,
     measuring,
     measured,

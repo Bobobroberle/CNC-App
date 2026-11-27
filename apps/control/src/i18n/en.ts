@@ -348,6 +348,10 @@ export const en: DictionaryShape = {
       title: 'A probe as the tool',
       text: 'A tool of this job is marked as a probe, and the program switches the spindle on. A probe must never turn – is there really a cutter in the collet?',
     },
+    toolChange: {
+      title: 'Tool changed – length measured again?',
+      text: 'This part is cut with another tool than the one before. Every tool has another length: without measuring it again (sensor or plate, in the card of the change) the new cutter cuts too high or into the work. The app cannot know whether it was measured.',
+    },
   },
   console: {
     filter: 'Lines of the log',
@@ -2477,6 +2481,10 @@ export const en: DictionaryShape = {
       opened: 'Project “{name}” opened – “Undo” brings the previous drawing back.',
       saved: 'Project saved: {name}',
       toolMissing: 'This tool library has not the project’s cutter – the chosen one stays.',
+      partToolsMissing:
+        'Tools of single parts are not in this tool list: {list} – those parts are cut with the drawing’s tool until the tool is there or another one is chosen.',
+      partToolsDiffer:
+        'Tools of single parts had another diameter in the project than here: {list} – the paths are made with the present ones.',
       settingsDropped:
         'Not taken from the file (values no machine has): {list} – what is set now stays.',
       toolDiffers:
@@ -2793,6 +2801,32 @@ export const en: DictionaryShape = {
     climb: 'Climb milling (otherwise conventional)',
     direction: 'Direction of part {n}',
     directions: { job: 'Direction as the job', climb: 'Climb', conventional: 'Conventional' },
+    partTool: 'Tool of part {n}',
+    partToolTitle: 'Tool of a part',
+    tools: {
+      likeDrawing: 'As the drawing ({tool})',
+      noProgram: 'No program can be made like this – see the notes under “Look and hand over”.',
+      gone: 'Not in the list: {id}',
+      kindOnly: 'engraving and drilling only',
+      several: '{count} tools in one program: {list}.',
+      changeHint:
+        'The job stops between two tools for the change – measure the length again after every change.',
+      one: 'The program cuts with {tool} instead of the drawing’s tool.',
+      noValues:
+        '{tool} has no cutting values of its own and cuts with the drawing’s feed, speed and stepdown. Own values are kept in the tool list.',
+      notes: {
+        missing:
+          'Part {rows}: the chosen tool “{tool}” is no longer in the tool list – it is cut with the drawing’s tool.',
+        probe:
+          'Part {rows}: “{tool}” is marked as a probe and must never turn – it is cut with the drawing’s tool.',
+        kind: 'Part {rows}: “{tool}” can only engrave and drill, not this operation – it is cut with the drawing’s tool.',
+        number:
+          '“{tool}” has the number T{number}. A program with several tools needs a whole number from 1 for each – change it in the tool list. No program is made.',
+        clash:
+          'The number T{number} belongs to “{tool}” and “{other}” – the controller could not tell them apart. Change one number in the tool list. No program is made.',
+        gone: 'The drawing’s tool is no longer in the tool list, but part {rows} is cut with it beside other tools – that cannot be done without its number. Choose a tool for the drawing. No program is made.',
+      },
+    },
     routeShort: 'Shorten travel',
     routeShortNote:
       'Puts the cuts of one kind – all the holes, say – in an order that makes the rapid moves between them shorter. Nothing else is cut, only the order changes, and the way is never longer than without.',
@@ -2936,6 +2970,8 @@ export const en: DictionaryShape = {
         'Nothing on the back yet: choose “Back” for a contour. Until then this is an ordinary job for one side.',
       askew:
         'The registration holes lie askew to each other: the turned part will not fit the pins. Move one (it snaps) or have them proposed anew.',
+      tools:
+        'Part {rows} is cut with a tool of its own. A drawing for both sides cuts everything with the drawing’s tool – no program is made until no part has a tool of its own or “Machine from both sides” is off.',
     },
     title: 'Both sides: {name}',
     stepsLabel: 'Steps of machining both sides',
@@ -3009,6 +3045,8 @@ export const en: DictionaryShape = {
       'The same motif – or a name each – on many blanks lying scattered on the table: coasters, key tags, small boards. The camera finds where each lies and how it is turned; no aligning one by one.',
     needsMotif: 'Draw the motif first: a text, a logo, a shape.',
     notTwoSided: 'A series is cut from one side: switch “Machine from both sides” off.',
+    ownTools:
+      'The series cuts everything with the drawing’s tool. Part {rows} has a tool of its own: leave it at “As the drawing”.',
     title: 'Series: {name}',
     back: 'To the drawing',
     stepsLabel: 'Steps of the series',
@@ -4010,6 +4048,8 @@ export const en: DictionaryShape = {
         'avoid corners, tabs avoid corners, tab not on the corner, tabs on straight stretches, tabs corners, hold-down tabs corners, move tabs off corners, ecken meiden, stege meiden ecken',
       camRoute:
         'shorten travel, shorter paths, rapid moves, rapids, travel moves, air cutting, fewer moves, route, optimize order, order the cuts, order the holes, 2-opt, shortest path, traveling salesman, save time, fahrwege kürzen, eilgang',
+      camPartTool:
+        'tool of a part, other tool, another tool, several tools, multiple tools, two tools, tool change, change tool, tool per part, engraving bit, v-bit, vbit, v bit, ball nose, drill, one program, t1 t2, m6, multi tool, werkzeug eines teils, mehrere werkzeuge, werkzeugwechsel, gravurfräser, vfräser, bohrer',
       camEntry:
         'plunge, helix, helical entry, spiral entry, ramp entry, straight plunge, vertical plunge, drill into a pocket, start a pocket, eintauchen, wendel, einstechen',
       camHelix:

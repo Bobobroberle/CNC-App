@@ -230,6 +230,11 @@ interface Move {
   probe?: boolean;
   /** A cutting move (G1/G2/G3): the feed override applies to it */
   cut?: boolean;
+  /**
+   * The radius of the cutter that makes this move, mm – taken when the line is queued (the program's lines are
+   * queued ahead of the moves, so a tool change further on must not widen what an earlier move cuts)
+   */
+  r?: number;
 }
 
 const TRAVEL = {
@@ -332,6 +337,12 @@ export class Simulator {
   marks: Mark[] = [];
   /** Radius of the cutter in the spindle, mm: how wide its cuts are */
   toolRadius = 0.5;
+  /**
+   * The diameters of the cutters by T number, mm: at a tool change (`M6`) the cutter in the spindle becomes the
+   * one with the number of the last `T` – as wide as its diameter. Empty (the default): a tool change changes
+   * nothing, the cutter is the one the app set for the job (`toolRadius`) – as it always was.
+   */
+  toolDiameters: Record<number, number> = {};
   /** What lies on the table */
   scene: SimScene = 'board';
   /** Where the jig of the jig scene lies: its front left corner and its angle */
@@ -485,7 +496,7 @@ export class Simulator {
           this.moveElapsed = 0;
           break;
         }
-        this.cut(from, at);
+        this.cut(from, at, m.r);
         this.finish(out);
       }
     }
@@ -532,11 +543,10 @@ export class Simulator {
   }
 
   /** Records where a finished move went through the material. */
-  private cut(from: Vec3, to: Vec3) {
+  private cut(from: Vec3, to: Vec3, r = this.toolRadius) {
     if (to.z >= SURFACE_Z && from.z >= SURFACE_Z) return;
     const a = this.physical(from);
     const b = this.physical(to);
-    const r = this.toolRadius;
     const z = Math.min(from.z, to.z);
     if (Math.hypot(b.x - a.x, b.y - a.y) < 0.05) {
       // The same hole again (the X play may show between two pecks).
@@ -863,6 +873,7 @@ export class Simulator {
       const prev = this.queue[this.queue.length - 1]!.to;
       if (move.to.x !== prev.x) this.lastX = Math.sign(move.to.x - prev.x);
     }
+    move.r ??= this.toolRadius;
     this.queue.push(move);
   }
 
@@ -1085,6 +1096,11 @@ export class Simulator {
     if (w.has('S')) this.spindle = Math.round(w.get('S')!);
     if (w.has('M5')) this.spindle = 0;
     if (w.has('T')) this.tool = w.get('T')!;
+    // A tool change: the cutter in the spindle is now the one of this T number, if the app told the diameter
+    if (w.has('M6')) {
+      const d = this.toolDiameters[this.tool];
+      if (d !== undefined) this.toolRadius = d / 2;
+    }
     if (w.has('G10') && w.get('L') === 2) {
       const p = w.get('P') ?? 0;
       const key = p === 0 ? this.active : `G${53 + p}`;

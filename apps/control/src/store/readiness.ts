@@ -7,7 +7,7 @@ import { controllerIssues } from '../lib/jobChecks';
 import { preparedFor } from '../lib/prepare';
 import { jobReadiness, type ReadinessItem } from '../lib/readiness';
 import { sectionAxis, sectionOf, sectionsState } from '../lib/sections';
-import { defaultStock, jobCollisions, toolForJob } from '../lib/setup';
+import { defaultStock, firstTool, jobCollisions, toolForJob } from '../lib/setup';
 import type { ClampHit, Collision } from '@lowrider/gcode-core';
 import { travelViolations } from '../lib/workspace';
 import { useClampHits, useWorkFixtures } from './clamps';
@@ -85,7 +85,7 @@ export function useReadiness(): Readiness | null {
   const collisions = useMemo(() => {
     if (!analysis) return [];
     const stock = setup.stock ?? defaultStock(analysis.cutBounds);
-    const first = analysis.tools[0] ?? 0;
+    const first = firstTool(analysis);
     const tool = toolForJob(tools, setup.toolMap, first, headerDiameter);
     return stock && tool ? jobCollisions(analysis.segments, stock, fixtures, tool) : [];
   }, [analysis, setup, fixtures, tools, headerDiameter]);

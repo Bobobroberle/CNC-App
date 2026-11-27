@@ -7,6 +7,7 @@ import { findBlanks, type RejectReason } from '../lib/blanks';
 import { imageToMachine, type Point } from '../lib/camera';
 import { partsOf } from '../lib/camItems';
 import { tabsOn } from '../lib/camTabs';
+import { planCutters } from '../lib/camTools';
 import type { Rect } from '../lib/photomap';
 import {
   blankOnTable,
@@ -105,6 +106,22 @@ interface SeriesStore {
   make(): boolean;
   /** The series is handed to the Job room: the flow closes, the program stays */
   handOver(): boolean;
+}
+
+/**
+ * The rows (0-based) of the parts that are cut with a cutter of their own. A series cuts every blank with the
+ * drawing's cutter: `toolpaths` is asked once per blank with one set of values and the blanks are finished one
+ * after the other, so a cutter of a part – the next blank would start with a tool change per part – is not in it.
+ * Empty where the drawing is cut with its own cutter alone.
+ */
+export function seriesOwnToolRows(): number[] {
+  const { project, settings } = useCam.getState();
+  if (!project) return [];
+  const { tools, settings: ws } = useWorkshop.getState();
+  return planCutters(project.items, settings, tools, ws.spindle)
+    .cutters.filter((c) => c.id !== settings.toolId)
+    .flatMap((c) => c.rows)
+    .sort((a, b) => a - b);
 }
 
 /** The motif: what the drawing cuts, with how each part is cut. */
@@ -221,6 +238,8 @@ export const useSeries = create<SeriesStore>((set, get) => ({
   made: null,
 
   begin() {
+    // Not a series with a cutter of a part's own: the card says why and the button is closed – this is the guard
+    if (seriesOwnToolRows().length > 0) return;
     set({ open: true });
     showTable();
     if (get().blanks.length > 0) get().make();
@@ -407,6 +426,8 @@ export const useSeries = create<SeriesStore>((set, get) => ({
     // Never another program under a job that is under way.
     if (jobUnderWay()) return false;
     if (!project || !wco) return false;
+    // … and none with a part's own cutter: the series is the drawing's cutter's (`seriesOwnToolRows`)
+    if (seriesOwnToolRows().length > 0) return false;
     if (todo.length === 0) {
       // Nothing to engrave (any more): the drawing's own job is on the table again.
       if (get().made) {

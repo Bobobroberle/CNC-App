@@ -19,13 +19,20 @@ import type { CamProject, CamSettings, TwoSided } from '../store/cam';
  * program (that is made anew from the drawing, the same bytes), no state of the machine.
  */
 export const PROJECT_FORMAT = 'lowrider-cam-project';
+/** The first version of the format: what a drawing is written as while nothing in it needs a newer reader (`projectVersion`) */
 export const PROJECT_VERSION = 1;
+/** The newest version this build reads: a file of a version above it is refused (`newer-version`) */
+export const PROJECT_VERSION_MAX = 2;
 /** Larger is no drawing of a LowRider: refused before it is read */
 export const PROJECT_MAX_BYTES = 20 * 1024 * 1024;
 const MAX_ITEMS = 2000;
 const MAX_POINTS = 400_000;
 /** A name longer than this is no name of a drawing */
 const MAX_NAME = 120;
+/** … and an id longer than this is no id of a tool */
+const MAX_TOOL_ID = 120;
+/** A drawing names at most as many cutters as it has parts */
+const MAX_TOOLS = 2000;
 
 export type SavedItem = Omit<CamItem, 'contours'>;
 
@@ -39,6 +46,11 @@ export interface ProjectFile {
   settings: CamSettings;
   /** Diameter of the cutter the drawing was made with, mm: a cutter of the same id that is another now is said */
   toolDiameter?: number;
+  /**
+   * Version 2, with `toolId` on a part: the diameters of the cutters the parts name (their tool-list ids), mm –
+   * as `toolDiameter` for the drawing's own: one of the same id that is another now is said.
+   */
+  toolDiameters?: Record<string, number>;
 }
 
 /** Why a file is not opened – stable codes, the app has a German text for each. */
@@ -57,6 +69,8 @@ export interface OpenedProject {
   highestId: number;
   /** The diameter of the cutter it was saved with, if the file says */
   toolDiameter?: number;
+  /** The diameters of the cutters the parts name, by tool-list id (empty where the file says none) */
+  toolDiameters: Readonly<Record<string, number>>;
   /** Settings of the file that were left out because no machine would have them (their names) */
   dropped: string[];
 }
@@ -74,16 +88,29 @@ const drawnAsTyped = (s: AnySketch): boolean =>
   s.type === 'text' ||
   (s.type === 'rect' && !s.radii);
 
+/**
+ * The oldest version of the format that holds this drawing. 1 as long as nothing in it needs a newer reader – such
+ * a file is written exactly as it always was, and an older build opens it as ever. 2 once a part names a cutter of
+ * its own (`toolId`): an older build would ignore the key and cut every part with one cutter, so it must refuse
+ * the file (`newer-version`) instead. **The one place that decides:** a later addition to the format extends this
+ * condition, never writes a version by itself.
+ */
+export function projectVersion(project: Pick<CamProject, 'items'>): number {
+  return project.items.some((i) => i.toolId !== undefined) ? 2 : PROJECT_VERSION;
+}
+
 /** The drawing as it is saved: without what is made from it (`contours`), with how it is cut. */
 export function projectToFile(
   project: CamProject,
   settings: CamSettings,
   now: Date = new Date(),
   toolDiameter?: number,
+  toolDiameters?: Readonly<Record<string, number>>,
 ): ProjectFile {
+  const named = toolDiameters && Object.keys(toolDiameters).length > 0;
   return {
     format: PROJECT_FORMAT,
-    version: PROJECT_VERSION,
+    version: projectVersion(project),
     savedAt: now.toISOString(),
     name: project.name,
     twoSided: project.twoSided,
@@ -94,6 +121,7 @@ export function projectToFile(
     ),
     settings,
     ...(toolDiameter !== undefined ? { toolDiameter } : {}),
+    ...(named ? { toolDiameters } : {}),
   };
 }
 
@@ -102,7 +130,9 @@ export const projectToText = (
   settings: CamSettings,
   now?: Date,
   toolDiameter?: number,
-) => `${JSON.stringify(projectToFile(project, settings, now, toolDiameter), null, 1)}\n`;
+  toolDiameters?: Readonly<Record<string, number>>,
+) =>
+  `${JSON.stringify(projectToFile(project, settings, now, toolDiameter, toolDiameters), null, 1)}\n`;
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -117,6 +147,14 @@ const plainName = (v: unknown): v is string =>
   typeof v === 'string' &&
   v.trim() !== '' &&
   v.length <= MAX_NAME &&
+  // eslint-disable-next-line no-control-regex
+  !/[\u0000-\u001f\u007f]/.test(v);
+
+/** A tool-list id: it goes into the file and is looked up in the list – no control characters, no endless string */
+const toolIdOf = (v: unknown): v is string =>
+  typeof v === 'string' &&
+  v !== '' &&
+  v.length <= MAX_TOOL_ID &&
   // eslint-disable-next-line no-control-regex
   !/[\u0000-\u001f\u007f]/.test(v);
 
@@ -267,6 +305,9 @@ function itemOf(v: unknown): SavedItem | null {
   if (v.side !== 'front' && v.side !== 'back') return null;
   if (v.depth !== undefined && !within(v.depth, 0.01, MAX_DEPTH)) return null;
   if (v.climb !== undefined && typeof v.climb !== 'boolean') return null;
+  // The cutter of a part: the id of a tool of the list (the file does not know the list: a tool this workshop lacks stays
+  // chosen and is said when the file is opened). A registration hole is drilled with the drawing's cutter, never its own
+  if (v.toolId !== undefined && (!toolIdOf(v.toolId) || v.registration !== undefined)) return null;
   // How a pocket is entered, how a hole is drilled, the place among the parts cut the same way: a value of
   // the wrong kind or outside what the fields take refuses the file (the cutter and the depth of a part are not
   // known here, so the bounds are the outer ones of the fields – the library holds a value to its cutter)
@@ -311,6 +352,7 @@ function itemOf(v: unknown): SavedItem | null {
     relief: v.relief,
     ...(v.depth !== undefined ? { depth: v.depth } : {}),
     ...(v.climb !== undefined ? { climb: v.climb } : {}),
+    ...(v.toolId !== undefined ? { toolId: v.toolId as string } : {}),
     // The ramp is the absence of an entry; what means nothing without another – or in another kind of cut – is not kept
     // (the drawing never holds it either: `setItem` drops it with the kind)
     ...(takesEntry(kind) && (v.entry === 'helix' || v.entry === 'plunge')
@@ -407,6 +449,17 @@ function settingsOf(v: unknown): { settings: Partial<CamSettings>; dropped: stri
   return { settings: out, dropped };
 }
 
+/** The diameters of the cutters the parts name: an object of tool ids and diameters (mm) – null where it is anything else */
+function toolDiametersOf(v: unknown): Record<string, number> | null {
+  if (v === undefined) return {};
+  if (!isObject(v)) return null;
+  const entries = Object.entries(v);
+  if (entries.length > MAX_TOOLS) return null;
+  if (!entries.every(([id, d]) => toolIdOf(id) && within(d, 0.001, 100))) return null;
+  // (`fromEntries` makes plain own properties: an id like "__proto__" is only a key)
+  return Object.fromEntries(entries as [string, number][]);
+}
+
 /** Reads a project file strictly: a wrong one is refused with its reason, nothing is half taken. */
 export function parseProject(text: string): OpenedProject | { error: ProjectError } {
   if (text.length > PROJECT_MAX_BYTES) return { error: 'too-large' };
@@ -417,7 +470,7 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
     return { error: 'invalid-json' };
   }
   if (!isObject(raw) || raw.format !== PROJECT_FORMAT) return { error: 'wrong-format' };
-  if (!whole(raw.version) || raw.version > PROJECT_VERSION) return { error: 'newer-version' };
+  if (!whole(raw.version) || raw.version > PROJECT_VERSION_MAX) return { error: 'newer-version' };
   const twoSided = twoSidedOf(raw.twoSided);
   if (
     !plainName(raw.name) ||
@@ -436,6 +489,9 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
     if (points > MAX_POINTS) return { error: 'invalid-project' };
     items.push(item);
   }
+  // The diameters of the cutters the parts name (version 2): a map of tool-list ids to diameters, or the file is refused
+  const diameters = toolDiametersOf(raw.toolDiameters);
+  if (!diameters) return { error: 'invalid-project' };
   const ids = items.flatMap((i) => [i.id, i.group]);
   if (new Set(items.map((i) => i.id)).size !== items.length) return { error: 'invalid-project' };
   // A side that is cut from the back needs the two-sided state that turns it over
@@ -473,6 +529,7 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
     },
     settings,
     dropped,
+    toolDiameters: diameters,
     highestId: Math.max(0, ...ids),
     ...(within(raw.toolDiameter, 0.001, 100) ? { toolDiameter: raw.toolDiameter } : {}),
   };

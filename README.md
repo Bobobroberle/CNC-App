@@ -206,7 +206,7 @@ _Zeichnen / DXF_ hier; siehe Abschnitt „CAM“), die Abläufe **Wenden**, **In
   gesperrt: Der Job hat Fehler oder verlässt den Verfahrweg._); beim Start wird ihr Programm
   geladen, damit das gezeigte das laufende ist – erlaubt die Programmsperre das nicht (unten),
   startet nichts. **Ehrlich:** Dieser Start geht nicht durch die Startklar-Liste und nicht durch die
-  Bestätigungen des Starts in Fräsen (kein Nullpunkt, Z unter der Sicherheitshöhe, Messtaster).
+  Bestätigungen des Starts in Fräsen (kein Nullpunkt, Z unter der Sicherheitshöhe, Messtaster, Werkzeug gewechselt).
   Andere Dateien trägt die Karte mit _Diese Datei wurde nicht in der App geprüft._ und startet sie
   trotzdem. Der Weg mit allen Sperren und Bestätigungen ist die Hauptaktion in Fräsen. Ein Job von
   der Karte läuft auch bei abgerissener Verbindung weiter; PAUSE und NOT-HALT der App erreichen die
@@ -425,6 +425,14 @@ das CAM zu sehen.
     haben (_wie der Job_ · _Gleichlauf_ · _Gegenlauf_, auf der Zeile des Teils bei außen, innen und
     Tasche; für gebohrte Löcher gibt es die Wahl nicht). Hat das gewählte Werkzeug eigene
     Schnittwerte (_Werkzeugliste_), nimmt _Werte aus Werkzeug und Material vorschlagen_ sie auch ohne Material.
+    Jedes Teil kann sein eigenes **Werkzeug** haben: das Feld _Werkzeug von Teil n_ auf der Zeile (nicht bei
+    _nicht fräsen_; es erscheint, sobald die Werkzeugliste mehr als einen Fräser hat – ein Messtaster zählt
+    nicht). _Wie die Zeichnung_ ist die Voreinstellung und nimmt das Werkzeug aus dem Feld darüber. Ein
+    V-Fräser, Kugelfräser, Fasenfräser oder Bohrer lässt sich nur für Gravur und Bohren wählen – die Bahnen
+    rechnen jeden Fräser als Zylinder seines Durchmessers, was für die Linie einer Gravur und ein Loch stimmt
+    und für eine Kontur oder Tasche nicht; für die stehen sie ausgegraut, mit dem Grund im Namen. Ein Werkzeug,
+    das es in der Liste nicht mehr gibt oder das als Messtaster markiert ist, wird nicht gefräst: das Teil
+    nimmt das Werkzeug der Zeichnung, und die Karte _3 · Ansehen und übergeben_ sagt es.
   - _3 · Ansehen und übergeben_ – die Bahnen stehen schon auf dem Tisch-Bild und werden bei jeder
     Änderung neu gemacht. Reihenfolge: Bohrungen, Taschen und Gravuren, Ausschnitte, die Außenkontur
     jedes Teils zuletzt – was in einer Kontur liegt, vor ihr; dazwischen kurze Wege. Was nicht geht
@@ -434,12 +442,30 @@ das CAM zu sehen.
     Startklar-Liste und Simulation in Fräsen → _Prüfen_, Start in _Fräsen_. Gesperrt ist der Knopf,
     solange nichts zu fräsen ist, ein Job läuft oder ein Hinweis zu den zwei Seiten ihn sperrt
     (siehe _Von beiden Seiten fräsen_). _Als .nc speichern_ lädt das eigene Programm herunter (bei
-    zwei Seiten beide Dateien). Ein Programm, ein Werkzeug: Gravur mit V-Fräser und Ausschnitt mit
-    Schaftfräser sind zwei Programme. _Projekt speichern_ schreibt die Zeichnung (Formen, wie jedes
+    zwei Seiten beide Dateien). Nennen die Teile **mehr als ein Werkzeug** (Gravur mit dem V-Fräser,
+    Ausschnitt mit dem Schaftfräser), ist es **ein Programm mit Werkzeugwechsel**: im Kopf die Werkzeuge
+    (`(T4 D=3 …)`), `T… M6` vor dem ersten Schnitt und an jedem Wechsel, davor Spindel aus und Z oben, danach
+    die Drehzahl des neuen Werkzeugs. Jedes Werkzeug fräst mit den eigenen Schnittwerten aus der
+    Werkzeugliste, die das Werkzeug der Zeichnung ausgenommen (das nimmt die Werte der Zeichnung); hat
+    ein Werkzeug keine, nimmt es die der Zeichnung, und die Karte sagt es. Die Karte nennt die Werkzeuge in
+    der Reihenfolge, in der das Programm sie braucht. Die Reihenfolge der Arten bleibt; innerhalb einer Art
+    kommt zuerst, was das eingespannte Werkzeug fräst. Von der SD-Karte läuft es Teil für Teil (der Job
+    trennt an `M6`); der Start eines Teils nach einem Wechsel fragt vorher, ob die Länge des neuen Werkzeugs
+    gemessen ist – ein zweiter Halt, bei jedem Wechsel; beim Streamen hält der Job an jedem Wechsel. Mit
+    **einem** Werkzeug ist das Programm das von früher, Zeichen für Zeichen. Kein Programm entsteht aus
+    einer Werkzeugliste, in der eine T-Nummer zweimal vorkommt oder keine ganze Zahl ab 1 ist, oder aus der
+    das Werkzeug der Zeichnung fehlt, wenn es neben anderen gefräst wird: die Karte sagt warum, und das
+    Programm auf dem Tisch bleibt nur, wo ein Job läuft. **Von beiden Seiten fräsen** und die **Serie** fräsen
+    nur mit dem Werkzeug der Zeichnung; hat ein Teil ein eigenes, sagt die Karte es, und es entsteht
+    kein Programm bzw. die Serie öffnet nicht. _Projekt speichern_ schreibt die Zeichnung (Formen, wie jedes
     Teil geschnitten wird, die zwei Seiten, die Schnitteinstellungen – kein Programm) als Datei
     `*.lowrider.json`; _Projekt öffnen …_ (unter den Formen) liest sie wieder ein, ersetzt die
     Zeichnung in einem Schritt, den _Rückgängig_ zurücknimmt, und lädt nie selbst ein Programm. Eine
-    Datei, die sich nicht lesen lässt, wird mit dem Grund abgelehnt, ohne etwas zu öffnen.
+    Datei, die sich nicht lesen lässt, wird mit dem Grund abgelehnt, ohne etwas zu öffnen. Nennt ein Teil
+    ein eigenes Werkzeug, ist die Datei eine **Version 2** (mit den Durchmessern dieser Werkzeuge); ohne
+    ein solches Teil bleibt sie Version 1, Zeichen für Zeichen wie bisher – eine ältere App lehnt eine
+    Version 2 ab, statt alles mit einem Werkzeug zu fräsen. Ein Werkzeug, das es in dieser Werkzeugliste
+    nicht gibt oder dessen Durchmesser hier ein anderer ist, bleibt gewählt und wird gemeldet.
 
 - **Zeichnung und Programm auf dem Tisch:** Liegt auf dem Tisch nichts oder das Programm dieser
   Zeichnung, folgt es jeder Änderung. Liegt ein anderes Programm dort (eine später geöffnete Datei,
@@ -884,7 +910,8 @@ bietet sie auch hier die Pause.
   Name, Art, Ø, Schneidenlänge, wie tief der Job damit fräst, Zustand ✓ _passt_ · ⚠ _prüfen_ · ✕
   _fehlt_ (Werkzeugliste leer). Geprüft wird gegen die Werkzeugliste: steht das Werkzeug nicht
   selbst darin (gezeigt wird das nächstliegende, ein Tipp übernimmt es), ist die Schneide kürzer als
-  die Frästiefe, weicht der Ø von dem ab, den das CAM nennt, ist es als Messtaster markiert. _Passt
+  die Frästiefe, weicht der Ø von dem ab, den das CAM für genau diese T-Nummer im Kopf des Programms
+  nennt (`(T2 D=3 …)`; ein Programm mit mehreren Werkzeugen nennt jedes), ist es als Messtaster markiert. _Passt
   aus der Werkzeugliste:_ bis zu drei Alternativen (gleicher Ø, lang genug, kein Messtaster, gleiche
   Art zuerst) mit einem Tipp; die Zuordnung je T-Nummer ist eine Auswahl in der Zeile. Mit gewähltem
   Material (_Job → Vorbereiten_) steht darunter der Schnittwert-Vorschlag, als _empfohlen_ markiert,
@@ -938,16 +965,20 @@ jetzt läuft.
   eine Taste gibt es nicht. Solange ein Punkt der Startklar-Liste sperrt – auch „Keine Verbindung zur Maschine“ oder „Maschine ist nicht bereit“ –, steht dort statt des Starts _Prüfen_ und führt zur Liste; ist nur
   gerade etwas unterwegs (Upload), ist das Halten gesperrt und nennt bei Antippen den Grund.
 - **Vor dem Start bestätigen** (_Vor dem Start bestätigen_, Start aus der Aktionsleiste und Start
-  des nächsten Teils): Drei Dinge sperren den Start nicht, werden aber nie übergangen. Das Halten
+  des nächsten Teils): Vier Dinge sperren den Start nicht, werden aber nie übergangen. Das Halten
   öffnet dann die Frage statt zu starten; gestartet wird mit einem **zweiten Halten** (_Trotzdem
   starten_; _Zurück, nicht starten_ bricht ab): _Kein Nullpunkt gesetzt_ (der Nullpunkt liegt im
   Maschinennullpunkt), _Z steht unter der Sicherheitshöhe_ (mehr als 0,5 mm darunter, referenziert,
   und das Programm fährt zuerst seitlich, statt anzuheben – ein Programm, das zuerst anhebt, ist von
-  jeder Höhe aus sicher) und _Messtaster als Werkzeug_ (ein Werkzeug des Jobs ist in der
-  Werkzeugliste als Messtaster markiert, und das Programm schaltet die Spindel ein). Nullpunkt und Z
-  werden je Job einmal bestätigt, der Messtaster bei jedem Start; er sperrt die Spindel nicht hart,
-  denn die App weiß nicht, was wirklich in der Spindel steckt. **Nicht gefragt wird** bei _Programm
-  starten_ (Streamen), _Ab Zeile … starten_ und _Starten_ in der Liste der SD-Karte.
+  jeder Höhe aus sicher), _Messtaster als Werkzeug_ (ein Werkzeug des Jobs ist in der
+  Werkzeugliste als Messtaster markiert, und das Programm schaltet die Spindel ein) und _Werkzeug
+  gewechselt – Länge neu gemessen?_ (der Teil, der gestartet wird, fräst mit einem anderen Werkzeug
+  als der vorige: ohne neu zu messen fräst der neue Fräser zu hoch oder ins Werkstück; die App weiß
+  nicht, ob gemessen wurde). Nullpunkt und Z werden je Job einmal bestätigt, der Messtaster und der
+  Werkzeugwechsel bei jedem Start; der Messtaster sperrt die Spindel nicht hart, denn die App weiß
+  nicht, was wirklich in der Spindel steckt. **Nicht gefragt wird** bei _Programm
+  starten_ (Streamen; dort hält der Job an jedem Wechsel und fragt nach dem Messen nichts, siehe
+  Merkliste cam-path23), _Ab Zeile … starten_ und _Starten_ in der Liste der SD-Karte.
 - _Fräsen_ (die Karte vor dem Start): Programm, geschätzte Laufzeit, die Teile je Werkzeug mit ihrer
   Laufzeit, was sperrt (_Start gesperrt: n Punkt(e) offen_ mit dem ersten Grund und _Prüfen_), und
   Hinweise: bereinigte `G43 … H`-Zeilen, vorangestelltes `G21 G90`, ein Messtaster im Job

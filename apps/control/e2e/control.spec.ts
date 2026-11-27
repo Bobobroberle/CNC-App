@@ -478,6 +478,15 @@ test('runs a real job from the SD card, one part per tool', async ({ page }) => 
   });
   await expect(goOn).toBeEnabled();
   await hold(page, /Teil 2\/2 starten \(T2\)/, 1300);
+  // The part after a tool change asks first: is the new cutter's length measured? (every change is asked, not once
+  // per job). Nothing is sent until the second hold, inside the question.
+  const changed = page.getByTestId('start-confirm');
+  await expect(changed).toContainText('Werkzeug gewechselt – Länge neu gemessen?');
+  await page.waitForTimeout(300);
+  expect(await sent(page)).not.toContain(
+    '$SD/Run=/fusion360-1003-adaptiv-kontur-parallel_2of2_T2.nc',
+  );
+  await hold(page, /Trotzdem starten/, 1300);
   await expect
     .poll(() => sent(page))
     .toContain('$SD/Run=/fusion360-1003-adaptiv-kontur-parallel_2of2_T2.nc');

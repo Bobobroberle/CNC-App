@@ -5,6 +5,7 @@ import {
   PROJECT_FORMAT,
   PROJECT_MAX_BYTES,
   PROJECT_VERSION,
+  PROJECT_VERSION_MAX,
   projectToFile,
   projectToText,
 } from '../src/lib/camProject';
@@ -329,7 +330,8 @@ describe('what a project file must be to be opened', () => {
     expect(error(null)).toBe('wrong-format');
     expect(error([])).toBe('wrong-format');
     expect(error({ format: 'something-else' })).toBe('wrong-format');
-    expect(error({ ...good(), version: PROJECT_VERSION + 1 })).toBe('newer-version');
+    // (version 2 is read since the cutters of single parts; what is above the newest this build knows is refused)
+    expect(error({ ...good(), version: PROJECT_VERSION_MAX + 1 })).toBe('newer-version');
     expect(error({ ...good(), version: 'one' })).toBe('newer-version');
     expect(error('x'.repeat(PROJECT_MAX_BYTES + 1))).toBe('too-large');
     for (const patch of [

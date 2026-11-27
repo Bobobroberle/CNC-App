@@ -113,6 +113,44 @@ describe('why the start cannot be held (store/start.ts)', () => {
       expect(useRun.getState().asking).toBeNull();
     });
 
+    describe('after a tool change', () => {
+      const TWO_TOOLS =
+        'G21 G90\nT1 M6\nG0 Z5\nS10000 M3\nG0 X10 Y10\nG1 Z-1 F300\nG1 X20\nG0 Z5\nM5\nT2 M6\nS10000 M3\nG0 X30 Y10\nG1 Z-1 F300\nG1 X40\nG0 Z5\nM5\nM30\n';
+      const loadTwo = (partIndex: number, confirmed: string[] = []) => {
+        useJob.getState().unload();
+        useJob.getState().load('two.nc', TWO_TOOLS);
+        useRun.setState({
+          phase: 'between',
+          jobKey: `two.nc:${useJob.getState().lines.length}`,
+          partIndex,
+          confirmed: confirmed as never,
+          asking: null,
+        });
+      };
+
+      it('the first part asks nothing of the kind; the part after a change asks – every time, even when confirmed before', () => {
+        loadTwo(0);
+        const first = renderHook(() => useStart()).result.current!;
+        expect(first.parts.map((p) => p.tool)).toEqual([1, 2]);
+        expect(first.warnings).toEqual([]);
+        loadTwo(1);
+        const second = renderHook(() => useStart()).result.current!;
+        expect(second.warnings).toEqual(['toolChange']);
+        expect(second.pending).toEqual(['toolChange']);
+        loadTwo(1, ['toolChange']);
+        expect(renderHook(() => useStart()).result.current!.pending).toEqual(['toolChange']);
+      });
+
+      it('the hold asks instead of starting: nothing goes to the machine until the second hold', () => {
+        const startPart = vi.fn(async () => {});
+        useRun.setState({ startPart } as never);
+        loadTwo(1);
+        requestStart(renderHook(() => useStart()).result.current!);
+        expect(startPart).not.toHaveBeenCalled();
+        expect(useRun.getState().asking).toEqual(['toolChange']);
+      });
+    });
+
     it('does nothing at all while something blocks the start', () => {
       const startPart = vi.fn(async () => {});
       useRun.setState({ startPart } as never);

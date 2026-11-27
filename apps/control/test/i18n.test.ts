@@ -65,6 +65,7 @@ const FLIP_NOTES: Record<CamFlipNote['code'], true> = {
   'hole-on-cut': true,
   'hole-in-part': true,
   'hole-off-stock': true,
+  tools: true,
 };
 
 // Why a printed marker is not taken, and why a jig cannot be measured: every reason needs
@@ -215,7 +216,7 @@ describe('i18n', () => {
   it('has a text for everything a two-sided drawing can say', () => {
     for (const code of Object.keys(FLIP_NOTES)) {
       expect(hasKey(`flip.notes.${code}`), code).toBe(true);
-      const text = t(`flip.notes.${code}` as never, { front: 1, back: 2, mm: 1, n: 1 });
+      const text = t(`flip.notes.${code}` as never, { front: 1, back: 2, mm: 1, n: 1, rows: '1' });
       expect(text).not.toContain('{');
     }
   });

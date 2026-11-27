@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type CDPSession, type Locator, type Page } from '@playwright/test';
 import {
   boardToWork,
@@ -6,6 +7,7 @@ import {
   drawShape,
   drawThreePlates,
   goTo,
+  inReach,
   installFakeCameraPi,
   installFakeFluidNC,
   moreOptions,
@@ -17,6 +19,7 @@ import {
   rested,
   restingTable,
   seedCamera,
+  seedTools,
   sent,
   stageMode,
   stageTool,
@@ -1954,4 +1957,38 @@ test('the further shapes and packing by finger: the fold, the tiles and "Verscha
   await cam.getByRole('button', { name: 'Rückgängig', exact: true }).tap();
   await expect(cam.getByTestId('cam-nest-result')).toHaveCount(0);
   expect(await box()).not.toEqual(packed);
+});
+
+test('the cutter of a part: a full target in reach under a finger – a choice makes one program with a tool change', async ({
+  page,
+}) => {
+  await seedTools(page);
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  const cam = page.getByTestId('cam-card');
+  await drawShape(page, 'Rechteck', { 'Breite (mm)': '60', 'Höhe (mm)': '40' });
+  await drawShape(page, 'Kreis', { 'X Mitte (mm)': '30', 'Y Mitte (mm)': '20' });
+  await cam.getByLabel('Bearbeitung Kontur 2').selectOption('on');
+  const scroller = cam.locator('xpath=ancestor::*[contains(@class,"panel-body")][1]');
+  const rows = cam.getByTestId('cam-contours').getByRole('listitem');
+  const heights = () => rows.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+  for (const n of [1, 2]) {
+    const select = cam.getByRole('combobox', { name: `Werkzeug von Teil ${n}` });
+    await select.scrollIntoViewIfNeeded();
+    const where = await inReach(page, select, scroller);
+    expect(where.box.height, `part ${n}`).toBeGreaterThanOrEqual(47.5);
+    expect(where.inside && where.reached, JSON.stringify(where)).toBe(true);
+  }
+  const still = await heights();
+  const select = cam.getByRole('combobox', { name: 'Werkzeug von Teil 2' });
+  await select.selectOption('v1');
+  await expect(page.getByTestId('cam-tools-summary')).toContainText(
+    '2 Werkzeuge in einem Programm',
+  );
+  for (const [i, h] of (await heights()).entries())
+    expect(Math.abs(h - still[i]!)).toBeLessThan(0.5);
+  const download = page.waitForEvent('download');
+  await cam.getByRole('button', { name: 'Als .nc speichern' }).tap();
+  const text = readFileSync(await (await download).path(), 'utf8');
+  expect(text.split('\n').filter((l) => /^T\d+ M6$/.test(l))).toEqual(['T4 M6', 'T1 M6']);
 });

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { t } from '../i18n';
 import { formatCoordinate, formatDuration, formatNumber } from '../lib/format';
 import { PREVIEW_BOX, previewPath } from '../lib/preview';
-import { toolForJob } from '../lib/setup';
+import { firstTool, toolForJob } from '../lib/setup';
 import demo from '../samples/demo.nc?raw';
 import { useCam } from '../store/cam';
 import { openCam } from '../store/camPlace';
@@ -94,7 +94,7 @@ function LoadedJob() {
   const headerDiameter = useJob((s) => s.header?.tools.find((x) => x.diameter)?.diameter);
   const path = useMemo(() => (analysis ? previewPath(analysis.segments) : ''), [analysis]);
   if (!fileName || !analysis) return null;
-  const toolNumber = parser?.tool || analysis.tools[0] || 0;
+  const toolNumber = parser?.tool || firstTool(analysis);
   const tool = toolForJob(tools, toolMap, toolNumber, headerDiameter);
   const toolText = `${toolNumber ? `T${toolNumber} · ` : ''}Ø ${formatNumber(tool?.diameter ?? toolDiameter, 1)} mm${
     analysis.tools.length > 1 ? ` (+${analysis.tools.length - 1})` : ''

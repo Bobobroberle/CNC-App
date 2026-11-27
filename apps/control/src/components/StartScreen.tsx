@@ -10,7 +10,7 @@ import {
 import { t } from '../i18n';
 import { formatCoordinate, formatDuration, formatNumber, getLocale } from '../lib/format';
 import { reveal } from '../lib/reveal';
-import { toolForJob } from '../lib/setup';
+import { firstTool, toolForJob } from '../lib/setup';
 import { useJob } from '../store/job';
 import { useMachine } from '../store/machine';
 import { needsAttention } from '../lib/messages';
@@ -144,7 +144,7 @@ function ToolCard() {
   const tools = useWorkshop((s) => s.tools);
   const setup = useWorkshop((s) => s.setup);
   const material = useWorkshop((s) => s.materials.find((m) => m.id === s.setup.materialId));
-  const number = parser?.tool || analysis?.tools[0] || 0;
+  const number = parser?.tool || (analysis ? firstTool(analysis) : 0);
   const tool = toolForJob(tools, setup.toolMap, number, headerDiameter);
   return (
     <Card className="gap-3 p-5" data-testid="start-tool">

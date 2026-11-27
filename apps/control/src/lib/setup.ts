@@ -2,6 +2,7 @@ import {
   checkCollisions,
   isEmptyBounds,
   type Bounds,
+  type ProgramAnalysis,
   type Box,
   type Collision,
   type Fixture,
@@ -30,6 +31,13 @@ export function stockFromSize(x: number, y: number, z: number): Box {
  */
 export const GANTRY_CLEARANCE = 60;
 export const GANTRY_DEPTH = 120;
+
+/**
+ * The tool a program starts with: the first it uses (`toolOrder`), not the one with the lowest number – a program
+ * that uses T2 first and T1 after starts with T2. 0 for a program without T words.
+ */
+export const firstTool = (analysis: Pick<ProgramAnalysis, 'tools' | 'toolOrder'>): number =>
+  analysis.toolOrder[0] ?? analysis.tools[0] ?? 0;
 
 /** How far the tool tip must stay above a clamp's top before the job is flagged, mm */
 export const CLAMP_MARGIN = 2;

@@ -1,11 +1,12 @@
 /**
  * What has to be confirmed before a job starts (DESIGN.md §6.4): a start
  * without a zero set, a start with the tool below the safe height while the
- * program's first move travels sideways, and a spindle start with a tool that
- * is marked as a probe. These do not block – the operator may know better –
- * but each is said and confirmed, never passed over.
+ * program's first move travels sideways, a spindle start with a tool that
+ * is marked as a probe, and the start of a part that follows a tool change.
+ * These do not block – the operator may know better – but each is said and
+ * confirmed, never passed over.
  */
-export type StartWarning = 'zero' | 'lowZ' | 'probe';
+export type StartWarning = 'zero' | 'lowZ' | 'probe' | 'toolChange';
 
 export interface StartInput {
   /** The work offset is all zero: the zero is probably not set */
@@ -24,6 +25,12 @@ export interface StartInput {
   spindleOn: boolean;
   /** A tool of the job is marked as a probe in the tool list */
   probeTool: boolean;
+  /**
+   * This start follows a tool change: the part before it was cut with another tool. A program that changes its
+   * tool (a CAM program with several tools, a Fusion job) goes on with the new cutter at the heights it was made
+   * for – without measuring the new cutter's length that is too high or into the work.
+   */
+  toolChanged?: boolean;
 }
 
 /** How far below the safe height still counts as "at the safe height", mm */
@@ -43,16 +50,18 @@ export function startWarnings(s: StartInput): StartWarning[] {
     out.push('lowZ');
   }
   if (s.probeTool && s.spindleOn) out.push('probe');
+  if (s.toolChanged) out.push('toolChange');
   return out;
 }
 
 /**
  * Warnings that are confirmed once per job and then stay confirmed; a probe
- * in the spindle is asked about at every start.
+ * in the spindle and a start after a tool change are asked about at every
+ * start (each change is a new cutter).
  */
 export function pendingWarnings(
   warnings: readonly StartWarning[],
   confirmed: readonly StartWarning[],
 ): StartWarning[] {
-  return warnings.filter((w) => w === 'probe' || !confirmed.includes(w));
+  return warnings.filter((w) => w === 'probe' || w === 'toolChange' || !confirmed.includes(w));
 }

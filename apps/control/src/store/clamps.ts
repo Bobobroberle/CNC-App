@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { t } from '../i18n';
 import type { Point } from '../lib/camera';
 import { fixturesInWork, newZone, nextNumber, type ClampKind } from '../lib/clamps';
-import { CLAMP_MARGIN, toolForJob } from '../lib/setup';
+import { CLAMP_MARGIN, firstTool, toolForJob } from '../lib/setup';
 import { useJob } from './job';
 import { useMachine } from './machine';
 import { useStageTools } from './tools';
@@ -37,7 +37,7 @@ export function useClampHits(): ClampHit[] {
   const fixtures = useWorkFixtures();
   return useMemo(() => {
     if (!analysis || fixtures.length === 0) return [];
-    const tool = toolForJob(tools, toolMap, analysis.tools[0] ?? 0, headerDiameter);
+    const tool = toolForJob(tools, toolMap, firstTool(analysis), headerDiameter);
     return checkClamps(analysis.segments, fixtures, {
       toolDiameter: tool?.diameter ?? circle,
       margin: CLAMP_MARGIN,

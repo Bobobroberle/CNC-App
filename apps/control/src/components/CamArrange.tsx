@@ -15,7 +15,9 @@ import { isSelected, itemsBounds, partsOf, type CamItem } from '../lib/camItems'
 import { measurement } from '../lib/camMeasure';
 import { defaultNestGap } from '../lib/camNest';
 import { formatNumber, formatSigned } from '../lib/format';
-import { useCam, useCamToolDiameter } from '../store/cam';
+import { useCam } from '../store/cam';
+import { useCamCutters } from '../store/camTools';
+import { widestCutter } from '../lib/camTools';
 import { useUi } from '../store/ui';
 import { useWorkshop } from '../store/workshop';
 import { describeItem, describeGroup, mm, NumberField } from './camParts';
@@ -316,7 +318,8 @@ interface NestFields {
 function NestPanel({ gap, setGap, rotate, setRotate }: NestFields) {
   const cam = useCam.getState();
   const stock = useWorkshop((s) => s.setup.stock);
-  const tool = useCamToolDiameter();
+  // The gap leaves room for the widest cutter of the program
+  const tool = widestCutter(useCamCutters());
   const twoSided = useCam((s) => s.project?.twoSided != null);
   const items = useCam((s) => s.project?.items);
   const selected = useCam((s) => s.selected);

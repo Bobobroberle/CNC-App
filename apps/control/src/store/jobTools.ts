@@ -33,11 +33,13 @@ export interface JobTool {
 export function useJobTools(): JobTool[] {
   const analysis = useJob((s) => s.analysis);
   const headerDiameter = useJob((s) => s.header?.tools.find((x) => x.diameter)?.diameter);
+  const header = useJob((s) => s.header);
   const tools = useWorkshop((s) => s.tools);
   const toolMap = useWorkshop((s) => s.setup.toolMap);
   return useMemo(() => {
     if (!analysis) return [];
-    const numbers = analysis.tools.length > 0 ? analysis.tools : [0];
+    // In the order the program uses them (the first row is the first tool: the one the pictures draw), not by number
+    const numbers = analysis.tools.length > 0 ? analysis.toolOrder : [0];
     const depths = toolDepths(analysis.segments);
     const spindleOn = analysis.events.some((e) => e.kind === 'spindle' && e.spindle !== 'off');
     return numbers.map((number) => {
@@ -48,7 +50,12 @@ export function useJobTools(): JobTool[] {
       // A program without T words has one tool; its cuts are filed under whatever T was active.
       const depth =
         analysis.tools.length > 0 ? (depths.get(number) ?? 0) : Math.max(0, ...depths.values());
-      const wanted = number === 0 || numbers.length === 1 ? headerDiameter : undefined;
+      // One tool: the header's diameter. Several: each tool against what the header names for ITS number – a CAM
+      // program with several tools names every one (`(T2 D=3 …)`); a header that names none of them says nothing
+      const wanted =
+        number === 0 || numbers.length === 1
+          ? headerDiameter
+          : header?.tools.find((x) => x.number === number && x.diameter)?.diameter;
       const issues = toolIssues({ tool, known: found !== undefined, depth, wanted, spindleOn });
       return {
         number,
@@ -60,5 +67,5 @@ export function useJobTools(): JobTool[] {
         alternatives: alternatives(tools, tool, depth, wanted),
       };
     });
-  }, [analysis, headerDiameter, tools, toolMap]);
+  }, [analysis, headerDiameter, header, tools, toolMap]);
 }

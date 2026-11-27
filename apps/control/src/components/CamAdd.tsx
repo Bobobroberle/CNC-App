@@ -176,6 +176,28 @@ export function CamAdd() {
                 'cam.project.settingsDropped',
               );
             }
+            // Tools of single parts: one the list lacks stays chosen (the part is cut with the drawing's meanwhile) – said
+            if (result.partTools?.missing.length) {
+              addLog(
+                'error',
+                t('cam.project.partToolsMissing', { list: result.partTools.missing.join(', ') }),
+                'cam.project.partToolsMissing',
+              );
+            }
+            if (result.partTools?.differ.length) {
+              addLog(
+                'error',
+                t('cam.project.partToolsDiffer', {
+                  list: result.partTools.differ
+                    .map(
+                      (d) =>
+                        `${d.name} (${formatNumber(d.file, 2)} → ${formatNumber(d.now, 2)} mm)`,
+                    )
+                    .join(', '),
+                }),
+                'cam.project.partToolsDiffer',
+              );
+            }
             if (result.toolDiffers) {
               addLog(
                 'error',

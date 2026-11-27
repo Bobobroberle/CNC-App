@@ -640,3 +640,46 @@ export async function installFakeCameraPi(
   });
   return pi;
 }
+
+// ---------- the tool list with a V-bit ----------
+
+/**
+ * The tool list of the app (the three of the operator's jobs) with a V-bit that has cutting values of its own, put
+ * into the browser's storage before the app starts – the second cutter a drawing with two tools needs. The drawing's
+ * own cutter is the first of the list: the 8 mm end mill T1.
+ */
+export async function seedTools(page: Page) {
+  const tool = (
+    id: string,
+    number: number,
+    name: string,
+    kind: string,
+    diameter: number,
+    extra = {},
+  ) => ({
+    id,
+    number,
+    name,
+    kind,
+    diameter,
+    flutes: 2,
+    fluteLength: 20,
+    stickout: 30,
+    holder: 'Spannzange',
+    holderDiameter: 30,
+    ...extra,
+  });
+  const tools = [
+    tool('t1', 1, 'Schaftfräser 8 mm', 'flat', 8),
+    tool('t2', 2, 'Kugelfräser 6 mm', 'ball', 6),
+    tool('t3', 3, 'Schaftfräser 6 mm', 'flat', 6),
+    tool('v1', 4, 'V-Fräser 60°', 'vbit', 3, {
+      angle: 60,
+      fluteLength: 10,
+      cutting: { rpm: 12000, feed: 600, plungeFeed: 200, stepdown: 0.5 },
+    }),
+  ];
+  await page.addInitScript((list) => {
+    localStorage.setItem('lowrider-control.tools', JSON.stringify(list));
+  }, tools);
+}

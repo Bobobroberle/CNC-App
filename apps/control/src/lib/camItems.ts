@@ -83,6 +83,13 @@ export interface CamItem {
   /** Climb (true) or conventional (false) milling of this part; undefined takes the job's setting */
   climb?: boolean;
   /**
+   * The cutter of this part: a tool of the tool list (its id); undefined takes the drawing's (`settings.toolId`).
+   * Where parts name more than one cutter the program is one program with a tool change between them. The key
+   * is left off for "wie die Zeichnung", so a project file stays as an older app wrote it. Never on a
+   * registration hole (it is drilled with the drawing's cutter).
+   */
+  toolId?: string;
+  /**
    * How a pocket is entered: on a helix or straight down; absent is the ramp, as always (the key is left
    * off for it, so a project file stays as an older app wrote it). Only for pockets.
    */

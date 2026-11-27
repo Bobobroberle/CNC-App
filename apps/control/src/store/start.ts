@@ -98,6 +98,9 @@ export function useStart(): Start | null {
     firstMove: first,
     spindleOn,
     probeTool: probeLock,
+    // The part before this one was cut with another tool (the job is split at every change): not measured
+    // since is the one thing the app cannot know – the card of the change offers it, nothing forces it
+    toolChanged: index > 0 && parts[index - 1]!.tool !== part.tool,
   });
   let reason: string | null = null;
   if (!connected) reason = t('ready.offline');

@@ -403,7 +403,17 @@ let singleStepOn = false;
 
 /** The simulator cuts as wide as the job's cutter is, so its camera sees real holes and grooves. */
 function simulatedCutter(url: string) {
-  if (isSimulatorAddress(url)) simulator().toolRadius = useJob.getState().toolDiameter / 2;
+  if (!isSimulatorAddress(url)) return;
+  const sim = simulator();
+  const { toolDiameter, header } = useJob.getState();
+  sim.toolRadius = toolDiameter / 2;
+  // A program with several tools names every cutter in its header (`(T2 D=3 …)`): at its M6 the simulator takes
+  // that cutter's width. A program without such a header changes nothing at a tool change, as ever.
+  sim.toolDiameters = Object.fromEntries(
+    (header?.tools ?? []).flatMap((x) =>
+      x.number !== null && x.diameter !== null ? [[x.number, x.diameter]] : [],
+    ),
+  );
 }
 
 /**
