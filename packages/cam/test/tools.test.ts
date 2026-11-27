@@ -11,6 +11,7 @@ import {
   type Operation,
   type ToolSettings,
 } from '../src';
+import { twoToolSign } from './toolsFixture';
 
 /**
  * Programs with several tools: every measure of an operation from its own cutter, one order for all the cutters
@@ -593,8 +594,8 @@ describe('the program text of several tools', () => {
   ];
   const moves = [...block(10, 1), ...block(20, 1)];
   const blocks = [
-    { number: 1, name: 'Mill', diameter: 6, start: 0 },
-    { number: 2, name: 'V-bit', diameter: 3, rpm: 12000, start: 5 },
+    { number: 1, name: 'Mill', diameter: 6, start: 0, end: 5 },
+    { number: 2, name: 'V-bit', diameter: 3, rpm: 12000, start: 5, end: 10 },
   ];
 
   it('names the cutters, mounts the first before it moves and changes with a lift, M5, T M6 and S M3', () => {
@@ -645,8 +646,8 @@ describe('the program text of several tools', () => {
       { x: 30, y: 5, z: -1, feed: 300 },
     ];
     const blocks = [
-      { number: 1, diameter: 6, start: 0 },
-      { number: 2, diameter: 6, start: 4 },
+      { number: 1, diameter: 6, start: 0, end: 4 },
+      { number: 2, diameter: 6, start: 4, end: 6 },
     ];
     expect(toGcode(same, { name: 'm', rpm: 1000, safeZ: 5, blocks })).toBe(
       [
@@ -689,8 +690,8 @@ describe('the program text of several tools', () => {
       rpm: 1000,
       safeZ: 5,
       blocks: [
-        { number: 3, diameter: 2.5, start: 0 },
-        { number: 4, diameter: 2.5, start: 3 },
+        { number: 3, diameter: 2.5, start: 0, end: 3 },
+        { number: 4, diameter: 2.5, start: 3, end: 4 },
       ],
     });
     expect(text).toContain('(T3 D=2.5)\n(T4 D=2.5)\n');
@@ -707,8 +708,8 @@ describe('the program text of several tools', () => {
         rpm: 1000,
         safeZ: 5,
         blocks: [
-          { number: 3, diameter: 2.5, start: 0 },
-          { number: 4, diameter: 2.5, start: 1 },
+          { number: 3, diameter: 2.5, start: 0, end: 1 },
+          { number: 4, diameter: 2.5, start: 1, end: 2 },
         ],
       },
     );
@@ -717,9 +718,9 @@ describe('the program text of several tools', () => {
 
   it('lists a cutter once however often it comes back, and cleans its name for a comment', () => {
     const three = [
-      { number: 1, name: 'Mill (6 mm; HM)\nlong', diameter: 6, start: 0 },
-      { number: 2, name: '  ', diameter: 3, start: 2 },
-      { number: 1, name: 'Mill', diameter: 6, start: 4 },
+      { number: 1, name: 'Mill (6 mm; HM)\nlong', diameter: 6, start: 0, end: 2 },
+      { number: 2, name: '  ', diameter: 3, start: 2, end: 4 },
+      { number: 1, name: 'Mill', diameter: 6, start: 4, end: 6 },
     ];
     const m: Move[] = [0, 1, 2, 3, 4, 5].map((i) => ({ x: i + 1, feed: null }));
     const text = toGcode(m, { name: 'a(b)', rpm: 1000, safeZ: 5, blocks: three });
@@ -735,52 +736,103 @@ describe('the program text of several tools', () => {
     expect(lines).toContain('(tool T1 Mill)');
   });
 
-  it('writes two changes in a row, and a first block that starts late, still before the first move', () => {
-    // Block 1 says it starts at the move 1, but the program begins with it; blocks 2 and 3 begin at the same move
-    // (nothing is cut in block 2), so the lift has no height of its own to start from: the safe height
+  it('refuses blocks that do not lie end to end over the moves, before it writes a word', () => {
+    // Three moves. The tool is changed at `moves[start]` of a later block, so a list that does not fit the moves
+    // would change the cutter inside a cut, or leave out a cutter that the header lists
     const m: Move[] = [
       { x: 1, feed: null },
       { x: 2, feed: null },
       { x: 3, feed: null },
     ];
-    const text = toGcode(m, {
-      name: 'n',
-      rpm: 1000,
-      safeZ: 5,
-      blocks: [
-        { number: 1, diameter: 6, start: 1 },
-        { number: 2, diameter: 6, start: 2 },
-        { number: 3, diameter: 6, start: 2 },
-      ],
-    });
-    expect(text.split('\n')).toEqual([
+    const at = (...bounds: [number, number][]) =>
+      bounds.map(([start, end], i) => ({ number: i + 1, diameter: 6, start, end }));
+    const text = (b: ReturnType<typeof at>) =>
+      toGcode(m, { name: 'n', rpm: 1000, safeZ: 5, blocks: b });
+    // The fitting ones are written, the first change between the moves it names
+    expect(text(at([0, 1], [1, 3])).split('\n')).toEqual([
       '(LowRider Control CAM: n)',
       '(T1 D=6)',
       '(T2 D=6)',
-      '(T3 D=6)',
       'G21 G90 G17 G94',
       'T1 M6',
       '(tool T1)',
       'G0 Z5',
       'S1000 M3',
       'G0 X1',
-      'X2',
       'G0 Z5',
       'M5',
       'T2 M6',
       'S1000 M3',
       '(tool T2)',
-      'G0 Z5',
-      'M5',
-      'T3 M6',
-      'S1000 M3',
-      '(tool T3)',
-      'G0 X3',
+      'G0 X2',
+      'X3',
       'G0 Z5',
       'M5',
       'M30',
       '',
     ]);
+    const refused: [string, ReturnType<typeof at>][] = [
+      ['the first block starts late', at([1, 2], [2, 3])],
+      ['a gap between two blocks', at([0, 1], [2, 3])],
+      ['two blocks that overlap', at([0, 2], [1, 3])],
+      ['an empty block in the middle', at([0, 1], [1, 1], [1, 3])],
+      ['a block that ends where it starts, at the end', at([0, 2], [2, 2])],
+      ['a block that ends before it starts', at([0, 2], [2, 1], [1, 3])],
+      ['a block that stops short of the last move', at([0, 1], [1, 2])],
+      ['a block that goes past the last move', at([0, 1], [1, 4])],
+      ['a block boundary between two moves', at([0, 1.5], [1.5, 3])],
+      ['a boundary that is no number', at([0, NaN], [NaN, 3])],
+      ['a boundary that is infinite', at([0, 1], [1, Infinity])],
+    ];
+    for (const [what, blocks] of refused) {
+      expect(() => text(blocks), what).toThrow(RangeError);
+    }
+    expect(() => text(at([1, 2], [2, 3]))).toThrow(
+      'toGcode: the tool blocks (1-2, 2-3) do not lie end to end over the 3 moves',
+    );
+    // No moves at all: two blocks have nothing to lie over
+    expect(() =>
+      toGcode([], { name: 'n', rpm: 1000, safeZ: 5, blocks: at([0, 0], [0, 0]) }),
+    ).toThrow(RangeError);
+  });
+
+  it('refuses the moves of one call with the blocks of another – a hole drilled in front, a cut left off', () => {
+    const sign = twoToolSign();
+    const { result } = sign;
+    const options = { name: 's', rpm: 18000, safeZ: 5 };
+    // What the app does for the holes of a two-sided part: they are made by a call of their own and put in front
+    const hole = toolpaths(
+      [circle(10, 60, 3)],
+      [{ contour: 0, kind: 'drill' }],
+      sign.tools[0]!.cut,
+    );
+    expect(hole.moves.length).toBeGreaterThan(0);
+    expect(() =>
+      toGcode([...hole.moves, ...result.moves], { ...options, blocks: result.blocks }),
+    ).toThrow(RangeError);
+    // ... and the other way: the end of the program taken off (the header would list a cutter that is never mounted)
+    expect(() => toGcode(result.moves.slice(0, 5), { ...options, blocks: result.blocks })).toThrow(
+      RangeError,
+    );
+    // The whole call is written, with every change where its block begins
+    expect(toGcode(result.moves, { ...options, blocks: result.blocks })).toContain('T2 M6');
+    // The holes belong to the first block: that block widened over them and the others shifted behind them. The
+    // program then changes the cutter exactly where it did, and everything after the first change is the same text
+    const n = hole.moves.length;
+    const [first, ...later] = result.blocks!;
+    const drilledFirst = [
+      { ...first!, end: first!.end + n },
+      ...later.map((b) => ({ ...b, start: b.start + n, end: b.end + n })),
+    ];
+    const withHole = toGcode([...hole.moves, ...result.moves], {
+      ...options,
+      blocks: drilledFirst,
+    });
+    const without = toGcode(result.moves, { ...options, blocks: result.blocks });
+    const afterChange = (text: string) => text.split('T2 M6\n')[1];
+    expect(afterChange(withHole)).toBeDefined();
+    expect(afterChange(withHole)).toBe(afterChange(without));
+    expect(withHole.split('T2 M6').length).toBe(2);
   });
 
   it('is the program it always was for no blocks or one', () => {

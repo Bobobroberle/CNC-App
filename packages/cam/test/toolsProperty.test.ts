@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   rapidLength,
+  toGcode,
   toolpaths,
   type CutSettings,
   type Move,
@@ -15,10 +16,16 @@ import { generateDrawing, seeded, type Drawing } from './support';
  * with every operation given one of three cutters, checked against what the generator knows (which contour lies in
  * which), not against the library's idea of it: the same cuts as every cutter's own program, the rank and what lies
  * inside a contour first across all the cutters, the cutter that is mounted preferred, the blocks, the same program
- * twice, and a shorter route that never needs more changes.
+ * twice, and a shorter route that never needs more changes. **The three cutters differ in every value that is
+ * theirs** (feeds, stepdown, depth, safe height, stepover, allowance, direction – not only in their diameter), so
+ * that an operation cut with another cutter's value is seen: the points a cut visits are those of its cutter's own
+ * program (depths from its stepdown and depth, the rings from its stepover and allowance), every feed in it is one
+ * of its cutter's two, and the first move of every cut is the lift to its own cutter's safe height. (Not the feed
+ * of each point: an engraved line is walked from either end, so a point is reached at the plunge feed or at the
+ * cutting feed depending on where the walk began.)
  */
 const RANK: Record<string, number> = { drill: 0, pocket: 1, on: 2, inside: 3, outside: 4 };
-const cut = (toolDiameter: number): CutSettings => ({
+const cut = (toolDiameter: number, own: Partial<CutSettings>): CutSettings => ({
   toolDiameter,
   depth: 3,
   stepdown: 1.5,
@@ -28,12 +35,38 @@ const cut = (toolDiameter: number): CutSettings => ({
   rampAngle: 90,
   safeZ: 5,
   climb: true,
+  ...own,
 });
 /** Numbers that are not in the order of the list, so that nothing can lean on it */
 const tools: ToolSettings[] = [
-  { number: 5, name: 'A', cut: cut(3) },
-  { number: 2, name: 'B', cut: cut(2) },
-  { number: 7, name: 'C', cut: cut(2.5) },
+  { number: 5, name: 'A', cut: cut(3, {}) },
+  {
+    number: 2,
+    name: 'B',
+    cut: cut(2, {
+      depth: 2.5,
+      stepdown: 1,
+      stepover: 0.3,
+      feed: 900,
+      plungeFeed: 200,
+      safeZ: 6,
+      climb: false,
+      allowance: 0.3,
+    }),
+  },
+  {
+    number: 7,
+    name: 'C',
+    cut: cut(2.5, {
+      depth: 3.5,
+      stepdown: 2,
+      stepover: 0.5,
+      feed: 1500,
+      plungeFeed: 250,
+      safeZ: 7,
+      allowance: 0.2,
+    }),
+  },
 ];
 
 /** What the generator knows: the operations that have to be cut before this one */
@@ -83,6 +116,7 @@ describe('over many drawings with three cutters', () => {
     let fewerThanBlind = 0;
     let shorter = 0;
     let usesAll = 0;
+    let cuttingFeed = 0;
     for (let k = 0; k < CASES; k++) {
       const d = generateDrawing(rand, false);
       // Some drawings with two cutters, most with three
@@ -101,6 +135,27 @@ describe('over many drawings with three cutters', () => {
       for (const x of [r, short]) {
         expect(x.cuts.map((c) => c.op).sort((a, b) => a - b)).toEqual(ops.map((_, i) => i));
         expect(x.cuts.at(-1)!.end).toBe(x.moves.length);
+      }
+
+      // Every cut begins with the lift to the safe height of ITS cutter, and the program says its changes where the
+      // blocks begin – and never refuses what `toolpaths` made
+      for (const x of [r, short]) {
+        for (const c of x.cuts) {
+          const own = tools[ops[c.op]!.tool!]!.cut;
+          expect(x.moves[c.start]).toEqual({ z: own.safeZ, feed: null });
+          const feeds = new Set(
+            x.moves.slice(c.start, c.end).flatMap((m) => (m.feed === null ? [] : [m.feed])),
+          );
+          for (const feed of feeds) expect([own.feed, own.plungeFeed]).toContain(feed);
+          if (feeds.has(own.feed)) cuttingFeed++;
+        }
+        const lines = toGcode(x.moves, { name: 'p', rpm: 18000, safeZ: 7, blocks: x.blocks }).split(
+          '\n',
+        );
+        // (one block is the program of one cutter: no T word at all)
+        expect(lines.filter((l) => /^T\d+ M6$/.test(l))).toEqual(
+          x.blocks!.length > 1 ? x.blocks!.map((b) => `T${b.number} M6`) : [],
+        );
       }
 
       // The order: at every step the lowest rank among the operations that do not wait; what lies inside a contour
@@ -200,6 +255,7 @@ describe('over many drawings with three cutters', () => {
     // The checks above are not empty: tools were changed, changed back, grouped better than without the
     // preference, and a shorter route was found while they held
     expect(usesAll).toBeGreaterThan(100);
+    expect(cuttingFeed).toBeGreaterThan(1000);
     expect(changes).toBeGreaterThan(500);
     expect(comesBack).toBeGreaterThan(100);
     expect(fewerThanBlind).toBeGreaterThan(30);

@@ -71,9 +71,14 @@ from `futural.jhf` and `scripts.jhf` of <https://github.com/kamalmostafa/hershey
 the licence excludes. Only the outlines are Hershey's: the accented letters, ß, „, €, ° and the other characters the
 data lacks are drawn by the library from its own glyphs, scaled to the face (`font.ts`), and nothing of the
 repository's GPL-licensed library code is used. The licence of the data requires that the acknowledgements below
-are distributed with the font data: they are in the header of both data files and in `FONT_CREDITS` (the library
-exports it; the app is to show it where it shows its licences – the header comments do not reach the one-file
-release). The notice as it comes with the Hershey fonts in SVG (<https://www.evilmadscientist.com>):
+are distributed with the font data: they are in the header comment of both data files (a build drops comments) and,
+shortened to the two acknowledgements, in the `credit` property of the very object that holds the glyphs (`SIMPLEX`,
+`SCRIPT`), so they go wherever the data goes; the library exports them as `FONT_CREDITS`. A one-file bundle of the
+library made with esbuild for this check (minified, `FONT_CREDITS` not used by the entry) still held both strings and
+neither header comment; the project's own release build was not looked at. **The app shows no licences screen yet** –
+it has none (no card, no page, and this file is not part of the release): a card that lists every non-null
+`FONT_CREDITS` entry is an open item of the wiring of the faces. The notice as it comes with the Hershey fonts in SVG
+(<https://www.evilmadscientist.com>):
 
 > The Hershey Fonts are a set of vector fonts with a liberal license.
 >
@@ -107,7 +112,12 @@ the SIL Open Font License, Version 1.1, whose text is kept in the repository as
 `licenses/Relief-SingleLine-OFL.txt` (copied unchanged from the upstream `OFL.txt`). The data in the app is a
 **Modified Version** in the sense of the OFL – the outlines converted into stroke data, stub strokes, kerning and
 glyphs the app does not use left out – and so stays under the OFL (condition 5); the data file says so in its
-header and `FONT_CREDITS` carries the notice. Copyright line of the upstream `OFL.txt`:
+header comment and in its `credit` property (what `FONT_CREDITS` exports: the copyright line, the name of the licence
+and that the data is modified – **not the licence text**). The OFL asks that each copy of the Font Software carry the
+licence; the text is only the file `licenses/Relief-SingleLine-OFL.txt`, and no build or release carries it yet. Open
+item of the wiring of the faces, before a release that holds the face "Modern": a licences card in the app that shows
+the notices of `FONT_CREDITS` and the OFL text (the file, imported as text), with a test that it renders them.
+Copyright line of the upstream `OFL.txt`:
 
 > Copyright 2022 The Relief SingleLine Project Authors (https://github.com/isdat-type/Relief-SingleLine)
 >

@@ -245,9 +245,12 @@ export const isFontId = (v: unknown): v is FontId =>
   typeof v === 'string' && (FONT_IDS as readonly string[]).includes(v);
 
 /**
- * The notice that belongs with each face where one is required (null for our own): the app shows it where it shows
- * its licences, because the comment in the data files does not survive into the one-file release. The licence texts
- * are in THIRD-PARTY.md and licenses/.
+ * The notice that belongs with each face where one is required (null for our own). It is the `credit` of the face's
+ * data – in the same object as its glyphs, so it goes wherever they go into a build, which the comment at the top of
+ * the data file does not. Showing it is for the app, and the app has no licences screen yet (an open item of the
+ * wiring of the faces: THIRD-PARTY.md). It is the acknowledgement (Hershey) or the copyright line with the name of the
+ * licence (Relief), not a licence text: those are in THIRD-PARTY.md and licenses/, and the OFL text of Relief is in no
+ * build.
  */
 export const FONT_CREDITS: Readonly<Record<FontId, string | null>> = {
   standard: null,

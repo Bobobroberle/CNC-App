@@ -1,17 +1,24 @@
 import type { Move, ToolBlock } from './toolpath';
 
 /** What `toGcode` needs of a tool block (`Toolpath.blocks` has it all) */
-export type ProgramBlock = Pick<ToolBlock, 'number' | 'name' | 'diameter' | 'rpm' | 'start'>;
+export type ProgramBlock = Pick<
+  ToolBlock,
+  'number' | 'name' | 'diameter' | 'rpm' | 'start' | 'end'
+>;
 
 export interface ProgramOptions {
   name: string;
   rpm: number;
   safeZ: number;
   /**
-   * The runs of cutters, as `toolpaths` returns them (`Toolpath.blocks`). Two or more make a program with
-   * several tools (see `toGcode`); none or one: the program of one cutter, written exactly as it always was
-   * – no T word, no header – with `rpm`. The first block begins with the program, whatever its `start` says;
-   * every later one is where the tool is changed (the move `moves[start]` is the first of the new cutter).
+   * The runs of cutters, as `toolpaths` returns them (`Toolpath.blocks`) **together with the moves of that very
+   * call**. Two or more make a program with several tools (see `toGcode`); none or one: the program of one
+   * cutter, written exactly as it always was – no T word, no header – with `rpm`, and the list is not looked at.
+   * Two or more must lie end to end over all the moves – the first from move 0, each from where the one before
+   * ends, none empty, the last at the end of `moves`, all of them whole numbers – or `toGcode` throws a
+   * `RangeError` before it writes anything: the tool is changed at `moves[start]` of a later block, so a list
+   * that does not fit the moves (a move put in front of the call's, or taken off its end) would change the
+   * cutter inside a cut, or leave a cutter out of the program that its header lists.
    */
   blocks?: readonly ProgramBlock[];
 }
@@ -27,6 +34,16 @@ const tidy = (text: string) =>
     .replace(/[()\u0000-\u001f\u007f;]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+/** Whether the blocks lie end to end over `length` moves: the first from 0, each from where the one before ends, whole numbers, none empty */
+const tile = (blocks: readonly ProgramBlock[], length: number) => {
+  let at = 0;
+  for (const b of blocks) {
+    if (b.start !== at || !Number.isInteger(b.end) || b.end <= b.start) return false;
+    at = b.end;
+  }
+  return at === length;
+};
 
 /** The tool as the header and the block say it: its T number and, where it has one, its name */
 const named = (b: ProgramBlock, before: string) => {
@@ -64,9 +81,17 @@ const named = (b: ProgramBlock, before: string) => {
  * M5
  * M30
  * ```
+ *
+ * The blocks must be the ones of the call that made `moves` (see `ProgramOptions.blocks`): they are checked
+ * against the moves first, and a `RangeError` says so when they do not lie end to end over all of them.
  */
 export function toGcode(moves: readonly Move[], o: ProgramOptions): string {
   const blocks = o.blocks && o.blocks.length > 1 ? o.blocks : undefined;
+  if (blocks && !tile(blocks, moves.length)) {
+    throw new RangeError(
+      `toGcode: the tool blocks (${blocks.map((b) => `${b.start}-${b.end}`).join(', ')}) do not lie end to end over the ${moves.length} moves`,
+    );
+  }
   const out = [`(LowRider Control CAM: ${o.name.replace(/[()]/g, '')})`];
   const speed = (b: ProgramBlock) => `S${Math.round(b.rpm ?? o.rpm)} M3`;
   if (blocks) {
