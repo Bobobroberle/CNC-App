@@ -1218,16 +1218,16 @@ add('cam', 'Zeichnen & Formen', [
     'aufgabe',
   ],
   [
-    'cam-font9',
-    'Schrift: der Block liegt auf dem Tablet unter der Karte „Zeichnen“',
-    'Der Block „Schrift“ steht jetzt als Erstes in der Karte der Auswahl, aber diese Karte liegt unter den Kacheln und „Projekt öffnen“. Im Bildschirmfoto bei Tablet-Größe (1138 × 712) beginnt das Feld der Worte am unteren Rand des Panels; nach dem Tipp auf „Text“ holt der Fokus es ins Bild, ein Tipp auf die Zeile eines Textes in der Liste tut das nicht. Denkbar: die Karte der Auswahl vor die Kacheln stellen, solange ein Teil gewählt ist, oder die Kacheln dann einklappen. Nicht gebaut.',
-    'klein',
-  ],
-  [
     'cam-font8',
     'Kommentar in der Bibliothek nennt das fehlende Lizenzfenster noch',
     'Der Kommentar zu FONT_CREDITS in packages/cam/src/font.ts sagt noch, die App habe kein Lizenzfenster („an open item of the wiring of the faces“). Seit „Schriften und Lizenzen“ stimmt das nicht mehr. Nur ein Kommentar, in dieser Stufe nicht angefasst, weil die Bibliothek nicht geändert werden sollte.',
     'aufgabe',
+  ],
+  [
+    'cam-font9',
+    'Schrift: ein Text, den man in der Liste antippt, zeigt seinen Block nicht',
+    'Die Karte der Auswahl mit dem Block „Schrift“ liegt unter den Kacheln und „Projekt öffnen“. Gemessen im Browser-Test (Chromium; Tablet 1138 × 712, Desktop 1280 × 720, Sheet 800 × 600), ohne Hand-Scroll: nach dem Tipp auf „Text“ lagen auf Tablet und Desktop Schriftart und Höhe außer Reichweite (auf dem Desktop die Worte 17 px unter dem Panel), im Sheet 800 × 600 standen Worte, Schriftart und Höhe in Reichweite; der Hinweis zu fehlenden Zeichen, der beim Tippen kommt, lag in allen dreien darunter. Gebaut: nach „Text“ holt die App Worte, Schriftart und Höhe ins Bild und den Hinweis, wenn er kommt oder seine Art wechselt – nur wo sie außerhalb liegen. Nicht gebaut: ein Tipp auf die Zeile eines Textes in der Liste. Die Zeile bleibt dort, wo der Finger sie hingesetzt hat (die Regel der Zeilen), die Karte wächst darüber, und die Worte lagen im Test rund 630 px über dem oberen Rand des Panels (Tablet-Größe; Schriftart und Höhe darunter, ebenfalls außer Sicht); die Maßfelder einer Form liegen in derselben Karte (aus dem Aufbau gelesen, nicht gemessen). Auch ein Tipp auf den Text auf dem Tisch holt nichts ins Bild. Die Karte vor die Kacheln zu stellen verschöbe die Kacheln unter dem Finger beim Hinzufügen. Denkbar: nur beim Tipp auf den Namen einer Zeile nachträglich zum Block scrollen – das nähme die Zeile unter dem Finger weg.',
+    'klein',
   ],
 ]);
 

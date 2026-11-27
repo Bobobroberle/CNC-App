@@ -387,37 +387,73 @@ test('the quick search leads to the face of a text and to the licences', async (
   await expect(page.getByTestId('licences-card')).toBeVisible();
 });
 
-test('on the machine screen (800 × 600) the block is in reach in the sheet at its largest', async ({
+/** A control is in reach: inside the scroll box of the panel and reached by a touch at its middle – no scroll first. */
+async function reach(page: Page, cam: Locator, name: string, control: Locator) {
+  const scroller = cam.locator('xpath=ancestor::*[contains(@class,"panel-body")][1]');
+  const at = await inReach(page, control, scroller);
+  expect(at.inside && at.reached, `${name}: ${JSON.stringify(at)}`).toBe(true);
+}
+
+/** What a text that was just added needs, and what the note needs when it comes: all in reach, nothing scrolled by hand. */
+async function wholeBlockInReach(page: Page, cam: Locator) {
+  await addText(cam);
+  // the words took the keyboard, and the face and the height lie right below them – none of them behind the fold
+  await expect(wordsOf(cam)).toBeFocused();
+  await reach(page, cam, 'the words', wordsOf(cam));
+  await reach(page, cam, 'the face', selectOf(cam));
+  await reach(page, cam, 'the height', heightOf(cam));
+  // a character no face has: the note comes below the fields and is brought into view where the panel ends before it
+  await wordsOf(cam).fill('Hallo ☺');
+  const note = cam.getByTestId('cam-text-missing');
+  await expect(note).toBeVisible();
+  await reach(page, cam, 'the note', note);
+  await reach(page, cam, 'the words, after the note came', wordsOf(cam));
+  // a text of nothing but missing characters: the other note, in the same place
+  await wordsOf(cam).fill('☺');
+  await expect(note).toHaveAttribute('data-nothing', '');
+  await reach(page, cam, 'the note of a text with nothing to cut', note);
+}
+
+test('a text that was just added shows the face and the height in reach without a scroll – and the note when it comes', async ({
+  page,
+}) => {
+  const cam = await drawing(page);
+  await wholeBlockInReach(page, cam);
+});
+
+test('on the machine screen (800 × 600) the block and its note are in reach in the sheet at its largest', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 800, height: 600 });
   const cam = await drawing(page);
   await page.locator('[data-slot="sheet-larger"]').click();
   await expect(page.locator('[data-slot="sheet"]')).toHaveAttribute('data-level', 'full');
-  await addText(cam);
-  // the words took the keyboard: the browser brought them into view
-  await expect(wordsOf(cam)).toBeFocused();
-  const scroller = cam.locator('xpath=ancestor::*[contains(@class,"panel-body")][1]');
-  const where = async (control: Locator) => inReach(page, control, scroller);
-  const words = await where(wordsOf(cam));
-  expect(words.inside && words.reached, `the words: ${JSON.stringify(words)}`).toBe(true);
-  // the face and the height sit right below them: a finger reaches them without a scroll, or by one swipe of the
-  // panel – measured: they are in the scroll box once it is scrolled to the block
-  await cam.getByTestId('cam-text-block').evaluate((el) => {
-    const body = el.closest<HTMLElement>('.panel-body')!;
-    body.scrollTop += el.getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
-  });
-  await page.waitForTimeout(100);
-  for (const [name, control] of [
-    ['the words', wordsOf(cam)],
-    ['the face', selectOf(cam)],
-    ['the height', heightOf(cam)],
-  ] as const) {
-    const at = await where(control);
-    expect(at.inside && at.reached, `${name}: ${JSON.stringify(at)}`).toBe(true);
-  }
+  await wholeBlockInReach(page, cam);
   // the face can be picked in the sheet, and the program follows
+  await wordsOf(cam).fill('Hallo');
   const standard = await program(page);
   await selectOf(cam).selectOption({ label: 'Modern' });
   expect(await program(page)).not.toBe(standard);
+});
+
+test('a text taken up by its row stays where the finger put it – even one that has a note – and the panel does not scroll', async ({
+  page,
+}) => {
+  const cam = await drawing(page);
+  await addText(cam);
+  await wordsOf(cam).fill('A☺');
+  await expect(cam.getByTestId('cam-text-missing')).toBeVisible();
+  // a plate takes the selection away from the text, and the text is tapped by its row
+  await cam.getByTestId('cam-add').getByRole('button', { name: 'Rechteck', exact: true }).click();
+  await expect(wordsOf(cam)).toHaveCount(0);
+  const name = cam.getByTestId('cam-contours').getByRole('button', { name: /Text/ }).first();
+  await name.scrollIntoViewIfNeeded();
+  const before = (await name.boundingBox())!;
+  // a mouse click at the point measured before the tap: a locator would scroll to the box again
+  await page.mouse.click(before.x + before.width / 2, before.y + before.height / 2);
+  await expect(wordsOf(cam)).toHaveValue('A☺');
+  await expect(cam.getByTestId('cam-text-missing')).toBeVisible();
+  await page.waitForTimeout(150);
+  const after = (await name.boundingBox())!;
+  expect(after.y, 'the row is where the finger put it').toBeCloseTo(before.y, 0);
 });

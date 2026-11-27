@@ -249,3 +249,119 @@ describe('the block "Schrift" of a selected text', () => {
     view.unmount();
   });
 });
+
+describe('what a text needs is brought into view where the panel lies before it', () => {
+  const into = vi.fn();
+  let fieldsTop = 100;
+  let noteTop = 100;
+  const rect = (top: number, height: number) =>
+    ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top }) as DOMRect;
+  const panel = () => (
+    <div className="panel-body">
+      <CamCard />
+    </div>
+  );
+  const tile = () => fireEvent.click(button(t('cam.shapes.text')));
+  beforeEach(() => {
+    scene();
+    into.mockClear();
+    fieldsTop = 100;
+    noteTop = 100;
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: into });
+    // The panel shows 0 … 300, the way back of the workspace covers its top 50; the rest is where the test says
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      if (this.classList.contains('panel-body')) return rect(0, 300);
+      if (this.classList.contains('workspace-head')) return rect(0, 50);
+      const id = (this as HTMLElement).dataset?.testid;
+      if (id === 'cam-text-fields') return rect(fieldsTop, 200);
+      if (id === 'cam-text-missing') return rect(noteTop, 46);
+      return rect(0, 0);
+    });
+  });
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  it('the words, the face and the height, for the tile "Text": only where they lie out of sight, and the focus does not scroll alone', () => {
+    const focus = vi.spyOn(HTMLTextAreaElement.prototype, 'focus');
+    const view = render(panel());
+    // in the visible part (100 … 300): nothing moves
+    tile();
+    expect(into).not.toHaveBeenCalled();
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    view.unmount();
+    cam().close();
+    openCam();
+    // below the fold (280 … 480 of 300): the block is brought in, by the least that does it
+    fieldsTop = 280;
+    render(panel());
+    tile();
+    expect(into).toHaveBeenCalledTimes(1);
+    expect(into).toHaveBeenCalledWith({ block: 'nearest' });
+    expect(into.mock.contexts[0]).toBe(screen.getByTestId('cam-text-fields'));
+  });
+
+  it('under the way back of the workspace counts as out of sight too', () => {
+    fieldsTop = 20;
+    render(panel());
+    tile();
+    expect(into).toHaveBeenCalledTimes(1);
+  });
+
+  it('not for a text taken up by a tap on its row (the row stays where the finger put it), nor for one that has a note', () => {
+    render(panel());
+    tile();
+    type('A☺');
+    expect(warning()).not.toBeNull();
+    into.mockClear();
+    // a plate takes the selection, then the text is taken up again: the block and its note show for the first time
+    fieldsTop = 280;
+    noteTop = 330;
+    act(() => cam().addSketch({ type: 'rect', w: 60, h: 40, r: 0 }));
+    expect(screen.queryByTestId('cam-text-block')).toBeNull();
+    fireEvent.click(
+      screen
+        .getAllByRole('button', { name: /Text/ })
+        .find((b) => b.className.includes('cam-name'))!,
+    );
+    expect(words().value).toBe('A☺');
+    expect(warning()).not.toBeNull();
+    expect(into).not.toHaveBeenCalled();
+  });
+
+  it('the note: when it comes or changes its kind, where it lies out of sight – and not again for more of the same', () => {
+    render(panel());
+    tile();
+    expect(warning()).toBeNull();
+    // it comes (below the fold)
+    noteTop = 320;
+    type('Hallo ☺');
+    expect(into).toHaveBeenCalledTimes(1);
+    expect(into.mock.contexts[0]).toBe(warning());
+    // another character of the same kind: the note stays, the panel is not moved again
+    type('Hallo ☺☺');
+    expect(into).toHaveBeenCalledTimes(1);
+    // it changes its kind (nothing is left to cut): the other note is brought in
+    type('☺');
+    expect(warning()!.hasAttribute('data-nothing')).toBe(true);
+    expect(into).toHaveBeenCalledTimes(2);
+    // gone and back: brought in again
+    type('Hallo');
+    expect(warning()).toBeNull();
+    type('Hallo ☺');
+    expect(into).toHaveBeenCalledTimes(3);
+  });
+
+  it('the note in the visible part does not move the panel', () => {
+    render(panel());
+    tile();
+    noteTop = 100;
+    type('Hallo ☺');
+    expect(warning()).not.toBeNull();
+    expect(into).not.toHaveBeenCalled();
+  });
+});

@@ -26,6 +26,22 @@ export function focusNewText() {
 }
 
 /**
+ * Brings `el` into the visible part of the panel that scrolls – only where it lies outside it (what is in view does
+ * not move) and below the sticky head of the workspace – the rule of the tab panel (`CamTabs`). Nothing in a unit
+ * test lies in a panel, and then nothing moves.
+ */
+function bringIntoView(el: HTMLElement | null) {
+  const scroller = el?.closest<HTMLElement>('.panel-body');
+  if (!el || !scroller) return;
+  const room = scroller.getBoundingClientRect();
+  const at = el.getBoundingClientRect();
+  const covered = scroller.querySelector('.workspace-head')?.getBoundingClientRect().height ?? 0;
+  if (at.top < room.top + covered || at.bottom > room.bottom) {
+    el.scrollIntoView?.({ block: 'nearest' });
+  }
+}
+
+/**
  * "Schrift" – everything a text needs every time, in one short block at the top of the card of the selection:
  * the words, the face and the height. How the lines are set (alignment, the room between letters and lines) is the
  * fold below it. The table is the preview: the select shows names only.
@@ -56,11 +72,17 @@ export function TextBlock({ item, sketch }: { item: CamItem; sketch: TextSketch 
       setFace(kept);
     }
   }, [sketch.text, kept]);
+  // The words, the face and the height (not the fold and not the note): what a text that was just added is edited by
+  const fields = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!focusText) return;
     focusText = false;
-    field.current?.focus();
+    // The block lies below the tiles of the card: the browser's own scroll to the field alone would leave the face
+    // and the height below the fold. Only here, for the tap on the tile "Text" – a text taken up by a tap on its
+    // row is not scrolled to: the row stays where the finger put it (`ItemRow`), whatever it grows above itself.
+    field.current?.focus({ preventScroll: true });
     field.current?.select();
+    bringIntoView(fields.current);
   }, []);
 
   // The typed words in the chosen face – not the stored sketch: a text of nothing but missing characters is never
@@ -70,6 +92,18 @@ export function TextBlock({ item, sketch }: { item: CamItem; sketch: TextSketch 
     if (text === sketch.text && font === kept) return;
     cam.setSketch(item.id, { ...sketch, text, font }, name);
   };
+  // The note comes below the fields, where the panel may end: when it comes or changes its kind while the words are
+  // typed it is brought into view (where it lies outside) – never when the block is first shown, so a text taken up
+  // that already has one does not scroll the panel. Its own effect: the two notes share one place in the tree.
+  const kind =
+    !check || check.missing.length === 0 ? null : check.strokes === 0 ? 'nothing' : 'some';
+  const note = useRef<HTMLDivElement>(null);
+  const shownKind = useRef(kind);
+  useEffect(() => {
+    if (kind === shownKind.current) return;
+    shownKind.current = kind;
+    if (kind !== null) bringIntoView(note.current);
+  }, [kind]);
   const way = check
     ? check.elsewhere.length > 0
       ? t('cam.text.elsewhere', { faces: check.elsewhere.map(faceName).join(', ') })
@@ -78,55 +112,58 @@ export function TextBlock({ item, sketch }: { item: CamItem; sketch: TextSketch 
 
   return (
     <div className="flex flex-col gap-2" data-testid="cam-text-block">
-      <h3 className="font-medium text-muted-foreground text-sm">{t('cam.text.block')}</h3>
-      <Field>
-        <FieldLabel>{t('cam.text.label')}</FieldLabel>
-        <Textarea
-          ref={field}
-          rows={2}
-          value={words}
-          placeholder={t('cam.text.placeholder')}
-          data-testid="cam-text"
-          onChange={(e) => {
-            setWords(e.target.value);
-            if (e.target.value.trim() === '') return;
-            shown.current.text = e.target.value;
-            store(e.target.value, face, 'text');
-          }}
-        />
-      </Field>
-      <div className="grid grid-cols-2 gap-2 items-end">
-        <Field data-find="text-font">
-          <FieldLabel>{t('cam.text.font')}</FieldLabel>
-          <NativeSelect
-            value={face}
-            data-testid="cam-font"
+      {/* (below the sticky head of the workspace when it is brought into view: 4.25rem, as every anchor) */}
+      <div ref={fields} className="flex flex-col gap-2 scroll-mt-17" data-testid="cam-text-fields">
+        <h3 className="font-medium text-muted-foreground text-sm">{t('cam.text.block')}</h3>
+        <Field>
+          <FieldLabel>{t('cam.text.label')}</FieldLabel>
+          <Textarea
+            ref={field}
+            rows={2}
+            value={words}
+            placeholder={t('cam.text.placeholder')}
+            data-testid="cam-text"
             onChange={(e) => {
-              const next = e.target.value as FontId;
-              setFace(next);
-              shown.current.face = next;
-              // the typed words go with the face (they may be what the face is chosen for)
-              store(words.trim() === '' ? sketch.text : words, next, 'font');
+              setWords(e.target.value);
+              if (e.target.value.trim() === '') return;
+              shown.current.text = e.target.value;
+              store(e.target.value, face, 'text');
             }}
-          >
-            {FONT_IDS.map((id) => (
-              <option key={id} value={id}>
-                {faceName(id)}
-              </option>
-            ))}
-          </NativeSelect>
+          />
         </Field>
-        <NumberField
-          label="cam.text.height"
-          value={sketch.height}
-          min={0.01}
-          onChange={(v) =>
-            v !== undefined && cam.setSketch(item.id, { ...sketch, height: v }, 'height')
-          }
-        />
+        <div className="grid grid-cols-2 gap-2 items-end">
+          <Field data-find="text-font">
+            <FieldLabel>{t('cam.text.font')}</FieldLabel>
+            <NativeSelect
+              value={face}
+              data-testid="cam-font"
+              onChange={(e) => {
+                const next = e.target.value as FontId;
+                setFace(next);
+                shown.current.face = next;
+                // the typed words go with the face (they may be what the face is chosen for)
+                store(words.trim() === '' ? sketch.text : words, next, 'font');
+              }}
+            >
+              {FONT_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {faceName(id)}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <NumberField
+            label="cam.text.height"
+            value={sketch.height}
+            min={0.01}
+            onChange={(v) =>
+              v !== undefined && cam.setSketch(item.id, { ...sketch, height: v }, 'height')
+            }
+          />
+        </div>
       </div>
       {check && check.missing.length > 0 && check.strokes === 0 ? (
-        <Alert variant="warning" data-testid="cam-text-missing" data-nothing="">
+        <Alert ref={note} variant="warning" data-testid="cam-text-missing" data-nothing="">
           {t('cam.text.nothing', {
             font: faceName(face),
             kept: faceName(kept),
@@ -135,7 +172,7 @@ export function TextBlock({ item, sketch }: { item: CamItem; sketch: TextSketch 
           {way}
         </Alert>
       ) : check && check.missing.length > 0 ? (
-        <Alert variant="warning" data-testid="cam-text-missing">
+        <Alert ref={note} variant="warning" data-testid="cam-text-missing">
           {t('cam.text.missing', { font: faceName(face), list: check.missing.join(' ') })} {way}
         </Alert>
       ) : null}

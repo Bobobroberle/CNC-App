@@ -7,6 +7,7 @@ import {
   drawShape,
   drawThreePlates,
   goTo,
+  inReach,
   installFakeCameraPi,
   installFakeFluidNC,
   moreOptions,
@@ -1975,6 +1976,15 @@ test('the face of a text on a finger: the block is full targets, a pick changes 
   };
   await cam.getByTestId('cam-add').getByRole('button', { name: 'Text', exact: true }).tap();
   const select = cam.getByLabel('Schriftart', { exact: true });
+  // the words, the face and the height are in reach of a finger without a scroll by hand – the panel brought them in
+  const scroller = cam.locator('xpath=ancestor::*[contains(@class,"panel-body")][1]');
+  const reached = async (control: Locator, what: string) => {
+    const at = await inReach(page, control, scroller);
+    expect(at.inside && at.reached, `${what}: ${JSON.stringify(at)}`).toBe(true);
+  };
+  await reached(cam.getByTestId('cam-text'), 'the words');
+  await reached(select, 'the face');
+  await reached(cam.getByLabel('Schrifthöhe (mm)', { exact: true }), 'the height');
   await tall(select, 'the face');
   await tall(cam.getByTestId('cam-text'), 'the words');
   await tall(cam.getByLabel('Schrifthöhe (mm)', { exact: true }), 'the height');
@@ -1999,6 +2009,7 @@ test('the face of a text on a finger: the block is full targets, a pick changes 
   const gap = await apart();
   await words.fill('A☺');
   await expect(cam.getByTestId('cam-text-missing')).toContainText('☺');
+  await reached(cam.getByTestId('cam-text-missing'), 'the note');
   expect(await apart()).toBe(gap);
   await words.fill('Text');
   await cam.getByRole('button', { name: 'Rückgängig', exact: true }).tap();
