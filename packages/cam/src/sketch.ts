@@ -37,7 +37,7 @@ export type Sketch =
  * here takes the wider `AnySketch` and gives back the narrower type for a narrower argument.
  */
 export type ShapeSketch =
-  /** Radii along x and y; a curve, never corners */
+  /** Radii along x and y; a curve – its vertices are no corners, up to a thinness of about 1 : 170 (see `ellipse`) */
   | { type: 'ellipse'; rx: number; ry: number }
   /** `points` tips on the circle `outer`, as many notches on the circle `inner` (the first tip points up) */
   | { type: 'star'; points: number; outer: number; inner: number }
@@ -59,8 +59,13 @@ export const SKETCH_MAX = 5000;
 
 /**
  * The ranges a drawn thing's measures keep, for the fields of the interface and for a file that is read.
- * `tidySketch` brings a measure into its range (a count is also made whole); `validateSketch` refuses
- * a length or radius outside it. A number that is none (NaN, ±Infinity) becomes the smallest value.
+ * `tidySketch` brings a measure into its range – below the smallest up, a count also made whole – but only
+ * for the curved shapes (`ShapeSketch`) and the counts of a grid: the five older types are not held to
+ * `length.max` there, as they never were. `validateSketch` refuses a length or radius above its largest
+ * (for every type, the older ones too) and one that is not above 0; a value below the smallest is brought
+ * up by `tidySketch`, not refused. So a rectangle that was stretched past `length.max` is valid for
+ * `tidySketch` and refused by `validateSketch` – read back from a file it loses its sketch and keeps its
+ * contours. A number that is none (NaN, ±Infinity) becomes the smallest value in `tidySketch`.
  */
 export const SKETCH_LIMITS = {
   /** Widths, lengths, diameters, pitches and the height of a text, mm */
@@ -74,8 +79,10 @@ export const SKETCH_LIMITS = {
   /** Turns of a spiral, quarter turns and more */
   spiralTurns: { min: 0.25, max: 50 },
   /**
-   * No shape made within these limits has more vertices than this (the largest is a spiral of 50 turns out to
-   * the largest radius, about 56 000 – the tests build it)
+   * No single contour of an ellipse, star, gear or spiral made within these limits has more vertices than
+   * this (the largest is the spiral of 50 turns out to the largest radius, 55 714 – the tests build it and
+   * the other extremes). A grid is up to 50 × 50 contours, each a circle of up to about 1100 points at the
+   * largest diameter; a text is whatever its words are.
    */
   vertices: 65_000,
 } as const;
@@ -185,7 +192,8 @@ export const sketchTextOptions = (s: Sketch & { type: 'text' }): TextOptions => 
  * The contours of a sketch around its own origin: the middle of a shape (of a star, a gear and a spiral
  * the middle of its circles), the anchor of a text (on the first baseline, at the end `align` names).
  * `missing` lists characters the font does not have. A circle, a grid hole and an ellipse of two equal
- * radii are the only contours that carry the `circle` of an exact circle; the spiral is the one open contour.
+ * radii are the only contours that carry the `circle` of an exact circle; the spiral is an open contour (as
+ * are the strokes of a text), everything else a closed one.
  */
 export function sketchContours(sketch: AnySketch): { contours: Contour[]; missing: string[] } {
   const s = tidySketch(sketch);
@@ -369,7 +377,9 @@ const isRadii = (v: unknown): v is Radii => Array.isArray(v) && v.length === 4 &
  * number and its `radii` four numbers. A count or radius that is too large or too small for its shape is not
  * refused but brought in by `tidySketch` (a star of 99 tips has 32), as the app has always done with a
  * grid; a length or radius above the limits is refused – nobody draws it, and it would make a very
- * large polygon. What the object holds besides the measures is dropped.
+ * large polygon. That includes the older types, which `tidySketch` leaves alone above `SKETCH_MAX`: a
+ * sketch stretched past it is refused when it is read back (the item keeps its contours). What the object
+ * holds besides the measures is dropped.
  */
 export function validateSketch(value: unknown): AnySketch | null {
   if (!isObject(value)) return null;

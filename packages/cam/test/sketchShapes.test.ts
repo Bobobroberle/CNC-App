@@ -437,10 +437,10 @@ describe('the limits', () => {
     expect(SKETCH_LIMITS.gridCount).toEqual({ min: 1, max: 50 });
   });
 
-  it('holds: no sketch within them has more vertices than `vertices`', () => {
+  it('holds: no contour of a curved shape within them has more vertices than `vertices`', () => {
     const r = SKETCH_LIMITS.radius;
     const most = (s: AnySketch) =>
-      sketchContours(s).contours.reduce((n, c) => n + c.points.length, 0);
+      Math.max(...sketchContours(s).contours.map((c) => c.points.length));
     // The spiral of 50 turns out to the largest radius is the largest of all: 55 714 points
     expect(most({ type: 'spiral', turns: 50, start: 0, end: r.max })).toBe(55714);
     for (const s of [
@@ -459,7 +459,7 @@ describe('the limits', () => {
     expect(CURVE_TOLERANCE).toBeLessThanOrEqual(0.05);
   });
 
-  it('keeps every vertex of an ellipse within the limits a curve, never a corner', () => {
+  it('keeps an ellipse a curve at the ends of the size limits, up to a thinness of 1 : 100', () => {
     const r = SKETCH_LIMITS.radius;
     for (const [rx, ry] of [
       [r.max, r.max / 100],
@@ -470,6 +470,9 @@ describe('the limits', () => {
       const c = sketchContours({ type: 'ellipse', rx: rx!, ry: ry! }).contours[0]!;
       expect(cornerWays(c)).toEqual([]);
     }
+    // ... and not beyond: the thinnest the limits allow has two tips tighter than any cutter (see `ellipse`)
+    const needle = sketchContours({ type: 'ellipse', rx: r.max, ry: r.min }).contours[0]!;
+    expect(cornerWays(needle)).toHaveLength(2);
   });
 });
 
@@ -518,6 +521,29 @@ describe('reading a sketch from a file', () => {
     expect(validateSketch({ type: 'spiral', turns: 1, start: 20, end: 0 })).toMatchObject({
       end: 0,
     });
+  });
+
+  it('accepts what tidying makes, but for a length of the older types beyond the limit', () => {
+    const r = SKETCH_LIMITS.radius;
+    for (const s of [
+      ...NEW,
+      { type: 'ellipse', rx: -1, ry: 1e9 },
+      { type: 'star', points: 1, outer: 3, inner: 9 },
+      { type: 'gear', teeth: 999, outer: 1, root: 9 },
+      { type: 'spiral', turns: 77, start: 0, end: 0 },
+      { type: 'spiral', turns: 3, start: r.max, end: r.max },
+      { type: 'rect', w: 100, h: 60, r: 3, radii: [1, 99, -2, 4] },
+      { type: 'rect', w: 0.1, h: 0.1, r: -1 },
+      { type: 'circle', d: 0.1 },
+      { type: 'grid', d: 6, nx: 999, ny: 0.2, px: 0.1, py: 10 },
+    ] as AnySketch[]) {
+      expect(validateSketch(tidySketch(s)), JSON.stringify(s)).toEqual(tidySketch(s));
+    }
+    // The older types are not held to the largest length by `tidySketch` (they never were), and a file that
+    // holds such a sketch is refused: the item keeps its contours and loses its measures
+    const huge = tidySketch({ type: 'rect', w: SKETCH_MAX + 1000, h: 10, r: 0 });
+    expect(huge.type === 'rect' && huge.w).toBe(SKETCH_MAX + 1000);
+    expect(validateSketch(huge)).toBeNull();
   });
 
   it('drops what is not a measure', () => {

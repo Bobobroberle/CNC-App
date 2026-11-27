@@ -117,8 +117,8 @@ const ELLIPSE_POINTS = 4096;
  * its chords sag no more). And the line turns by at most `ELLIPSE_TURN` degrees at any point – the turn is
  * greatest at the ends of the long axis, 2·atan((long / short) · tan(step / 2)) – so that a vertex of it is
  * never mistaken for a corner (`cornerWays` asks for 20°, the measuring tool for 30°). The turn costs
- * points only up to 4096 (the chord tolerance alone never needs more than about 1600, at the largest radius
- * the sketch allows): an ellipse thinner than about
+ * points only up to 4096 (the chord tolerance alone never needs more than about 1100, at the largest
+ * radius the sketch allows): an ellipse thinner than about
  * 1 : 170 has tips tighter than that and turns by more than `ELLIPSE_TURN` there, from about 1 : 230 by 20° or
  * more – then `cornerWays` does report the two tips as corners, and rightly so for a cutter (the radius of a
  * tip is short² / long: 0.25 mm × 0.25 mm / 2500 mm is a needle). Equal radii are a circle: the exact one,

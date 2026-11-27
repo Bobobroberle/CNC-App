@@ -92,7 +92,9 @@ const inside = (a: Rect, b: Rect) =>
 
 /** The free rectangles after `used` was put down: every one it touches is cut into what lies beside it */
 function without(free: readonly Rect[], used: Rect): Rect[] {
-  const out: Rect[] = [];
+  // What it did not touch stays as it is; what it did is cut into pieces
+  const kept: Rect[] = [];
+  const pieces: Rect[] = [];
   for (const f of free) {
     const apart =
       used.x >= f.x + f.w ||
@@ -100,27 +102,28 @@ function without(free: readonly Rect[], used: Rect): Rect[] {
       used.y >= f.y + f.h ||
       used.y + used.h <= f.y;
     if (apart) {
-      out.push(f);
+      kept.push(f);
       continue;
     }
-    if (used.y > f.y) out.push({ x: f.x, y: f.y, w: f.w, h: used.y - f.y });
+    if (used.y > f.y) pieces.push({ x: f.x, y: f.y, w: f.w, h: used.y - f.y });
     if (used.y + used.h < f.y + f.h) {
-      out.push({ x: f.x, y: used.y + used.h, w: f.w, h: f.y + f.h - (used.y + used.h) });
+      pieces.push({ x: f.x, y: used.y + used.h, w: f.w, h: f.y + f.h - (used.y + used.h) });
     }
-    if (used.x > f.x) out.push({ x: f.x, y: f.y, w: used.x - f.x, h: f.h });
+    if (used.x > f.x) pieces.push({ x: f.x, y: f.y, w: used.x - f.x, h: f.h });
     if (used.x + used.w < f.x + f.w) {
-      out.push({ x: used.x + used.w, y: f.y, w: f.x + f.w - (used.x + used.w), h: f.h });
+      pieces.push({ x: used.x + used.w, y: f.y, w: f.x + f.w - (used.x + used.w), h: f.h });
     }
   }
-  // A free rectangle that lies inside another adds nothing (of two equal ones the earlier stays); the
-  // list keeps the order in which the rectangles that remain were made
-  let kept: Rect[] = [];
-  for (const a of out) {
-    if (kept.some((b) => inside(a, b))) continue;
-    kept = kept.filter((b) => !inside(b, a));
-    kept.push(a);
+  // A piece that lies inside another free rectangle adds nothing (of two equal ones the earlier stays), and
+  // one that holds earlier pieces replaces them. A rectangle that was not touched cannot lie inside a piece:
+  // the piece lies inside the rectangle it was cut from, and no free rectangle lies inside another.
+  let fresh: Rect[] = [];
+  for (const a of pieces) {
+    if (kept.some((b) => inside(a, b)) || fresh.some((b) => inside(a, b))) continue;
+    fresh = fresh.filter((b) => !inside(b, a));
+    fresh.push(a);
   }
-  return kept;
+  return [...kept, ...fresh];
 }
 
 /** One run: where each part (by its index) goes in the stock inflated by the gap, null where it does not fit */
