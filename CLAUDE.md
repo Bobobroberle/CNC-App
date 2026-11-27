@@ -731,7 +731,8 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   the app. A new setting of the machine needs nothing (it is in the settings document – but give a number a range in `insane`); one
   of the device goes into the local lists; a new document is a `Slice` (with `keys`) plus its key at the companion. **Known and
   accepted:** the state, the libraries and the relay need no login and the companion answers CORS `*` (as before this feature – the workshop network is trusted; the login protects only update, power-off and itself), so any
-  page the operator opens could write the state; probe, hole, tag and tool-length results are not in the log yet.
+  page the operator opens could write the state – and, the same way, set the camera's exposure and gain (`/api/camera/controls`: the whitelist of
+  picture controls and the ranges the camera reports are the limit); probe, hole, tag and tool-length results are not in the log yet.
 - **Login and update of the Pi** (`docs/update-konzept.md`; companion `src/auth.ts`, `zip.ts`, `release.ts`, `updater.ts`, `version.ts`,
   `scripts/pi/{setup.sh,lib.sh,guard.sh,update-pi.bat}`; app `store/piLogin.ts`, `store/piUpdate.ts`, `lib/piUpdate.ts`,
   `components/PiAccessCard.tsx`, `PiUpdateCard.tsx`, under Einstellungen → Verbindung). **What the login protects** – and only this:
@@ -768,6 +769,22 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   clear over http: they keep other web pages and guests out, not someone who reads the WLAN; where the service user may `sudo`
   without a password, the Pi code is root on the Pi. `update-pi.bat` is plain ASCII with CRLF (the bundle makes it so), runs
   `scp` + `ssh -t`, and stays the way when the Pi no longer answers.
+- **The camera's picture settings from the app** (Einstellungen → Kamera → "Belichtung und Bild", `CameraControlsCard`, `store/cameraControls.ts`, pure
+  `lib/cameraControls.ts`; companion `src/camera.ts` + `GET/PUT /api/camera/controls`, `cameraControls: true` in `/api/health` – the card shows only
+  where that is said; `docs/companion.md`): the companion runs `v4l2-ctl -d $CAMERA_DEVICE --list-ctrls-menus` / `--set-ctrl name=int` (`execFile`,
+  fixed arguments, no shell, 3 s with `SIGKILL` and a runner of its own that answers `timeout` after 1 s more even when the child does not go – the one queue cannot be held –, one call at a time, ≤ 4 write batches waiting (`MAX_QUEUED_WRITES`, then `rate-limited`), `restore` reads what is stored **when its turn comes** (after a write queued before it), ≤ 12 controls and 4 KB per request, one write batch per 500 ms, `access(R|W)` on the device decides
+  `no-device`/`no-permission` – never the message of a set, because uvcvideo answers a set of an inactive control with "Permission denied" =
+  `refused:driver`). **Names, ranges, steps and menus are read from the camera, never wired in**; only the whitelist `ALLOWED_CONTROLS` (both old and
+  new kernel names) may be set, a value is **refused, never clamped** (`refusal`: range, step grid from `min`, menu entries – sparse –, bool 0/1,
+  inactive, read-only), the switches (`MODE_CONTROLS`: auto exposure, auto white balance, autofocus) go first and the list is read again, and the
+  answer is the list read again with a result per control – **the read-back is the truth** and what is kept (`store.setSetting('cameraControls')`,
+  the companion's own table, **not** a `STATE_KEYS` slice) and put back best-effort at the companion's start (`restoreAtStart`, never awaited, retries
+  while the device is missing). The exposure time is shown in ms **only** for `exposure_time_absolute`/`exposure_absolute` (V4L2: 100 µs units);
+  every other control shows the camera's own number. In the scan panel "Aus der Kamera übernehmen" reads the camera **at that tap** and fills the
+  field only for manual exposure with an active time (`takeover`), only where this device's picture is the companion's stream
+  (`streamIsPis`), never silently and never from a typed value. The e2e fake Pi (`installFakeCameraPi` in `e2e/helpers.ts`) runs the companion's own
+  `CameraControls` over `apps/companion/test/cameraRig.ts`. **Not verified:** a real camera, `v4l2-ctl` and the permission case on a Pi (the sample
+  output is written from the format of v4l-utils 1.22, not captured).
 - Rotary axis A: prepared only – the DRO shows A and the jog panel gets A−/A+ (steps in degrees)
   when the machine profile has a rotary axis; nothing else.
 - Connecting (`store/machine.ts` `connect`/`link`, pure `lib/link.ts`): a connection is up only once
@@ -943,6 +960,19 @@ V=…`); the login of an address ends at its **last** `@`; a name counts as a wo
   that may not stream a fetch body (then `stream`/`no-body-stream`, the browser's clock), the camera's own constant latency (learned),
   and which ustreamer version the Pi runs – `docs/scan.md` gives the two commands that tell. **Not told apart:** a stream whose first picture decodes and
   whose later ones do not (the probe then gets few pictures and sets `stripsBad`, as for a table with nothing to fit by) – only the picture the choice decodes is checked.
+- **The wait at a stop is adaptive – where the pictures give evidence** (scan by stops, `stopAt` in `scanArea`; pure `lib/calm.ts`, `store/restWait.ts`
+  `RestWaiter`/`Eye`): the picture is taken once the reports (`positionCalm`: two Idle reports within 0.02 mm) *and* the picture are calm, not after
+  `settleMs + FRAME_LAG_MS`. **Evidence rule – all of it, else the fixed pause exactly as before:** the picture is looked at every 25 ms at its own
+  resolution (five 48 px patches, block-averaged); only a **new frame** counts (it differs at all from the one before – a sensor has noise, a re-shown
+  or stalled picture is identical, so a camera without noise, the simulator's default, is no evidence); the move must have shown in the pictures
+  (`account().moved`); the last ≥ 150 ms must hold ≥ 3 new frames within the noise of the newest, which must be fresh (`calmNow`); and not before the
+  flush time learned on the first three points (`FlushLearner`: machine reports rest → picture final; 0.9 quantile + the margin), which keep the fixed
+  pause while they are watched. A picture still changing at the fixed pause (or standing still after changing on a camera that showed noise) is waited
+  for – 1.5 s a point beyond the fixed pause (the fixed pause alone missed by 1.8 mm at 0.8 s over a whole table), 15 s a scan for waits that came to nothing; two such points in a row make it forget. **Such a picture (`unsure`) still lies on the map, as before, and is told once per scan** (`photomap.restUnsure`, "n of m pictures …", group `scanTiming`, a warning); **a wait cut short by a cancel or a lost link (`RestResult.aborted`) lays no picture and teaches the waiter nothing** (`stopAt` returns `cancelled`). Unchanged: `precise` scans (the series on blanks – with the panel the only caller of `scanArea`; jigs do not scan), the strips' rest pictures
+  (`restPicture`), `<video>` pictures, an unreadable picture, a table with nothing to see. `scanEstimate` counts the pause the last scan applied
+  (`stopRestSeconds`, `restMs`). **The pre-stop test** (`e2e/restwait.spec.ts`; simulator camera `noise`, `frozen`, `flat`, `shown`): every picture is
+  held, as the app reads it, against where the tool rests (< 0.02 mm) at lags 0 / 0.15 / 0.4 / 0.8 s, a lag that jumps to 1 s at the stop and a camera
+  that freezes at every stop. **What that test does not reach:** the simulator shows a lag jump as a stall (its picture time never goes back) and, once `now − lag` has passed it, as *older scenes with fresh noise* – which is a camera replaying an earlier stop. **Measured (the "said once" test prints it): learned at 0.15 s, then 5 s late from the stop of the fifth picture: of 8 pictures 2 were taken as `adaptive` – early, 0.56 and 0.83 s after Idle – and lay 52 mm (one hop) from the tool; the replayed stop satisfied `moved`, calm and the reports, and the bogus flush went into the learner.** The fixed pause would have been as wrong there (the camera shows an old stop), so it is no worse than before, but the evidence rule is not proof against a camera seconds late; the tests cover 0–1 s. The guards `moved`, `positionCalm` (`REPORTS`, `ON_TARGET`) and the learned wait are held one by one by `test/restWait.test.ts` (its `World` has `still`, slow and ringing reports; each was deleted in turn and a test failed), and a plain wait and a calm told by the clock are shown to take a pre-stop picture on the same model – the millimetres once quoted for them came from a one-off run that is not kept. **Limits, the first pinned by a test:** on a learned camera a picture that shows nothing of the move – a board with no texture, or a camera later than the hop plus the fixed pause – is taken at the fixed pause and can be from before the stop; and a camera seconds late can pass an older stop as evidence (above). The app cannot tell either from this stop (Merkliste `tim-j`: the change in the picture would have to be tied to this hop). Numbers and what stays unknown: `docs/scan.md`.
 - **Recording a scan for analysis** (`lib/scanTrace.ts`, `store/scanTrace.ts`, the checkbox and the buttons in the photo map panel,
   `scripts/analyze-scan.py`): the lag of the camera, its blur at speed and what the real table gives to fit pictures by cannot be
   tested here, so a scan can be **recorded** and the file worked through away from the machine (`python3 scripts/analyze-scan.py

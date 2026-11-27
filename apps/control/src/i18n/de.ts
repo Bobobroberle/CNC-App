@@ -538,6 +538,14 @@ export const de = {
         action:
           'Den Job zu Ende laufen lassen – oder in Fräsen beenden („Job abbrechen“, zwischen zwei Teilen „Restliche Teile abbrechen“) – und es dann noch einmal versuchen.',
       },
+      scanTiming: {
+        cause:
+          'Nach dem Halt der Maschine hat sich das Bild der Kamera noch verändert, als die Wartezeit zu Ende war: die Kamera ist später als erwartet, oder die Maschine schwingt nach.',
+        effect:
+          'Die Bilder liegen auf der Karte, wo die Maschine stand; an diesen Stellen kann die Karte verwischt oder ein Stück verschoben sein. Die Maschine wurde nicht beeinträchtigt.',
+        action:
+          'Den Scan wiederholen, wenn die Karte an diesen Stellen gebraucht wird. Wiederholt es sich: Kamera und Beleuchtung prüfen.',
+      },
       limit: {
         cause: 'Die Bewegung hätte den Verfahrweg verlassen.',
         effect: 'Gefahren wurde höchstens bis zur Grenze.',
@@ -3412,6 +3420,89 @@ export const de = {
     badFit:
       'Seiten und Diagonalen passen schlecht zusammen – vermutlich ein Messfehler. Lieber noch einmal messen, bevor du korrigierst.',
   },
+  cameraControls: {
+    title: 'Belichtung und Bild',
+    hint: 'Die Einstellungen der USB-Kamera am Pi – nicht die Gerätekamera dieses Tablets. Sie gelten sofort. Der Companion merkt sich die zuletzt gesetzten Werte und setzt sie beim Start wieder, wenn die Kamera sie verloren hat (abgezogen, Pi neu gestartet); beim Neustart des Kamera-Dienstes bleiben sie meist erhalten.',
+    exposureHint:
+      'Die Belichtungszeit ist die eingestellte Zeit; die Kamera kann sie durch die Bildrate begrenzen. Sie gilt nur bei manueller Belichtung.',
+    read: 'Neu lesen',
+    reading: 'Liest die Kamera …',
+    empty: 'Die Kamera meldet keine Einstellungen, die die App ändern darf.',
+    groups: {
+      exposure: 'Belichtung',
+      picture: 'Bild',
+      whiteBalance: 'Weißabgleich',
+      focus: 'Fokus',
+    },
+    names: {
+      auto_exposure: 'Belichtungsmodus',
+      exposure_auto: 'Belichtungsmodus',
+      exposure_time_absolute: 'Belichtungszeit',
+      exposure_absolute: 'Belichtungszeit',
+      exposure_dynamic_framerate: 'Bildrate bei Bedarf senken',
+      exposure_auto_priority: 'Bildrate bei Bedarf senken',
+      gain: 'Verstärkung',
+      brightness: 'Helligkeit',
+      contrast: 'Kontrast',
+      saturation: 'Sättigung',
+      sharpness: 'Schärfe',
+      backlight_compensation: 'Gegenlichtausgleich',
+      power_line_frequency: 'Netzfrequenz (Flimmerschutz)',
+      white_balance_automatic: 'Weißabgleich automatisch',
+      white_balance_temperature_auto: 'Weißabgleich automatisch',
+      white_balance_temperature: 'Farbtemperatur',
+      focus_automatic_continuous: 'Autofokus',
+      focus_auto: 'Autofokus',
+      focus_absolute: 'Fokus',
+    },
+    menu: {
+      exposureAuto: {
+        '0': 'Automatik',
+        '1': 'Manuell',
+        '2': 'Automatik (Verschlusspriorität)',
+        '3': 'Automatik (Blendenpriorität)',
+      },
+      powerLine: { '0': 'Aus', '1': '50 Hz', '2': '60 Hz', '3': 'Automatisch' },
+    },
+    range: 'Bereich {min} bis {max}{unit}',
+    inactive: {
+      exposure: 'Ohne Wirkung, solange der Belichtungsmodus nicht „Manuell“ ist.',
+      whiteBalance: 'Ohne Wirkung, solange der Weißabgleich automatisch ist.',
+      focus: 'Ohne Wirkung, solange der Autofokus an ist.',
+      other: 'Gerade ohne Wirkung: die Kamera ignoriert es in ihrem jetzigen Zustand.',
+    },
+    readOnly: 'Nur lesbar.',
+    notANumber: 'Das ist keine Zahl – nicht gesetzt.',
+    outOfRange: 'Außerhalb dessen, was die Kamera annimmt ({min} bis {max}{unit}) – nicht gesetzt.',
+    takenAs: 'Die Kamera hat {value}{unit} daraus gemacht.',
+    refused: {
+      'not-allowed': 'Diese Einstellung darf die App nicht ändern.',
+      unknown: 'Diese Kamera kennt die Einstellung nicht.',
+      'read-only': 'Die Kamera erlaubt hier keine Änderung.',
+      inactive:
+        'Die Kamera hat sie gerade abgeschaltet (Automatik an) – nicht gesetzt. Die Anzeige ist neu gelesen.',
+      range: 'Außerhalb dessen, was die Kamera meldet – nicht gesetzt.',
+      step: 'Nicht auf dem Raster der Kamera – nicht gesetzt.',
+      menu: 'Kein Eintrag dieser Auswahl – nicht gesetzt.',
+      driver: 'Die Kamera hat den Wert nicht angenommen.',
+    },
+    errors: {
+      'no-v4l2':
+        'Auf dem Pi fehlt das Programm v4l2-ctl (Paket v4l-utils). Mit Internet am Pi: sudo apt-get install v4l-utils.',
+      'no-device':
+        'Der Companion findet die Kamera nicht. Ist sie angesteckt? Ihr Gerät steht in /etc/lowrider.env (CAMERA_DEVICE).',
+      'no-permission':
+        'Der Companion darf die Kamera nicht öffnen. Einmal am Pi: sudo usermod -aG video <Benutzer des Dienstes lowrider-companion>, danach sudo systemctl restart lowrider-companion.',
+      timeout: 'Die Kamera hat nicht rechtzeitig geantwortet.',
+      failed: 'v4l2-ctl konnte die Kamera nicht lesen.',
+      'bad-request': 'Der Companion hat die Anfrage nicht verstanden.',
+      'rate-limited': 'Zu schnell hintereinander – kurz warten und noch einmal.',
+      'not-supported':
+        'Der Companion hat die Kamera-Einstellungen abgeschaltet (LOWRIDER_CAMERA_CONTROLS=0).',
+      old: 'Dieser Companion kennt die Kamera-Einstellungen noch nicht – den Pi aktualisieren (Einstellungen → Verbindung).',
+      unreachable: 'Der Companion antwortet nicht.',
+    },
+  },
   photomap: {
     hint: 'Jedes Kamerabild wird an der Stelle abgelegt, an der es aufgenommen wurde. Die Karte wächst beim Herumfahren auf Kamerahöhe – oder per Scan.',
     tiles: 'Bilder auf der Karte: {count}',
@@ -3442,6 +3533,8 @@ export const de = {
     scanFailed: 'Scan abgebrochen: Fahrbefehl nicht ausgeführt.',
     scanHeld: 'Scan abgebrochen: Die Steuerung wurde angehalten (Pause oder Alarm).',
     scanLost: 'Scan abgebrochen: Die Verbindung zur Steuerung ist abgerissen.',
+    restUnsure:
+      '{count} von {total} Bildern wurden aufgenommen, während sich das Kamerabild noch veränderte. Sie liegen auf der Karte, können dort aber verwischt oder verschoben sein.',
     stripsNeedPixels:
       'Das Kamerabild lässt sich nicht auslesen (Stream ohne Freigabe) – der Scan läuft mit Halt für jedes Bild.',
     stripsGiveUp:
@@ -3466,6 +3559,16 @@ export const de = {
     exposure: 'Belichtung (ms)',
     exposureHint:
       'Wie lange die Kamera ein Bild belichtet (0 = unbekannt, dann gibt es keine Begrenzung). Daraus folgt das schnellste Tempo, bei dem ein Bild nicht mehr als 0,3 mm verwischt.',
+    takeOver: {
+      button: 'Aus der Kamera übernehmen',
+      hint: 'Liest die Belichtungszeit jetzt aus der Kamera am Pi und trägt sie ein. Von allein wird nichts eingetragen.',
+      done: 'Jetzt aus der Kamera gelesen und eingetragen: {ms} ms.',
+      auto: 'Die Kamera belichtet automatisch – es gibt keinen festen Wert, nichts eingetragen. Unter Einstellungen → Kamera → Belichtung und Bild den Belichtungsmodus auf „Manuell“ stellen.',
+      unavailable: 'Die Kamera meldet keine feste Belichtungszeit – nichts eingetragen.',
+      notPi:
+        'Das Bild kommt nicht aus dem Stream des Companion (Gerätekamera, Simulator oder ein fremder Stream) – deren Belichtung kennt der Pi nicht. Nichts eingetragen.',
+      failed: 'Nichts eingetragen. {why}',
+    },
     blur: 'Unschärfe bei diesem Tempo etwa {mm} mm',
     capped: 'Tempo auf {speed} mm/s begrenzt, damit ein Bild nicht mehr als 0,3 mm verwischt.',
     tooSlow:
@@ -3938,6 +4041,8 @@ export const de = {
         'kamera kalibrieren, maßstab, versatz, pixel pro mm, kameraversatz, offset, scale, kamera zum fräser, drehung der kamera',
       cameraHeight:
         'kamerahöhe, fokus, scharf, höhe der kamera, focus, z für kamera, schärfe, bildhöhe',
+      cameraControls:
+        'belichtung, belichtungszeit, verstärkung, gain, helligkeit, kontrast, sättigung, schärfe, weißabgleich, farbtemperatur, autofokus, fokus, gegenlicht, flimmern, kamera einstellen, kamerabild, bildeinstellungen, exposure, v4l2, zu dunkel, zu hell, verwischt',
       timelapse: 'zeitraffer, timelapse, film vom job, aufnahme, video, mitschneiden',
       workshop:
         'einstellungen, werkstatt, settings, optionen, allgemein, grundeinstellungen, bildschirm an lassen, wach bleiben, preferences',

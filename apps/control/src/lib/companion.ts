@@ -25,6 +25,34 @@ export interface CompanionHealth {
   auth?: boolean;
   /** The update from the app can be done here (the Pi was set up with the layout of releases) */
   update?: boolean;
+  /** The camera's picture settings can be read and set here (`/api/camera/controls`); an older companion has no such field */
+  cameraControls?: boolean;
+}
+
+/** A setting of the USB camera as the camera reports it (`GET /api/camera/controls`): ranges and menus are the camera's own. */
+export interface CameraControl {
+  name: string;
+  type: 'int' | 'bool' | 'menu';
+  min: number;
+  max: number;
+  step: number;
+  default: number;
+  value: number;
+  /** The camera does not act on it now (the exposure time while auto exposure is on) */
+  inactive: boolean;
+  readOnly: boolean;
+  menu?: { value: number; label: string }[];
+}
+
+/** What became of one control of a write: taken (with the value the camera reads back) or refused with `refused:<why>`. */
+export type CameraControlResult =
+  | { ok: true; value: number }
+  | { ok: false; error: string; detail?: string };
+
+/** The answer to a write: the list read again afterwards (the camera's answer is the truth) and a result per control. */
+export interface CameraControlsAnswer {
+  controls: CameraControl[];
+  results: Record<string, CameraControlResult>;
 }
 
 /** A device that is logged in at the Pi. */
@@ -339,6 +367,30 @@ export class CompanionClient {
       );
     }
     return { ok: true, rev: body.rev };
+  }
+
+  /** The camera's picture settings, read from the camera now (the companion runs `v4l2-ctl` – up to 3 s a call). */
+  async cameraControls(): Promise<CameraControl[]> {
+    return (
+      await this.request<{ controls: CameraControl[] }>('/api/camera/controls', {
+        signal: AbortSignal.timeout(10_000),
+        cache: 'no-store',
+      })
+    ).controls;
+  }
+
+  /**
+   * Sets picture settings (`name → whole number`). Every value is checked by the companion against what the
+   * camera reports; a refusal of one control is in `results`, not an error. Longer time limit than a read: a
+   * switch (auto exposure) is set, the list read again, and only then the rest.
+   */
+  setCameraControls(controls: Record<string, number>): Promise<CameraControlsAnswer> {
+    return this.request('/api/camera/controls', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ controls }),
+      signal: AbortSignal.timeout(30_000),
+    });
   }
 
   /** `timeoutMs` (here and in `put`, `putAll`) gives up on a Pi that stops answering half-way: a round must not wait for ever. */

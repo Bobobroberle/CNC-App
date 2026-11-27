@@ -140,3 +140,47 @@ describe('recordings on the companion', () => {
     );
   });
 });
+
+describe('the camera’s picture settings', () => {
+  it('reads them from the camera, never from a cache, with a time limit', async () => {
+    const fetchFn = vi.fn(
+      async () => new Response(JSON.stringify({ controls: [{ name: 'gain' }] })),
+    );
+    const controls = await new CompanionClient('http://pi:8080', fetchFn).cameraControls();
+    expect(controls).toEqual([{ name: 'gain' }]);
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://pi:8080/api/camera/controls');
+    expect(init.cache).toBe('no-store');
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('writes names with whole numbers as JSON, and answers with the list and a result each', async () => {
+    const answer = {
+      controls: [],
+      results: { gain: { ok: true, value: 7 }, hue: { ok: false, error: 'refused:not-allowed' } },
+    };
+    const fetchFn = vi.fn(async () => new Response(JSON.stringify(answer)));
+    const done = await new CompanionClient('http://pi:8080', fetchFn).setCameraControls({
+      gain: 7,
+      hue: 1,
+    });
+    expect(done).toEqual(answer);
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://pi:8080/api/camera/controls');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual({ controls: { gain: 7, hue: 1 } });
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+  });
+
+  it('keeps the status and the code of a refusal', async () => {
+    const fetchFn = vi.fn(
+      async () => new Response(JSON.stringify({ error: 'no-permission' }), { status: 403 }),
+    );
+    await expect(
+      new CompanionClient('http://pi:8080', fetchFn).cameraControls(),
+    ).rejects.toMatchObject({
+      status: 403,
+      code: 'no-permission',
+    });
+  });
+});

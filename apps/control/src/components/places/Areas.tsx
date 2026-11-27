@@ -12,6 +12,7 @@ import { SegmentedControl, SegmentedControlItem } from '../../ui/segmented-contr
 import { AccuracyCheck } from '../AccuracyCheck';
 import { CalibrationWizard } from '../CalibrationWizard';
 import { MeasurementLog } from '../MeasurementLog';
+import { CameraControlsCard } from '../CameraControlsCard';
 import { CameraSetupCard } from '../CameraSetupCard';
 import { CompanionCard } from '../CompanionCard';
 import { PiAccessCard } from '../PiAccessCard';
@@ -189,7 +190,12 @@ export function SettingsArea() {
             <ExpertSwitch />
           </>
         ) : null}
-        {shown === 'camera' ? <CameraSetupCard /> : null}
+        {shown === 'camera' ? (
+          <>
+            <CameraSetupCard />
+            <CameraControlsCard />
+          </>
+        ) : null}
         {shown === 'expert' ? (
           <>
             <ConfigEditor />

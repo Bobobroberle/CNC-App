@@ -122,6 +122,14 @@ Nur nach eigener Prüfung an der Maschine übernehmen; vorher die aktuelle Datei
     nie geschrieben. Erst testen, wenn ein USB-Kabel und die gesicherte Config bereitliegen.
 11. **Kollisionsprüfung:** Die Portal-Unterkante ist mit Auskraglänge + 60 mm angenommen
     (`apps/control/src/lib/setup.ts`). An der Maschine messen und eintragen.
+12. **Kamera: Belichtung und Bild aus der App:** Der Companion ruft `v4l2-ctl` auf; getestet nur gegen eine Attrappe, deren
+    Ausgabe nach dem Format von v4l-utils 1.22 geschrieben ist. An der echten Kamera prüfen: (a) stimmen Namen und Bereiche mit
+    `v4l2-ctl -d /dev/video0 --list-ctrls-menus` überein; (b) darf ein zweiter Prozess Regler setzen, während `ustreamer` das Gerät
+    hält; (c) überstehen die Werte einen Neustart von `ustreamer`; (d) wie lange braucht ein Aufruf (die App rechnet mit höchstens 3 s,
+    danach wird er beendet); (e) die Rechte des Dienstnutzers auf `/dev/video0`.
+13. **Scan mit Halt: adaptives Warten an der echten Kamera:** Die Wartezeit nach dem Halt richtet sich nach dem Bild selbst
+    (Rauschen von Bild zu Bild, die Fahrt im Bild gesehen). Ob eine echte Kamera so rauscht und wie viele Punkte auf dem echten Tisch
+    einen Beleg bekommen, ist nur im Simulator gesehen; `docs/scan.md` nennt, was unbekannt bleibt.
 
 ### Test „mehrere Clients“
 

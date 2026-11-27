@@ -73,6 +73,7 @@ export type MessageGroup =
   | 'flow'
   | 'limit'
   | 'jobLocked'
+  | 'scanTiming'
   | 'sync'
   | 'done'
   | 'general';
@@ -119,6 +120,8 @@ const GROUP_OF_KEY: Record<string, MessageGroup> = {
   'photomap.scanFailed': 'motion',
   'photomap.scanHeld': 'motion',
   'photomap.scanLost': 'connection',
+  // A picture taken while the camera's picture still changed: nothing failed, the map is less sure at those places
+  'photomap.restUnsure': 'scanTiming',
   'calibration.moveFailed': 'motion',
   'drive.atLimit': 'limit',
   'drive.limited': 'limit',
