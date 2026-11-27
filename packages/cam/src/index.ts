@@ -4,6 +4,7 @@ export * from './flip';
 export * from './font';
 export * from './gcode';
 export * from './geometry';
+export * from './nest';
 export * from './offset';
 export * from './plan';
 export * from './relief';
