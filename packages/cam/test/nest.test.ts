@@ -17,7 +17,7 @@ import {
 /**
  * Nesting of boxes. The small cases were worked out by hand from the rules of `nestParts` (the gap is added
  * to the boxes and to the stock inside its margin; a part goes to the lower left corner of a free rectangle;
- * four runs, the best kept); the properties are held over seeded random inputs.
+ * four runs, eight where the parts may turn, the best kept); the properties are held over seeded random inputs.
  */
 
 const part = (id: number, width: number, height: number): NestPart => ({ id, width, height });
@@ -328,7 +328,7 @@ describe('nesting boxes: the properties, over 300 random cases', () => {
         placedTotal += r.placed.length;
         unplacedTotal += r.unplaced.length;
       }
-      // The cases are not all easy and not all hopeless (seeded: 5649 placed and 442 not without turning, 5936 and 504 with)
+      // The cases are not all easy and not all hopeless (seeded: 5649 placed and 442 not without turning, 5933 and 507 with)
       expect(placedTotal).toBeGreaterThan(5000);
       expect(unplacedTotal).toBeGreaterThan(300);
       if (rotate) expect(turnedTotal).toBeGreaterThan(1000);
