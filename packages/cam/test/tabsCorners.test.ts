@@ -245,6 +245,77 @@ describe('tabs off the corners', () => {
   });
 });
 
+describe('tabs off the corners, on the side the cutter runs', () => {
+  // The cutter's loop has a sharp corner where the line turns towards the cutter's side: at the corners of a
+  // part for an inside cut, at its notches for an outline. There the straight run of the loop is the drawn
+  // side less radius · tan(turn / 2) short at that end, so that much more must be clear: 3 for a 6 mm cutter
+  // at a corner of 90°. On the other side the loop goes round the corner on an arc and the run is the whole side.
+  const ways = (
+    c: Contour,
+    count: number,
+    width: number,
+    tool: number,
+    kind: 'inside' | 'outside' | 'on',
+  ) => {
+    const length = pathLength(c.points, true);
+    return tabSites(c, { count, width, avoidCorners: true }, tool, kind).map((t) =>
+      r9(t.u * length),
+    );
+  };
+  const plate = rectangle(0, 0, 100, 50);
+
+  it('keep 16 clear (13 + 3) at the corners of a part cut inside, 13 outside and on the line', () => {
+    // Four tabs of 20 + 6: reach 13; for an inside cut 16 at all four corners, the runs [16, 84], [116, 134], …
+    expect(ways(plate, 4, 20, 6, 'inside')).toEqual([37.5, 116, 187.5, 266]);
+    expect(ways(plate, 4, 20, 6, 'outside')).toEqual([37.5, 113, 187.5, 263]);
+    expect(ways(plate, 4, 20, 6, 'on')).toEqual([37.5, 113, 187.5, 263]);
+    // The kind is 'on' unless said
+    expect(waysOf(plate, { count: 4, width: 20, avoidCorners: true }, 6)).toEqual([
+      37.5, 113, 187.5, 263,
+    ]);
+    // Without a cutter all three are the same
+    expect(ways(plate, 4, 20, 0, 'inside')).toEqual(ways(plate, 4, 20, 0, 'outside'));
+  });
+
+  it('are the other way round at a notch: an L has one, its inner corner', () => {
+    // 60 + 20 + 40 + 40 + 20 + 60: the corner at (20, 20), 120 along, turns the other way than the rest.
+    // Tabs of 8 + 2: reach 5, a 2 mm cutter: 1 more at a sharp corner of the loop
+    const l = poly([0, 0], [60, 0], [60, 20], [20, 20], [20, 60], [0, 60]);
+    // Outline: the notch is sharp – 114 and 126 are equally far from 120 (6) – the lower is taken
+    expect(ways(l, 3, 8, 2, 'outside')).toEqual([40, 114, 200]);
+    // Inside cut: the notch is round, the other five corners are sharp: 115 and 125, as on the line itself
+    expect(ways(l, 3, 8, 2, 'inside')).toEqual([40, 115, 200]);
+    expect(ways(l, 3, 8, 2, 'on')).toEqual([40, 115, 200]);
+  });
+
+  it('read the side from the way the line is drawn: the same L drawn clockwise', () => {
+    // The same L, drawn the other way round: the notch is at 60 along, and two tabs stand on 60 and 180
+    const cw = poly([0, 60], [20, 60], [20, 20], [60, 20], [60, 0], [0, 0]);
+    expect(cornerWays(cw)).toEqual([0, 20, 60, 100, 120, 180]);
+    // Outline: the notch at 60 keeps 6 (54 and 66: the lower), the corner at 180 keeps 5 (175)
+    expect(ways(cw, 2, 8, 2, 'outside')).toEqual([54, 175]);
+    // Inside cut: the notch is round (55 and 65), the corner at 180 is sharp: 6 (174)
+    expect(ways(cw, 2, 8, 2, 'inside')).toEqual([55, 174]);
+  });
+
+  it('keep a line that turns back on itself clear altogether, and never make a number of nothing', () => {
+    // Two points are a line there and back: both turn 180°, the loop's corner is infinitely far away
+    const spike: Contour = {
+      closed: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+    };
+    // Sharp for an outline: nothing is clear, the tab stays (on a corner, at 10)
+    expect(ways(spike, 1, 2, 2, 'outside')).toEqual([10]);
+    // Not sharp for an inside cut: reach 2, runs [2, 8] and [12, 18]: 8 and 12 are equally near
+    expect(ways(spike, 1, 2, 2, 'inside')).toEqual([8]);
+    // No cutter: 0 · ∞ is nothing, the reach is the tab's alone (1): runs [1, 9], [11, 19]
+    expect(ways(spike, 1, 2, 0, 'outside')).toEqual([9]);
+  });
+});
+
 describe('the tabs off the corners in a toolpath', () => {
   const s: CutSettings = {
     toolDiameter: 6,
@@ -289,6 +360,75 @@ describe('the tabs off the corners in a toolpath', () => {
       s,
     );
     expect(lifted(plain.moves).every(straight)).toBe(false);
+  });
+
+  /** The stretches the cutter is lifted over at the tabs' height (−4), as where it lifts and where it comes down */
+  const stretches = (moves: Move[]) => {
+    const out: { from: Point; to: Point }[] = [];
+    let x = 0;
+    let y = 0;
+    let z = 5;
+    let from: Point | undefined;
+    for (const m of moves) {
+      const was = z;
+      x = m.x ?? x;
+      y = m.y ?? y;
+      z = m.z ?? z;
+      if (m.x === undefined && m.y === undefined && m.z !== undefined) {
+        if (Math.abs(z - -4) < 1e-9 && was < -4) from = { x, y };
+        else if (was === -4 && z < -4 && from) out.push({ from, to: { x, y } });
+      }
+    }
+    return out;
+  };
+  const near = (p: Point, x: number, y: number) =>
+    Math.abs(p.x - x) < 0.01 && Math.abs(p.y - y) < 0.01;
+  /** Both ends on one side of the loop: the stretch does not go round a corner */
+  const oneSide = (a: { from: Point; to: Point }) =>
+    Math.abs(a.from.x - a.to.x) < 0.01 || Math.abs(a.from.y - a.to.y) < 0.01;
+
+  it('lift the cutter along one side only, cutting inside as well as outside', () => {
+    const run = (kind: 'inside' | 'outside' | 'on', tabs: object) =>
+      stretches(
+        toolpaths(
+          [plate],
+          [{ contour: 0, kind, tabs: { count: 4, width: 20, height: 2, ...tabs } }],
+          s,
+        ).moves,
+      );
+    for (const kind of ['inside', 'outside', 'on'] as const) {
+      const lifted = run(kind, { avoidCorners: true });
+      expect(lifted).toHaveLength(4);
+      expect(lifted.every(oneSide)).toBe(true);
+    }
+    // Inside (cut clockwise): the loop is the plate 3 mm in, with sharp corners, and the tab at 116 runs down
+    // the right side from (97, 29) and ends at its corner (97, 3)
+    const inside = run('inside', { avoidCorners: true });
+    expect(inside.some((a) => near(a.to, 97, 3) && near(a.from, 97, 29))).toBe(true);
+    // A tab put by hand at 113 – what an even spread without regard for the loop's corners would give –
+    // goes round the corner of the loop: from (97, 26) down to the corner, then 3 mm along the lower side
+    const byHand = run('inside', { at: [113 / 300] });
+    expect(byHand).toHaveLength(1);
+    expect(oneSide(byHand[0]!)).toBe(false);
+    expect(near(byHand[0]!.from, 97, 26)).toBe(true);
+    expect(near(byHand[0]!.to, 94, 3)).toBe(true);
+    // The L as an outline: the notch is sharp, and no tab goes round it – nor any other corner
+    const l = poly([0, 0], [60, 0], [60, 20], [20, 20], [20, 60], [0, 60]);
+    const outline = stretches(
+      toolpaths(
+        [l],
+        [
+          {
+            contour: 0,
+            kind: 'outside',
+            tabs: { count: 3, width: 8, height: 2, avoidCorners: true },
+          },
+        ],
+        { ...s, toolDiameter: 2 },
+      ).moves,
+    );
+    expect(outline).toHaveLength(3);
+    expect(outline.every(oneSide)).toBe(true);
   });
 
   it('are what the drawing shows: the one function gives both', () => {

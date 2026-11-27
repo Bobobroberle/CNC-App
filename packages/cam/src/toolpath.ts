@@ -41,8 +41,12 @@ export interface Tabs {
    * turns by 20° or more (the start of the line counts like any other vertex); a vertex that turns less is
    * one chord of a curve, and an exact circle (`Contour.circle`) has no corner at all, however coarse its
    * chords. Where no stretch between two corners is long enough for a tab (a small part), nothing moves.
-   * `tabSites` needs the cutter's diameter for this: pass the same one the cut uses, or the drawing and
-   * the cut disagree.
+   * The stretch is measured along the cutter's loop, not the drawn line: where the loop has a sharp corner
+   * (an inside cut at the corners of the part, an outline at its notches) its straight run ends short of the
+   * drawn corner by the cutter's radius × tan(turn / 2), and that much more is kept clear. The finishing
+   * allowance is not counted (roughing with an allowance may reach a fraction of a millimetre round such a
+   * corner). `tabSites` needs the cutter's diameter and the kind of cut for this: pass the same ones the cut
+   * uses, or the drawing and the cut disagree.
    */
   avoidCorners?: boolean;
 }
@@ -244,19 +248,29 @@ const CORNER_COS = Math.cos((CORNER_TURN * Math.PI) / 180);
 /** Distances along a contour that differ by less than this are equal (mm): float noise */
 const WAY_EPS = 1e-9;
 
-/**
- * The corners of a closed contour, each as the way along the line (mm, from its first point, 0 ≤ way < length) –
- * the vertices where the line turns by 20° or more, the first vertex among them (it is where the line closes).
- * A point drawn twice is one vertex. A vertex that turns less is a chord of a curve, not a corner, and an exact
- * circle (`Contour.circle`) has none whatever its chords. Open lines and lines of no length have none.
- */
-export function cornerWays(contour: Contour): number[] {
+/** A corner of a closed contour: where it lies along the line, how the cutter's loop runs round it and on which side */
+interface Corner {
+  /** The way along the line (mm, from its first point, 0 ≤ way < length) */
+  way: number;
+  /**
+   * tan(turn / 2): where the cutter has a sharp corner in its loop (the inside of the turn), its straight run
+   * ends this many radii short of the drawn corner; where the loop goes round the corner on an arc it ends at
+   * the drawn corner's own place
+   */
+  draw: number;
+  /** The line turns towards the part's inside here (a corner of the part); else away from it (a notch) */
+  convex: boolean;
+}
+
+/** The corners of a closed contour in the order of the line: see `cornerWays` */
+function findCorners(contour: Contour): Corner[] {
   if (!contour.closed || contour.circle) return [];
   const pts = contour.points;
   const n = pts.length;
   const m = measure(pts);
   if (m.length === 0) return [];
-  const ways: number[] = [];
+  const counterClockwise = signedArea(pts) >= 0;
+  const corners: Corner[] = [];
   for (let i = 0; i < n; i++) {
     const p = pts[i]!;
     // The first of a run of equal points stands for it: the one before it is another point
@@ -269,35 +283,58 @@ export function cornerWays(contour: Contour): number[] {
     const l1 = distance(a, p);
     const l2 = distance(p, b);
     const dot = ((p.x - a.x) * (b.x - p.x) + (p.y - a.y) * (b.y - p.y)) / (l1 * l2);
-    if (dot <= CORNER_COS + 1e-12) ways.push(m.cum[i]! % m.length);
+    if (dot > CORNER_COS + 1e-12) continue;
+    const cross = (p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x);
+    const cos = Math.max(-1, Math.min(1, dot));
+    corners.push({
+      way: m.cum[i]! % m.length,
+      // A line that turns back on itself: the loop's corner is infinitely far from the drawn one
+      draw: Math.sqrt((1 - cos) / (1 + cos)),
+      convex: cross > 0 === counterClockwise,
+    });
   }
-  return ways.sort((a, b) => a - b);
+  return corners.sort((x, y) => x.way - y.way);
+}
+
+/**
+ * The corners of a closed contour, each as the way along the line (mm, from its first point, 0 ≤ way < length) –
+ * the vertices where the line turns by 20° or more, the first vertex among them (it is where the line closes).
+ * A point drawn twice is one vertex. A vertex that turns less is a chord of a curve, not a corner, and an exact
+ * circle (`Contour.circle`) has none whatever its chords. Open lines and lines of no length have none.
+ */
+export function cornerWays(contour: Contour): number[] {
+  return findCorners(contour).map((c) => c.way);
 }
 
 /**
  * The places of an even spread (ways along a closed contour of this `length`, ascending) with those that
  * would lift the cutter over a corner moved to the nearest clear place. A place is clear when no corner is
- * nearer along the line than `reach` (half the lifted stretch). The tab moves along the line only as far as
- * the clear stretch between two corners, keeps its order among the others and stays `2 · reach` from
- * them (so that two lifted stretches never overlap); where it cannot, or where no stretch between two
- * corners is long enough, it stays. Of two equally near places the one earlier along the line is taken.
- * Returns ways, possibly beyond either end of 0…length: a place moved across the start.
+ * nearer along the line than its `reach`. The tab moves along the line only as far as the clear stretch
+ * between two corners, keeps its order among the others and stays `gap` from them (so that two lifted
+ * stretches never overlap); where it cannot, or where no stretch between two corners is long enough, it
+ * stays. Of two equally near places the one earlier along the line is taken. Returns ways, possibly beyond
+ * either end of 0…length: a place moved across the start.
  */
 function offCorners(
   ways: readonly number[],
-  corners: readonly number[],
+  corners: readonly { way: number; reach: number }[],
   length: number,
-  reach: number,
+  gap: number,
 ): number[] {
-  const gap = 2 * reach;
   // The clear stretches between corners; the last one runs over the start of the line
   const runs: [number, number][] = [];
   corners.forEach((c, j) => {
-    const next = j + 1 < corners.length ? corners[j + 1]! : corners[0]! + length;
-    if (next - c >= gap - WAY_EPS) runs.push([c + reach, Math.max(c + reach, next - reach)]);
+    const last = j + 1 === corners.length;
+    const next = corners[last ? 0 : j + 1]!;
+    const nextWay = last ? next.way + length : next.way;
+    if (nextWay - c.way >= c.reach + next.reach - WAY_EPS) {
+      runs.push([c.way + c.reach, Math.max(c.way + c.reach, nextWay - next.reach)]);
+    }
   });
   const blocked = (way: number) =>
-    corners.some((c) => Math.min(Math.abs(way - c), length - Math.abs(way - c)) < reach - WAY_EPS);
+    corners.some(
+      (c) => Math.min(Math.abs(way - c.way), length - Math.abs(way - c.way)) < c.reach - WAY_EPS,
+    );
   const out = [...ways];
   const n = ways.length;
   ways.forEach((way, k) => {
@@ -338,13 +375,18 @@ function offCorners(
  * With `tabs.avoidCorners` the places of the even spread that would lift the cutter over a corner move
  * along the line to the nearest place that does not (see `Tabs.avoidCorners`, `cornerWays`); the result is
  * then in the order of `u` – a tab moved across the start of the line is the last. That needs the width
- * (`tabs.width`) and the cutter's diameter: **pass the diameter the cut uses**, as `toolpaths` does, or the
- * tabs drawn and the tabs cut are not the same. Without `avoidCorners` both are not looked at.
+ * (`tabs.width`), the cutter's diameter and the kind of cut: **pass the diameter and the `kind` the cut
+ * uses**, as `toolpaths` does, or the tabs drawn and the tabs cut are not the same. The kind matters
+ * because the cutter's loop has a sharp corner on one side of the line (`'inside'`: at the corners of the
+ * part; `'outside'`: at its notches), where the straight run is shorter than the drawn side by the cutter's
+ * radius × tan(turn / 2), and goes round on an arc on the other; `'on'` (the default) follows the line itself.
+ * Without `avoidCorners` none of the three is looked at.
  */
 export function tabSites(
   contour: Contour,
   tabs: Pick<Tabs, 'count' | 'at'> & Partial<Pick<Tabs, 'width' | 'avoidCorners'>>,
   toolDiameter = 0,
+  kind: OperationKind = 'on',
 ): TabSite[] {
   if (!contour.closed) return [];
   const m = measure(contour.points);
@@ -365,15 +407,23 @@ export function tabSites(
       s: ((k + 0.5) * m.length) / tabs.count,
       u: (k + 0.5) / tabs.count,
     }));
-    const corners = tabs.avoidCorners ? cornerWays(contour) : [];
-    if (corners.length > 0) {
+    const found = tabs.avoidCorners ? findCorners(contour) : [];
+    if (found.length > 0) {
       const lifted = (tabs.width ?? 0) + toolDiameter;
-      const reach = Number.isFinite(lifted) ? Math.max(0, lifted) / 2 : 0;
+      const half = Number.isFinite(lifted) ? Math.max(0, lifted) / 2 : 0;
+      const radius = Number.isFinite(toolDiameter) ? Math.max(0, toolDiameter) / 2 : 0;
+      // The cutter's loop has a sharp corner where the line turns towards the cutter's side: the inside of a
+      // part's corner for an inside cut, a notch for an outline. There its straight run is shorter than the
+      // drawn side by `radius · tan(turn / 2)`, and that much more must be clear (0 · ∞ is no number: none)
+      const corners = found.map((c) => {
+        const sharp = kind === 'outside' ? !c.convex : kind === 'inside' ? c.convex : false;
+        return { way: c.way, reach: half + (sharp ? radius * c.draw || 0 : 0) };
+      });
       const moved = offCorners(
         places.map((p) => p.s),
         corners,
         m.length,
-        reach,
+        2 * half,
       );
       // Only a tab that moved is made anew; the others keep their exact place
       places = places
@@ -950,7 +1000,7 @@ export function toolpaths(
       const depths = passDepths(depth, s.stepdown);
       const finish = [-depth];
       // The same places the drawing shows (`tabSites`); none on an open contour or without any
-      const sites = op.tabs ? tabSites(c, op.tabs, s.toolDiameter) : [];
+      const sites = op.tabs ? tabSites(c, op.tabs, s.toolDiameter, op.kind) : [];
       const tabs = sites.length > 0 ? op.tabs : undefined;
       const tabAt = sites.map((site) => site.point);
       // This contour's own direction, else the job's
