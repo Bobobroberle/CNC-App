@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   circle,
+  distance,
   rapidLength,
   rectangle,
   toolpaths,
@@ -529,4 +530,302 @@ describe('over many drawings', () => {
     expect(overriddenCases).toBeGreaterThan(5);
     expect(shorter).toBeGreaterThan(40);
   }, 120_000);
+});
+
+/**
+ * The rules of the order and the search for a shorter one, against a version written out the long way:
+ * sets instead of counters, and every reversal asked of the whole order. The searched order must be the
+ * same one, wherever the budget was not reached.
+ */
+describe('the rules of the order, written out the long way', () => {
+  type Task = {
+    rank: number[];
+    seq: (number | undefined)[];
+    waits: number[][];
+    anchor: { x: number; y: number }[];
+  };
+
+  const allowedLong = (order: readonly number[], t: RouteTask): boolean => {
+    const done = new Set<number>();
+    for (const x of order) {
+      const free = t.rank.flatMap((_, i) =>
+        !done.has(i) && t.waits[i]!.every((j) => done.has(j)) ? [i] : [],
+      );
+      if (!free.includes(x)) return false;
+      const lowest = Math.min(...free.map((i) => t.rank[i]!));
+      if (t.rank[x] !== lowest) return false;
+      const numbers = free.flatMap((i) =>
+        t.rank[i] === lowest && t.seq[i] !== undefined ? [t.seq[i]!] : [],
+      );
+      if (numbers.length > 0 && t.seq[x] !== Math.min(...numbers)) return false;
+      done.add(x);
+    }
+    return true;
+  };
+
+  /** The operations whose number a contour took away, by the definition in the comment of `overridden` */
+  const overriddenLong = (order: readonly number[], t: RouteTask): number[] => {
+    const found = new Set<number>();
+    const done = new Set<number>();
+    for (const x of order) {
+      const waiting = t.rank
+        .map((_, y) => y)
+        .filter(
+          (y) =>
+            t.rank[y] === t.rank[x] &&
+            t.seq[y] !== undefined &&
+            !done.has(y) &&
+            !t.waits[y]!.every((j) => done.has(j)),
+        )
+        .sort((a, b) => t.seq[a]! - t.seq[b]! || a - b);
+      for (const y of waiting) {
+        if (t.seq[x] === undefined || t.seq[y]! < t.seq[x]!) found.add(y);
+      }
+      done.add(x);
+    }
+    return [...found];
+  };
+
+  /** The search as it was before the rules were asked inside the turned stretch only: the whole order, every time */
+  const improveLong = (order: readonly number[], from: { x: number; y: number }, t: RouteTask) => {
+    let best = [...order];
+    const n = best.length;
+    const at = (i: number) => t.anchor[i]!;
+    for (let improved = true; improved; ) {
+      improved = false;
+      for (let a = 0; a < n - 1; a++) {
+        for (let b = a + 1; b < n; b++) {
+          const before = a === 0 ? from : t.anchor[best[a - 1]!]!;
+          let change = distance(before, at(best[b]!)) - distance(before, at(best[a]!));
+          if (b < n - 1) {
+            change +=
+              distance(at(best[a]!), at(best[b + 1]!)) - distance(at(best[b]!), at(best[b + 1]!));
+          }
+          if (change >= -1e-9) continue;
+          const next = [
+            ...best.slice(0, a),
+            ...best.slice(a, b + 1).reverse(),
+            ...best.slice(b + 1),
+          ];
+          if (!allowedLong(next, t)) continue;
+          best = next;
+          improved = true;
+        }
+      }
+    }
+    return best;
+  };
+
+  /** A random task of `n` operations: ranks, numbers (small, so that equal ones happen), waits that cannot go round, anchors on a grid */
+  const randomTask = (
+    rand: () => number,
+    n: number,
+    share: { numbers: number; waits: number; ranks: number },
+  ): Task => {
+    const pick = (k: number) => Math.floor(rand() * k);
+    // The waits are made towards lower numbers, then the operations are renamed by a shuffle
+    const name = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i--) {
+      const j = pick(i + 1);
+      [name[i], name[j]] = [name[j]!, name[i]!];
+    }
+    const task: Task = { rank: [], seq: [], waits: [], anchor: [] };
+    for (let i = 0; i < n; i++) {
+      const rank = pick(share.ranks);
+      const seq = rand() < share.numbers ? pick(4) : undefined;
+      const waits = Array.from({ length: i }, (_, j) => j).filter(() => rand() < share.waits);
+      const anchor = { x: pick(30), y: pick(30) };
+      task.rank[name[i]!] = rank;
+      task.seq[name[i]!] = seq;
+      task.waits[name[i]!] = waits.map((j) => name[j]!);
+      task.anchor[name[i]!] = anchor;
+    }
+    return task;
+  };
+
+  const shuffled = (rand: () => number, n: number): number[] => {
+    const order = Array.from({ length: n }, (_, i) => i);
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [order[i], order[j]] = [order[j]!, order[i]!];
+    }
+    return order;
+  };
+
+  /** An order the rules allow, one random step at a time among the operations allowed there */
+  const allowedOrder = (rand: () => number, t: RouteTask): number[] => {
+    const order: number[] = [];
+    while (order.length < t.rank.length) {
+      const next = t.rank
+        .map((_, i) => i)
+        .filter((i) => !order.includes(i) && allowedLong([...order, i], t));
+      order.push(next[Math.floor(rand() * next.length)]!);
+    }
+    return order;
+  };
+
+  const shape = (rand: () => number) => ({
+    numbers: rand(),
+    waits: rand() * 0.4,
+    ranks: 1 + Math.floor(rand() * 3),
+  });
+
+  it('allows the same orders', () => {
+    const rand = seeded(5);
+    let yes = 0;
+    let no = 0;
+    for (let k = 0; k < 4000; k++) {
+      const n = 1 + Math.floor(rand() * 10);
+      const t = randomTask(rand, n, shape(rand));
+      const order = shuffled(rand, n);
+      const expected = allowedLong(order, t);
+      expect(isAllowed(order, t)).toBe(expected);
+      if (expected) yes++;
+      else no++;
+    }
+    // Both answers were given often
+    expect(yes).toBeGreaterThan(500);
+    expect(no).toBeGreaterThan(500);
+  });
+
+  it('names the same numbers that were taken away', () => {
+    const rand = seeded(6);
+    let said = 0;
+    for (let k = 0; k < 4000; k++) {
+      const n = 1 + Math.floor(rand() * 10);
+      const t = randomTask(rand, n, shape(rand));
+      // Any order that cuts what a contour holds before it – the ranks are not asked
+      const order: number[] = [];
+      while (order.length < n) {
+        const next = shuffled(rand, n).filter(
+          (i) => !order.includes(i) && t.waits[i]!.every((j) => order.includes(j)),
+        );
+        order.push(next[0]!);
+      }
+      const expected = overriddenLong(order, t);
+      expect(overridden(order, t)).toEqual(expected);
+      if (expected.length > 0) said++;
+    }
+    expect(said).toBeGreaterThan(500);
+  });
+
+  it('searches the same shorter order, from the same start', () => {
+    const rand = seeded(99);
+    let shorter = 0;
+    let withWaits = 0;
+    for (let k = 0; k < 1500; k++) {
+      const n = 2 + Math.floor(rand() * 11);
+      const t = randomTask(rand, n, shape(rand));
+      const order = allowedOrder(rand, t);
+      const from = { x: Math.floor(rand() * 30), y: Math.floor(rand() * 30) };
+      const found = improve(order, from, t);
+      expect(found).toEqual(improveLong(order, from, t));
+      // Still an order the rules allow, and the same operations
+      expect(allowedLong(found, t)).toBe(true);
+      expect([...found].sort((a, b) => a - b)).toEqual(order.map((_, i) => i));
+      if (found.some((v, i) => v !== order[i])) shorter++;
+      if (found.some((v, i) => v !== order[i]) && t.waits.some((w) => w.length > 0)) withWaits++;
+    }
+    expect(shorter).toBeGreaterThan(300);
+    expect(withWaits).toBeGreaterThan(100);
+  });
+});
+
+describe('what a search for a shorter route may cost', () => {
+  const task = (
+    rank: number[],
+    over: { seq?: (number | undefined)[]; waits?: number[][]; anchor?: number[] } = {},
+  ): RouteTask => ({
+    rank,
+    seq: over.seq ?? rank.map(() => undefined),
+    waits: over.waits ?? rank.map(() => []),
+    anchor: (over.anchor ?? rank.map((_, i) => i)).map((x) => ({ x, y: 0 })),
+  });
+  const from = { x: 0, y: 0 };
+
+  it('does not turn a stretch that lets a lower rank in between: a rank 3 freed by what was cut', () => {
+    // Ranks 4, 4, 3; the rank 3 waits for operation 1. At 10, 0, 10 from 0 the order 0, 1, 2 is 30 mm and
+    // 1, 0, 2 would be 10 mm (a change of 0 − 10 + 0 − 10 = −20) – but once 1 is cut the rank 3 is free and
+    // goes before the rank 4 at 0: 1, 0, 2 breaks the rules. 0, 2, 1 (−10) cuts 2 before what it waits for.
+    const t = task([4, 4, 3], { waits: [[], [], [1]], anchor: [10, 0, 10] });
+    expect(isAllowed([0, 1, 2], t)).toBe(true);
+    expect(isAllowed([1, 0, 2], t)).toBe(false);
+    expect(isAllowed([0, 2, 1], t)).toBe(false);
+    expect(improve([0, 1, 2], from, t)).toEqual([0, 1, 2]);
+    // Without the wait the same turn is taken: and the order that is found is 10 mm
+    expect(improve([0, 1, 2], from, task([4, 4, 4], { anchor: [10, 0, 10] }))).toEqual([1, 0, 2]);
+  });
+
+  it('returns an order that breaks the rules as it is, whatever it could be turned into', () => {
+    // The rank 1 at 200 stands before the rank 0 at 110, the tool at 100: turned round it would be allowed
+    // and 90 mm shorter – but an order that is not allowed is not the one to search from
+    const t = task([0, 1], { anchor: [110, 200] });
+    expect(isAllowed([1, 0], t)).toBe(false);
+    expect(improve([1, 0], { x: 100, y: 0 }, t)).toEqual([1, 0]);
+    expect(improve([0, 1], { x: 100, y: 0 }, t)).toEqual([0, 1]);
+  });
+
+  it('counts the work of testing the rules, not only the pairs it looks at', () => {
+    // Anchors 0, 3, 1, 2 on a line, the tool at 0, the order 0, 1, 2, 3 (6 mm). The pairs, in the order
+    // looked at: (0,1) (0,2) (0,3) (1,2) (1,3) (2,3), the first three change nothing. At the 4th, 1 and 2
+    // are turned (−2: the way from 0 to 1 is 1 instead of 3, from 3 on to 2 it stays 1) – the test of that
+    // takes the two operations and back: 5 steps of work in all (the one operation taken before it, the
+    // two, the two back). Then (1,3) changes nothing (+1) and (2,3) turns 1 and 3 (−1) for 0, 2, 3, 1: 3 mm.
+    const t = task([0, 0, 0, 0], { anchor: [0, 3, 1, 2] });
+    const order = [0, 1, 2, 3];
+    expect(improve(order, from, t, 3)).toEqual([0, 1, 2, 3]);
+    expect(improve(order, from, t, 4)).toEqual([0, 2, 1, 3]);
+    // The six pairs of a sweep are 6 units; the turn at the 4th pair cost 5 more, so the 6th pair is the
+    // 11th unit: 10 stops before the last turn, which counted by pairs only would have been taken at 6
+    expect(improve(order, from, t, 6)).toEqual([0, 2, 1, 3]);
+    expect(improve(order, from, t, 10)).toEqual([0, 2, 1, 3]);
+    expect(improve(order, from, t, 11)).toEqual([0, 2, 3, 1]);
+    expect(improve(order, from, t)).toEqual([0, 2, 3, 1]);
+  });
+
+  it('does not stall where every operation has a number: no turn can be taken, and none is tried long', () => {
+    // 1000 operations numbered in the order they stand: every turn breaks the numbers. Asking the whole
+    // order about every turn took 40 s; asking the turned stretch and stopping at the first operation that
+    // does not fit takes a fraction of a second
+    const rand = seeded(8);
+    const n = 1000;
+    const anchor = Array.from({ length: n }, () => rand() * 1000);
+    const order = Array.from({ length: n }, (_, i) => i);
+    const t0 = performance.now();
+    const same = improve(order, from, task(Array(n).fill(0), { seq: order, anchor }));
+    // Numbers at random, the operations standing in the order of their numbers
+    const numbers = anchor.map(() => rand());
+    const byNumber = [...order].sort((a, b) => numbers[a]! - numbers[b]!);
+    const again = improve(byNumber, from, task(Array(n).fill(0), { seq: numbers, anchor }));
+    const ms = performance.now() - t0;
+    expect(same).toEqual(order);
+    expect(again).toEqual(byNumber);
+    // 40 s before; a fraction of a second now – the limit is wide, the machine may be busy
+    expect(ms).toBeLessThan(20_000);
+  }, 60_000);
+
+  it('stops after its work where every turn fits and is tried long: a thousand rows of frames', () => {
+    // 200 frames, each cut after the five parts inside it: rank 4 all through, so the turns that keep the
+    // parts before their frame are allowed, and the ones that do not are refused after a few steps
+    const rand = seeded(9);
+    const waits: number[][] = [];
+    const order: number[] = [];
+    for (let f = 0; f < 200; f++) {
+      const first = 6 * f;
+      for (let k = 0; k < 5; k++) waits[first + k] = [];
+      waits[first + 5] = [0, 1, 2, 3, 4].map((k) => first + k);
+      order.push(...[0, 1, 2, 3, 4, 5].map((k) => first + k));
+    }
+    const n = order.length;
+    const t0 = performance.now();
+    const found = improve(
+      order,
+      from,
+      task(Array(n).fill(4), { waits, anchor: order.map(() => rand() * 1000) }),
+    );
+    const ms = performance.now() - t0;
+    expect(isAllowed(found, task(Array(n).fill(4), { waits }))).toBe(true);
+    expect(found.some((v, i) => v !== order[i])).toBe(true);
+    expect(ms).toBeLessThan(20_000);
+  }, 60_000);
 });

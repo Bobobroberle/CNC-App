@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   circle,
   cornerWays,
+  operationTabSites,
   pathLength,
   rectangle,
   tabSites,
@@ -441,5 +442,41 @@ describe('the tabs off the corners in a toolpath', () => {
         safeZ: 5,
       });
     expect(code(named)).toBe(code(tabs));
+  });
+
+  it('are asked of one function that takes the cutter and the kind from the operation: operationTabSites', () => {
+    const tabs = { count: 4, width: 20, height: 2, avoidCorners: true };
+    const length = pathLength(plate.points, true);
+    const ways = (kind: 'inside' | 'outside' | 'on') =>
+      operationTabSites(plate, { kind, tabs }, s).map((t) => r9(t.u * length));
+    // 100 × 50, tabs of 20 and a 6 mm cutter: the loop of an inside cut has sharp corners (16 clear), the others 13
+    expect(ways('inside')).toEqual([37.5, 116, 187.5, 266]);
+    expect(ways('outside')).toEqual([37.5, 113, 187.5, 263]);
+    expect(ways('on')).toEqual([37.5, 113, 187.5, 263]);
+    // It is tabSites with the diameter and the kind, nothing else
+    expect(operationTabSites(plate, { kind: 'inside', tabs }, s)).toEqual(
+      tabSites(plate, tabs, 6, 'inside'),
+    );
+    // None without tabs, on an open contour, on a contour of no length
+    expect(operationTabSites(plate, { kind: 'inside' }, s)).toEqual([]);
+    expect(operationTabSites({ ...plate, closed: false }, { kind: 'inside', tabs }, s)).toEqual([]);
+    expect(operationTabSites({ closed: true, points: [] }, { kind: 'inside', tabs }, s)).toEqual(
+      [],
+    );
+    // The cut lifts the cutter where it says, the inside cut where the inside cut's places are: the same
+    // program from the tabs with the flag as from the places it gave, named by hand
+    const code = (
+      t: typeof tabs | { count: number; width: number; height: number; at: number[] },
+    ) =>
+      toGcode(toolpaths([plate], [{ contour: 0, kind: 'inside', tabs: t }], s).moves, {
+        name: 'x',
+        rpm: 1000,
+        safeZ: 5,
+      });
+    const at = operationTabSites(plate, { kind: 'inside', tabs }, s).map((t) => t.u);
+    expect(code({ count: 4, width: 20, height: 2, at })).toBe(code(tabs));
+    // ... and not the program of the places a drawing would show if it forgot the kind
+    const forgot = tabSites(plate, tabs, 6).map((t) => t.u);
+    expect(code({ count: 4, width: 20, height: 2, at: forgot })).not.toBe(code(tabs));
   });
 });

@@ -45,8 +45,9 @@ export interface Tabs {
    * (an inside cut at the corners of the part, an outline at its notches) its straight run ends short of the
    * drawn corner by the cutter's radius × tan(turn / 2), and that much more is kept clear. The finishing
    * allowance is not counted (roughing with an allowance may reach a fraction of a millimetre round such a
-   * corner). `tabSites` needs the cutter's diameter and the kind of cut for this: pass the same ones the cut
-   * uses, or the drawing and the cut disagree.
+   * corner). The places depend on the cutter's diameter and on the kind of cut, so the drawing of the tabs must
+   * ask `operationTabSites` – the function the cut itself asks – with the operation the cut uses, or the drawing
+   * and the cut disagree. (`tabSites` alone takes both as 0 and `'on'` when they are left out.)
    */
   avoidCorners?: boolean;
 }
@@ -160,6 +161,7 @@ export interface Move {
  * `peck-not-possible` (without a peck), `order-overridden` (later than wished).
  */
 export interface Problem {
+  /** The index in the list of contours given to `toolpaths` (not in the list of operations: `CutSpan.op` is that) */
   contour: number;
   code:
     | 'tool-too-large'
@@ -169,6 +171,21 @@ export interface Problem {
     | 'peck-not-possible'
     | 'order-overridden';
 }
+
+/**
+ * What a problem means for the contour it names: `'not-cut'` – nothing is cut of it – or `'cut-differently'` – it
+ * is cut, but not as asked. One entry for every code, so that a code added to `Problem` cannot be left out
+ * (the compiler says so): whoever shows the problems shows the second kind as a warning and the first as a
+ * contour that is missing from the program.
+ */
+export const PROBLEM_EFFECT: Readonly<Record<Problem['code'], 'not-cut' | 'cut-differently'>> = {
+  'tool-too-large': 'not-cut',
+  'open-contour': 'not-cut',
+  'hole-too-small': 'not-cut',
+  'helix-too-big': 'cut-differently',
+  'peck-not-possible': 'cut-differently',
+  'order-overridden': 'cut-differently',
+};
 
 const ccw = (p: readonly Point[]) => (signedArea(p) >= 0 ? [...p] : [...p].reverse());
 const cw = (p: readonly Point[]) => [...ccw(p)].reverse();
@@ -376,7 +393,8 @@ function offCorners(
  * along the line to the nearest place that does not (see `Tabs.avoidCorners`, `cornerWays`); the result is
  * then in the order of `u` – a tab moved across the start of the line is the last. That needs the width
  * (`tabs.width`), the cutter's diameter and the kind of cut: **pass the diameter and the `kind` the cut
- * uses**, as `toolpaths` does, or the tabs drawn and the tabs cut are not the same. The kind matters
+ * uses** – or, better, ask `operationTabSites`, which does so from the operation and is what `toolpaths`
+ * itself calls – or the tabs drawn and the tabs cut are not the same. The kind matters
  * because the cutter's loop has a sharp corner on one side of the line (`'inside'`: at the corners of the
  * part; `'outside'`: at its notches), where the straight run is shorter than the drawn side by the cutter's
  * radius × tan(turn / 2), and goes round on an arc on the other; `'on'` (the default) follows the line itself.
@@ -449,6 +467,28 @@ export function tabSites(
       tangent: { x: (b.x - a.x) / long, y: (b.y - a.y) / long },
     };
   });
+}
+
+/**
+ * Where the tabs of ONE operation stand on its contour – the places the cut uses, and so the ones the drawing
+ * of the tabs must show: `tabSites` with the operation's own tabs, the cutter's diameter and the kind of cut.
+ * `toolpaths` calls this for every contour it cuts, so the drawing and the cut cannot disagree about a place
+ * as long as the drawing asks with the operation it would cut with. Empty for an operation without `tabs`,
+ * an open contour or a contour of no length.
+ *
+ * ```ts
+ * // A plate of 100 × 50, four tabs of 20 mm kept off the corners, a 6 mm cutter. Counted along the line
+ * // from its first corner: cutting inside they stand at 37.5, 116, 187.5 and 266 mm (the cutter's loop
+ * // has sharp corners there), cutting outside at 37.5, 113, 187.5 and 263.
+ * operationTabSites(plate, { kind: 'inside', tabs }, { toolDiameter: 6 });
+ * ```
+ */
+export function operationTabSites(
+  contour: Contour,
+  op: Pick<Operation, 'tabs' | 'kind'>,
+  s: Pick<CutSettings, 'toolDiameter'>,
+): TabSite[] {
+  return op.tabs ? tabSites(contour, op.tabs, s.toolDiameter, op.kind) : [];
 }
 
 /**
@@ -999,8 +1039,8 @@ export function toolpaths(
       const depth = op.depth ?? s.depth;
       const depths = passDepths(depth, s.stepdown);
       const finish = [-depth];
-      // The same places the drawing shows (`tabSites`); none on an open contour or without any
-      const sites = op.tabs ? tabSites(c, op.tabs, s.toolDiameter, op.kind) : [];
+      // The same places the drawing shows (`operationTabSites`); none on an open contour or without any
+      const sites = operationTabSites(c, op, s);
       const tabs = sites.length > 0 ? op.tabs : undefined;
       const tabAt = sites.map((site) => site.point);
       // This contour's own direction, else the job's

@@ -13,8 +13,12 @@ import { compose, rotation, translation, type Matrix } from './transform';
  * greedy heuristic – a good layout, not the best one. Four runs are made (the parts ordered by area or by
  * their longer side, two rules for the best place) and the best result is kept: the most area placed, then
  * the smallest box round the placed parts (a compact layout tends to leave the free material in one piece
- * at the far side – tends to, not always), then the earlier run. Everything is deterministic: the same input gives the same output, and equal choices are
- * decided by the order of the input.
+ * at the far side – tends to, not always), then the earlier run. With turning allowed the four runs are made
+ * twice: first with the parts free to turn, then with none turned – so that allowing a turn can never
+ * place less than forbidding it (the rules that choose among places, turned ones included, can break a layout
+ * that fits exactly unturned: six boxes of 10 × 11 in 30 × 22 fit in a grid, but with turning one of them
+ * would end up without a place). Everything is deterministic: the same input gives the same output, and
+ * equal choices are decided by the order of the input.
  */
 
 export interface NestPart<Id = number> {
@@ -36,7 +40,10 @@ export interface NestOptions {
   gap?: number;
   /** The least room between a box and the rim of the stock, mm (default 0) */
   margin?: number;
-  /** A part may be turned by 90° counter-clockwise (default false); a part that is square never is */
+  /**
+   * A part may be turned by 90° counter-clockwise (default false); a part that is square never is. Turning is
+   * allowed, not asked for: the result places at least as much area as without it.
+   */
   rotate?: boolean;
 }
 
@@ -201,12 +208,12 @@ function before(a: readonly number[], b: readonly number[]): boolean {
  *
  * Where the box goes is the lower left corner of a free rectangle. With the gap added to the sizes of the
  * boxes and to the stock inside its margin, boxes that do not overlap are boxes with a gap between them.
- * Of the runs (see the top of the file) the one that placed the most area wins; in a tie the smaller box
- * round the placed parts; in a tie the earlier. Inside a run a part goes where its free rectangle is left
- * with the shortest side over (then the longest, the lower y, the lower x), or – in the other rule – where
- * its top edge is lowest (then the lower x); a tie of all of it is decided for the unturned part and the
- * older free rectangle. Parts are taken largest first (by area, or by the longer
- * side); equal ones in the order of the input.
+ * Of the runs (see the top of the file; with `rotate` eight, the four with turning first) the one that placed
+ * the most area wins; in a tie the smaller box round the placed parts; in a tie the earlier. Inside a run a
+ * part goes where its free rectangle is left with the shortest side over (then the longest, the lower y,
+ * the lower x), or – in the other rule – where its top edge is lowest (then the lower x); a tie of all of it
+ * is decided for the unturned part and the older free rectangle. Parts are taken largest first (by area,
+ * or by the longer side); equal ones in the order of the input.
  */
 export function nestParts<Id = number>(
   parts: readonly NestPart<Id>[],
@@ -231,23 +238,26 @@ export function nestParts<Id = number>(
   let best: (Slot | null)[] = parts.map(() => null);
   let bestArea = -1;
   let bestExtent = Infinity;
-  for (const strategy of STRATEGIES) {
-    const slots = pack(parts, usable, bin, gap, rotate, strategy);
-    // Summed in the order of the input: the same parts give the same number whichever way they were placed
-    let placedArea = 0;
-    let right = 0;
-    let top = 0;
-    slots.forEach((s, i) => {
-      if (!s) return;
-      placedArea += parts[i]!.width * parts[i]!.height;
-      right = Math.max(right, s.x + s.w - gap);
-      top = Math.max(top, s.y + s.h - gap);
-    });
-    const extent = right * top;
-    if (placedArea > bestArea || (placedArea === bestArea && extent < bestExtent)) {
-      best = slots;
-      bestArea = placedArea;
-      bestExtent = extent;
+  // The runs with turning come first: a tie is theirs, as it was before the runs without turning were added
+  for (const turning of rotate ? [true, false] : [false]) {
+    for (const strategy of STRATEGIES) {
+      const slots = pack(parts, usable, bin, gap, turning, strategy);
+      // Summed in the order of the input: the same parts give the same number whichever way they were placed
+      let placedArea = 0;
+      let right = 0;
+      let top = 0;
+      slots.forEach((s, i) => {
+        if (!s) return;
+        placedArea += parts[i]!.width * parts[i]!.height;
+        right = Math.max(right, s.x + s.w - gap);
+        top = Math.max(top, s.y + s.h - gap);
+      });
+      const extent = right * top;
+      if (placedArea > bestArea || (placedArea === bestArea && extent < bestExtent)) {
+        best = slots;
+        bestArea = placedArea;
+        bestExtent = extent;
+      }
     }
   }
   const placed: NestPlacement<Id>[] = [];

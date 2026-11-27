@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   circle,
   HELIX_CLEARANCE,
+  PROBLEM_EFFECT,
   rectangle,
   toolpaths,
   type Contour,
   type CutSettings,
   type Move,
   type Operation,
+  type Problem,
 } from '../src';
 import { heightAt, simulate, type Stock } from './support';
 
@@ -342,5 +344,62 @@ describe('what the entries cut (a stock of cells, a cutter of 6 mm)', () => {
       { ...area, minX: 0 },
     );
     expect(out.outside).toBeGreaterThan(0);
+  });
+});
+
+describe('what each problem means for the contour it names', () => {
+  it('says "not cut" where nothing of the contour is cut and "cut differently" where it is, for every code', () => {
+    const open: Contour = {
+      closed: false,
+      points: [
+        { x: 0, y: 0 },
+        { x: 5, y: 0 },
+      ],
+    };
+    const frame = rectangle(0, 0, 100, 100);
+    // Each case: the contours, the operations, the contour the problem names – and the code it must be
+    const cases: [Contour[], Operation[], number, Problem['code']][] = [
+      [[rectangle(0, 0, 4, 4)], [{ contour: 0, kind: 'inside' }], 0, 'tool-too-large'],
+      [[open], [{ contour: 0, kind: 'outside' }], 0, 'open-contour'],
+      [[circle(0, 0, 4)], [{ contour: 0, kind: 'drill' }], 0, 'hole-too-small'],
+      // A pocket of 12 × 12 and a hole of 12: the hole is the pocket itself
+      [
+        [rectangle(0, 0, 12, 12)],
+        [{ ...pocketOp, entry: 'helix', helixDiameter: 12 }],
+        0,
+        'helix-too-big',
+      ],
+      [[circle(0, 0, 20)], [{ contour: 0, kind: 'on', peck: 2 }], 0, 'peck-not-possible'],
+      // The frame wanted first, the part inside it second: the part goes first and the frame is overridden
+      [
+        [frame, rectangle(10, 10, 20, 20)],
+        [
+          { contour: 0, kind: 'outside', seq: 1 },
+          { contour: 1, kind: 'outside', seq: 2 },
+        ],
+        0,
+        'order-overridden',
+      ],
+    ];
+    const seen = new Set<string>();
+    for (const [contours, operations, named, code] of cases) {
+      const r = toolpaths(contours, operations, s);
+      const problem = r.problems.find((q) => q.code === code)!;
+      expect(problem, code).toEqual({ contour: named, code });
+      // The span of the operation that cuts the contour: empty where nothing is cut
+      const span = r.cuts.find((c) => operations[c.op]!.contour === problem.contour)!;
+      expect(span.end > span.start, code).toBe(PROBLEM_EFFECT[code] === 'cut-differently');
+      seen.add(code);
+    }
+    // No code without a case, and none in the table that is not a code
+    expect([...seen].sort()).toEqual(Object.keys(PROBLEM_EFFECT).sort());
+    expect(PROBLEM_EFFECT).toEqual({
+      'tool-too-large': 'not-cut',
+      'open-contour': 'not-cut',
+      'hole-too-small': 'not-cut',
+      'helix-too-big': 'cut-differently',
+      'peck-not-possible': 'cut-differently',
+      'order-overridden': 'cut-differently',
+    });
   });
 });

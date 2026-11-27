@@ -366,6 +366,74 @@ describe('nesting boxes: the properties, over 300 random cases', () => {
     }
   });
 
+  it('places a grid of nearly square boxes that fits exactly, with or without turning: 3 × 2 of 10 × 11 on 30 × 22', () => {
+    // Stock 30 × 22, six boxes of 10 × 11, no gap, no margin: three columns of two, nothing to spare.
+    // Allowing a turn must not take that away. (With the four runs that may turn the boxes alone, one box
+    // was turned and five of the six placed – measured; unturned, the grid is placed whole.)
+    const parts = Array.from({ length: 6 }, (_, i) => part(i, 10, 11));
+    for (const rotate of [false, true]) {
+      const r = nestParts(parts, { width: 30, height: 22 }, { rotate });
+      expect(r.unplaced, `rotate ${rotate}`).toEqual([]);
+      expect(r.placed.every((p) => !p.turned)).toBe(true);
+      // The only way to tile 30 × 22 with 10 × 11: the cells of the grid, each box in one of them
+      const cells = r.placed.map((p) => `${p.x},${p.y}`).sort();
+      expect(cells).toEqual(['0,0', '0,11', '10,0', '10,11', '20,0', '20,11']);
+      expect(r.used).toBe(1);
+    }
+    // The same with a gap and a margin: 3 × 2 of 10 × 11, gap 1, margin 2 → 2 + 32 + 2 = 36 by 2 + 23 + 2 = 27
+    const gapped = nestParts(parts, { width: 36, height: 27 }, { gap: 1, margin: 2, rotate: true });
+    expect(gapped.unplaced).toEqual([]);
+    expect(gapped.placed.map((p) => `${p.x},${p.y}`).sort()).toEqual([
+      '13,14',
+      '13,2',
+      '2,14',
+      '2,2',
+      '24,14',
+      '24,2',
+    ]);
+  });
+
+  it('places a grid of equal boxes of any proportion completely with turning allowed, over 200 random grids', () => {
+    for (let c = 0; c < 200; c++) {
+      const next = random(7000 + c);
+      const pick = (lo: number, hi: number) => lo + Math.floor(next() * (hi - lo + 1));
+      // Boxes from the square to a third longer one way – the grids where a turned box fits across
+      const w = pick(20, 600) / 10;
+      const h = (w * pick(100, 135)) / 100;
+      const gap = [0, 1, 2.5][pick(0, 2)]!;
+      const margin = [0, 3][pick(0, 1)]!;
+      const columns = pick(1, 8);
+      const rows = pick(1, 8);
+      const parts = Array.from({ length: columns * rows }, (_, i) => part(i, w, h));
+      const stock = {
+        width: 2 * margin + columns * w + (columns - 1) * gap,
+        height: 2 * margin + rows * h + (rows - 1) * gap,
+      };
+      const r = nestParts(parts, stock, { gap, margin, rotate: true });
+      expect(r.unplaced, JSON.stringify({ w, h, gap, margin, columns, rows })).toEqual([]);
+    }
+  });
+
+  it('never places less area with turning allowed than without, over 300 random sets', () => {
+    let better = 0;
+    for (let c = 0; c < 300; c++) {
+      const next = random(9000 + c);
+      const pick = (lo: number, hi: number) => lo + Math.floor(next() * (hi - lo + 1));
+      const stock: NestStock = { width: pick(40, 200), height: pick(40, 200) };
+      const size = Math.max(4, Math.floor(Math.min(stock.width, stock.height) / pick(2, 6)));
+      const parts = Array.from({ length: pick(2, 30) }, (_, i) =>
+        part(i, pick(3, size), pick(3, size)),
+      );
+      const options = { gap: [0, 1, 2.5][pick(0, 2)]!, margin: [0, 2][pick(0, 1)]! };
+      const off = nestParts(parts, stock, { ...options, rotate: false });
+      const on = nestParts(parts, stock, { ...options, rotate: true });
+      expect(on.used, `set ${c}`).toBeGreaterThanOrEqual(off.used);
+      if (on.used > off.used) better++;
+    }
+    // Turning does help where it can (seeded: 19 of the 300 sets place more)
+    expect(better).toBeGreaterThan(10);
+  });
+
   it('is deterministic whatever the numbers look like: the same parts in the same order give the same answer', () => {
     const next = random(42);
     const parts = Array.from({ length: 25 }, (_, i) => part(i, 5 + next() * 90, 5 + next() * 90));
