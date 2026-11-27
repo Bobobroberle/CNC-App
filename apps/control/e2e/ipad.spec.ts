@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type CDPSession, type Locator, type Page } from '@playwright/test';
 import {
   boardToWork,
@@ -1954,4 +1955,68 @@ test('the further shapes and packing by finger: the fold, the tiles and "Verscha
   await cam.getByRole('button', { name: 'Rückgängig', exact: true }).tap();
   await expect(cam.getByTestId('cam-nest-result')).toHaveCount(0);
   expect(await box()).not.toEqual(packed);
+});
+
+test('the face of a text on a finger: the block is full targets, a pick changes the program, one undo takes it back; the licences open with a tap', async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).tap();
+  const cam = page.getByTestId('cam-card');
+  const tall = async (target: Locator, what: string) => {
+    const b = (await target.boundingBox())!;
+    expect(b.height, what).toBeGreaterThanOrEqual(47.5);
+    expect(b.width, what).toBeGreaterThanOrEqual(47.5);
+  };
+  const program = async () => {
+    const download = page.waitForEvent('download');
+    await cam.getByRole('button', { name: 'Als .nc speichern' }).tap();
+    return readFileSync(await (await download).path(), 'utf8');
+  };
+  await cam.getByTestId('cam-add').getByRole('button', { name: 'Text', exact: true }).tap();
+  const select = cam.getByLabel('Schriftart', { exact: true });
+  await tall(select, 'the face');
+  await tall(cam.getByTestId('cam-text'), 'the words');
+  await tall(cam.getByLabel('Schrifthöhe (mm)', { exact: true }), 'the height');
+  const more = cam
+    .getByTestId('cam-text-more')
+    .getByRole('button', { name: 'Schrift: Ausrichtung und Abstände' });
+  await tall(more, 'the fold');
+  await more.tap();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  await expect(cam.getByLabel('Buchstabenabstand (± %)')).toBeVisible();
+  // a tap on the select is a touch on a target that takes it (the system's own picker is not drawn by the browser
+  // under test: the pick is made on the select itself)
+  await select.tap();
+  const standard = await program();
+  await select.selectOption({ label: 'Schreibschrift' });
+  const script = await program();
+  expect(script).not.toBe(standard);
+  // typing what a face lacks: the note is there and the fields stay under the finger
+  const words = cam.getByTestId('cam-text');
+  // (the distance between the fields, not their place on the screen: the panel may scroll)
+  const apart = async () => (await select.boundingBox())!.y - (await words.boundingBox())!.y;
+  const gap = await apart();
+  await words.fill('A☺');
+  await expect(cam.getByTestId('cam-text-missing')).toContainText('☺');
+  expect(await apart()).toBe(gap);
+  await words.fill('Text');
+  await cam.getByRole('button', { name: 'Rückgängig', exact: true }).tap();
+  await cam.getByRole('button', { name: 'Rückgängig', exact: true }).tap();
+  await expect(select).toHaveValue('standard');
+  expect(await program()).toBe(standard);
+
+  // the licences, on a finger
+  await goTo(page, 'Einstellungen', 'Maschine');
+  const card = page.getByTestId('licences-card');
+  await card.scrollIntoViewIfNeeded();
+  for (const [id, title] of [
+    ['hershey', 'Lizenztext: Hershey Fonts'],
+    ['ofl', 'Lizenztext: SIL Open Font License 1.1'],
+  ] as const) {
+    const head = page.getByTestId(`licence-text-${id}`).getByRole('button', { name: title });
+    await tall(head, title);
+    await head.tap();
+    await expect(page.getByTestId(`licence-pre-${id}`)).toBeVisible();
+  }
 });

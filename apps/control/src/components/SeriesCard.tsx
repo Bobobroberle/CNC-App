@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { t } from '../i18n';
+import { faceOf } from '../lib/camText';
 import { formatNumber } from '../lib/format';
 import { estimateScan, type Rect } from '../lib/photomap';
 import { motifAngle, replaceableText, type SeriesEntry } from '../lib/series';
@@ -395,7 +396,12 @@ function CheckStep() {
             <li className="warning">{t('series.spare', { count: plan.spare })}</li>
           ) : null}
           {missing.length > 0 ? (
-            <li className="warning">{t('series.missing', { list: missing.join(' ') })}</li>
+            <li className="warning">
+              {t('series.missing', {
+                font: t(`cam.text.fonts.${faceOf(placeholder?.text?.options ?? {})}`),
+                list: missing.join(' '),
+              })}
+            </li>
           ) : null}
         </ul>
       ) : null}

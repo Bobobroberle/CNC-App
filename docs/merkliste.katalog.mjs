@@ -1168,9 +1168,60 @@ add('cam', 'CAM Funktionen', [
   [
     'u-mwxlpobg',
     'Schrift',
-    'Überarbeiteter Texteditor, Auswahlmöglichkeiten verschiedener Schriftarten (Eintrag des Betreibers).',
+    'Überarbeiteter Texteditor, Auswahlmöglichkeiten verschiedener Schriftarten (Eintrag des Betreibers). Gebaut: ein Block „Schrift“ oben in der Karte eines gewählten Textes – die Worte, die Schriftart, die Schrifthöhe; Ausrichtung und Abstände eingeklappt darunter – und vier Einlinien-Schriften, je Text zu wählen: Standard (die eigene), Einfach und Schreibschrift (Hershey Sans und Script 1-stroke) und Modern (Relief SingleLine). Die Hershey-Schriften leihen ß × „ ° € Ø ø und die Akzente bei der Standardschrift und schreiben Gedankenstriche als Bindestrich; Æ æ Œ œ Ł ł Ð ð Þ þ, § © ® ™ µ ¿ ¡ ´, Griechisch und Kyrillisch schreibt keine der vier Schriften (im Test festgehalten). Der Hinweis zu fehlenden Zeichen entsteht aus den getippten Worten und der gewählten Schrift, nennt die Schriften, die sie haben, und steht auch bei einem Text aus lauter fehlenden Zeichen. Die Hinweise und Lizenztexte der drei fremden Schriften stehen in der App (Einstellungen → Maschine → Schriften und Lizenzen). Gemessen: im Browser-Test (Chromium, Desktop, Tablet und iPad-Größe), nicht an der Maschine und nicht mit einem echten Auswahlfeld des iPad. Konturschriften (TTF/OTF) bleiben cam-draw5.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
+  ],
+]);
+
+add('cam', 'Zeichnen & Formen', [
+  [
+    'cam-font1',
+    'Schrift: ein Muster je Schriftart statt nur der Namen',
+    'Das Auswahlfeld „Schriftart“ zeigt nur die Namen (Standard, Einfach, Schreibschrift, Modern); die Tafel ist die Vorschau. Besser: je Schrift ein gerendertes „Aa“ in der Auswahl oder als Kacheln, damit man vor dem Wählen sieht, wie sie aussieht. Nicht gebaut: ein natives Auswahlfeld zeigt keine Zeichnung, Kacheln brauchen eigene Höhen, die keine Zeile der Liste verschieben dürfen.',
+    'klein',
+  ],
+  [
+    'cam-font2',
+    'Fette Schrift durch doppelte Spur',
+    'Eine Schrift „Fett“ wäre doppelt gespurt und keine Einlinienschrift mehr. Aus der Untersuchung der Daten: Hershey Sans medium hat im Mittel 4,4 Teilzüge je Buchstabe, die einfache 2,15 (H 6 gegen 3, I 2 gegen 1); die Serifen- und Gotisch-Schriften der Sammlung haben 5 bis 13 und sind Umrisse. Nicht gebaut; der Fräser fährt dann jeden Strich zweimal, die Strichbreite käme vom Abstand der Spuren.',
+    'klein',
+  ],
+  [
+    'cam-font3',
+    'Schrift: eine ältere App zeigt einen Text mit Schriftart in der Standardschrift',
+    'Die Projektdatei bleibt Version 1 (wie bei „hidden“ und „tabSpec“; so entschieden). Eine App von vor den Schriften liest eine Datei mit „font“ ohne Meldung, wirft den Schlüssel weg, zeigt den Text in der Standardschrift und fräst die gespeicherten Konturen – bis dieser Text bearbeitet wird: dann wird die Bahn still zur Standardschrift. Besser: die Version erst anheben, wenn eine Datei eine Schrift braucht (ältere Apps lehnen sie dann sauber ab), oder die neue App warnt beim Speichern. Siehe auch cam-io7.',
+    'klein',
+  ],
+  [
+    'cam-font4',
+    'Text direkt auf dem Tisch bearbeiten',
+    'Worte tippt man im Feld der Karte; auf dem Tisch lässt sich ein Text nur greifen, verschieben, drehen und in der Höhe ziehen. Denkbar: ein Doppeltipp auf den Text öffnet ein Eingabefeld an Ort und Stelle, das Bild ist die Vorschau. Nicht gebaut.',
+    'gross',
+  ],
+  [
+    'cam-font5',
+    'Hershey-Schriften: Kurven sind sichtbar eckig',
+    'Hershey Sans und Script liegen auf ganzen Koordinaten bei 21 Einheiten Großbuchstabenhöhe; bei 20 mm Höhe sind die Streckenstücke rechnerisch etwa 1 mm lang (Rechnung aus der Untersuchung, kein gefrästes Muster gesehen). „Modern“ (Relief SingleLine) hat echte Kurven und ist glatter, „Standard“ ebenfalls. Denkbar: die Punkte der Hershey-Kurven durch eine Spline glätten; nicht gebaut.',
+    'klein',
+  ],
+  [
+    'cam-font6',
+    'Fehlende Zeichen: das Hinweisfeld nennt zerlegte Zeichen',
+    'Ein Zeichen mit Akzent, das die Schrift nicht kennt, wird in der Liste der fehlenden Zeichen als Grundbuchstabe plus loses Zeichen genannt: ein kyrillisches „й“ erscheint als „и“ und ein einzelner Breve (im Test festgestellt, packages/cam gibt die zerlegten Teile zurück). Der Hinweis stimmt dann dem Sinn nach, liest sich aber schlecht. Besser: die Bibliothek nennt das Zeichen, wie es getippt wurde. Nicht geändert, weil die Bibliothek in dieser Stufe nicht angefasst wurde.',
+    'klein',
+  ],
+  [
+    'cam-font7',
+    'Lizenztexte der Oberflächenschriften und der gebündelten Pakete',
+    'Die Karte „Schriften und Lizenzen“ zeigt Hinweis und Lizenztext der drei fremden Schriften der Zeichnung. Inter und JetBrains Mono (SIL OFL 1.1; ihre Daten stecken in der einen HTML-Datei) und die gebündelten Pakete (React, three.js, lucide-react, die Bausteine von coss ui …) haben ihre Lizenzen in THIRD-PARTY.md genannt, ihre Texte stehen aber in der App nirgends. Die OFL verlangt Copyright-Zeile und Lizenztext bei jeder Kopie der Schrift; ob die @fontsource-Pakete beides in ihren Dateien mitbringen, wurde nicht nachgesehen. Nicht gebaut; dieselbe Karte wäre der Ort.',
+    'aufgabe',
+  ],
+  [
+    'cam-font8',
+    'Kommentar in der Bibliothek nennt das fehlende Lizenzfenster noch',
+    'Der Kommentar zu FONT_CREDITS in packages/cam/src/font.ts sagt noch, die App habe kein Lizenzfenster („an open item of the wiring of the faces“). Seit „Schriften und Lizenzen“ stimmt das nicht mehr. Nur ein Kommentar, in dieser Stufe nicht angefasst, weil die Bibliothek nicht geändert werden sollte.',
+    'aufgabe',
   ],
 ]);
 

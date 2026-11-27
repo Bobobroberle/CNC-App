@@ -177,7 +177,7 @@ describe('packing parts onto the stock', () => {
     expect(boxes()[0]).toEqual(before[0]);
     // the small one is on the stock
     const [x0, y0, x1, y1] = boxes()[1]!;
-    expect([x0, y0, x1, y1].every((v) => v >= 0 && v <= 100)).toBe(true);
+    expect([x0, y0, x1, y1].every((v) => v !== undefined && v >= 0 && v <= 100)).toBe(true);
   });
 
   it('turns a part by 90° where that is allowed and the part is long: the box after the turn, about its own corner', () => {

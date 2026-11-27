@@ -75,10 +75,13 @@ are distributed with the font data: they are in the header comment of both data 
 shortened to the two acknowledgements, in the `credit` property of the very object that holds the glyphs (`SIMPLEX`,
 `SCRIPT`), so they go wherever the data goes; the library exports them as `FONT_CREDITS`. A one-file bundle of the
 library made with esbuild for this check (minified, `FONT_CREDITS` not used by the entry) still held both strings and
-neither header comment; the project's own release build was not looked at. **The app shows no licences screen yet** –
-it has none (no card, no page, and this file is not part of the release): a card that lists every non-null
-`FONT_CREDITS` entry is an open item of the wiring of the faces. The notice as it comes with the Hershey fonts in SVG
-(<https://www.evilmadscientist.com>):
+neither header comment. **The app shows them:** under Einstellungen → Maschine → Schriften und Lizenzen
+(`components/LicencesCard.tsx`) every face that is not the app's own is listed with its name, the `FONT_CREDITS` notice
+and the licence text – for the Hershey faces the notice below, which is the file `licenses/Hershey-Fonts-notice.txt`,
+imported as text when the app is built (`lib/fontLicences.ts`), so the single HTML file of the release carries it and it
+can be read without a network. A test holds the shown text to that file and the file to the quote below, and
+`scripts/bundle.mjs` refuses a build whose HTML lacks it. The notice as it comes with the Hershey fonts in SVG
+(<https://www.evilmadscientist.com>; the line breaks are this file's, the words are the metadata's):
 
 > The Hershey Fonts are a set of vector fonts with a liberal license.
 >
@@ -114,9 +117,10 @@ the SIL Open Font License, Version 1.1, whose text is kept in the repository as
 glyphs the app does not use left out – and so stays under the OFL (condition 5); the data file says so in its
 header comment and in its `credit` property (what `FONT_CREDITS` exports: the copyright line, the name of the licence
 and that the data is modified – **not the licence text**). The OFL asks that each copy of the Font Software carry the
-licence; the text is only the file `licenses/Relief-SingleLine-OFL.txt`, and no build or release carries it yet. Open
-item of the wiring of the faces, before a release that holds the face "Modern": a licences card in the app that shows
-the notices of `FONT_CREDITS` and the OFL text (the file, imported as text), with a test that it renders them.
+licence: the app shows the notice and the whole text under Einstellungen → Maschine → Schriften und Lizenzen, imported from
+that file as text when the app is built (`?raw` in `lib/fontLicences.ts`, never retyped), so the single HTML file of the
+release holds it. Tests hold the shown text to the file byte for byte and the file to the SHA-256 of the upstream
+`OFL.txt` as fetched; `scripts/bundle.mjs` refuses a build whose HTML lacks it.
 Copyright line of the upstream `OFL.txt`:
 
 > Copyright 2022 The Relief SingleLine Project Authors (https://github.com/isdat-type/Relief-SingleLine)

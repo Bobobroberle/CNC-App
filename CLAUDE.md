@@ -14,7 +14,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `ipad` (touch tests in `e2e/ipad.spec.ts`, real multi-touch through CDP; the two-sided flow on the
   simulator in `e2e/flip.spec.ts`, series and jigs in `e2e/series.spec.ts` / `e2e/jigs.spec.ts`, snapping, the gaps while
   dragging and measuring in the drawing in `e2e/snap.spec.ts` / `e2e/measure.spec.ts`, the quick search in
-  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the toolpath options in `e2e/toolpath-options.spec.ts`, the further shapes in `e2e/shapes.spec.ts`, nesting in `e2e/nest.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
+  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the toolpath options in `e2e/toolpath-options.spec.ts`, the further shapes in `e2e/shapes.spec.ts`, the faces of a text and the licences in `e2e/fonts.spec.ts` (and `e2e/ipad.spec.ts`), nesting in `e2e/nest.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
   `e2e/select.spec.ts` (and `e2e/ipad.spec.ts` for touch),
   parts cut in sections on the simulator's long board in `e2e/sections.spec.ts`, the areas of the work –
   the start, its confirmations, the overrides, a lost connection – in `e2e/steps.spec.ts`, the jog
@@ -250,8 +250,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   changes of one field in a row are one step) – so nothing asks for confirmation. The keys
   (`lib/camKeys.ts`, hook in `CamCard`) act only while the workspace shows and no field has the
   focus, and never reach the machine. All geometry lives in
-  the library with hand-checked numbers: `textContours` (our own single-line font, glyph data in
-  `font.ts`), `readSvg`/`readDxf` (what they skip comes back as stable codes, German texts under
+  the library with hand-checked numbers: `textContours` (single-line faces: our own font, glyph data in
+  `font.ts`, and three more from open data in `fonts/` – see "The face of a text" below), `readSvg`/`readDxf` (what they skip comes back as stable codes, German texts under
   `cam.notes`), `reliefCorners`, and `toolpaths`, which orders the cuts itself (holes, pockets,
   engraving, cut-outs, outlines last; what lies inside a contour before it) and puts tabs at fixed
   places of the drawn contour (`tabPoints`), so roughing and finishing lift at the same spots. On
@@ -582,6 +582,39 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   rectangle with radii** (what is typed beyond a range is not what the reader accepts), the five older types exactly as stored; format and version unchanged.
   Tests: `camShapes` (hand-checked boxes of each shape, defaults, measures, undo, radii, the held scale through `scale()` and `edit()`), `camScale`,
   `camProjectShapes` (round trip byte for byte, damaged and unusual files, the two older fixtures read as before), `camShapesPanel`, `e2e/shapes.spec.ts`.
+  **The face of a text – "Schrift"** (library `packages/cam`: `FontId` = `standard` · `simplex` · `script` · `modern`, `FONT_IDS` – the order of the select –, `DEFAULT_FONT`, `isFontId`, `FONT_CREDITS`, `fontCharacters(font?)`,
+  `TextOptions.font?` and a text sketch's `font?`; faces generated into `packages/cam/src/fonts/*` by `scripts/fonts/convert.mjs`; app `components/CamText.tsx` (`TextBlock`), `lib/camText.ts`, `lib/fontLicences.ts`,
+  `components/LicencesCard.tsx`): **per text one of four single-line faces – "Standard" (our own font, the default), "Einfach" and "Schreibschrift" (Hershey Sans / Script 1-stroke, M/L strokes: polygonal
+  at large heights), "Modern" (Relief SingleLine, true curves)**; outline fonts (TTF/OTF) stay deferred (`cam-draw5`). `height` is the capital height in every face, the line pitch is `lineSpacing · cap`, a
+  line is set by its ink (a face change does not shift a text sideways; `textBlockCentre` is the middle `textContours` centres on in every face – `test/camFonts.test.ts`). **One canonical form: the standard
+  face is the absence of the key** – `canonicalFace` strips `font: 'standard'` (and an id that is none) at the store's boundary (`addSketch`, `setSketch`; `addText` takes `font` and writes no key for the standard
+  face), so the JSON-twin check of `addSketch`, a saved file and `textStyle.options` of a text without a face are what they were before the faces; a kept face is the last key (`tidySketch`'s form too).
+  `duplicate`, `paste`, `array` and the scale keep the sketch and so the face; the series spreads `textStyle.options` into every name (`withText`) – names are set in the text's face – and `series.missing` names it.
+  **The editor is one block at the top of the card of a selected text, above the switches** (`TextBlock`, `data-testid="cam-text-block"`): the words (`cam-text`, 2 rows), "Schriftart" (a `NativeSelect`, names only –
+  the table is the preview; `data-find="text-font"`, `cam-font`) beside "Schrifthöhe (mm)" (no longer in the generic grid: `measures('text')` is `[]`), the note, then the fold "Schrift: Ausrichtung und Abstände"
+  (alignment, letter and line spacing – it moved into the block, it had no `data-find`). A pick is `setSketch(…, 'font')`: one step of undo (a second pick in a row coalesces, like every field), the job lock and
+  `ahead` as for any change (`test/camFontsRunning.test.ts`). **What is typed and what is chosen live in the block while they cannot be engraved yet** (a state of the fields, no step of the drawing): the note
+  under the fields – **below them, so none moves when it comes and goes** (`e2e/fonts.spec.ts` measures the fields in the panel's content, the rows' heights, in the 800 × 600 sheet and on touch) – is worked out
+  from the TYPED words and the CHOSEN face with the library's own layout (`checkText`: strokes, missing characters, and the other faces that write every one of them – from `FONT_IDS`, never a list), not from the
+  stored sketch. Some of the words missing: "Diese Zeichen gibt es in der Schrift „…“ nicht, sie bleiben frei: …" and "Eine andere Schrift wählen – vorhanden in: …" (or "Keine der Schriften hat sie alle");
+  **nothing but missing characters** (`setSketch` refuses a text without a stroke, as it always did): the note says that nothing would be cut and which text stays engraved ("Gefräst wird weiter der bisherige Text in der
+  Schrift „…“"); a face that cannot write the words is refused the same way – the select shows the pick, the note the reason, the drawing is unchanged. **A face picked takes the typed words with it** (`{ }` typed
+  in Standard, then "Einfach": both go in, one step). The braces `{` `}` and the grave accent are in the three other faces, not in Standard; **no face writes** § © ® ™ µ ¿ ¡ ´ Æ æ Œ œ Ł ł Ð ð Þ þ, Greek or Cyrillic (pinned in
+  `test/camFonts.test.ts`; a Cyrillic й shows in the note as the base letter and a stray combining mark – the library reports the decomposed pieces). The "Text" tile adds a text in the standard face – no key.
+  **Project file: `font` is optional on the sketch and in `textStyle.options`, the version stays 1** (precedent `hidden`, `tabSpec`; decided): an app from before the faces reads the file, drops the key, shows the
+  standard face and cuts the stored contours until that text is edited – then the geometry silently becomes the standard face (catalog `cam-font-v1`); the standard face is written as no key, so a drawing
+  without a face is byte-for-byte the file it was (`test/fixtures/old*.json|nc` give their programs). **Both readers are strict**: `validateSketch` (a face that is no `FontId` – an unknown name of a newer app, a wrong
+  case, `null`, a number, an array, `toString` – refuses the sketch) and `textStyleOf` (the same for `options.font`: the style is dropped); **`olderSketchOf` refuses a text that has a `font` key** – the older reading
+  would drop the key and take an unknown face for the standard one; where a sketch and its style name **different faces both are dropped** (a series must never set a name in a face the drawing does not show); the item
+  keeps its words and its contours and stays cuttable (`test/camFontsProject.test.ts`, with mutations of each guard). **Licences – a release rule:** the three faces' data carries its notice (`FONT_CREDITS`, in the
+  object that holds the glyphs, so it goes wherever they go) and the licence text must be readable in the app: **Einstellungen → Maschine → Schriften und Lizenzen** (`LicencesCard`, `data-find="licences"`, folded
+  texts; the least invasive place – a new view would drag in `VIEWS`, the sub-navigation and every view test): for each `FONT_IDS` entry but the standard face its name, source, `FONT_CREDITS` notice and the licence
+  text – the Hershey conditions from `licenses/Hershey-Fonts-notice.txt` (the quote of `THIRD-PARTY.md`, a test ties them) and the OFL from `licenses/Relief-SingleLine-OFL.txt` (sha-256 pinned: it must never be edited),
+  both imported with `?raw` at build time (`lib/fontLicences.ts`, `FACE_LICENCE` is a `Record` over every face but the standard one – a fifth face fails the typecheck), shown in a `<pre>`, **never retyped and in no
+  dictionary** (licence text is not translated). `test/fontLicences.test.tsx` walks `FONT_IDS` and holds the shown text byte-equal to the files; `scripts/bundle.mjs` throws when the built HTML lacks a line of them and
+  copies `THIRD-PARTY.md` and `licenses/` beside the single file (not into `release/pi`: the Pi refuses unknown names); `e2e/fonts.spec.ts` greps the built `dist/index.html`. **A new face needs its entry in
+  `FACE_LICENCE`, its `licences.sources.<id>` and `cam.text.fonts.<id>` in de AND en, and a licence file.** Quick search: `textFont` (chain `['text-font', 'cam-draw']`) and `licences`. Tests: `camFonts`,
+  `camFontsRunning`, `camFontsProject`, `camFontsPanel`, `fontLicences`, `e2e/fonts.spec.ts`, one touch case in `e2e/ipad.spec.ts`.
   **Verschachteln – packing the selected parts onto the stock** (`lib/camNest.ts` pure `planNest`, `useCam.nest`/`nested`, `NestPanel` in the fold "Ausrichten und
   verteilen", `data-find="cam-nest"`; library `nestParts`/`nestMatrix`): **it packs the RECTANGULAR BOXES of the parts, not their outlines – shapes do not interlock**
   (an L or a ring takes its whole box), by MaxRects (a good layout, not the best; four orders tried, with turning eight, the most area placed wins). It needs the

@@ -1,4 +1,6 @@
 import {
+  DEFAULT_FONT,
+  isFontId,
   tidySketch,
   validateSketch,
   type AnySketch,
@@ -171,7 +173,10 @@ function olderSketchOf(v: Record<string, unknown>): Sketch | null {
         ? tidySketch({ type: 'grid', d: v.d, nx: v.nx, ny: v.ny, px: v.px, py: v.py })
         : null;
     case 'text':
-      return typeof v.text === 'string' &&
+      // An app before the faces never wrote a `font`: a text that has one is read by `validateSketch` or not at all
+      // (the older reading would drop the key and take an unknown face for the standard one)
+      return v.font === undefined &&
+        typeof v.text === 'string' &&
         positive(v.height) &&
         num(v.spacing) &&
         num(v.lineSpacing) &&
@@ -195,7 +200,8 @@ function olderSketchOf(v: Record<string, unknown>): Sketch | null {
  * library decides (`validateSketch`: the shapes it knows with their ranges, a rectangle with its radii for each
  * corner); where it refuses one of the five older types only for being larger than 5 m, the older reading takes it
  * (see `olderSketchOf`). Anything else that cannot be trusted – a measure that is no number, an unknown shape, a
- * damaged `radii` – drops the sketch and the item keeps its contours, as before.
+ * damaged `radii`, a text whose `font` is no face this app knows – drops the sketch and the item keeps its
+ * contours, as before.
  */
 function sketchOf(v: unknown): AnySketch | null {
   if (!isObject(v)) return null;
@@ -212,7 +218,12 @@ function textStyleOf(v: unknown): CamItem['textStyle'] | null {
     return null;
   }
   if (o.vertical !== undefined && o.vertical !== 'baseline' && o.vertical !== 'middle') return null;
-  return { options: o as unknown as TextOptions, centre: { x: v.centre.x, y: v.centre.y } };
+  // The face is one of the faces this app has – a text set in another (a newer app's) cannot be set anew here, so the
+  // style is dropped and the item keeps its contours; the standard face is no key, as everywhere
+  if (o.font !== undefined && !isFontId(o.font)) return null;
+  const { font, ...rest } = o;
+  const options = font === undefined || font === DEFAULT_FONT ? rest : { ...rest, font };
+  return { options: options as unknown as TextOptions, centre: { x: v.centre.x, y: v.centre.y } };
 }
 
 const KINDS = ['outside', 'inside', 'on', 'pocket', 'drill', 'none'];
@@ -295,8 +306,18 @@ function itemOf(v: unknown): SavedItem | null {
   if (tabSpec === null) return null;
   if (v.registration !== undefined && v.registration !== 1 && v.registration !== 2) return null;
   if (v.text !== undefined && typeof v.text !== 'string') return null;
-  const sketch = v.sketch === undefined ? null : sketchOf(v.sketch);
-  const textStyle = v.textStyle === undefined ? null : textStyleOf(v.textStyle);
+  let sketch = v.sketch === undefined ? null : sketchOf(v.sketch);
+  let textStyle = v.textStyle === undefined ? null : textStyleOf(v.textStyle);
+  // A text's sketch and the style a series sets other words in say the same face – or neither is kept (the item
+  // keeps its words and contours): a series must never write names in a face the drawing does not show
+  if (
+    sketch?.type === 'text' &&
+    textStyle &&
+    (sketch.font ?? DEFAULT_FONT) !== (textStyle.options.font ?? DEFAULT_FONT)
+  ) {
+    sketch = null;
+    textStyle = null;
+  }
   return {
     id: v.id,
     group: v.group,

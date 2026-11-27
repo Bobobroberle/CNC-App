@@ -1,13 +1,5 @@
-import {
-  sketchContours,
-  SKETCH_LIMITS,
-  tidySketch,
-  type AnySketch,
-  type Radii,
-  type Sketch,
-  type TextAlign,
-} from '@lowrider/cam';
-import { useEffect, useRef, useState } from 'react';
+import { SKETCH_LIMITS, tidySketch, type AnySketch, type Radii, type Sketch } from '@lowrider/cam';
+import { useRef, useState } from 'react';
 import { t, type MessageKey } from '../i18n';
 import { EDGES, unitsOf, type Axis, type Edge, type Spread } from '../lib/camArrange';
 import { frameAngle, frameSize, selectionFrame } from '../lib/camEdit';
@@ -23,17 +15,13 @@ import { Icon, type IconName } from './Icon';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
-import { Field, FieldLabel } from '../ui/field';
 import { Label } from '../ui/label';
-import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
-import { Textarea } from '../ui/textarea';
 import { Fold } from './Fold';
 import { OrderPanel, PathPanel } from './CamPath';
+import { TextBlock } from './CamText';
 
 /** Whole numbers for columns and rows, at least 1. */
 const count = (v: number | undefined) => Math.max(1, Math.round(v ?? 1));
-
-const ALIGNS: TextAlign[] = ['left', 'center', 'right'];
 
 /** The six ways to align, in the order of the buttons: the horizontal three, then the vertical three. */
 const EDGE_ICONS: Record<Edge, IconName> = {
@@ -473,7 +461,8 @@ function measures(s: AnySketch): Measure[] {
         { field: 'py', label: 'cam.fields.py', value: s.py },
       ];
     case 'text':
-      return [{ field: 'height', label: 'cam.text.height', value: s.height }];
+      // (the height of a text is in its own block, "Schrift", with the words and the face)
+      return [];
     case 'ellipse':
       return [
         { field: 'rx', label: 'cam.fields.rx', value: s.rx, min: radius.min },
@@ -561,62 +550,6 @@ function RadiiFold({ item, sketch }: { item: CamItem; sketch: Sketch & { type: '
         <p className="text-muted-foreground text-sm">{t('cam.radii.hint')}</p>
       </div>
     </Fold>
-  );
-}
-
-/** A text was just added: its field takes the keyboard as soon as it shows. */
-let focusText = false;
-export function focusNewText() {
-  focusText = true;
-}
-
-/** The words of a text and how its lines are set. */
-function TextFields({ item, sketch }: { item: CamItem; sketch: Sketch & { type: 'text' } }) {
-  const cam = useCam.getState();
-  const field = useRef<HTMLTextAreaElement>(null);
-  // What is typed, also while it is nothing that can be engraved yet.
-  const [words, setWords] = useState(sketch.text);
-  const shown = useRef(sketch.text);
-  useEffect(() => {
-    // The drawing changed under the field (undo): show what it holds.
-    if (sketch.text !== shown.current) {
-      shown.current = sketch.text;
-      setWords(sketch.text);
-    }
-  }, [sketch.text]);
-  useEffect(() => {
-    if (!focusText) return;
-    focusText = false;
-    field.current?.focus();
-    field.current?.select();
-  }, []);
-  const missing = sketchContours(sketch).missing;
-  const set = (patch: Partial<typeof sketch>, name: string) =>
-    cam.setSketch(item.id, { ...sketch, ...patch }, name);
-  return (
-    <>
-      <Field>
-        <FieldLabel>{t('cam.text.label')}</FieldLabel>
-        <Textarea
-          ref={field}
-          rows={2}
-          value={words}
-          placeholder={t('cam.text.placeholder')}
-          data-testid="cam-text"
-          onChange={(e) => {
-            setWords(e.target.value);
-            if (e.target.value.trim() === '') return;
-            shown.current = e.target.value;
-            set({ text: e.target.value }, 'text');
-          }}
-        />
-      </Field>
-      {missing.length > 0 ? (
-        <Alert variant="warning" data-testid="cam-text-missing">
-          {t('cam.text.missing', { list: missing.join(' ') })}
-        </Alert>
-      ) : null}
-    </>
   );
 }
 
@@ -723,6 +656,8 @@ export function CamArrange() {
           ×
         </Button>
       </div>
+      {/* A text: the words, the face and the height come first – what it needs every time, above the switches */}
+      {one && sketch?.type === 'text' ? <TextBlock key={key} item={one} sketch={sketch} /> : null}
       <MultiSwitch />
       <MarqueeSwitch />
       <DragAids />
@@ -768,7 +703,6 @@ export function CamArrange() {
           </Button>
         </div>
       ) : null}
-      {one && sketch?.type === 'text' ? <TextFields key={key} item={one} sketch={sketch} /> : null}
       <div className="grid gap-2 grid-cols-3 items-end">
         {one && sketch && shownSketch
           ? measures(shownSketch).map((m) => (
@@ -898,46 +832,6 @@ export function CamArrange() {
           group={units.length === 1 && contours.length > 1}
           place={lone ? cutOrder[lone.id] : undefined}
         />
-      ) : null}
-      {one && sketch?.type === 'text' ? (
-        <Fold title={t('cam.text.more')}>
-          <div className="contents">
-            <SegmentedControl role="group" aria-label={t('cam.text.align')}>
-              {ALIGNS.map((a) => (
-                <SegmentedControlItem
-                  key={a}
-                  pressed={sketch.align === a}
-                  onClick={() => cam.setSketch(one.id, { ...sketch, align: a })}
-                >
-                  {t(`cam.text.aligns.${a}`)}
-                </SegmentedControlItem>
-              ))}
-            </SegmentedControl>
-            <div className="grid grid-cols-2 gap-2">
-              <NumberField
-                key={`${key}spacing`}
-                label="cam.text.spacing"
-                value={Math.round(sketch.spacing * 100)}
-                min={-Infinity}
-                onChange={(v) =>
-                  v !== undefined &&
-                  cam.setSketch(one.id, { ...sketch, spacing: v / 100 }, 'spacing')
-                }
-              />
-              <NumberField
-                key={`${key}line`}
-                label="cam.text.lineSpacing"
-                value={Math.round(sketch.lineSpacing * 100)}
-                min={10}
-                onChange={(v) =>
-                  v !== undefined &&
-                  cam.setSketch(one.id, { ...sketch, lineSpacing: v / 100 }, 'lineSpacing')
-                }
-              />
-            </div>
-            <p className="text-muted-foreground text-sm">{t('cam.text.hint')}</p>
-          </div>
-        </Fold>
       ) : null}
       <Fold title={t('cam.arrange.more')} testId="cam-arrange-more" hidden={hole}>
         <div className="contents">

@@ -1,6 +1,7 @@
 import { t } from '../../i18n';
 import { Feature } from '../Feature';
 import { FeaturesCard } from '../FeaturesCard';
+import { LicencesCard } from '../LicencesCard';
 import { needsAttention } from '../../lib/messages';
 import { useJob } from '../../store/job';
 import { useMessages } from '../../store/messages';
@@ -188,6 +189,7 @@ export function SettingsArea() {
             </Feature>
             <FeaturesCard />
             <ExpertSwitch />
+            <LicencesCard />
           </>
         ) : null}
         {shown === 'camera' ? (

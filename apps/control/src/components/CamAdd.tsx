@@ -8,7 +8,7 @@ import { tableBox } from '../lib/tableBox';
 import { useCam } from '../store/cam';
 import { useMachine } from '../store/machine';
 import { useUi } from '../store/ui';
-import { focusNewText } from './CamArrange';
+import { focusNewText } from './CamText';
 import { Fold } from './Fold';
 import { Icon, type IconName } from './Icon';
 import { Alert } from '../ui/alert';

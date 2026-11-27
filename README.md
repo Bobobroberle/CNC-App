@@ -383,8 +383,24 @@ das CAM zu sehen.
       von dort nach Einrichten); `E`, `?` und die Suche gelten weiter.
     - **Text:** Einlinien-Schrift mit ÄÖÜß, Ziffern und Satzzeichen, mehrere Zeilen; die Schrifthöhe
       ist die der Großbuchstaben, die Strichbreite kommt vom Werkzeug (V-Fräser oder dünner
-      Schaftfräser). Ausrichtung, Buchstaben- und Zeilenabstand unter _Schrift: Ausrichtung und
-      Abstände_; Zeichen, die die Schrift nicht kennt, bleiben frei und stehen in einem Hinweis.
+      Schaftfräser). Ist ein Text gewählt, steht oben in der Karte der Auswahl (über den Schaltern)
+      der Block _Schrift_: die Worte, die _Schriftart_ und die _Schrifthöhe_. Vier Einlinien-Schriften
+      stehen zur Wahl, **je Text**: _Standard_ (die eigene der App), _Einfach_ und _Schreibschrift_
+      (aus den Hershey-Schriften, die Buchstaben so, wie sie in den Daten stehen; ß × „ ° € Ø ø und die
+      Akzente leiht sich die Schrift bei der Standardschrift, die Gedankenstriche schreibt sie als
+      Bindestrich) und _Modern_ (aus Relief SingleLine, mit runden Kurven); die Tafel zeigt, wie sie
+      aussieht – im Auswahlfeld stehen nur die Namen. Eine Schriftart zu wählen ist ein Schritt zurück
+      mit _Rückgängig_ und ändert die Fräsbahn über denselben Weg wie jede andere Änderung der
+      Zeichnung (läuft ein Job, bleibt sein Programm, die Zeichnung ist ihm voraus). Ausrichtung,
+      Buchstaben- und Zeilenabstand stehen unter _Schrift: Ausrichtung und Abstände_ im selben Block.
+      Zeichen, die die gewählte Schrift nicht kennt, bleiben frei und stehen unter den Feldern in einem
+      Hinweis – berechnet aus den getippten Worten und der gewählten Schrift, mit dem Weg hinaus
+      („Eine andere Schrift wählen – vorhanden in: …“): `{ }` etwa gibt es in _Einfach_,
+      _Schreibschrift_ und _Modern_, nicht in _Standard_; wählt man die Schrift, gehen die getippten
+      Worte mit hinein. Besteht ein Text nur aus Zeichen, die die Schrift nicht kennt, steht
+      dort, dass nichts zu fräsen wäre und welcher Text weiter gefräst wird. In keiner der vier
+      Schriften: § © ® ™ µ ¿ ¡ ´ Æ æ Œ œ Ł ł Ð ð Þ þ, Griechisch und Kyrillisch. Die Hinweise und Lizenztexte der drei
+      fremden Schriften stehen in der App unter _Einstellungen → Maschine → Schriften und Lizenzen_.
   - _2 · Wie wird gefräst?_ – die Liste der Teile: je Teil _Außen_, _Innen_, _Linie gravieren_,
     _Tasche_, _Bohren_ oder _Nicht fräsen_ (Bohren: passend zum Fräser wird in einem Zug gebohrt, ein
     größeres Loch mit einer Helix; offene Konturen lassen sich nur gravieren), eine eigene Tiefe und
@@ -1194,8 +1210,11 @@ Breite, nur _Kamera_ behält das Bild.
   _Maschinenprofil_, _Werkstatt und Benachrichtigungen_ und _Makros_, die Karte _Funktionen_ (je ein
   Schalter für _Serie auf Rohlingen_, _Vorrichtungen mit Markern_ und _Makros_: ausgeblendet
   verschwinden nur ihre Karten und Knöpfe, ein Ablauf, der für den geladenen Job läuft, bleibt
-  sichtbar, und die Schnellsuche führt zum Schalter zurück), zuletzt der Schalter
-  _Expertenfunktionen anzeigen_ (schaltet die Ansicht _Experte_ und die _Konsole_ im Menü frei).
+  sichtbar, und die Schnellsuche führt zum Schalter zurück), der Schalter
+  _Expertenfunktionen anzeigen_ (schaltet die Ansicht _Experte_ und die _Konsole_ im Menü frei) und
+  zuletzt die Karte _Schriften und Lizenzen_: zu jeder Schrift der Zeichnung, die nicht die eigene der
+  App ist, ihr Name, der Hinweis des Urhebers und der Lizenztext (Hershey-Bedingungen, SIL Open Font
+  License 1.1) – die Texte liegen in `licenses/` und stecken in der einen HTML-Datei, auch ohne Netz.
   - _Maschinenprofil_ enthält:
     - Den **Verfahrweg** je Achse (min/max in Maschinenkoordinaten, _Aktuelle Position als min/max_)
       – der Software-Endschalter der App: Sind alle Achsen referenziert und ist
@@ -1354,15 +1373,16 @@ beiden offen ist, trägt der Knopf ihren Namen. Beide liegen über die ganze Bre
 | [`packages/gcode-core`](packages/gcode-core)         | Parser, Interpreter, Geometrie, Laufzeit, Transformation, Reparatur/Teilen, Wiederaufnahme, Rahmen, Höhenfeld-Abtrag, Kollision, Autolevel, lange Teile in Abschnitte teilen (Naht, ganze Stücke)                                                                                       | 100 % Zeilen/Zweige, Golden    |
 | [`packages/fluidnc-client`](packages/fluidnc-client) | WebSocket, Status/Meldungen, Echtzeitbefehle, Streamer mit Haltepunkten, HTTP-Upload, Jog-Begrenzung, `config.yaml`, `$G`/`$S`, Flash-Layout                                                                                                                                            | 100 %, Session-Replay          |
 | [`packages/workshop`](packages/workshop)             | Werkzeuge, Materialien, Schnittwerte und Lernen, Historie und Verschleiß-Trend, Tastzyklen, adaptiver Vorschub, Rattererkennung (FFT), Nullpunkt-Speicher, Community-Profile, Marker für Vorrichtungen (Code, Druck-SVG, Nullpunkt und Drehung aus Markern), Passmarken für lange Teile | 100 %                          |
-| [`packages/cam`](packages/cam)                       | Einfaches 2,5D-CAM: DXF und SVG lesen, Formen, Einlinien-Schrift, Anordnen, Versatz (Clipper), Kontur/Tasche/Bohren/Helix/Gravur, Haltestege, Eckenfreischnitt, Schlichtgang, Reihenfolge, G-Code, beidseitig (Wenden, Passlöcher, Vorder-/Rückseite gegeneinander prüfen)              | 100 %, Golden                  |
+| [`packages/cam`](packages/cam)                       | Einfaches 2,5D-CAM: DXF und SVG lesen, Formen, Einlinien-Schriften (vier), Anordnen, Versatz (Clipper), Kontur/Tasche/Bohren/Helix/Gravur, Haltestege, Eckenfreischnitt, Schlichtgang, Reihenfolge, G-Code, beidseitig (Wenden, Passlöcher, Vorder-/Rückseite gegeneinander prüfen)     | 100 %, Golden                  |
 | [`apps/control`](apps/control)                       | React-UI, eine Datei (`index.html`)                                                                                                                                                                                                                                                     | Vitest + Playwright (3 Geräte) |
 | [`apps/companion`](apps/companion)                   | Optionaler Server für Raspberry Pi/Mini-PC: liefert die App aus, SQLite für Bibliotheken und Historie, Job-Puffer, FluidNC-Weiterleitung, Sensoren, Benachrichtigungen ([Anleitung](docs/companion.md))                                                                                 | Vitest                         |
 
 Die Oberfläche folgt [coss ui](https://coss.com/ui) (Komponenten zum Kopieren auf Base UI, gestaltet
 mit Tailwind CSS): Die Bausteine liegen als eigener Quelltext in `apps/control/src/ui/`, das Thema in
 `apps/control/src/styles/theme.css`, alles auf Fingergröße (≥ 48 px) gebracht. Die App bleibt **eine
-HTML-Datei ohne Netzbedarf** – auch die Schrift (Inter) steckt darin, nichts wird zur Laufzeit
-nachgeladen. Herkunft und Lizenzen: [THIRD-PARTY.md](THIRD-PARTY.md).
+HTML-Datei ohne Netzbedarf** – auch die Schrift (Inter) und die Daten der Einlinien-Schriften mit
+ihren Lizenztexten stecken darin, nichts wird zur Laufzeit nachgeladen. Herkunft und Lizenzen:
+[THIRD-PARTY.md](THIRD-PARTY.md).
 
 ## Loslegen
 
