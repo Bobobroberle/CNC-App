@@ -8,6 +8,7 @@ import {
   goTo,
   installFakeCameraPi,
   installFakeFluidNC,
+  moreOptions,
   numberIn,
   onStage,
   openApp,
@@ -1895,4 +1896,62 @@ test('measuring by finger: a double tap fits or zooms the view and takes its fir
     .poll(async () => (await tableGeometry(page)).scale / whole.scale)
     .toBeCloseTo(2.5, 1);
   expect(await measured()).toEqual(pair);
+});
+
+test('the further shapes and packing by finger: the fold, the tiles and "Verschachteln" are full targets, a tap acts, one undo takes it back', async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  const cam = page.getByTestId('cam-card');
+  const table = page.getByTestId('table-view');
+  const box = async () =>
+    ((await table.getAttribute('data-drawing-selected')) ?? '').split(',').map(Number);
+  const tall = async (target: Locator, what: string) => {
+    const b = (await target.boundingBox())!;
+    expect(b.height, what).toBeGreaterThanOrEqual(47.5);
+    expect(b.width, what).toBeGreaterThanOrEqual(47.5);
+  };
+
+  // The tiles are folded away: the fold is a full target, a tap opens it, and so are the four tiles
+  const more = cam
+    .getByTestId('cam-shapes-more')
+    .getByRole('button', { name: 'Weitere Grundformen', exact: true });
+  await tall(more, 'the fold');
+  await more.tap();
+  const add = cam.getByTestId('cam-add');
+  for (const name of ['Ellipse', 'Stern', 'Zahnrad', 'Spirale']) {
+    await tall(add.getByRole('button', { name, exact: true }), name);
+  }
+  await add.getByRole('button', { name: 'Stern', exact: true }).tap();
+  await expect(cam.getByTestId('cam-contours').getByRole('listitem')).toHaveCount(1);
+  await add.getByRole('button', { name: 'Ellipse', exact: true }).tap();
+  await expect(cam.getByTestId('cam-contours').getByRole('listitem')).toHaveCount(2);
+
+  // The stock is entered in the Job room, as the operator does it
+  await goTo(page, 'Job');
+  await moreOptions(page, 'workpiece');
+  const material = page.getByTestId('setup-material');
+  await material.getByLabel('Länge X (mm)').fill('200');
+  await material.getByLabel('Breite Y (mm)').fill('120');
+  await material.getByLabel('Dicke Z (mm)').fill('18');
+  await material.getByRole('button', { name: /^Maße übernehmen/ }).tap();
+  await page.getByTestId('step-cam').tap();
+
+  // "Verschachteln" is a button for a finger: a tap packs the two shapes onto the stock, one step of undo
+  await cam.getByRole('button', { name: 'Alles auswählen', exact: true }).first().tap();
+  const nest = cam.getByTestId('cam-nest');
+  await nest.scrollIntoViewIfNeeded();
+  await tall(nest, 'Verschachteln');
+  await nest.tap();
+  await expect(cam.getByTestId('cam-nest-result')).toContainText('2 Teile verschachtelt.');
+  const packed = await box();
+  // inside the stock (0…200 × 0…120), at its corner
+  expect(packed[0]).toBeGreaterThanOrEqual(-0.1);
+  expect(packed[1]).toBeGreaterThanOrEqual(-0.1);
+  expect(packed[2]).toBeLessThanOrEqual(200.1);
+  expect(packed[3]).toBeLessThanOrEqual(120.1);
+  await cam.getByRole('button', { name: 'Rückgängig', exact: true }).tap();
+  await expect(cam.getByTestId('cam-nest-result')).toHaveCount(0);
+  expect(await box()).not.toEqual(packed);
 });

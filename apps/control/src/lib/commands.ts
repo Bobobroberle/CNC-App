@@ -66,6 +66,11 @@ export type CommandIcon =
   | 'rect'
   | 'circle'
   | 'slot'
+  | 'ellipse'
+  | 'star'
+  | 'gear'
+  | 'spiral'
+  | 'nest'
   | 'grid'
   | 'text'
   | 'file'
@@ -252,8 +257,14 @@ export const COMMANDS: readonly Command[] = [
   // ① Job: the drawing workspace
   draw('shapeRect', 'cam.shapes.rect', 'shape-rect', 'rect'),
   draw('shapeCircle', 'cam.shapes.circle', 'shape-circle', 'circle'),
+  // (an oval is an ellipse before it is a slot: the slot has the word too, and comes after on a tie)
+  draw('shapeEllipse', 'cam.shapes.ellipse', 'shape-ellipse', 'ellipse'),
   draw('shapeSlot', 'cam.shapes.slot', 'shape-slot', 'slot'),
   draw('shapeGrid', 'cam.shapes.grid', 'shape-grid', 'grid'),
+  // "Weitere Grundformen": the tiles are folded away in the add card; the search unfolds them
+  draw('shapeStar', 'cam.shapes.star', 'shape-star', 'star'),
+  draw('shapeGear', 'cam.shapes.gear', 'shape-gear', 'gear'),
+  draw('shapeSpiral', 'cam.shapes.spiral', 'shape-spiral', 'spiral'),
   draw('shapeText', 'cam.shapes.text', 'shape-text', 'text'),
   draw('importFile', 'cam.importFile', 'shape-file', 'file'),
   draw('projectOpen', 'cam.project.open', 'project-open'),
@@ -274,8 +285,23 @@ export const COMMANDS: readonly Command[] = [
     place: 'cam',
     anchor: ['cam-tabs', 'cam-tabs-open', 'cam-how'],
   }),
+  // Tabs kept off the corners: a box in the panel of a part's tabs (open on demand) and, always there, the drawing's
+  // default under "Erweitert"
+  entry({
+    id: 'tabsAvoid',
+    title: 'cam.tabAvoid',
+    place: 'cam',
+    anchor: ['cam-tabs-avoid', 'cam-avoid-default', 'cam-how'],
+  }),
   draw('camTool', 'cam.tool', 'cam-tool', 'tool'),
   draw('camAdvanced', 'cam.advanced', 'cam-advanced'),
+  // Shorter rapid travel: a box of "Erweitert", which is part of the card that is always there
+  entry({
+    id: 'camRoute',
+    title: 'cam.routeShort',
+    place: 'cam',
+    anchor: ['cam-route', 'cam-how'],
+  }),
   draw('bothSides', 'flip.both', 'cam-sides'),
   draw('camDone', 'cam.steps.done', 'cam-done'),
   draw('camUndo', 'cam.undo', 'cam-undo', 'undo'),
@@ -316,6 +342,23 @@ export const COMMANDS: readonly Command[] = [
     anchor: ['cam-align', 'cam-multi', 'cam-draw'],
     icon: 'spreadH',
   }),
+  // Packing the selected parts onto the stock: a button in the align panel (two units or more), and the four
+  // corner radii of a selected rectangle – each only where its part is on screen, the chains end in the card
+  // that always is
+  entry({
+    id: 'camNest',
+    title: 'cam.nest.title',
+    place: 'cam',
+    anchor: ['cam-nest', 'cam-multi', 'cam-draw'],
+    icon: 'nest',
+  }),
+  entry({
+    id: 'camRadii',
+    title: 'cam.radii.title',
+    place: 'cam',
+    anchor: ['cam-radii', 'cam-multi', 'cam-draw'],
+    icon: 'rect',
+  }),
   entry({
     id: 'camGroup',
     title: 'cam.group.group',
@@ -329,6 +372,44 @@ export const COMMANDS: readonly Command[] = [
     place: 'cam',
     anchor: ['cam-group', 'cam-multi', 'cam-draw'],
     icon: 'ungroup',
+  }),
+  // How a pocket is entered, how a hole is drilled and where a part comes among the ones cut the same way: the card
+  // of the selection shows them for the one part that is selected – where it is not there the chain ends in the card
+  // that always is
+  entry({
+    id: 'camEntry',
+    title: 'cam.path.entryTitle',
+    place: 'cam',
+    anchor: ['cam-path-entry', 'cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
+  entry({
+    id: 'camHelix',
+    title: 'cam.path.helixDiameter',
+    place: 'cam',
+    anchor: ['cam-path-entry', 'cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
+  entry({
+    id: 'camPeck',
+    title: 'cam.path.peck',
+    place: 'cam',
+    anchor: ['cam-path-peck', 'cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
+  entry({
+    id: 'camOrder',
+    title: 'cam.order.title',
+    place: 'cam',
+    anchor: ['cam-order', 'cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
+  entry({
+    id: 'camOrderReset',
+    title: 'cam.order.reset',
+    place: 'cam',
+    anchor: ['cam-order', 'cam-multi', 'cam-draw'],
+    icon: 'select',
   }),
   // A frame drawn across the table, and the eye of a part: the switch and the eyes are only there with parts on
   // the table – the chains end in the card that always is

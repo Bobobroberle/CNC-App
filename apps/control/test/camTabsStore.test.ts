@@ -223,9 +223,9 @@ describe('the tabs of a part, in the drawing', () => {
     expect(places()).toEqual([0.125, 0.375, 0.625, 0.875]);
     expect(steps()).toBe(start);
     expect(program()).toBe(text);
-    expect(itemTabMarks(first(), cam().settings.tabs)).toHaveLength(4);
+    expect(itemTabMarks(first(), cam().settings.tabs, 6)).toHaveLength(4);
     // Not asking for more than there are: every place has its mark
-    expect(itemTabMarks(first(), cam().settings.tabs).map((m) => m.index)).toEqual([0, 1, 2, 3]);
+    expect(itemTabMarks(first(), cam().settings.tabs, 6).map((m) => m.index)).toEqual([0, 1, 2, 3]);
   });
 
   it('follow the measures of the shape: a place is the same share of the contour’s box', () => {
@@ -233,7 +233,7 @@ describe('the tabs of a part, in the drawing', () => {
     cam().manualTabs(id);
     // (by place, not by their order along the line: a rounded corner moves where the line begins)
     const marks = () =>
-      itemTabMarks(first(), cam().settings.tabs)
+      itemTabMarks(first(), cam().settings.tabs, 6)
         .map((m) => [Math.round(m.x * 1e6) / 1e6 + 0, Math.round(m.y * 1e6) / 1e6 + 0])
         .sort((p, q) => p[0]! - q[0]! || p[1]! - q[1]!);
     // 100 × 60 from the lower left corner: 40 along the lower side, 20 up the right side, 40 along
@@ -313,7 +313,7 @@ describe('the tabs of a part, in the drawing', () => {
     };
     /** Where each tab stands on its hole: the hole and the way from its middle, to 1 µm */
     const onHoles = () =>
-      itemTabMarks(first(), tabs).map((m) => {
+      itemTabMarks(first(), tabs, 6).map((m) => {
         const hole = first().contours[m.c]!.circle!;
         return [
           m.c,
@@ -385,7 +385,7 @@ describe('the tabs of a part, in the drawing', () => {
     drag.move(0.2);
     expect(first().tabSpec!.at![0]).toEqual({ c: 0, u: 0.2 });
     // The picture follows, the program waits for the finger to let go
-    expect(itemTabMarks(first(), cam().settings.tabs)[0]!.x).toBeCloseTo(64, 9);
+    expect(itemTabMarks(first(), cam().settings.tabs, 6)[0]!.x).toBeCloseTo(64, 9);
     expect(program()).toBe(text);
     expect(steps()).toBe(before);
     drag.end();
@@ -428,7 +428,7 @@ describe('the tabs of a part, in the drawing', () => {
     const id = first().id;
     cam().manualTabs(id);
     cam().moveTab(id, 0, 0.1);
-    const places = () => itemTabMarks(first(), cam().settings.tabs).map((m) => [m.u, m.x, m.y]);
+    const places = () => itemTabMarks(first(), cam().settings.tabs, 6).map((m) => [m.u, m.x, m.y]);
     expect(places()[0]).toEqual([0.1, 32, 0]);
     cam().select(first().group);
     cam().nudge(10, 5);

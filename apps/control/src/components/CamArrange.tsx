@@ -1,14 +1,24 @@
-import { sketchContours, type Sketch, type TextAlign } from '@lowrider/cam';
+import {
+  sketchContours,
+  SKETCH_LIMITS,
+  tidySketch,
+  type AnySketch,
+  type Radii,
+  type Sketch,
+  type TextAlign,
+} from '@lowrider/cam';
 import { useEffect, useRef, useState } from 'react';
 import { t, type MessageKey } from '../i18n';
 import { EDGES, unitsOf, type Axis, type Edge, type Spread } from '../lib/camArrange';
 import { frameAngle, frameSize, selectionFrame } from '../lib/camEdit';
 import { isSelected, itemsBounds, partsOf, type CamItem } from '../lib/camItems';
 import { measurement } from '../lib/camMeasure';
+import { defaultNestGap } from '../lib/camNest';
 import { formatNumber, formatSigned } from '../lib/format';
-import { useCam } from '../store/cam';
+import { useCam, useCamToolDiameter } from '../store/cam';
 import { useUi } from '../store/ui';
-import { describeItem, mm, NumberField } from './camParts';
+import { useWorkshop } from '../store/workshop';
+import { describeItem, describeGroup, mm, NumberField } from './camParts';
 import { Icon, type IconName } from './Icon';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -18,6 +28,7 @@ import { Label } from '../ui/label';
 import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
 import { Textarea } from '../ui/textarea';
 import { Fold } from './Fold';
+import { OrderPanel, PathPanel } from './CamPath';
 
 /** Whole numbers for columns and rows, at least 1. */
 const count = (v: number | undefined) => Math.max(1, Math.round(v ?? 1));
@@ -238,7 +249,7 @@ const withIcon = (icon: IconName, text: string) => (
  * Aligned to the whole box of the selection (the part that lies furthest out stays); spread along an axis
  * with the two outermost staying. Each button is one step of undo.
  */
-function AlignPanel({ units }: { units: number }) {
+function AlignPanel({ units, nest }: { units: number; nest: NestFields }) {
   const cam = useCam.getState();
   // Open until it is folded once, and then as it was left: it shows and goes with the selection, so what was
   // chosen must not come back at every new one (the depth of the drawing's area, `useUi.depth`)
@@ -281,21 +292,170 @@ function AlignPanel({ units }: { units: number }) {
             </Button>
           ))}
         </div>
+        <NestPanel {...nest} />
       </div>
     </Fold>
   );
 }
 
-/** The measures of a drawn thing as fields: which value, its label, and the smallest it takes. */
-type Measure = { field: string; label: MessageKey; value: number; min?: number };
+/** What is typed for "Verschachteln": kept by the card of the selection, so it stays while the selection changes */
+interface NestFields {
+  /** The room between parts, mm; undefined is the default (the cutter and 2 mm) */
+  gap: number | undefined;
+  setGap(v: number | undefined): void;
+  rotate: boolean;
+  setRotate(on: boolean): void;
+}
 
-function measures(s: Sketch): Measure[] {
+/**
+ * "Verschachteln": the selected parts packed onto the entered stock by their boxes (`store/cam.ts` `nest`). The
+ * button needs the stock (the Job room) and says so where it has none. What it did stands under it – in the
+ * card, not a toast – for as long as the drawing and the selection are as it left them; "Rückgängig" is the
+ * ordinary undo. The words are plain about what it is: boxes, no interlocking.
+ */
+function NestPanel({ gap, setGap, rotate, setRotate }: NestFields) {
+  const cam = useCam.getState();
+  const stock = useWorkshop((s) => s.setup.stock);
+  const tool = useCamToolDiameter();
+  const twoSided = useCam((s) => s.project?.twoSided != null);
+  const items = useCam((s) => s.project?.items);
+  const selected = useCam((s) => s.selected);
+  const report = useCam((s) => s.nested);
+  const shown =
+    report && report.items === items && JSON.stringify(report.selected) === JSON.stringify(selected)
+      ? report
+      : null;
+  const placed = shown?.placed.length ?? 0;
+  const unplaced = shown?.unplaced ?? [];
+  const overlapped = shown?.overlapped ?? [];
+  const answer = useRef<HTMLDivElement>(null);
+  return (
+    <>
+      <p className="text-sm font-medium">{t('cam.nest.title')}</p>
+      <p className="text-muted-foreground text-sm" data-testid="cam-nest-hint">
+        {t('cam.nest.hint')}
+      </p>
+      {twoSided ? <p className="text-muted-foreground text-sm">{t('cam.nest.twoSided')}</p> : null}
+      <div className="grid grid-cols-2 gap-2 items-end">
+        <NumberField
+          label="cam.nest.gap"
+          value={gap}
+          placeholder={mm(defaultNestGap(tool))}
+          onChange={setGap}
+        />
+        <Label className="min-h-target gap-3 font-normal">
+          <Checkbox
+            checked={rotate}
+            data-testid="cam-nest-rotate"
+            onCheckedChange={(on) => setRotate(on)}
+          />
+          <span>{t('cam.nest.rotate')}</span>
+        </Label>
+      </div>
+      <Button
+        variant="outline"
+        data-find="cam-nest"
+        data-testid="cam-nest"
+        disabled={!stock}
+        reason={t('cam.nest.needStock')}
+        onClick={() => {
+          cam.nest({ gap, rotate });
+          // The answer stands below the button, where the panel may end: brought into view once, by this tap (not
+          // by showing it again with another selection – that would take a ticked row from under the finger)
+          requestAnimationFrame(() => answer.current?.scrollIntoView?.({ block: 'nearest' }));
+        }}
+      >
+        {withIcon('nest', t('cam.nest.button'))}
+      </Button>
+      {shown ? (
+        <div
+          ref={answer}
+          className="flex flex-col gap-1 text-sm"
+          role="status"
+          data-testid="cam-nest-result"
+          data-nest-placed={shown.placed.length}
+          data-nest-moved={shown.moved}
+          data-nest-unplaced={JSON.stringify(unplaced)}
+          data-nest-overlapped={JSON.stringify(overlapped)}
+        >
+          {placed > 0 ? (
+            <p>
+              {shown.moved === 0
+                ? t('cam.nest.nothingMoved')
+                : placed === 1
+                  ? t('cam.nest.placedOne')
+                  : t('cam.nest.placedMany', { n: placed })}
+            </p>
+          ) : null}
+          {shown.riders > 0 ? <p>{t('cam.nest.riders', { n: shown.riders })}</p> : null}
+          {placed > 0 ? (
+            <p className="text-muted-foreground">
+              {t('cam.nest.used', { p: Math.round(shown.used * 100) })}
+            </p>
+          ) : null}
+          {unplaced.length > 0 ? (
+            <Alert variant="warning" data-testid="cam-nest-unplaced">
+              {t(unplaced.length === 1 ? 'cam.nest.unplacedOne' : 'cam.nest.unplacedMany', {
+                n: unplaced.length,
+                names: unplaced.map((g) => describeGroup(items ?? [], g)).join(', '),
+              })}
+            </Alert>
+          ) : null}
+          {/* The packer knows no obstacles: a part that stays can lie under a packed one – said, not hidden */}
+          {overlapped.length > 0 ? (
+            <Alert variant="warning" data-testid="cam-nest-overlapped">
+              {t(overlapped.length === 1 ? 'cam.nest.overlapOne' : 'cam.nest.overlapMany', {
+                n: overlapped.length,
+                names: overlapped.map((g) => describeGroup(items ?? [], g)).join(', '),
+              })}
+            </Alert>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/** The measures of a drawn thing as fields: which value, its label, and the smallest it takes. */
+type Measure = {
+  field: string;
+  label: MessageKey;
+  value: number | undefined;
+  min?: number;
+  hint?: string;
+};
+
+const { radius, starPoints, gearTeeth, spiralTurns } = SKETCH_LIMITS;
+
+/**
+ * The sketch as the fields show it: the curved shapes and a rectangle with a radius for each corner as they are
+ * drawn (what was typed beyond a range is shown as the range holds it, so a star never says 99 tips and draws
+ * 32); the older types as they are stored, as they always were.
+ */
+function drawn(s: AnySketch): AnySketch {
+  return (s.type === 'rect' && !s.radii) ||
+    s.type === 'circle' ||
+    s.type === 'slot' ||
+    s.type === 'grid' ||
+    s.type === 'text'
+    ? s
+    : tidySketch(s);
+}
+
+function measures(s: AnySketch): Measure[] {
   switch (s.type) {
     case 'rect':
       return [
         { field: 'w', label: 'cam.fields.w', value: s.w },
         { field: 'h', label: 'cam.fields.h', value: s.h },
-        { field: 'r', label: 'cam.fields.r', value: s.r, min: 0 },
+        // With a radius for each corner that differ, this one says "alle gleich" by being empty: typing sets all four
+        {
+          field: 'r',
+          label: 'cam.fields.r',
+          value: s.radii ? undefined : s.r,
+          min: 0,
+          hint: s.radii ? t('cam.radii.mixed') : undefined,
+        },
       ];
     case 'circle':
       return [{ field: 'd', label: 'cam.fields.d', value: s.d }];
@@ -314,7 +474,94 @@ function measures(s: Sketch): Measure[] {
       ];
     case 'text':
       return [{ field: 'height', label: 'cam.text.height', value: s.height }];
+    case 'ellipse':
+      return [
+        { field: 'rx', label: 'cam.fields.rx', value: s.rx, min: radius.min },
+        { field: 'ry', label: 'cam.fields.ry', value: s.ry, min: radius.min },
+      ];
+    case 'star':
+      return [
+        { field: 'points', label: 'cam.fields.points', value: s.points, min: starPoints.min },
+        { field: 'outer', label: 'cam.fields.outer', value: s.outer, min: radius.min },
+        { field: 'inner', label: 'cam.fields.inner', value: s.inner, min: radius.min },
+      ];
+    case 'gear':
+      return [
+        { field: 'teeth', label: 'cam.fields.teeth', value: s.teeth, min: gearTeeth.min },
+        { field: 'outer', label: 'cam.fields.outer', value: s.outer, min: radius.min },
+        { field: 'root', label: 'cam.fields.root', value: s.root, min: radius.min },
+      ];
+    case 'spiral':
+      return [
+        { field: 'turns', label: 'cam.fields.turns', value: s.turns, min: spiralTurns.min },
+        { field: 'start', label: 'cam.fields.start', value: s.start, min: 0 },
+        { field: 'end', label: 'cam.fields.end', value: s.end, min: 0 },
+      ];
   }
+}
+
+/**
+ * The sketch with one measure typed. A radius for all corners of a rectangle is the one radius: it takes the
+ * four of the corners with it (`radii` would otherwise say what `r` is ignored for).
+ */
+function withMeasure(sketch: AnySketch, field: string, v: number): AnySketch {
+  if (sketch.type === 'rect' && field === 'r') {
+    const { radii: _single, ...rest } = sketch;
+    return { ...rest, r: v };
+  }
+  return { ...sketch, [field]: v } as AnySketch;
+}
+
+/** The corners of a rectangle as the fields have them: the label, and the place in `Radii` (lower left first) */
+const CORNERS: { key: 'ul' | 'ur' | 'll' | 'lr'; at: 0 | 1 | 2 | 3 }[] = [
+  { key: 'ul', at: 3 },
+  { key: 'ur', at: 2 },
+  { key: 'll', at: 0 },
+  { key: 'lr', at: 1 },
+];
+
+/**
+ * A radius for each corner of the selected rectangle – folded away until wanted (one radius for all is the field
+ * above). Each corner is its own number and its own steps of undo.
+ */
+function RadiiFold({ item, sketch }: { item: CamItem; sketch: Sketch & { type: 'rect' } }) {
+  const cam = useCam.getState();
+  const open = useUi((s) => s.depth.camRadii === 'more');
+  const shown = tidySketch(sketch) as Sketch & { type: 'rect' };
+  const all: Radii = shown.radii ?? [shown.r, shown.r, shown.r, shown.r];
+  return (
+    <Fold
+      title={t('cam.radii.title')}
+      find="cam-radii"
+      testId="cam-radii"
+      open={open}
+      onOpenChange={(next) => useUi.getState().setDepth('camRadii', next ? 'more' : 'simple')}
+    >
+      <div className="contents">
+        <div className="grid grid-cols-2 gap-2 items-end">
+          {CORNERS.map(({ key, at }) => (
+            <NumberField
+              key={`i${item.id}${key}`}
+              label={`cam.radii.${key}`}
+              value={all[at]}
+              min={0}
+              onChange={(v) => {
+                if (v === undefined) return;
+                const next = [...all] as unknown as [number, number, number, number];
+                next[at] = v;
+                cam.setSketch(
+                  item.id,
+                  { ...sketch, r: Math.max(...next), radii: next },
+                  `radius-${key}`,
+                );
+              }}
+            />
+          ))}
+        </div>
+        <p className="text-muted-foreground text-sm">{t('cam.radii.hint')}</p>
+      </div>
+    </Fold>
+  );
 }
 
 /** A text was just added: its field takes the keyboard as soon as it shows. */
@@ -383,10 +630,15 @@ function TextFields({ item, sketch }: { item: CamItem; sketch: Sketch & { type: 
 export function CamArrange() {
   const project = useCam((s) => s.project);
   const selected = useCam((s) => s.selected);
+  // Where each part comes among the ones cut the same way, in the program that was made
+  const cutOrder = useCam((s) => s.cutOrder);
   const cam = useCam.getState();
   const [columns, setColumns] = useState<number | undefined>(2);
   const [rows, setRows] = useState<number | undefined>(1);
   const [gap, setGap] = useState<number | undefined>(10);
+  // What "Verschachteln" is asked for: the room between parts (the default is the cutter and 2 mm) and turning
+  const [nestGap, setNestGap] = useState<number | undefined>(undefined);
+  const [nestRotate, setNestRotate] = useState(false);
   if (!project || project.items.length === 0) return null;
 
   const chosen = project.items.filter((i) => isSelected(i, selected));
@@ -394,10 +646,13 @@ export function CamArrange() {
   const frame = selectionFrame(chosen);
   const one = chosen.length === 1 ? chosen[0]! : null;
   const sketch = one?.sketch;
+  // What the fields show of it (see `drawn`)
+  const shownSketch = sketch && drawn(sketch);
   // A registration hole is only moved: there are two, round, and they stay in line.
   const hole = chosen.length > 0 && chosen.every((i) => i.registration !== undefined);
   // Round things are placed by their middle, like a hole on a drawing.
-  const byCentre = sketch?.type === 'circle' || sketch?.type === 'slot';
+  const byCentre =
+    sketch?.type === 'circle' || sketch?.type === 'slot' || sketch?.type === 'ellipse';
   // Everything that lies the same way has an angle of its own.
   const own = frame?.own === true;
   // What is arranged against each other: the groups of the parts (a file's contours are one), not the contours
@@ -438,6 +693,8 @@ export function CamArrange() {
         <MarqueeSwitch />
         <DragAids />
         <MeasureSwitch />
+        {/* (only where a part has a place of its own: then every number can be taken away from here too) */}
+        <OrderPanel single={null} group={false} place={undefined} />
       </div>
     );
   }
@@ -513,16 +770,16 @@ export function CamArrange() {
       ) : null}
       {one && sketch?.type === 'text' ? <TextFields key={key} item={one} sketch={sketch} /> : null}
       <div className="grid gap-2 grid-cols-3 items-end">
-        {one && sketch
-          ? measures(sketch).map((m) => (
+        {one && sketch && shownSketch
+          ? measures(shownSketch).map((m) => (
               <NumberField
                 key={`${key}${m.field}`}
                 label={m.label}
                 value={m.value}
                 min={m.min ?? 0.01}
+                placeholder={m.hint}
                 onChange={(v) =>
-                  v !== undefined &&
-                  cam.setSketch(one.id, { ...sketch, [m.field]: v } as Sketch, m.field)
+                  v !== undefined && cam.setSketch(one.id, withMeasure(sketch, m.field, v), m.field)
                 }
               />
             ))
@@ -590,6 +847,7 @@ export function CamArrange() {
           />
         ) : null}
       </div>
+      {one && sketch?.type === 'rect' ? <RadiiFold item={one} sketch={sketch} /> : null}
       {!sketch && !hole ? (
         <p className="text-muted-foreground text-sm">{t('cam.arrange.evenly')}</p>
       ) : null}
@@ -624,7 +882,23 @@ export function CamArrange() {
           {t('cam.arrange.mirrorY')}
         </Button>
       </div>
-      {alignable.length >= 2 && !hole ? <AlignPanel units={alignable.length} /> : null}
+      {alignable.length >= 2 && !hole ? (
+        <AlignPanel
+          units={alignable.length}
+          nest={{ gap: nestGap, setGap: setNestGap, rotate: nestRotate, setRotate: setNestRotate }}
+        />
+      ) : null}
+      {/* How the one part that is selected is entered or drilled, and where it comes in the order of the cuts */}
+      {lone && !hole ? (
+        <PathPanel item={lone} n={partsOf(project.items).indexOf(lone) + 1} />
+      ) : null}
+      {!hole ? (
+        <OrderPanel
+          single={lone}
+          group={units.length === 1 && contours.length > 1}
+          place={lone ? cutOrder[lone.id] : undefined}
+        />
+      ) : null}
       {one && sketch?.type === 'text' ? (
         <Fold title={t('cam.text.more')}>
           <div className="contents">

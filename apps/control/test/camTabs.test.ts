@@ -71,7 +71,13 @@ describe('the ranges of a tab', () => {
 describe('the tabs a part has', () => {
   it('are the drawing’s defaults until the part has values of its own', () => {
     expect(itemTabs(thing(), 0, defaults)).toBe(defaults);
-    expect(tabValues(thing(), defaults)).toEqual({ mode: 'auto', count: 4, width: 8, height: 2 });
+    expect(tabValues(thing(), defaults)).toEqual({
+      mode: 'auto',
+      count: 4,
+      width: 8,
+      height: 2,
+      avoidCorners: false,
+    });
     // Own values override one by one; what is not set stays the default.
     const own = thing({ tabSpec: { mode: 'auto', count: 2, width: 5 } });
     expect(itemTabs(own, 0, defaults)).toEqual({ count: 2, width: 5, height: 2 });
@@ -256,7 +262,7 @@ describe('the tabs as the table draws them', () => {
         { width: 8 },
       ),
     });
-    const marks = itemTabMarks(item, defaults);
+    const marks = itemTabMarks(item, defaults, 6);
     expect(marks.map((m) => [m.item, m.c, m.u, m.x, m.y, m.w, m.index])).toEqual([
       [1, 0, 0.25, 75, 0, 8, 1],
       [1, 0, 0.75, 25, 50, 8, 0],
@@ -281,22 +287,22 @@ describe('the tabs as the table draws them', () => {
   });
 
   it('are spread evenly where the part is automatic, and have no place in a list then', () => {
-    const marks = itemTabMarks(thing(), defaults);
+    const marks = itemTabMarks(thing(), defaults, 6);
     expect(marks.map((m) => [m.u, m.x, m.y, m.index])).toEqual([
       [0.125, 37.5, 0, -1],
       [0.375, 100, 12.5, -1],
       [0.625, 62.5, 50, -1],
       [0.875, 0, 37.5, -1],
     ]);
-    expect(itemTabMarks(thing({ tabs: false }), defaults)).toEqual([]);
-    expect(itemTabMarks(thing({ tabSpec: manual([]) }), defaults)).toEqual([]);
+    expect(itemTabMarks(thing({ tabs: false }), defaults, 6)).toEqual([]);
+    expect(itemTabMarks(thing({ tabSpec: manual([]) }), defaults, 6)).toEqual([]);
   });
 
   it('follow the line round a corner, each end across its own side', () => {
     const square = rectangle(0, 0, 100, 100);
     // The corner 100/0 lies 100 along the 400: a tab of 6 covers 3 mm to either side of it.
     const item = thing({ tabSpec: manual([{ c: 0, u: 0.25 }], { width: 6 }) }, [square]);
-    const [mark] = itemTabMarks(item, defaults);
+    const [mark] = itemTabMarks(item, defaults, 6);
     expect(mark!.span).toEqual([
       { x: 97, y: 0 },
       { x: 100, y: 0 },
@@ -310,17 +316,17 @@ describe('the tabs as the table draws them', () => {
 
   it('are drawn once for a part and its defaults – what a finger moves is one part, not all', () => {
     const item = thing();
-    const marks = itemTabMarks(item, defaults);
-    expect(itemTabMarks(item, { ...defaults })).toBe(marks);
+    const marks = itemTabMarks(item, defaults, 6);
+    expect(itemTabMarks(item, { ...defaults }, 6)).toBe(marks);
     // Other defaults or another part: made anew
-    expect(itemTabMarks(item, { ...defaults, count: 2 })).not.toBe(marks);
-    expect(itemTabMarks(item, { ...defaults, width: 3 })[0]!.w).toBe(3);
-    expect(itemTabMarks(item, { ...defaults, height: 1 })).toHaveLength(4);
-    expect(itemTabMarks({ ...item }, defaults)).not.toBe(marks);
+    expect(itemTabMarks(item, { ...defaults, count: 2 }, 6)).not.toBe(marks);
+    expect(itemTabMarks(item, { ...defaults, width: 3 }, 6)[0]!.w).toBe(3);
+    expect(itemTabMarks(item, { ...defaults, height: 1 }, 6)).toHaveLength(4);
+    expect(itemTabMarks({ ...item }, defaults, 6)).not.toBe(marks);
   });
 
   it('take the way the line runs where a bar has no length', () => {
-    const [mark] = itemTabMarks(thing(), { count: 1, width: 0, height: 2 });
+    const [mark] = itemTabMarks(thing(), { count: 1, width: 0, height: 2 }, 6);
     expect(mark!.span).toEqual([
       { x: 100, y: 50 },
       { x: 100, y: 50 },
@@ -341,7 +347,10 @@ describe('what a finger finds', () => {
         { c: 0, u: 0.75 },
       ]),
     });
-    const marks = [...itemTabMarks(item, defaults), ...itemTabMarks(thing({ id: 2 }), defaults)];
+    const marks = [
+      ...itemTabMarks(item, defaults, 6),
+      ...itemTabMarks(thing({ id: 2 }), defaults, 6),
+    ];
     expect(tabNear(marks, 1, { x: 78, y: 3 }, 5)?.u).toBe(0.25);
     expect(tabNear(marks, 1, { x: 26, y: 49 }, 5)?.u).toBe(0.75);
     expect(tabNear(marks, 1, { x: 50, y: 25 }, 5)).toBeNull();
@@ -375,7 +384,7 @@ describe('the places by hand when the measures of a shape change', () => {
     tabSpec: manual(at),
   });
   const pointOf = (item: CamItem, p: { c: number; u: number }) =>
-    itemTabMarks({ ...item, tabSpec: manual([p]) }, defaults)[0]!;
+    itemTabMarks({ ...item, tabSpec: manual([p]) }, defaults, 6)[0]!;
 
   it('go to the same share of the box: the middle of a side stays the middle of that side', () => {
     // 100 × 50: the middle of the lower side is 50 along (1/6 of 300), the middle of the right one at 125

@@ -371,6 +371,18 @@ describe('what a project file must be to be opened', () => {
       (i) =>
         (i.source = [{ points: [{ x: 0, y: 0 }], closed: true, circle: { cx: 0, cy: 0, r: 0 } }]),
       (i) => (i.source = [{ points: [{ x: 0, y: 0 }], closed: true, layer: 3 }]),
+      // A closed contour without any length has nothing to cut along (the walk round it would never end)
+      (i) => (i.source = [{ points: [{ x: 1, y: 1 }], closed: true }]),
+      (i) =>
+        (i.source = [
+          {
+            points: [
+              { x: 1, y: 1 },
+              { x: 1, y: 1 },
+            ],
+            closed: true,
+          },
+        ]),
     ];
     for (const [n, change] of broken.entries()) {
       const file = structuredClone(base);
@@ -383,9 +395,32 @@ describe('what a project file must be to be opened', () => {
     // far too many points for any drawing
     const heavy = structuredClone(base);
     heavy.items[0].source = [
-      { points: Array.from({ length: 400_001 }, () => ({ x: 0, y: 0 })), closed: true },
+      { points: Array.from({ length: 400_001 }, (_, k) => ({ x: k, y: 0 })), closed: true },
     ];
     expect(error(heavy)).toBe('invalid-project');
+    // An open line of one spot is still read: only a closed contour needs a length
+    const dot = structuredClone(base);
+    dot.items[0].source = [{ points: [{ x: 1, y: 1 }], closed: false }];
+    expect(error(dot)).toBeNull();
+  });
+
+  it('refuses a peck of more steps than any drilling has, and keeps one of a sensible size', () => {
+    const file = good();
+    file.items[1].kind = 'drill';
+    file.items[1].depth = 20;
+    file.items[1].peck = 2;
+    expect(error(file)).toBeNull();
+    // 20 mm in steps of 0.05 is 400 pecks: still fine; 2001 pecks is not
+    file.items[1].peck = 0.05;
+    expect(error(file)).toBeNull();
+    file.items[1].depth = 100.1;
+    expect(error(file)).toBe('invalid-project');
+    // Without a depth of its own the drawing's depth counts
+    delete file.items[1].depth;
+    file.settings.depth = 500;
+    expect(error(file)).toBe('invalid-project');
+    file.settings.depth = 50;
+    expect(error(file)).toBeNull();
   });
 
   it('refuses a name that could put lines into the program or the file name', () => {
@@ -634,6 +669,8 @@ describe('what a project file must be to be opened', () => {
       allowance: 0.2,
       climb: false,
       tabs: { count: 3, width: 4, height: 1 },
+      // a file that does not say is read as off, whatever a new drawing starts with
+      routeShort: false,
     });
     for (const settings of [
       null,
@@ -650,7 +687,7 @@ describe('what a project file must be to be opened', () => {
         ReturnType<typeof parseProject>,
         { error: string }
       >;
-      expect(p.settings, JSON.stringify(settings)).toEqual({});
+      expect(p.settings, JSON.stringify(settings)).toEqual({ routeShort: false });
     }
   });
 

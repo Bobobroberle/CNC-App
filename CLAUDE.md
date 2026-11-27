@@ -14,7 +14,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `ipad` (touch tests in `e2e/ipad.spec.ts`, real multi-touch through CDP; the two-sided flow on the
   simulator in `e2e/flip.spec.ts`, series and jigs in `e2e/series.spec.ts` / `e2e/jigs.spec.ts`, snapping, the gaps while
   dragging and measuring in the drawing in `e2e/snap.spec.ts` / `e2e/measure.spec.ts`, the quick search in
-  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
+  `e2e/find.spec.ts`, the tab panel on demand in `e2e/tabs.spec.ts`, the toolpath options in `e2e/toolpath-options.spec.ts`, the further shapes in `e2e/shapes.spec.ts`, nesting in `e2e/nest.spec.ts`, the eye of a part in `e2e/hide.spec.ts`, Shift/Ctrl taps and the rubber band in
   `e2e/select.spec.ts` (and `e2e/ipad.spec.ts` for touch),
   parts cut in sections on the simulator's long board in `e2e/sections.spec.ts`, the areas of the work –
   the start, its confirmations, the overrides, a lost connection – in `e2e/steps.spec.ts`, the jog
@@ -289,14 +289,21 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   and **never loads a program itself** – it goes through the drawing's own `update`, so the job lock and the "not its own
   program" rule hold. A part may have its own direction (`CamItem.climb` → `Operation.climb`, falling back to the job's).
   **Holding tabs** (`Tabs` with optional `at`, `tabSites`/`nearestOnContour`/`contourSpan` in `packages/cam/src/toolpath.ts`; app side
-  `lib/camTabs.ts`, `CamItem.tabSpec`, `components/CamTabs.tsx`): **one function gives the sites – `tabSites(contour, tabs)` – and both the
-  toolpath (`cut` → `loopWalk`) and the table's drawing ask it, so what is drawn is what is cut.** A site is a fraction `0 ≤ u < 1` of the
+  `lib/camTabs.ts`, `CamItem.tabSpec`, `components/CamTabs.tsx`): **one function gives the sites – `operationTabSites(contour, op, s)` (the
+  library's `tabSites` with the operation's tabs, the cutter's diameter and the kind of cut) – and both the toolpath (`cut` → `loopWalk`) and
+  the table's drawing ask it, so what is drawn is what is cut** (the places of "Ecken meiden" depend on the cutter and on the kind, so a call of
+  `tabSites` with a `Tabs` alone is wrong: `makeMarks`, `manualTabs` and the cut all go through `operationTabSites`, `itemTabMarks` takes the
+  diameter and its cache key holds it with the kind and the flag; `useCamToolDiameter()` makes the picture follow a change of cutter, **and a change of the diameter of the chosen cutter in the tool list makes the program anew** –
+  `afterToolEdit`, a subscription on the workshop store that compares with the diameter `generate()` last cut with (`cutWith`) and calls `remake()`, so the job lock holds
+  and a job under way keeps its program with the drawing `ahead`; without it the picture showed the places of the new diameter while the program on the table still lifted at
+  the old ones; `test/camAvoidCorners.test.ts`). A site is a fraction `0 ≤ u < 1` of the
   *drawn* contour's length from its first point (in the order of its points – so it names the same spot of the part after a move, turn,
   mirror and on the back of a two-sided part, which `flipContours` cuts anew with the point order kept; **other measures of a drawn shape
   change the length, so `carryTabs` (`lib/camTabs.ts`, called from `reshaped` and the magnify path of `resized`) takes each place to the same
   share of its contour's own box in the sketch's coordinates – a grid hole by its cell (column, row) when the grid gets other columns or rows –
   and drops places that find no contour; never "the same fraction"**); without `at` they are `count` places
-  evenly, `((k + 0.5) · length) / count` exactly as before (the schild golden is untouched), `at: []` is no tab, an open contour has none.
+  evenly, `((k + 0.5) · length) / count` exactly as before (the schild golden is untouched; **with `avoidCorners` a place that would lift the cutter
+  over a corner moves to the nearest clear place – see "Toolpath options" below**), `at: []` is no tab, an open contour has none.
   `width` is **the material that stays on the part** – the cutter lifts over `width + toolDiameter`, and the table's marker is the bar of the
   true width. `CamItem.tabs` stays the switch; `tabSpec` (`mode` auto | manual, own `count`/`width`/`height`, `at: {c, u}[]` with `c` the
   contour of the item) overrides the drawing's defaults (`settings.tabs`, "Standard-…" under Erweitert) value by value;
@@ -337,7 +344,61 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   down and up on the spot – removes it**; the part's handles and its own dragging step aside meanwhile. The table shows `data-drawing-tabs`
   (JSON per part: sites `{c,u,x,y,w,index}`), `data-drawing-placing`. A series takes manual places along (`seriesMotif`: one part per
   contour). **Project file:** optional `tabSpec` per item, read strictly like `climb` (wrong type or range → `invalid-project`, `c` below the
-  item's contour count, `u` finite in [0, 1)), written only when present; format and version unchanged.
+  item's contour count, `u` finite in [0, 1), `avoidCorners` a boolean), written only when present; format and version unchanged.
+  **Toolpath options – tabs off the corners, the way a pocket is entered, peck drilling, the shorter route, the order by hand** (library
+  `packages/cam`: `Tabs.avoidCorners`, `Operation.entry`/`helixDiameter`/`peck`/`peckRetract`/`seq`, `ToolpathOptions.route`, `PROBLEM_EFFECT`; app
+  `lib/camPath.ts`, `lib/camOrder.ts`, `components/CamPath.tsx` (`PathPanel`, `OrderPanel`), the tab panel, `Erweitert`; **every one is an explicit
+  choice and off in the library by default, so an option that is not set gives byte-identical programs**).
+  - **"Ecken meiden"** (`TabSpec.avoidCorners`, `settings.tabs.avoidCorners`): a box in the part's tab panel – **there in both modes, closed with a
+    `Reason` by hand (places put by hand are never moved) so the way between the modes adds no block below the fields** – and the drawing's default
+    under "Erweitert" (`cam-avoid-default`, "Standard: Stege meiden Ecken"). **A fresh session starts with it on – and the settings stay as the last file left them for the next drawing of the session, as every other setting does (`close()` does not reset them); anything stored reads as off**
+    (`tabValues`: `spec?.avoidCorners ?? defaults.avoidCorners === true`; `openProject` takes the file's `tabs.avoidCorners` or leaves it off – never
+    what the session had), so a stored drawing keeps its program (`test/camAvoidCorners.test.ts`: the programs `test/fixtures/old*.nc` were made by
+    the code before this change from the files beside them – the old app opening them gives them byte for byte, checked again when this was written –
+    and with the new defaults the same drawing is cut differently, so the test is no empty one). `setTabs(id, {avoidCorners})` keeps a value in the
+    spec only where it differs from the drawing's default (a part follows the default again), `Deviation` marks it only then. Limits, told in the hint:
+    small parts without a long enough straight stretch and curves keep their even places; only the even spread is moved.
+  - **Eintauchen / Bohren in Stufen** (`CamItem.entry` helix | plunge – absent is the ramp, no key –, `helixDiameter`, `peck`, `peckRetract`; `PathPanel`
+    in the card of the selection, one fold `cam-path` (`useUi.depth.camPath`) with the anchor of the kind – `cam-path-entry` for a pocket,
+    `cam-path-peck` for a hole –, for the one part selected alone): `setPath` brings a number into `PATH_LIMITS`, drops what means nothing without
+    another (the hole of a helix without the helix, the retract without a peck) and what the new kind does not take (`setItem` on a kind change).
+    **A project file reads the fields at their outer bounds** (`PATH_LIMITS`: helix hole 0.5…200, peck and retract 0.05…500 mm – the cutter and the
+    depth of a part are not known to a file, and both change after it is opened); the library holds the value to its cutter (helix tool + 0.5 … 2 × tool,
+    peck `MIN_PECK` …) and the hint under the field says the real range for the cutter now (`helixRange`, held to the arcs of a program by a test).
+    **What the library could not do as asked is a note, not a fault:** `PROBLEM_EFFECT` says `not-cut` (`tool-too-large`, `open-contour`, `hole-too-small`:
+    the red list `cam-problems`) or `cut-differently` (`helix-too-big` – entered by ramp –, `peck-not-possible` – drilled in one go –, `order-overridden`:
+    "Gefräst, aber anders als gewünscht", `cam-differences`, the warning edge, never the destructive red). "Gerade" carries a risk hint (the whole
+    width of the cutter goes into uncut material). **Not built:** pre-drilling at a point (`cam-path16`) and centring before drilling (`cam-path17`).
+  - **Fahrwege kürzen** (`settings.routeShort` → `toolpaths(…, { route: 'short' })` in `generate()` for the drawing's own program, front and back): the
+    order within a kind is made shorter by a bounded 2-opt and used only where the program's rapid travel is really shorter – never longer than
+    nearest-first. **A fresh session starts with it on (the settings of a session carry over from the last file opened, like the rest); a project file that does not say reads as off** (`parseProject` sets `routeShort ??= false`:
+    absent means false, not the default). **The other call sites pass no option, on purpose:** `store/series.ts` (one `toolpaths` per blank, a few
+    parts, each blank finished before the next; its motif does carry entry, peck and `seq` along through `itemOperation`, but its program keeps only
+    the moves – a helix that falls back to the ramp is not said there; `test/camToolpathOptions.test.ts` holds only that they come along), `store/demo.ts` and `AccuracyCheck.tsx` (fixed test patterns), and the registration holes of a
+    two-sided job (two holes). Measured in vitest on this machine (no browser, no iPad): `generate()` for 300 holes 37 ms, for 300 outlines with tabs
+    256 ms, numbered 18 and 295 ms (`test/camToolpathOptions.test.ts`).
+  - **Reihenfolge von Hand** (`CamItem.seq`, whole 0…`MAX_SEQ` = 9999, `OrderPanel` – the fold `cam-order`, `useUi.depth.camOrder`): "Früher" /
+    "Später" / "Automatisch" for the one part selected, "Reihenfolge zurücksetzen" for all, `Schnitt n von m (Bohrungen|Taschen|Gravuren|Innenkonturen|Außenkonturen)`
+    – **read from the program that was made** (`useCam.cutOrder` from `Toolpath.cuts`, `lib/camOrder.ts` `cutPlaces`; each side of a two-sided drawing is
+    counted among itself), never worked out a second time. `moveInOrder` numbers the whole rank (parts of one kind and side that are cut) by place in one
+    `remember()` + one `update()`, so what is seen is what is asked of the library – **and nothing at all where the numbers it would write are the ones already there**
+    (`false`, no step of undo, no program made anew: a wish the library overrides writes the same numbers on every further tap). A part with a number carries a small badge in
+    the head of its row (`OrderBadge`) that says **where the program really cuts it** – "Nr. 2", read from `cutOrder` – and, where that is not the place that was asked for (a
+    wish the library overrides, a number several parts share), both in words: "Nr. 2 (Wunsch 1)"; a part that is not cut (hidden, a cutter too large) says only "Wunsch 1": the number
+    of a wish is never shown as a place the program does not have. **The wish is not `seq + 1`**: a number is only a key to sort by (gaps are normal – "Automatisch" on one part
+    leaves the others' numbers), so `wishedPlace` (`lib/camOrder.ts`) says the place it asks for among the numbered parts of the rank that are cut (one more than those with a lower number). **The rank order and "what lies inside a contour before it" never change** (the hint says so; where a number would break the second the part comes
+    later and `order-overridden` says so). A number means something in its kind and on its side only: a change of kind or side drops it (and a peck or entry the new kind
+    does not take), and **a copy has none** (`copies()`: `duplicate`, `array` and `paste` – a copy that shared its original's wish would be cut ahead of every part without a number). **No row changes its height with any of it:** the name of every row is one line (`.cam-name` is cut short, whole in its title),
+    the kind select of a row holds the row in place (`hold()`, its kind is a dependency of the layout effect – the panel of a pocket or a hole comes and
+    goes in the card above), and the count and the way back of the order panel are always there (closed with a reason while no part has a number).
+    `e2e/toolpath-options.spec.ts` measures it with real clicks at tablet size and in the 800 × 600 sheet. **Project file:** optional `entry`
+    (`ramp` | `helix` | `plunge`, a ramp is not kept), `helixDiameter`, `peck`, `peckRetract` (only with their partner), `seq`, and in the settings
+    `routeShort`, `tabs.avoidCorners` – read strictly, a value outside a field's range or of the wrong type refuses the file (`invalid-project`; a key
+    that the part's kind of cut does not take – a peck on a pocket – is read and not kept), a wrong `routeShort` or `tabs` is left out and said. **Quick search:** `tabsAvoid`, `camRoute`, `camEntry`, `camHelix`, `camPeck`, `camOrder`,
+    `camOrderReset`; the ones that live in a part's panel end in `cam-multi` and `cam-draw` (the card that is there with nothing drawn);
+    `test/camPathPanel.test.tsx` and `e2e/find.spec.ts` follow the chains. Tests: `camAvoidCorners` (old files, strict reading, drawing = cut with a
+    hand-checked plate and a sweep of shapes × kinds × counts), `camToolpathOptions`, `camOrder`, `camPath`, `camPathPanel`,
+    `e2e/toolpath-options.spec.ts`.
   **Selecting several, aligning, distributing, grouping** (`lib/camSelect.ts`, `lib/camArrange.ts`, `store/cam.ts`, `CamArrange.tsx`, the rows
   in `CamCard.tsx`): `Selection` is `null` · a group number · `'all'` · `readonly number[]` (two or more groups, in the order of the list;
   `normalise`: none is null, one is the number – so every reader of a single group, `typeof selected === 'number'`, keeps its meaning).
@@ -377,7 +438,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   whole one and the align panel coming and going would otherwise take the next box from under the finger; Safari has no scroll anchoring, and
   Chrome's did not hold it either, measured). What lies _below_ the ticked row no longer moves with a tick either: the tab panel opens on demand only (above). **The hold covers every tap of a row that
   changes the selection or the cards above the list** – its box, its name, "Stege einstellen" (from nothing selected the card of the selection appears above the list; from a set the
-  align panel goes), the "Haltestege" box and **the eye** (`hold()` in `ItemRow`; the layout effect runs on the whole selection *and on this row's `hidden`*, not on this row's box only,
+  align panel goes), the "Haltestege" box, **its kind select** (a pocket or a hole brings the panel of its way in or of its drilling to the card above the list) and **the eye** (`hold()` in `ItemRow`; the layout effect runs on the whole selection *and on this row's `hidden` and its kind*, not on this row's box only,
   because a part that stays selected can still change the cards above it – a part of a selected set hidden leaves one to align, so the align panel goes, and shown it
   comes back, with the selection unchanged; Safari has no scroll anchoring and Chrome's held it by chance, so `e2e/hide.spec.ts` turns `overflow-anchor` off to measure the app's own hold) – measured with a mouse click at a measured point in `e2e/tabs.spec.ts`
   (a locator's click scrolls to the control again after the place was taken). **Quick search** entries `camMulti`, `camSelectAll`, `camInvert`, `camAlign`,
@@ -494,6 +555,64 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   with a chain `['cam-snap' | 'cam-gaps' | 'cam-measure', 'cam-multi', 'cam-draw']`. Tests: `camMeasure` (hand-checked corners, edge middles, centres, ties, the reach, distance and angle with y up), `camSnapStore`,
   `camArrangePanel`, `drawAids`, `e2e/measure.spec.ts` (a double click included), two touch cases in `e2e/ipad.spec.ts` (a double tap included). **Not built, on purpose:** snapping while resizing or turning by the handles, arrow-key nudges that snap, a switch for
   the measure's own snapping.
+  **The further basic shapes ("Weitere Grundformen") and the radius of each corner** (library `packages/cam`: `ShapeSketch` = ellipse · star · gear · spiral,
+  `AnySketch = Sketch | ShapeSketch`, `rectangle(…, radii)`, `SKETCH_LIMITS`, `validateSketch`; app `lib/camStart.ts` (`START`: the size a tap puts on the
+  table), `lib/camScale.ts`, `CamAdd.tsx`, `CamArrange.tsx` `RadiiFold`): `CamItem.sketch` is an `AnySketch`; every function that makes contours, boxes, sizes
+  or scales takes the wide type. **The tiles are folded away in the add card** (`cam-shapes-more`, `useUi.depth.camShapes`, closed until opened once – DESIGN.md §2:
+  four tiles more would make the card of the empty drawing taller above its real actions; the quick search unfolds it for `shape-ellipse|star|gear|spiral`, which
+  carry the prefix anchor `shape-`). One tap adds the thing selected at the usual size (`addSketch`, no form); a closed one is cut **outside with tabs like any outline**
+  (`defaultOperations`, nothing special-cased), **the spiral is an open contour: engraved (`on`), no tabs, no relief**. Measures are the fields of the card of
+  the selection (`measures()` in `CamArrange.tsx`: ellipse `rx`/`ry`; star `points`/`outer`/`inner`; gear `teeth`/`outer`/`root`; spiral `turns`/`start`/`end`) –
+  **what is typed is stored as typed and drawn as `tidySketch` holds it** (a star of 99 tips is drawn with 32 – the label of the row and the file say 32,
+  and the field takes the drawn value when it differs from the one before – so "5" on the way to "50" never shrinks a measure for good). **Known limit:** a
+  number typed beyond the range a second time in a row leaves the typed text in the field (`NumberField` shows a value anew only when the value it is given
+  changes; the corner fields and the older `r` do the same) – the drawing, the label and the file are right, the field is not; an ellipse is placed by its middle like a circle, a star, gear and spiral by the lower
+  left corner of their true box (`sketchBox` is not centred for them – the origin is the middle of their circles; `typedAnchor` keeps that origin where it is).
+  **The library's gear is not an involute** (trapezoid teeth – a toothed wheel, sprocket or knob; two of them are no gear train: cam-draw12) and its curves are
+  chords within 0.01 mm of the true curve. **A rectangle's radii:** `radii` (lower left, lower right, upper right, upper left) replaces `r`; four fields under the fold
+  "Ecken einzeln" (`cam-radii`, `useUi.depth.camRadii`; `RadiiFold`, each corner its own step of undo) – the field "Eckenradius" stays the one for all: **typing it
+  drops `radii`** (`withMeasure`), and while the corners differ it is empty with the placeholder "verschieden". **Handles and typed sizes hold the proportions of the
+  curved shapes at the ends of the range** (`lib/camScale.ts`: `magnifyRange` – radii 0.25…2500 mm – gives the factors a shape can take; `holdFactor` is applied
+  **once for everything that is scaled together**, so nothing in a selection grows out of step, and `scaledShape` for a size handle; the library's `magnifySketch`
+  clamps every measure on its own and would flatten a star to a polygon on one circle): the shape stops growing where a measure reaches its limit. Only these four
+  types are held – the older five scale exactly as they did. **Project file** (`camProject.ts` `sketchOf`): `validateSketch` first (the shapes with their ranges,
+  a rectangle with its `radii`: four numbers, else the whole sketch is dropped and the item keeps its contours, as for every sketch that cannot be trusted),
+  then – **only for the five older types, only where `validateSketch` refused** – the older reading (any length above 0: a plate of 6 m keeps its sketch as it did,
+  while the new shapes and a rectangle with radii are refused beyond 5 m / a radius of 2500); **the file is written with `tidySketch` for the new shapes and a
+  rectangle with radii** (what is typed beyond a range is not what the reader accepts), the five older types exactly as stored; format and version unchanged.
+  Tests: `camShapes` (hand-checked boxes of each shape, defaults, measures, undo, radii, the held scale through `scale()` and `edit()`), `camScale`,
+  `camProjectShapes` (round trip byte for byte, damaged and unusual files, the two older fixtures read as before), `camShapesPanel`, `e2e/shapes.spec.ts`.
+  **Verschachteln – packing the selected parts onto the stock** (`lib/camNest.ts` pure `planNest`, `useCam.nest`/`nested`, `NestPanel` in the fold "Ausrichten und
+  verteilen", `data-find="cam-nest"`; library `nestParts`/`nestMatrix`): **it packs the RECTANGULAR BOXES of the parts, not their outlines – shapes do not interlock**
+  (an L or a ring takes its whole box), by MaxRects (a good layout, not the best; four orders tried, with turning eight, the most area placed wins). It needs the
+  entered stock (`setup.stock`; without it the button is closed with the `Reason` "Rohteil eingeben"), a gap (field "Abstand der Teile", placeholder = cutter + 2 mm,
+  `defaultNestGap`) and optionally "Drehen erlaubt (nur 90°)" – allowed, never worse than forbidden. **The margin to the rim of the stock is 0** (a cutter that runs
+  outside a part at the rim goes beyond the stock by its radius – the hint says so; cam-arr6). **The unit is a group, rigid – and a group whose box lies inside the
+  box of a selected group goes with it (a "rider": a hole drawn in a plate is a group of its own, and packed alone it would land beside its plate and the program
+  would drill the stock), selected or not, hidden or not**; riders are not counted, the card says how many came along. What is neither selected nor inside a packed
+  box stays – and may then lie under packed parts (cam-arr8: the packer knows no obstacles). **The card says so** (`NestPlan.overlapped`, `NestReport.overlapped`,
+  the warning `cam-nest-overlapped`, `data-nest-overlapped`; the hint says it before the tap): every part that stays – not selected, or without a place – whose box a
+  packed carrier now overlaps (boxes that only touch do not count; a hidden part, a rider and a registration hole are never named) is **named, with "beide würden ineinander gefräst"**;
+  a packed part and a staying part are cut through each other until one is moved, and the clamp check of the readiness list does not see part on part. **The hole in that
+  warning, pinned as a limit (`camNest`: "LIMIT, pinned …"):** a staying part whose box lies *wholly inside* the box of a packed part is a rider – boxes cannot tell a plate
+  lying on a plate from a hole in a plate – so it goes along, is not named, and a plate that was covered *that way* is not warned of (the card says "Mitgenommen" instead; the
+  plates still lie on each other); a part that reaches out of the packed box is named, on the next tap too (`e2e/nest.spec.ts` repeats the tap). A rider of a part that found no
+  place is never named on its own either – its carrier is (the box of the rider lies inside the carrier's, so wherever the rider is covered the carrier is too);
+  registration holes and groups hidden altogether are no carriers. **Where the rule stops (pinned in
+  `camNestStore`, said in the hint):** a feature whose box only reaches into a plate's box (a notch across its edge, a slot through the outline) is a part of its
+  own under "Alles auswählen" and is packed apart – group it with the plate first, which makes one unit; **holes selected without their plate** (a frame drawn
+  inside the plate selects exactly that) are the parts packed and are pulled out of it, the plate stays. `nest()` is **one `remember()` and one
+  `update()`** (`nestMatrix` composed onto the placement of every part of the carrier and its riders – never points rewritten; a part that already stands there, to
+  `MOVES`, is left untouched, a turned one always moves; **nothing is remembered where nothing moves**), so the job lock, `ahead` and the registration holes of a
+  two-sided drawing (re-proposed while `autoHoles`, kept where a finger put them) follow as for aligning; two-sided: front and back of one part belong in one
+  group first (the hint says so). A part without a place stays where it was and is **named in the card** (`cam-nest-unplaced`, by `describeGroup`; "2 Teile passen nicht
+  auf das Rohteil und bleiben, wo sie waren: …"); the answer (`cam-nest-result`, `role="status"`, `data-nest-placed|moved|unplaced`) lives in the card, not in a toast,
+  **only while the drawing and the selection are the ones it was made for** (`NestReport.items` is the `project.items` array it describes, `selected` the
+  selection – undo, another change or another selection hides it), and is brought into view once by the tap on the button (never by showing it again: that would
+  take a ticked row from under the finger). The typed gap and the box for turning live in `CamArrange` (they stay while the selection changes). Quick search `camNest`,
+  `camRadii`. Tests: `camNest` (the pure plan: carriers, riders, equal boxes, hidden, the share used), `camNestStore` (positions equal the library's, hand-checked
+  small cases, unplaced, turned boxes, riders, two-sided holes, one step of undo, nothing remembered where nothing moves, a packed part on one that stays), `camNestRunning` (a job under way),
+  `camShapesPanel`, `e2e/nest.spec.ts` (the boxes read from the table: inside the stock, at least the gap apart, undo; the 800 × 600 sheet).
   **Every other way to load, replace or take off the program goes through the central lock**
   in `store/job.ts` (`setProgramLock`, set by `store/underway.ts`): `load`, `loadDerived`, `unload` and
   `restoreOriginal` do nothing while a job is under way, say why (`job.locked`, its own message group `jobLocked`)

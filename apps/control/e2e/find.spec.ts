@@ -583,6 +583,50 @@ test('the arranging entries lead to something that is there: the card of the dra
   await expect(page.getByTestId('cam-selected')).toContainText('2 Teile');
 });
 
+test('the toolpath entries lead to something that is there: the cards of the drawing while no part is, the panel of the part when it is', async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  const faded = (anchor: string) =>
+    expect(page.locator(`[data-find~="${anchor}"]`)).not.toHaveClass(/found/);
+  // Nothing drawn: no part has a panel, so the way in, the hole, the step and the order lead to the card of the drawing;
+  // the drawing's own defaults ("Ecken meiden", "Fahrwege kürzen") are in its card of advanced values, which unfolds
+  await find(page, 'ecken meiden', 'Ecken meiden', 'Zeichnen/CAM');
+  await landed(page, 'cam-avoid-default');
+  await faded('cam-avoid-default');
+  await find(page, 'fahrwege kürzen', 'Fahrwege kürzen', 'Zeichnen/CAM');
+  await landed(page, 'cam-route');
+  await faded('cam-route');
+  for (const [query, title] of [
+    ['eintauchen', 'Eintauchen'],
+    ['helix', 'Lochbreite der Helix (mm)'],
+    ['spanbrechen', 'Spanbrechen (mm)'],
+    ['schnittfolge', 'Reihenfolge'],
+  ] as const) {
+    await find(page, query, title, 'Zeichnen/CAM');
+    await landed(page, 'cam-draw');
+    await faded('cam-draw');
+  }
+  // A pocket selected alone: its way in, the width of the hole and the order are in its panels – nothing was pressed
+  const add = page.getByTestId('cam-add');
+  await add.getByRole('button', { name: 'Rechteck', exact: true }).click();
+  await page.getByLabel('Bearbeitung Kontur 1', { exact: true }).selectOption({ label: 'Tasche' });
+  await find(page, 'eintauchen', 'Eintauchen', 'Zeichnen/CAM');
+  await landed(page, 'cam-path-entry');
+  await expect(page.getByTestId('cam-entry-ramp')).toHaveAttribute('aria-pressed', 'true');
+  await faded('cam-path-entry');
+  await find(page, 'schnittfolge', 'Reihenfolge', 'Zeichnen/CAM');
+  await landed(page, 'cam-order');
+  await faded('cam-order');
+  // …and the step of a hole in the panel of the hole
+  await page.getByLabel('Bearbeitung Kontur 1', { exact: true }).selectOption({ label: 'Bohren' });
+  await find(page, 'spanbrechen', 'Spanbrechen (mm)', 'Zeichnen/CAM');
+  await landed(page, 'cam-path-peck');
+  // nothing reached the machine or the program by going there
+  await expect(page.getByTestId('cam-entry-ramp')).toHaveCount(0);
+});
+
 test('in the drawing its own keys go on working beside the global ones', async ({ page }) => {
   await openApp(page);
   await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();

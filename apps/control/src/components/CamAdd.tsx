@@ -1,30 +1,29 @@
-import type { Sketch, SketchType } from '@lowrider/cam';
+import type { AnySketch, AnySketchType } from '@lowrider/cam';
 import { useRef, useState } from 'react';
 import { t, tDynamic } from '../i18n';
+import { MORE_SHAPES, SHAPES, START } from '../lib/camStart';
 import { PROJECT_MAX_BYTES } from '../lib/camProject';
 import { formatNumber } from '../lib/format';
 import { tableBox } from '../lib/tableBox';
 import { useCam } from '../store/cam';
 import { useMachine } from '../store/machine';
+import { useUi } from '../store/ui';
 import { focusNewText } from './CamArrange';
+import { Fold } from './Fold';
 import { Icon, type IconName } from './Icon';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
 
-/** What a tap on a shape puts on the table: a usual size, changed there afterwards. */
-const START: Record<Exclude<SketchType, 'text'>, Sketch> = {
-  rect: { type: 'rect', w: 100, h: 60, r: 0 },
-  circle: { type: 'circle', d: 20 },
-  slot: { type: 'slot', l: 60, w: 10 },
-  grid: { type: 'grid', d: 6, nx: 3, ny: 2, px: 30, py: 30 },
-};
-const SHAPES = Object.keys(START) as (keyof typeof START)[];
-const ICONS: Record<SketchType, IconName> = {
+const ICONS: Record<AnySketchType, IconName> = {
   rect: 'rect',
   circle: 'circle',
   slot: 'slot',
   grid: 'grid',
   text: 'text',
+  ellipse: 'ellipse',
+  star: 'star',
+  gear: 'gear',
+  spiral: 'spiral',
 };
 
 /**
@@ -35,6 +34,7 @@ const ICONS: Record<SketchType, IconName> = {
  */
 export function CamAdd() {
   const project = useCam((s) => s.project);
+  const more = useUi((s) => s.depth.camShapes === 'more');
   const cam = useCam.getState();
   const addLog = useMachine((s) => s.addLog);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -44,7 +44,7 @@ export function CamAdd() {
   if (!project) return null;
 
   const skipped = Object.entries(project.skipped);
-  const add = (sketch: Sketch) => {
+  const add = (sketch: AnySketch) => {
     setEmpty(false);
     cam.addSketch(sketch, tableBox());
   };
@@ -87,6 +87,27 @@ export function CamAdd() {
           <span>{t('cam.importFile')}</span>
         </Button>
       </div>
+      {/* Seldom needed: folded away until opened once, then as it was left (DESIGN.md §2) */}
+      <Fold
+        title={t('cam.moreShapes')}
+        testId="cam-shapes-more"
+        open={more}
+        onOpenChange={(next) => useUi.getState().setDepth('camShapes', next ? 'more' : 'simple')}
+      >
+        <div className="cam-tools" role="group" aria-label={t('cam.moreShapes')}>
+          {MORE_SHAPES.map((shape) => (
+            <Button
+              key={shape}
+              variant="outline"
+              data-find={`shape-${shape}`}
+              onClick={() => add(START[shape])}
+            >
+              <Icon name={ICONS[shape]} size={22} />
+              <span>{t(`cam.shapes.${shape}`)}</span>
+            </Button>
+          ))}
+        </div>
+      </Fold>
       {project.items.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t('cam.addHint')}</p>
       ) : null}

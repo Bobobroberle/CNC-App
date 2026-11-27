@@ -7,8 +7,11 @@ import { mm, NumberField } from './camParts';
 import { Deviation } from './Depth';
 import { Alert } from '../ui/alert';
 import { Button } from '../ui/button';
+import { Checkbox } from '../ui/checkbox';
 import { Field, FieldLabel } from '../ui/field';
+import { Label } from '../ui/label';
 import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
+import { Reason } from '../ui/tooltip';
 
 /**
  * The holding tabs of one part (its "Haltestege" box is on): how they are spread – by count, evenly,
@@ -43,7 +46,7 @@ export function CamTabs({ item, n }: { item: CamItem; n: number }) {
   }, []);
   const cam = useCam.getState();
   const spec = item.tabSpec;
-  const { mode } = tabValues(item, defaults);
+  const { mode, avoidCorners } = tabValues(item, defaults);
   const manual = mode === 'manual';
   // The contours cut free without a tab, of all there are to hold (a grid has one per hole)
   const loose = looseContours(item, defaults);
@@ -144,6 +147,31 @@ export function CamTabs({ item, n }: { item: CamItem; n: number }) {
         )}
       </div>
       <p className="text-muted-foreground text-sm">{t('cam.tabNote')}</p>
+      {/* Only the even spread is moved off the corners: places put by hand stay where they are put. The box is
+          there in both modes – by hand it is closed with its reason – so that the way between the two modes does
+          not push the buttons below it away from under the finger. */}
+      <div className="flex flex-col" data-find="cam-tabs-avoid" data-testid="cam-tabs-avoid">
+        <Reason reason={manual ? t('cam.tabAvoidByHand') : null} className="block w-full">
+          <Label className="min-h-target gap-3 font-normal">
+            <Checkbox
+              checked={avoidCorners}
+              disabled={manual}
+              aria-label={t('cam.tabAvoidOf', { n })}
+              onCheckedChange={(on) => cam.setTabs(item.id, { avoidCorners: on })}
+            />
+            <span>
+              {t('cam.tabAvoid')}
+              {spec?.avoidCorners !== undefined &&
+              spec.avoidCorners !== (defaults.avoidCorners === true) ? (
+                <Deviation
+                  recommended={t(defaults.avoidCorners ? 'cam.tabAvoidOn' : 'cam.tabAvoidOff')}
+                />
+              ) : null}
+            </span>
+          </Label>
+        </Reason>
+        <p className="text-muted-foreground text-sm">{t('cam.tabAvoidNote')}</p>
+      </div>
       <div className="cam-tabs-actions">
         {manual ? (
           <Button

@@ -1,8 +1,16 @@
-import { reliefCorners, type OperationKind, type Relief, type Side } from '@lowrider/cam';
+import {
+  MIN_PECK,
+  PROBLEM_EFFECT,
+  reliefCorners,
+  type OperationKind,
+  type Relief,
+  type Side,
+} from '@lowrider/cam';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { t } from '../i18n';
 import { camKey, typingInto } from '../lib/camKeys';
 import { isSelected, partsOf } from '../lib/camItems';
+import { wishedPlace } from '../lib/camOrder';
 import { downloadText } from '../lib/download';
 import { formatNumber } from '../lib/format';
 import {
@@ -88,6 +96,31 @@ const hasDirection = (item: CamItem) =>
 const DIRECTIONS = ['job', 'climb', 'conventional'] as const;
 
 /**
+ * The mark of a part that has a place of its own among the parts cut the same way. What it says is where the
+ * program really cuts the part (`place`, from the program that was made) – "Nr. 2". Where that is not the place
+ * that was asked for (`wish`: an order the library cannot keep, a number several parts share) the mark says both
+ * in words, and a part that is not cut at all (hidden, a cutter too large for it) says only the wish – a number
+ * of the wish must never stand for a place the program does not have. One line, never taller than the row.
+ */
+function OrderBadge({ wish, place }: { wish: number; place: number | undefined }) {
+  const [text, label] =
+    place === undefined
+      ? [t('cam.order.badgeIdle', { w: wish }), t('cam.order.badgeIdleLabel', { w: wish })]
+      : place === wish
+        ? [t('cam.order.badge', { n: place }), t('cam.order.badgeLabel', { n: place })]
+        : [
+            t('cam.order.badgeWish', { n: place, w: wish }),
+            t('cam.order.badgeWishLabel', { n: place, w: wish }),
+          ];
+  return (
+    <span className="cam-order-badge" data-testid="cam-order-badge" title={label}>
+      <span aria-hidden="true">{text}</span>
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
+/**
  * One thing of the drawing in the list: what it is, how it is cut and how deep. A row that has tabs has the
  * button "Stege einstellen" – always, selected or not, so that selecting never changes a row's height; the panel
  * of its tabs opens only on demand (that button, the box of the tabs ticked on, "Stege setzen") and only
@@ -103,6 +136,15 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
   // The eye: a hidden part is not cut and out of reach on the table; its row is set apart (dashed, a word), never faded and never smaller
   const hidden = item.hidden === true;
   const settings = useCam((s) => s.settings);
+  // Where the program cuts it among the parts cut the same way (none: it is not cut – hidden, too large …)
+  const cutPlace = useCam((s) => s.cutOrder[item.id]);
+  // … and where its number asks to be cut: the number is a key to sort by, so it is compared by its place among the
+  // numbered parts of the rank, never as it stands (a gap in the numbers is no wish for a later place)
+  const wish = useCam((s) =>
+    item.seq === undefined || !s.project
+      ? undefined
+      : wishedPlace(item, s.project.items, s.cutOrder),
+  );
   const twoSided = useCam((s) => s.project?.twoSided != null);
   const sided = twoSided && item.kind !== 'none';
   // (what the cards above the list make of any change of the selection – all of it, not only this row's box)
@@ -127,8 +169,8 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
     if (Math.abs(by) > 0.5) scroller.scrollTop += by;
     // (the selection may stay as it is while the cards above change: the eye alone takes a part out of what is
     // aligned, so this row's own `hidden` is a reason to look again)
-  }, [selection, hidden]);
-  // Whatever in this row changes what the cards above the list make of it – its box, its name, "Stege einstellen",
+  }, [selection, hidden, item.kind]);
+  // Whatever in this row changes what the cards above the list make of it – its box, its name, its kind, "Stege einstellen",
   // the tabs box, its eye – is held in place: the card of the selection becomes the whole one, or loses its align
   // panel, and the row would be taken from under the finger.
   const hold = () => {
@@ -150,6 +192,7 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
         <button
           type="button"
           className="cam-name"
+          title={`${n}. ${describeItem(item)}`}
           aria-pressed={selected}
           onClick={() => {
             hold();
@@ -159,6 +202,10 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
           {n}. {describeItem(item)}
         </button>
         {hidden ? <span className="cam-state">{t('cam.hide.state')}</span> : null}
+        {/* A part with a place of its own among the parts cut the same way. The number is where the program really cuts
+            it (read from the program that was made); where that is not the place that was asked for – a wish that
+            lies inside a contour, numbers shared – the wish is said beside it, in words */}
+        {wish !== undefined ? <OrderBadge wish={wish} place={cutPlace?.n} /> : null}
         <Button
           variant="outline"
           size="icon"
@@ -177,7 +224,12 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
       <NativeSelect
         aria-label={t('cam.operation', { n })}
         value={item.kind}
-        onChange={(e) => cam.setItem(item.id, { kind: e.target.value as OperationKind })}
+        onChange={(e) => {
+          // A pocket and a hole have a panel of their own in the card above the list (how they are entered,
+          // how they are drilled): the kind that is changed here brings it or takes it away, and the row stays
+          hold();
+          cam.setItem(item.id, { kind: e.target.value as OperationKind });
+        }}
       >
         {KINDS.map((k) => (
           <option key={k} value={k}>
@@ -436,6 +488,9 @@ export function CamCard() {
   const hiddenCount = parts.length - shown.length;
   const relieved = parts.some((i) => i.relief !== null && hasCorners(i));
   const backText = parts.some((i) => i.side === 'back' && i.text !== undefined);
+  // The library says of every problem whether the contour is not cut at all or cut, but differently
+  const notCut = problems.filter((p) => PROBLEM_EFFECT[p.code] === 'not-cut');
+  const differently = problems.filter((p) => PROBLEM_EFFECT[p.code] === 'cut-differently');
 
   return (
     <div className="workspace" data-testid="cam-card">
@@ -625,6 +680,28 @@ export function CamCard() {
               />
               <span>{t('cam.climb')}</span>
             </Label>
+            {/* What a part's tabs do when it has no choice of its own: kept off the corners, or evenly spread as ever */}
+            <Label className="min-h-target gap-3 font-normal" data-find="cam-avoid-default">
+              <Checkbox
+                checked={settings.tabs.avoidCorners === true}
+                data-testid="cam-avoid-default"
+                onCheckedChange={(avoidCorners) =>
+                  set({ tabs: { ...settings.tabs, avoidCorners } })
+                }
+              />
+              <span>{t('cam.tabAvoidDefault')}</span>
+            </Label>
+            <div className="flex flex-col" data-find="cam-route">
+              <Label className="min-h-target gap-3 font-normal">
+                <Checkbox
+                  checked={settings.routeShort}
+                  data-testid="cam-route"
+                  onCheckedChange={(routeShort) => set({ routeShort })}
+                />
+                <span>{t('cam.routeShort')}</span>
+              </Label>
+              <p className="text-muted-foreground text-sm">{t('cam.routeShortNote')}</p>
+            </div>
           </div>
         </Fold>
       </Card>
@@ -632,14 +709,27 @@ export function CamCard() {
       <Card className="gap-3 p-4" data-find="cam-done">
         <CardTitle render={<h2 />}>{t('cam.steps.done')}</CardTitle>
         <p className="text-muted-foreground text-sm">{t('cam.look')}</p>
-        {problems.length > 0 ? (
+        {/* What is not cut at all, and – apart – what is cut but not as asked: the second is a note, not a fault */}
+        {notCut.length > 0 ? (
           <ul className="diagnostics" data-testid="cam-problems">
-            {problems.map((p, i) => (
+            {notCut.map((p, i) => (
               <li key={i} className="error">
-                {t(`cam.problems.${p.code}`, { n: p.row + 1 })}
+                {t(`cam.problems.${p.code}`, { n: p.row + 1, min: formatNumber(MIN_PECK, 2) })}
               </li>
             ))}
           </ul>
+        ) : null}
+        {differently.length > 0 ? (
+          <div className="flex flex-col gap-1" data-testid="cam-differences">
+            <p className="text-sm font-medium">{t('cam.differs')}</p>
+            <ul className="diagnostics">
+              {differently.map((p, i) => (
+                <li key={i} data-testid="cam-difference" data-code={p.code}>
+                  {t(`cam.problems.${p.code}`, { n: p.row + 1, min: formatNumber(MIN_PECK, 2) })}
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
         {flipNotes.length > 0 ? (
           <ul className="diagnostics" data-testid="cam-flip-notes">

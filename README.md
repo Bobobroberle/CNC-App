@@ -287,7 +287,14 @@ das CAM zu sehen.
     die Form sofort auf das Tisch-Bild: in üblicher Größe, ausgewählt, dort wo man hinsieht (das
     erste Teil mit der Ecke auf dem Nullpunkt, jedes weitere mitten in das gewählte Teil, ohne
     Auswahl in die Zeichnung; liegt die Stelle nicht im Bild, in die Bildmitte). Kein Formular
-    vorher. _Datei (DXF, SVG)_ lädt ASCII-DXF aus Fusion, LibreCAD … (Linien, Bögen, Kreise,
+    vorher. Unter _Weitere Grundformen_ (zugeklappt, bis man sie öffnet) liegen _Ellipse_ (zwei Radien),
+    _Stern_ (3 bis 32 Spitzen, Außen- und Innenradius), _Zahnrad_ (6 bis 80 Zähne) und _Spirale_
+    (Windungen, Start- und Endradius): Ellipse, Stern und Zahnrad werden wie jede Außenkontur geschnitten
+    (außen, mit Stegen), die Spirale ist eine offene Linie und wird graviert. **Das Zahnrad hat
+    Trapezzähne, kein Evolventenprofil** – es fräst sich als Zahnscheibe, Kettenrad oder Knauf, aber zwei
+    davon sind kein Getriebe. Beim Rechteck gibt es unter _Ecken einzeln_ einen Radius für jede der vier
+    Ecken (das Feld _Eckenradius_ setzt alle vier gleich und sagt „verschieden“, solange sie es nicht
+    sind). _Datei (DXF, SVG)_ lädt ASCII-DXF aus Fusion, LibreCAD … (Linien, Bögen, Kreise,
     Polylinien mit Bögen, Splines, Ellipsen; die Einheit aus `$INSUNITS`, ohne Angabe mm) oder SVG
     aus Inkscape, Illustrator … (Pfade mit allen Befehlen, Rechteck, Kreis, Ellipse, Linie,
     Polylinie, Polygon, Gruppen-Transformationen; Größe in mm aus `width`/`height`/`viewBox`). Was
@@ -297,7 +304,9 @@ das CAM zu sehen.
     Datei ohne Größe in mm – dann 96 Punkte pro Zoll). Eine Datei, in der nichts zu fräsen ist, und
     eine unlesbare Datei sagen es auch.
     - **Auf dem Tisch:** Das gewählte Teil hat Griffe – Ecken und Seiten ändern die Größe (Rechteck
-      Breite/Höhe, Kreis den Durchmesser, Langloch Länge/Breite, Text die Schrifthöhe, Lochraster
+      Breite/Höhe, Kreis den Durchmesser, Langloch Länge/Breite, Ellipse ihre Radien, Stern, Zahnrad und
+      Spirale gleichmäßig – am Ende ihres Maßbereichs (Radius 0,25 bis 2500 mm) hören sie auf zu wachsen
+      oder zu schrumpfen und bleiben, was sie sind –, Text die Schrifthöhe, Lochraster
       den Lochabstand, eine Datei gleichmäßig), der Punkt darüber dreht (rastet in der Nähe von
       15°-Schritten ein), die Linie verschiebt. Solange man zieht, steht das Maß am Teil; die
       Fräsbahn kommt beim Loslassen. Tipp auf eine Linie wählt aus (ein Text lässt sich an seinem
@@ -331,6 +340,20 @@ das CAM zu sehen.
       in der Liste bleibt es, abgeblendet, und lässt sich wieder einblenden (_Alle einblenden_ steht unter
       der Liste). Ein Teil in einer Gruppe, die auch sichtbare Teile hat, bleibt Teil der Gruppe und rückt mit.
       Tasten für Gruppieren und Ausrichten gibt es noch nicht.
+    - **Verschachteln:** Im Feld _Ausrichten und verteilen_ packt _Verschachteln_ die ausgewählten Teile auf
+      das Rohteil (Job → Rohteil; ohne ist der Knopf zu und sagt, was fehlt). **Gepackt werden die
+      rechteckigen Rahmen der Teile, nicht ihre Umrisse: Formen greifen nicht ineinander** – ein L oder ein
+      Ring nimmt seinen ganzen Rahmen. Zwischen den Teilen bleibt der _Abstand der Teile_ (ohne Eingabe:
+      Fräserdurchmesser + 2 mm), zum Rand des Rohteils kein Abstand (ein Fräser, der außen um ein Teil am
+      Rand läuft, geht um seinen Radius über das Rohteil hinaus). _Drehen erlaubt_ dreht Teile um 90°, wo es
+      mehr unterbringt; ohne den Haken wird nichts gedreht. Was im Rahmen eines gepackten Teils liegt (ein
+      Loch in der Platte), geht mit; was nur in den Rahmen hineinragt (eine Kerbe quer über den Rand der
+      Platte), zählt als eigenes Teil und wird getrennt gepackt – ein solches Teil vorher mit der Platte
+      gruppieren. Löcher, die ohne ihre Platte ausgewählt sind (etwa mit einem Rahmen aufgezogen), werden aus
+      ihr herausgepackt. Was nicht ausgewählt ist und in keinem Rahmen liegt, bleibt, wo es ist –
+      und kann dann unter gepackten Teilen liegen. Ein Teil ohne Platz bleibt liegen und wird mit Namen
+      genannt. Die Antwort steht in der Karte; _Rückgängig_ macht alles in einem Schritt zurück. Bei
+      beidseitigen Teilen gehören Vorder- und Rückseite eines Teils vorher in eine Gruppe.
     - **Fangen, Abstände, Messen:** Beim Ziehen rastet ein Teil (oder die ganze Auswahl als ein Kasten) mit
       linker, rechter und mittlerer Kante – und unten, oben, mittig – an der gleichen Linie anderer Teile
       und am Rohteil ein, wenn eines eingegeben ist; die Reichweite sind 8 Bildschirmpunkte, bei jedem Zoom
@@ -363,15 +386,26 @@ das CAM zu sehen.
       Schaftfräser). Ausrichtung, Buchstaben- und Zeilenabstand unter _Schrift: Ausrichtung und
       Abstände_; Zeichen, die die Schrift nicht kennt, bleiben frei und stehen in einem Hinweis.
   - _2 · Wie wird gefräst?_ – die Liste der Teile: je Teil _Außen_, _Innen_, _Linie gravieren_,
-    _Tasche_, _Bohren_ oder _Nicht fräsen_ (Bohren: passend zum Fräser wird gepeckt, ein größeres
-    Loch mit einer Helix gebohrt; offene Konturen lassen sich nur gravieren), eine eigene Tiefe und
-    ein × zum Entfernen. Weitere Wahl nur, wo sie gilt: _Haltestege_ (bei Außen und Innen; an festen
+    _Tasche_, _Bohren_ oder _Nicht fräsen_ (Bohren: passend zum Fräser wird in einem Zug gebohrt, ein
+    größeres Loch mit einer Helix; offene Konturen lassen sich nur gravieren), eine eigene Tiefe und
+    ein × zum Entfernen. Für das eine gewählte Teil gibt die Karte der Auswahl, wo es gilt, drei weitere
+    Wahlen (alle eingeklappt, bis man sie braucht): bei einer _Tasche_ das _Eintauchen_ – _Rampe_ (wie
+    immer), _Helix_ (mit der Lochbreite; passt sie mit Schlichtzugabe nicht in die Tasche, wird mit der
+    Rampe eingetaucht und ein Hinweis unter _Ansehen und übergeben_ sagt es: „Gefräst, aber anders als
+    gewünscht“) oder _Gerade_ (nur mit einem Fräser, der in der Mitte schneidet) –, bei einem _Bohren_
+    das _Bohren in Stufen_ (_Spanbrechen_ in mm und ein _Rückzug_, nur für Löcher im Werkzeugdurchmesser)
+    und für jedes gefräste Teil die _Reihenfolge_: _Schnitt 2 von 5 (Bohrungen)_, _Früher_, _Später_,
+    _Automatisch_ und _Reihenfolge zurücksetzen_ – nur unter Teilen, die gleich gefräst werden; erst die
+    Bohrungen, dann Taschen, Gravuren, Innenkonturen und zuletzt die Außenkonturen und was in einer Kontur
+    liegt vor ihr bleiben immer. Weitere Wahl nur, wo sie gilt: _Haltestege_ (bei Außen und Innen; an festen
     Stellen der gezeichneten Kontur, Schruppen und Schlichten heben an denselben Stellen; mit dem
     Häkchen – oder mit _Stege einstellen_ in der Zeile des Teils – erscheint bei diesem Teil ein Feld für
     seine Stege (es schiebt keine andere Zeile weg und schließt mit _Schließen_): _Anzahl_, _Breite_ und _Höhe_
     je Teil – leer gilt der Standardwert unter _Erweitert_ – und _Automatisch_ (gleichmäßig verteilt)
     oder _Von Hand_ mit _Stege setzen_: antippen setzt einen Steg auf die Kontur, ziehen verschiebt
-    ihn entlang der Kontur, einen Steg antippen nimmt ihn weg. Auf dem Tisch-Bild stehen die Stege
+    ihn entlang der Kontur, einen Steg antippen nimmt ihn weg; _Ecken meiden_ rückt einen gleichmäßig
+    verteilten Steg, der den Fräser über eine Ecke heben würde, auf das nächste gerade Stück – kleine
+    Teile und Rundungen behalten ihre Plätze, von Hand gesetzte Stege werden nie verschoben. Auf dem Tisch-Bild stehen die Stege
     aller Teile als Balken in ihrer wahren Breite – dem Material, das stehen bleibt; der Fräser hebt
     sich darüber noch um seinen Durchmesser), die Ecken
     – _Ecken rund_, _Ecken frei (diagonal)_ (Dogbone) oder _Ecken frei (längs)_ (T-Bone), damit ein
@@ -382,7 +416,11 @@ das CAM zu sehen.
     _Erweitert_ Gravurtiefe, Schlichtzugabe (0 = aus; schruppen, dann ein Schlichtgang in voller
     Tiefe), Zustellung, Eintauchen, Drehzahl, Rampe (90° = senkrecht), Bahnabstand Tasche, Sichere
     Höhe, Standard-Stegbreite, Standard-Steghöhe, Standard-Anzahl Stege je Kontur (die Werte, die
-    ein Teil ohne eigene nimmt) und _Gleichlauf (sonst Gegenlauf)_. Jeder Wert
+    ein Teil ohne eigene nimmt), _Standard: Stege meiden Ecken_, _Gleichlauf (sonst Gegenlauf)_ und
+    _Fahrwege kürzen_ (ordnet die Schnitte einer Art so, dass die Eilgänge kürzer werden; nie länger als
+    ohne). Die Haken _Standard: Stege meiden Ecken_ und _Fahrwege kürzen_ sind nach dem Start der Anwendung an (eine geöffnete Datei
+    bringt ihre Werte mit, auch für die nächsten Zeichnungen der Sitzung); eine gespeicherte Zeichnung,
+    die sie nicht nennt, wird wie bisher gefräst. Jeder Wert
     ändert die Bahn auf dem Tisch sofort. Ein einzelnes Teil kann seine eigene _Laufrichtung_
     haben (_wie der Job_ · _Gleichlauf_ · _Gegenlauf_, auf der Zeile des Teils bei außen, innen und
     Tasche; für gebohrte Löcher gibt es die Wahl nicht). Hat das gewählte Werkzeug eigene

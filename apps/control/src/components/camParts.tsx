@@ -1,10 +1,11 @@
-import { bounds, pathLength, type Contour } from '@lowrider/cam';
+import { bounds, pathLength, sketchSize, tidySketch, type Contour } from '@lowrider/cam';
 import { useEffect, useRef, useState } from 'react';
 import { t, type MessageKey } from '../i18n';
-import type { CamItem } from '../lib/camItems';
+import { partsOf, type CamItem } from '../lib/camItems';
 import { formatNumber, parseNumber } from '../lib/format';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
+import { Reason } from '../ui/tooltip';
 
 /** Whole millimetres without decimals, everything else with one. */
 export const mm = (v: number) => formatNumber(v, Math.abs(v - Math.round(v)) < 0.05 ? 0 : 1);
@@ -24,6 +25,8 @@ export function NumberField({
   min = 0,
   placeholder,
   bare = false,
+  disabled = false,
+  reason,
 }: {
   label: MessageKey | { text: string };
   /** Undefined shows the placeholder: the value is left to a default */
@@ -33,6 +36,9 @@ export function NumberField({
   placeholder?: string;
   /** Only the input, named by the label for screen readers */
   bare?: boolean;
+  /** Cannot be typed into – `reason` says why, on a tap (a disabled field takes none itself) */
+  disabled?: boolean;
+  reason?: string;
 }) {
   const [text, setText] = useState(value === undefined ? '' : shown(value));
   const taken = useRef(value);
@@ -53,6 +59,7 @@ export function NumberField({
       inputMode="decimal"
       aria-label={bare ? name : undefined}
       value={text}
+      disabled={disabled}
       placeholder={placeholder}
       onChange={(e) => {
         setText(e.target.value);
@@ -68,11 +75,19 @@ export function NumberField({
       }}
     />
   );
-  if (bare) return input;
+  const field =
+    disabled && reason ? (
+      <Reason reason={reason} className="block w-full">
+        {input}
+      </Reason>
+    ) : (
+      input
+    );
+  if (bare) return field;
   return (
     <Field>
       <FieldLabel>{name}</FieldLabel>
-      {input}
+      {field}
     </Field>
   );
 }
@@ -95,8 +110,34 @@ export function describeItem(item: CamItem): string {
   if (s?.type === 'rect') return t('cam.rectLabel', { w: mm(s.w), h: mm(s.h) });
   if (s?.type === 'slot') return t('cam.slotLabel', { l: mm(s.l), w: mm(s.w) });
   if (s?.type === 'grid') return t('cam.gridLabel', { nx: s.nx, ny: s.ny, d: mm(s.d) });
+  // The curved shapes by what is drawn (a star that was typed 99 tips has 32)
+  if (
+    s &&
+    (s.type === 'ellipse' || s.type === 'star' || s.type === 'gear' || s.type === 'spiral')
+  ) {
+    const drawn = tidySketch(s);
+    const size = sketchSize(drawn)!;
+    if (drawn.type === 'ellipse') {
+      return t('cam.ellipseLabel', { w: mm(size.w), h: mm(size.h) });
+    }
+    if (drawn.type === 'star')
+      return t('cam.starLabel', { n: drawn.points, d: mm(2 * drawn.outer) });
+    if (drawn.type === 'gear')
+      return t('cam.gearLabel', { n: drawn.teeth, d: mm(2 * drawn.outer) });
+    if (drawn.type === 'spiral') {
+      return t('cam.spiralLabel', { n: formatNumber(drawn.turns, 2).replace(/,?0+$/, '') });
+    }
+  }
   const first = describeContour(item.contours[0]!);
   return item.contours.length > 1
     ? t('cam.manyLabel', { n: item.contours.length, what: first })
     : first;
+}
+
+/** What a group is called where it is named among others: the one part it holds, or how many contours it is. */
+export function describeGroup(items: readonly CamItem[], group: number): string {
+  const parts = partsOf(items).filter((i) => i.group === group);
+  return parts.length === 1
+    ? describeItem(parts[0]!)
+    : t('cam.arrange.groupOf', { m: parts.length });
 }

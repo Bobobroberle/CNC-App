@@ -12,9 +12,9 @@ import {
   gridOffsets,
   IDENTITY,
   invert,
-  magnifySketch,
   mirror,
   onStock,
+  operationTabSites,
   proposeRegistration,
   readDxf,
   readSvg,
@@ -22,14 +22,12 @@ import {
   registrationDiameter,
   registrationLayout,
   rotation,
-  scaleSketch,
   scaling,
   scalingAbout,
   sketchBox,
   sketchContours,
   sketchKeepsProportions,
   sketchTextOptions,
-  tabSites,
   textContours,
   toGcode,
   toolpaths,
@@ -50,7 +48,7 @@ import {
   type Point,
   type Side,
   type SidedCut,
-  type Sketch,
+  type AnySketch,
   type SvgNote,
   type Tabs,
   type TextOptions,
@@ -117,6 +115,10 @@ import {
   pruneSelection,
   toggleGroup,
 } from '../lib/camSelect';
+import { cutPlaces, movedSeqs, rankOf, type CutPlace } from '../lib/camOrder';
+import { defaultNestGap, planNest } from '../lib/camNest';
+import { holdFactor, magnified, scaledShape } from '../lib/camScale';
+import { clampPath, takesEntry, takesPeck, type Entry, type PathValue } from '../lib/camPath';
 import { fixturesInWork } from '../lib/clamps';
 import { textBlockCentre } from '../lib/series';
 import { inViewSpot } from '../lib/tableBox';
@@ -141,6 +143,12 @@ export interface CamSettings extends Omit<CutSettings, 'toolDiameter' | 'allowan
   engraveDepth: number;
   /** Finishing allowance, mm; 0 = cut to size at once */
   allowance: number;
+  /**
+   * "Fahrwege kürzen": the order of the cuts of one kind is made shorter (`toolpaths` option `route: 'short'`).
+   * Only the order, so where each cut begins – never other cuts. On for a new drawing; a project file that
+   * does not say is read as off, so no stored drawing changes its program.
+   */
+  routeShort: boolean;
 }
 
 /** A part machined from both sides: how it is turned over and found again. */
@@ -205,6 +213,39 @@ export interface DragHints {
   gaps: Gap[];
 }
 
+/** What "Verschachteln" is asked for: both left out take the defaults (the cutter and 2 mm between parts, no turning) */
+export interface NestRequest {
+  /** The least room between two parts, mm */
+  gap?: number;
+  /** Parts may be turned by 90° */
+  rotate?: boolean;
+}
+
+/** What the last "Verschachteln" did, for the card that asked – until anything else changes the drawing. */
+export interface NestReport {
+  /**
+   * The `project.items` this report is about: undo, redo and every other change of the drawing make a new
+   * list, and a report of an older one is not shown any more.
+   */
+  items: readonly CamItem[];
+  /** What was selected when it was made: another selection is another question, and the report is not shown for it */
+  selected: Selection;
+  /** The groups that found a place, and the ones that found none (they stay where they were) */
+  placed: number[];
+  unplaced: number[];
+  /** How many groups lie inside the box of a packed one and went with it */
+  riders: number;
+  /** The groups that stay and whose box a packed part now overlaps (they are cut through each other until one is moved) */
+  overlapped: number[];
+  /** How many groups of those moved – a part that already stood where it was put does not */
+  moved: number;
+  /** The share of the stock's area the boxes take, 0…1 */
+  used: number;
+  /** The room that was kept between two parts, mm */
+  gap: number;
+  rotate: boolean;
+}
+
 /** What can be set per item of the list. */
 export type ItemPatch = Partial<
   Pick<CamItem, 'kind' | 'tabs' | 'relief' | 'depth' | 'side' | 'climb'>
@@ -242,6 +283,12 @@ interface CamStore {
   future: Snapshot[];
   settings: CamSettings;
   problems: CamProblem[];
+  /**
+   * Where each part (by its id) comes among the parts cut the same way, in the program that was made last:
+   * the order the library really cut in, so the route decides for the parts without a number of their own.
+   * A part that is not cut (hidden, a cutter too large for it, "nicht fräsen") has none.
+   */
+  cutOrder: Readonly<Record<number, CutPlace>>;
   /** For a part machined from both sides: what to know before it is handed over */
   flipNotes: CamFlipNote[];
   /** What the arranging acts on */
@@ -314,13 +361,13 @@ interface CamStore {
    * characters a text's font does not have. With `at`, its own origin (the
    * middle of a shape, the anchor of a text) lies exactly there.
    */
-  addSketch(sketch: Sketch, view?: Bounds | null, at?: Point): string[];
+  addSketch(sketch: AnySketch, view?: Bounds | null, at?: Point): string[];
   /**
    * Other measures (or words) for a drawn thing: its contours are made anew
    * where it lies. Changes of the same `field` in a row are one step to undo.
    * Returns the characters a text's font does not have.
    */
-  setSketch(id: number, sketch: Sketch, field?: string): string[];
+  setSketch(id: number, sketch: AnySketch, field?: string): string[];
   removeItem(id: number): void;
   /** Empties the drawing */
   clear(): void;
@@ -338,7 +385,10 @@ interface CamStore {
    * again; a number is brought into its range (the count into whole numbers). Changes of one value
    * in a row are one step to undo.
    */
-  setTabs(id: number, patch: Partial<Record<TabValue, number | undefined>>): void;
+  setTabs(
+    id: number,
+    patch: Partial<Record<TabValue, number | undefined>> & { avoidCorners?: boolean },
+  ): void;
   /** The tabs automatic again: the thing's count spread evenly; the places put by hand are forgotten */
   spreadTabs(id: number): void;
   /**
@@ -371,6 +421,26 @@ interface CamStore {
    * more, or is gone. Opening it never changes the height of any other row.
    */
   tabsOpen: number | null;
+  /**
+   * How a pocket is entered ('ramp': as ever; 'helix', 'plunge') and how a hole is drilled (a peck step,
+   * and for chip breaking how far the cutter comes up between the steps), per part: a number is brought
+   * into its range, undefined takes the default (no value) again. The values of the other kind of cut are
+   * not kept – a peck means nothing on a pocket – and a value that means nothing without another goes with
+   * it (the hole of a helix without the helix, the retract without a peck). Changes of one number in a row
+   * are one step to undo.
+   */
+  setPath(
+    id: number,
+    patch: { entry?: Entry } & Partial<Record<PathValue, number | undefined>>,
+  ): void;
+  /**
+   * Moves a part one place earlier (−1) or later (1) among the parts cut the same way: every part of that
+   * kind gets the number of its place in the order it is cut in now, so what is seen is what is asked for. One
+   * step to undo. False where it cannot move (the first cannot go earlier) or is not cut.
+   */
+  moveInOrder(id: number, by: -1 | 1): boolean;
+  /** Takes the number away from one part (it follows the numbered ones, by route) or from every part */
+  clearOrder(id?: number): void;
   /** Selects the thing's group alone and opens its panel of tabs, in one step; nothing for a thing without tabs */
   openTabs(id: number): void;
   /** Closes the panel of tabs – and ends putting tabs by hand with it */
@@ -462,6 +532,16 @@ interface CamStore {
   align(edge: Edge): void;
   /** The units of the selection spread evenly along an axis, the two outermost ones staying */
   distribute(axis: Axis, mode: Spread): void;
+  /**
+   * The selected groups packed onto the entered stock by their boxes (`lib/camNest.ts`: what lies inside a
+   * packed group's box goes with it; the registration holes, hidden groups and everything not selected stay).
+   * One step of undo and one `update`, so a job under way and the program on the table are as for any other
+   * change; nothing is remembered where nothing moves. A part without a place stays where it was and is in the
+   * report. Null – and nothing done – without an entered stock or with nothing in sight selected.
+   */
+  nest(options?: NestRequest): NestReport | null;
+  /** The report of the last `nest`, while the drawing is as it left it (compare `NestReport.items`) */
+  nested: NestReport | null;
   /** The parts of two or more selected groups become one group, selected */
   group(): void;
   /** Every part of the selected groups becomes a group of its own, all of them selected */
@@ -530,12 +610,20 @@ function initialSettings(): CamSettings {
     safeZ: 5,
     climb: true,
     allowance: 0,
-    tabs: TABS,
+    // A new drawing keeps its tabs off the corners and its rapid travel short; a stored project says its own
+    // (the file's missing keys are read as off – `openProject`)
+    tabs: { ...TABS, avoidCorners: true },
+    routeShort: true,
   };
 }
 
+/** What a drawing is cut with when its cutter is not in the tool list (any more), mm */
+const DEFAULT_TOOL = 6;
 const toolDiameter = (settings: CamSettings) =>
-  useWorkshop.getState().tools.find((t) => t.id === settings.toolId)?.diameter ?? 6;
+  useWorkshop.getState().tools.find((t) => t.id === settings.toolId)?.diameter ?? DEFAULT_TOOL;
+
+/** The cutter of the program made last: its id and diameter, mm (see `afterToolEdit`) */
+let cutWith: { id: string; diameter: number } | null = null;
 
 /** Steps the drawing can go back */
 const HISTORY = 100;
@@ -548,7 +636,7 @@ let clipboard: CamItem[] = [];
 let pasted = 0;
 
 /** What a sketch makes: its contours, and for a text how it was set. */
-function fromSketch(sketch: Sketch) {
+function fromSketch(sketch: AnySketch) {
   const made = sketchContours(sketch);
   if (sketch.type !== 'text') return { source: made.contours, missing: made.missing };
   const options = sketchTextOptions(sketch);
@@ -562,11 +650,11 @@ function fromSketch(sketch: Sketch) {
 }
 
 /** The box of a drawn thing in its own coordinates: by its measures, a text by its strokes. */
-const ownBox = (sketch: Sketch, source: readonly Contour[]) =>
+const ownBox = (sketch: AnySketch, source: readonly Contour[]) =>
   sketchBox(sketch) ?? contoursBox(source);
 
 /** Where a new sketch keeps still when a measure is typed: a corner, or its own origin. */
-const typedAnchor = (sketch: Sketch): readonly [number, number] | null =>
+const typedAnchor = (sketch: AnySketch): readonly [number, number] | null =>
   sketch.type === 'rect' || sketch.type === 'grid' ? [0, 0] : null;
 const EMPTY: CamProject = { name: 'zeichnung', items: [], twoSided: null, skipped: {}, notes: [] };
 
@@ -589,11 +677,27 @@ export function itemOperation(
     // its own direction, where it has one to choose (a stale one from another kind does not count);
     // else the job's (the library falls back)
     climb: through(item.kind) || item.kind === 'pocket' ? item.climb : undefined,
+    // how a pocket is entered and a hole drilled: only where the kind takes it (a peck on anything else is
+    // a problem the library would say)
+    entry: takesEntry(item.kind) ? item.entry : undefined,
+    helixDiameter: takesEntry(item.kind) && item.entry === 'helix' ? item.helixDiameter : undefined,
+    peck: takesPeck(item.kind) ? item.peck : undefined,
+    peckRetract: takesPeck(item.kind) && item.peck !== undefined ? item.peckRetract : undefined,
+    seq: item.seq,
   };
 }
 
 /** The cutter of the drawing: its diameter, mm. */
 export const camToolDiameter = (settings: CamSettings) => toolDiameter(settings);
+
+/**
+ * The cutter of the drawing as a hook: what is drawn depends on it (the places of tabs kept off the corners
+ * are the cutter's), so a picture must follow a change of the cutter, or of its diameter in the tool list.
+ */
+export function useCamToolDiameter(): number {
+  const toolId = useCam((s) => s.settings.toolId);
+  return useWorkshop((s) => s.tools.find((t) => t.id === toolId)?.diameter ?? DEFAULT_TOOL);
+}
 
 /** Room between the cut around a part and the rim of a registration hole beside it, mm */
 const HOLE_ROOM = 6;
@@ -869,10 +973,16 @@ export const useCam = create<CamStore>((set, get) => {
   const resized = (starts: readonly CamItem[], frame: Frame, r: Resize): CamItem[] => {
     const one = starts.length === 1 ? starts[0]! : null;
     if (one?.sketch) {
-      const sketch = scaleSketch(one.sketch, r.kx, r.ky);
+      // (a star, a gear and a spiral keep their proportions where a measure reaches the end of its range)
+      const sketch = scaledShape(one.sketch, r.kx, r.ky);
       return [reshaped(one, sketch, [r.fx, r.fy])];
     }
-    const k = r.kx;
+    // The curved shapes cannot follow beyond the end of their range without changing their proportions: the
+    // factor is held once for everything that is scaled, so nothing in it grows (or shrinks) out of step
+    const k = holdFactor(
+      starts.map((i) => i.sketch),
+      r.kx,
+    );
     const about = {
       x: frame.box.minX + r.fx * (frame.box.maxX - frame.box.minX),
       y: frame.box.minY + r.fy * (frame.box.maxY - frame.box.minY),
@@ -884,7 +994,7 @@ export const useCam = create<CamStore>((set, get) => {
         return { ...i, placement, contours: place(i.source, placement) };
       }
       // The measures grow, the placement only moves: the numbers stay true.
-      const sketch = magnifySketch(i.sketch, k);
+      const sketch = magnified(i.sketch, k);
       const placement = compose(compose(grow, i.placement), scaling(1 / k));
       const { missing: _missing, ...made } = fromSketch(sketch);
       // The places of tabs by hand follow the measures (a uniform scale keeps them where they are)
@@ -904,7 +1014,7 @@ export const useCam = create<CamStore>((set, get) => {
    */
   const reshaped = (
     item: CamItem,
-    sketch: Sketch,
+    sketch: AnySketch,
     keep: readonly [number, number] | null,
   ): CamItem => {
     const made = fromSketch(sketch);
@@ -944,9 +1054,11 @@ export const useCam = create<CamStore>((set, get) => {
     for (const o of offsets) {
       const groups = new Map<number, number>();
       // The registration holes are not copied: there are two of them.
-      for (const i of partsOf(from)) {
+      for (const { seq: _place, ...i } of partsOf(from)) {
         if (!groups.has(i.group)) groups.set(i.group, nextId++);
         const placement = compose(translation(o.x, o.y), i.placement);
+        // (a copy has no place of its own among the parts cut the same way: the one the original was given was its
+        // wish, and a copy that shared it would be cut ahead of every part without a number – it follows the route)
         out.push({
           ...i,
           id: nextId++,
@@ -1050,6 +1162,7 @@ export const useCam = create<CamStore>((set, get) => {
     tabsOpen: null,
     settings: initialSettings(),
     problems: [],
+    cutOrder: {},
     flipNotes: [],
     selected: null,
     multi: false,
@@ -1058,6 +1171,7 @@ export const useCam = create<CamStore>((set, get) => {
     measured: NOTHING_MEASURED,
     ahead: false,
     table: null,
+    nested: null,
     open() {
       if (!get().project) set({ project: EMPTY, selected: null, ahead: false, table: null });
     },
@@ -1065,6 +1179,7 @@ export const useCam = create<CamStore>((set, get) => {
       set({
         project: null,
         problems: [],
+        cutOrder: {},
         flipNotes: [],
         selected: null,
         multi: false,
@@ -1072,6 +1187,7 @@ export const useCam = create<CamStore>((set, get) => {
         measure: false,
         measured: NOTHING_MEASURED,
         tabsOpen: null,
+        nested: null,
         past: [],
         future: [],
         ahead: false,
@@ -1099,13 +1215,26 @@ export const useCam = create<CamStore>((set, get) => {
           ...i,
           contours: place(i.source, i.placement),
         }));
-        set((s) => ({
-          project: { ...parsed.project, items },
-          settings: { ...s.settings, ...(toolMissing ? rest : parsed.settings) },
-          selected: null,
-          problems: [],
-          flipNotes: [],
-        }));
+        set((s) => {
+          const merged = { ...s.settings, ...(toolMissing ? rest : parsed.settings) };
+          // What the file does not say is off, not what is set now: a stored drawing is cut as it was made
+          // (`routeShort` is always in what is read; "Ecken meiden" is the file's own, or off)
+          const { avoidCorners: _now, ...tabs } = merged.tabs;
+          return {
+            project: { ...parsed.project, items },
+            settings: {
+              ...merged,
+              tabs:
+                parsed.settings.tabs?.avoidCorners === true
+                  ? { ...tabs, avoidCorners: true }
+                  : tabs,
+            },
+            selected: null,
+            problems: [],
+            cutOrder: {},
+            flipNotes: [],
+          };
+        });
         update(items, null, false);
       } catch {
         nextId = kept.nextId;
@@ -1117,6 +1246,7 @@ export const useCam = create<CamStore>((set, get) => {
           past: kept.past,
           future: kept.future,
           problems: kept.problems,
+          cutOrder: kept.cutOrder,
           flipNotes: kept.flipNotes,
         });
         return { error: 'invalid-project' as const };
@@ -1241,6 +1371,7 @@ export const useCam = create<CamStore>((set, get) => {
       set({
         project: { ...EMPTY, name: p.name, twoSided },
         problems: [],
+        cutOrder: {},
         flipNotes: [],
         selected: null,
       });
@@ -1255,6 +1386,24 @@ export const useCam = create<CamStore>((set, get) => {
         p.items.map((i) => {
           if (i.id !== id) return i;
           const next = { ...i, ...patch };
+          // The place among the parts cut the same way meant something in the old kind – and on the old side – only
+          if (
+            (patch.kind !== undefined && patch.kind !== i.kind) ||
+            (patch.side !== undefined && patch.side !== i.side)
+          ) {
+            delete next.seq;
+          }
+          if (patch.kind !== undefined && patch.kind !== i.kind) {
+            // … and a way to enter a pocket or to drill a hole means nothing on any other cut
+            if (!takesEntry(next.kind)) {
+              delete next.entry;
+              delete next.helixDiameter;
+            }
+            if (!takesPeck(next.kind)) {
+              delete next.peck;
+              delete next.peckRetract;
+            }
+          }
           // A text put on the other side is flipped in place: it reads right there.
           const turned = patch.side !== undefined && patch.side !== i.side && i.text !== undefined;
           return turned && two ? mirrored(next, two.axis) : next;
@@ -1278,14 +1427,30 @@ export const useCam = create<CamStore>((set, get) => {
     },
     setTabs(id, patch) {
       const keys = (['count', 'width', 'height'] as const).filter((k) => k in patch);
-      if (keys.length === 0) return;
-      respec(id, `tabs:${id}:${keys.join()}`, (item) => {
+      const corners = 'avoidCorners' in patch;
+      if (keys.length === 0 && !corners) return;
+      // A number being typed is one step with the next of the same kind; a switch is a step of its own
+      respec(id, keys.length > 0 ? `tabs:${id}:${keys.join()}` : null, (item) => {
         const spec: TabSpec = { ...(item.tabSpec ?? { mode: 'auto' }) };
         for (const key of keys) {
           const v = patch[key];
           // Not a number (an emptied field): the drawing's default again
           if (v === undefined || !Number.isFinite(v)) delete spec[key];
           else spec[key] = clampTab(key, v);
+        }
+        if (corners) {
+          // What the drawing's default says is no choice of the part's: it follows the default
+          if (typeof patch.avoidCorners !== 'boolean') delete spec.avoidCorners;
+          else if (patch.avoidCorners === (get().settings.tabs.avoidCorners === true)) {
+            delete spec.avoidCorners;
+          } else spec.avoidCorners = patch.avoidCorners;
+          // The same as it was (a switch put where it already stands): nothing to change, no step to undo
+          if (
+            keys.length === 0 &&
+            JSON.stringify(tidySpec(spec)) === JSON.stringify(item.tabSpec)
+          ) {
+            return null;
+          }
         }
         return spec;
       });
@@ -1303,9 +1468,15 @@ export const useCam = create<CamStore>((set, get) => {
       if (!item || !tabsOn(item)) return false;
       if (item.tabSpec?.mode === 'manual') return true;
       // What the automatic spread makes now, contour by contour, is where one starts
+      // – the very places the cut lifts at (`operationTabSites` with the operation it is cut with)
+      const tool = toolDiameter(settings);
       const at = item.contours.flatMap((contour, c) => {
         const tabs = itemTabs(item, c, settings.tabs);
-        return tabs ? tabSites(contour, tabs).map((site) => ({ c, u: site.u })) : [];
+        return tabs
+          ? operationTabSites(contour, { kind: item.kind, tabs }, { toolDiameter: tool }).map(
+              (site) => ({ c, u: site.u }),
+            )
+          : [];
       });
       if (at.length > TAB_LIMITS.places) return false;
       return respec(id, null, (it) => ({ ...(it.tabSpec ?? {}), mode: 'manual', at }));
@@ -1384,6 +1555,62 @@ export const useCam = create<CamStore>((set, get) => {
         if (!at || !at[index]) return null;
         return { ...item.tabSpec!, at: at.filter((_, i) => i !== index) };
       });
+    },
+    setPath(id, patch) {
+      const p = get().project;
+      const item = p?.items.find((i) => i.id === id);
+      if (!p || !item) return;
+      // Only what the kind of cut takes: an entry for a pocket, a peck for a hole
+      const entry = 'entry' in patch && takesEntry(item.kind);
+      const numbers = (['helixDiameter', 'peck', 'peckRetract'] as const).filter(
+        (k) => k in patch && (k === 'helixDiameter' ? takesEntry(item.kind) : takesPeck(item.kind)),
+      );
+      if (!entry && numbers.length === 0) return;
+      const next: CamItem = { ...item };
+      if (entry) {
+        if (patch.entry === 'helix' || patch.entry === 'plunge') next.entry = patch.entry;
+        else delete next.entry;
+      }
+      for (const key of numbers) {
+        const v = patch[key];
+        // Not a number (an emptied field): the default again
+        if (v === undefined || !Number.isFinite(v)) delete next[key];
+        else next[key] = clampPath(key, v);
+      }
+      // What means nothing without another goes with it: the hole of a helix, the retract of a peck
+      if (next.entry !== 'helix') delete next.helixDiameter;
+      if (next.peck === undefined) delete next.peckRetract;
+      if (JSON.stringify(next) === JSON.stringify(item)) return;
+      // A number being typed is one step with the next of the same kind; a choice is a step of its own
+      remember(snap(), entry ? null : `path:${id}:${numbers.join()}`);
+      update(p.items.map((i) => (i.id === id ? next : i)));
+    },
+    moveInOrder(id, by) {
+      const { project, cutOrder } = get();
+      const item = project?.items.find((i) => i.id === id);
+      if (!project || !item || item.registration !== undefined) return false;
+      const seqs = movedSeqs(rankOf(item, project.items, cutOrder), id, by);
+      if (!seqs) return false;
+      // Nothing remembered where nothing changes: a wish the library overrides (a part inside a contour cannot come
+      // after it) writes the same numbers on the second tap – no step of undo, no program made anew for them
+      if (!project.items.some((i) => seqs.has(i.id) && i.seq !== seqs.get(i.id))) return false;
+      remember();
+      update(project.items.map((i) => (seqs.has(i.id) ? { ...i, seq: seqs.get(i.id)! } : i)));
+      return true;
+    },
+    clearOrder(id) {
+      const p = get().project;
+      if (!p) return;
+      const has = (i: CamItem) => i.seq !== undefined && (id === undefined || i.id === id);
+      if (!p.items.some(has)) return;
+      remember();
+      update(
+        p.items.map((i) => {
+          if (!has(i)) return i;
+          const { seq: _number, ...rest } = i;
+          return rest;
+        }),
+      );
     },
     // Putting tabs by hand happens in the panel of the thing: it is open then; a tap puts a tab, so it ends measuring
     setPlacing: (placing) =>
@@ -1700,6 +1927,45 @@ export const useCam = create<CamStore>((set, get) => {
     distribute(axis, mode) {
       get().arrangeBy(distributeDeltas(unitsOf(inSight(chosen())), axis, mode));
     },
+    nest(options = {}) {
+      const { project, selected, settings } = get();
+      const stock = enteredStock();
+      if (!project || !stock) return null;
+      const typed = options.gap;
+      const gap =
+        typed !== undefined && Number.isFinite(typed) && typed >= 0
+          ? typed
+          : defaultNestGap(toolDiameter(settings));
+      const rotate = options.rotate === true;
+      const plan = planNest(project.items, selected, stock.box, { gap, rotate });
+      if (!plan) return null;
+      // One step, and only where something moves: the part that already stands where it is put stays untouched
+      if (plan.moves.size > 0) {
+        remember();
+        update(
+          project.items.map((i) => {
+            const m = i.registration === undefined ? plan.moves.get(i.group) : undefined;
+            if (!m) return i;
+            const placement = compose(m, i.placement);
+            return { ...i, placement, contours: place(i.source, placement) };
+          }),
+        );
+      }
+      const report: NestReport = {
+        items: get().project!.items,
+        selected: get().selected,
+        placed: plan.placed,
+        unplaced: plan.unplaced,
+        riders: plan.riders,
+        overlapped: plan.overlapped,
+        moved: plan.moves.size,
+        used: plan.used,
+        gap,
+        rotate,
+      };
+      set({ nested: report });
+      return report;
+    },
     group() {
       const p = get().project;
       const units = unitsOf(chosen()).map((u) => u.group);
@@ -1819,10 +2085,13 @@ export const useCam = create<CamStore>((set, get) => {
     generate(opts) {
       const take = opts?.take === true;
       const { project, settings } = get();
+      // The cutter this program is made for (and the picture of the drawing – `useCamToolDiameter` – follows the
+      // same one): `afterToolEdit` asks it again when the tool list changes
+      cutWith = { id: settings.toolId, diameter: toolDiameter(settings) };
       // What is cut: a hidden part is not (the program does not mention it – not even as a part without work)
       const parts = project ? inSight(partsOf(project.items)) : [];
       if (!project || parts.length === 0) {
-        set({ problems: [], flipNotes: [] });
+        set({ problems: [], cutOrder: {}, flipNotes: [] });
         offStage(take);
         return false;
       }
@@ -1844,10 +2113,18 @@ export const useCam = create<CamStore>((set, get) => {
             rows.push(row);
           });
         });
-        const path = toolpaths(contours, operations, cut);
+        // The route of the cuts of one kind: shorter, where the drawing asks for it (`operations` and `contours`
+        // go in step, so an operation's index is its contour's)
+        const path = toolpaths(contours, operations, cut, undefined, {
+          route: settings.routeShort ? 'short' : 'nearest',
+        });
         return {
           moves: path.moves,
           problems: path.problems.map((q) => ({ row: rows[q.contour]!, code: q.code })),
+          // What was really cut, in the order it was cut in: the part and the kind of each
+          cuts: path.cuts
+            .filter((c) => c.end > c.start)
+            .map((c) => ({ item: project.items[rows[c.op]!]!.id, kind: operations[c.op]!.kind })),
         };
       };
 
@@ -1905,10 +2182,13 @@ export const useCam = create<CamStore>((set, get) => {
 
       // A text is many strokes but one row: each trouble once.
       const seen = new Set<string>();
+      // Each side is a program of its own: a part is counted among the parts of its side
+      const places = new Map([...cutPlaces(front.cuts), ...cutPlaces(back?.cuts ?? [])]);
       set({
         problems: [...front.problems, ...(back?.problems ?? [])].filter(
           (p) => !seen.has(`${p.row}|${p.code}`) && seen.add(`${p.row}|${p.code}`),
         ),
+        cutOrder: Object.fromEntries(places),
         flipNotes: notes,
       });
       const moves = [...drilled, ...front.moves];
@@ -1971,6 +2251,20 @@ useCam.subscribe((s) => {
     }
   }
 });
+
+// The program is cut with the diameter of the chosen cutter as the tool list has it, and what the table draws of it –
+// the places of tabs kept off the corners are the cutter's – follows the tool list at once (`useCamToolDiameter`). So
+// where the diameter of that cutter is edited in the tool list the program is made anew: otherwise the picture would
+// show the places of the new diameter while the program on the table still lifts at the old ones. `remake` keeps every
+// rule of the program lock (a job under way keeps its program – the drawing is `ahead` – and a program that is not the
+// drawing's own is left alone). Choosing another cutter in the drawing is `set` + `remake` already.
+function afterToolEdit(): void {
+  const { project, settings, remake } = useCam.getState();
+  if (!project || !cutWith || cutWith.id !== settings.toolId) return;
+  if (Math.abs(toolDiameter(settings) - cutWith.diameter) < 1e-9) return;
+  remake();
+}
+useWorkshop.subscribe(afterToolEdit);
 
 // A job that ends – seen while connected, not lost with the link: where nothing lies on the table (a
 // file run from the SD card list) a drawing that is ahead goes there by itself. Where the job's own

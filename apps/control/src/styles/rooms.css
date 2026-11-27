@@ -729,6 +729,20 @@
   white-space: nowrap;
 }
 
+/* The place the operator gave a part among the parts cut the same way: a small mark beside the name. The name is one
+   line, cut short where the row is narrow (`.cam-name`, for every row), so the row is as tall with the mark as without
+   it – a mark that came to many rows at once ("Früher" numbers the whole rank) must not move any of them. */
+.cam-order-badge {
+  flex: none;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+
 /* The word beside the eye of a hidden part: the state is never the look of the row alone. The plain text colour –
    the muted one is 3.6:1 on the fill of a selected row, and this word is what says the state. */
 .cam-state {
@@ -753,6 +767,11 @@
   font-weight: 600;
   text-align: left;
   cursor: pointer;
+  /* One line, cut short where the row is narrow (the whole name is its title): a row is as tall with a state beside
+     its name – the eye's word, the place in the order – as without */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cam-depth {

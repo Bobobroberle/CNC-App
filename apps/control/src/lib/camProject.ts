@@ -1,11 +1,15 @@
 import {
   tidySketch,
+  validateSketch,
+  type AnySketch,
   type Contour,
   type Matrix,
   type Sketch,
   type TextOptions,
 } from '@lowrider/cam';
 import type { CamItem, TabSpec } from './camItems';
+import { MAX_SEQ } from './camOrder';
+import { PATH_LIMITS, takesEntry, takesPeck } from './camPath';
 import { TAB_LIMITS, tidySpec } from './camTabs';
 import type { CamProject, CamSettings, TwoSided } from '../store/cam';
 
@@ -57,6 +61,19 @@ export interface OpenedProject {
   dropped: string[];
 }
 
+/**
+ * Whether a sketch is written as it is stored. The five older types always were (what was typed beyond a range
+ * stays in the file, as it did). The curved shapes and a rectangle with a radius for each corner are written as
+ * they are drawn: what the fields hold while a number is being typed (a star of 99 tips is a star of 32) would
+ * be refused by `validateSketch` on opening, and the file would lose the sketch of a shape that is still there.
+ */
+const drawnAsTyped = (s: AnySketch): boolean =>
+  s.type === 'circle' ||
+  s.type === 'slot' ||
+  s.type === 'grid' ||
+  s.type === 'text' ||
+  (s.type === 'rect' && !s.radii);
+
 /** The drawing as it is saved: without what is made from it (`contours`), with how it is cut. */
 export function projectToFile(
   project: CamProject,
@@ -70,7 +87,11 @@ export function projectToFile(
     savedAt: now.toISOString(),
     name: project.name,
     twoSided: project.twoSided,
-    items: project.items.map(({ contours: _made, ...kept }) => kept),
+    items: project.items.map(({ contours: _made, ...kept }) =>
+      kept.sketch && !drawnAsTyped(kept.sketch)
+        ? { ...kept, sketch: tidySketch(kept.sketch) }
+        : kept,
+    ),
     settings,
     ...(toolDiameter !== undefined ? { toolDiameter } : {}),
   };
@@ -105,7 +126,17 @@ const isPoint = (v: unknown): v is { x: number; y: number } => isObject(v) && nu
 
 function isContour(v: unknown): v is Contour {
   if (!isObject(v) || !Array.isArray(v.points) || typeof v.closed !== 'boolean') return false;
-  if (!v.points.every(isPoint)) return false;
+  const points = v.points as unknown[];
+  if (!points.every(isPoint)) return false;
+  // A closed contour whose points all lie on one spot has no length to cut along – refused here, as nothing
+  // the importers or the shapes make looks like it
+  const [first] = points as { x: number; y: number }[];
+  if (
+    v.closed &&
+    points.every((p) => (p as { x: number }).x === first!.x && (p as { y: number }).y === first!.y)
+  ) {
+    return false;
+  }
   if (v.circle !== undefined) {
     const c = v.circle;
     if (!isObject(c) || !num(c.cx) || !num(c.cy) || !positive(c.r)) return false;
@@ -119,12 +150,16 @@ function isContour(v: unknown): v is Contour {
   return v.layer === undefined || typeof v.layer === 'string';
 }
 
-/** A sketch the drawing program can make anew – or null: the item then keeps its contours as they are. */
-function sketchOf(v: unknown): Sketch | null {
-  if (!isObject(v)) return null;
+/**
+ * What an app before the curved shapes and the radius of each corner wrote – the five older types, a length
+ * being any number above 0, as it was read until then. A sketch that is stretched beyond what `validateSketch`
+ * takes (5 m) is read this way and keeps its sketch, as it always did: an older file opens as it did. A rectangle
+ * that carries `radii` is never read here – a damaged one is no trustworthy sketch.
+ */
+function olderSketchOf(v: Record<string, unknown>): Sketch | null {
   switch (v.type) {
     case 'rect':
-      return positive(v.w) && positive(v.h) && num(v.r)
+      return positive(v.w) && positive(v.h) && num(v.r) && v.radii === undefined
         ? tidySketch({ type: 'rect', w: v.w, h: v.h, r: v.r })
         : null;
     case 'circle':
@@ -153,6 +188,18 @@ function sketchOf(v: unknown): Sketch | null {
     default:
       return null;
   }
+}
+
+/**
+ * A sketch the drawing program can make anew – or null: the item then keeps its contours as they are. The
+ * library decides (`validateSketch`: the shapes it knows with their ranges, a rectangle with its radii for each
+ * corner); where it refuses one of the five older types only for being larger than 5 m, the older reading takes it
+ * (see `olderSketchOf`). Anything else that cannot be trusted – a measure that is no number, an unknown shape, a
+ * damaged `radii` – drops the sketch and the item keeps its contours, as before.
+ */
+function sketchOf(v: unknown): AnySketch | null {
+  if (!isObject(v)) return null;
+  return validateSketch(v) ?? olderSketchOf(v);
 }
 
 function textStyleOf(v: unknown): CamItem['textStyle'] | null {
@@ -187,6 +234,7 @@ function tabSpecOf(v: unknown, contours: number): TabSpec | null | undefined {
   }
   if (v.width !== undefined && !within(v.width, width.min, width.max)) return null;
   if (v.height !== undefined && !within(v.height, height.min, height.max)) return null;
+  if (v.avoidCorners !== undefined && typeof v.avoidCorners !== 'boolean') return null;
   let places: { c: number; u: number }[] | undefined;
   if (v.at !== undefined) {
     if (!Array.isArray(v.at) || v.at.length > TAB_LIMITS.places) return null;
@@ -203,6 +251,7 @@ function tabSpecOf(v: unknown, contours: number): TabSpec | null | undefined {
     ...(v.count !== undefined ? { count: v.count as number } : {}),
     ...(v.width !== undefined ? { width: v.width as number } : {}),
     ...(v.height !== undefined ? { height: v.height as number } : {}),
+    ...(v.avoidCorners !== undefined ? { avoidCorners: v.avoidCorners as boolean } : {}),
     ...(places ? { at: places } : {}),
   });
 }
@@ -218,9 +267,30 @@ function itemOf(v: unknown): SavedItem | null {
   if (v.side !== 'front' && v.side !== 'back') return null;
   if (v.depth !== undefined && !within(v.depth, 0.01, MAX_DEPTH)) return null;
   if (v.climb !== undefined && typeof v.climb !== 'boolean') return null;
+  // How a pocket is entered, how a hole is drilled, the place among the parts cut the same way: a value of
+  // the wrong kind or outside what the fields take refuses the file (the cutter and the depth of a part are not
+  // known here, so the bounds are the outer ones of the fields – the library holds a value to its cutter)
+  if (v.entry !== undefined && v.entry !== 'ramp' && v.entry !== 'helix' && v.entry !== 'plunge') {
+    return null;
+  }
+  const { helixDiameter, peck, peckRetract } = PATH_LIMITS;
+  if (
+    v.helixDiameter !== undefined &&
+    !within(v.helixDiameter, helixDiameter.min, helixDiameter.max)
+  ) {
+    return null;
+  }
+  if (v.peck !== undefined && !within(v.peck, peck.min, peck.max)) return null;
+  if (v.peckRetract !== undefined && !within(v.peckRetract, peckRetract.min, peckRetract.max)) {
+    return null;
+  }
+  if (v.seq !== undefined && !(Number.isSafeInteger(v.seq) && within(v.seq, 0, MAX_SEQ))) {
+    return null;
+  }
   // Hidden is only ever true, and no registration hole is hidden (they are two, and never in the way)
   if (v.hidden !== undefined && typeof v.hidden !== 'boolean') return null;
   if (v.hidden === true && v.registration !== undefined) return null;
+  const kind = v.kind as CamItem['kind'];
   const tabSpec = v.tabSpec === undefined ? undefined : tabSpecOf(v.tabSpec, v.source.length);
   if (tabSpec === null) return null;
   if (v.registration !== undefined && v.registration !== 1 && v.registration !== 2) return null;
@@ -235,12 +305,25 @@ function itemOf(v: unknown): SavedItem | null {
     ...(sketch ? { sketch } : {}),
     source: v.source,
     placement: v.placement,
-    kind: v.kind as CamItem['kind'],
+    kind,
     tabs: v.tabs,
     ...(tabSpec ? { tabSpec } : {}),
     relief: v.relief,
     ...(v.depth !== undefined ? { depth: v.depth } : {}),
     ...(v.climb !== undefined ? { climb: v.climb } : {}),
+    // The ramp is the absence of an entry; what means nothing without another – or in another kind of cut – is not kept
+    // (the drawing never holds it either: `setItem` drops it with the kind)
+    ...(takesEntry(kind) && (v.entry === 'helix' || v.entry === 'plunge')
+      ? { entry: v.entry }
+      : {}),
+    ...(takesEntry(kind) && v.entry === 'helix' && v.helixDiameter !== undefined
+      ? { helixDiameter: v.helixDiameter as number }
+      : {}),
+    ...(takesPeck(kind) && v.peck !== undefined ? { peck: v.peck as number } : {}),
+    ...(takesPeck(kind) && v.peck !== undefined && v.peckRetract !== undefined
+      ? { peckRetract: v.peckRetract as number }
+      : {}),
+    ...(kind !== 'none' && v.seq !== undefined ? { seq: v.seq as number } : {}),
     ...(v.hidden === true ? { hidden: true } : {}),
     side: v.side,
     ...(v.registration !== undefined ? { registration: v.registration } : {}),
@@ -300,6 +383,8 @@ function settingsOf(v: unknown): { settings: Partial<CamSettings>; dropped: stri
     else dropped.push('allowance');
   }
   if (typeof v.climb === 'boolean') out.climb = v.climb;
+  if (typeof v.routeShort === 'boolean') out.routeShort = v.routeShort;
+  else if (v.routeShort !== undefined) dropped.push('routeShort');
   if (typeof v.toolId === 'string' && v.toolId !== '') out.toolId = v.toolId;
   const t = v.tabs;
   if (
@@ -307,9 +392,15 @@ function settingsOf(v: unknown): { settings: Partial<CamSettings>; dropped: stri
     whole(t.count) &&
     t.count <= TAB_LIMITS.count.max &&
     within(t.width, TAB_LIMITS.width.min, TAB_LIMITS.width.max) &&
-    within(t.height, TAB_LIMITS.height.min, MAX_DEPTH)
+    within(t.height, TAB_LIMITS.height.min, MAX_DEPTH) &&
+    (t.avoidCorners === undefined || typeof t.avoidCorners === 'boolean')
   ) {
-    out.tabs = { count: t.count, width: t.width, height: t.height };
+    out.tabs = {
+      count: t.count,
+      width: t.width,
+      height: t.height,
+      ...(t.avoidCorners === true ? { avoidCorners: true } : {}),
+    };
   } else if (t !== undefined) {
     dropped.push('tabs');
   }
@@ -352,11 +443,24 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
     return { error: 'invalid-project' };
   const read = settingsOf(raw.settings);
   const { settings, dropped } = read;
+  // A file that does not say is read as off – not as what a new drawing starts with: the stored drawing keeps
+  // the program it made (the "Ecken meiden" of the tabs is read the same way, in `settingsOf` and `openProject`)
+  settings.routeShort ??= false;
   // So many passes is no way to cut (and would stall the drawing): this stepdown is left out
   const deepest = Math.max(settings.depth ?? 0, ...items.map((i) => i.depth ?? 0));
   if (settings.stepdown !== undefined && Math.ceil(deepest / settings.stepdown) > MAX_PASSES) {
     delete settings.stepdown;
     dropped.push('stepdown');
+  }
+  // A hole of so many pecks is no way to drill and would stall the drawing: the file is refused (a peck left
+  // out would drill the hole straight, which is not what was stored)
+  if (
+    items.some(
+      (i) =>
+        i.peck !== undefined && Math.ceil((i.depth ?? settings.depth ?? 0) / i.peck) > MAX_PASSES,
+    )
+  ) {
+    return { error: 'invalid-project' };
   }
   return {
     project: {

@@ -2550,7 +2550,12 @@ export const de = {
       slot: 'Langloch',
       grid: 'Lochraster',
       text: 'Text',
+      ellipse: 'Ellipse',
+      star: 'Stern',
+      gear: 'Zahnrad',
+      spiral: 'Spirale',
     },
+    moreShapes: 'Weitere Grundformen',
     fields: {
       w: 'Breite (mm)',
       h: 'Höhe (mm)',
@@ -2562,6 +2567,46 @@ export const de = {
       ny: 'Löcher hoch',
       px: 'Lochabstand X (mm)',
       py: 'Lochabstand Y (mm)',
+      rx: 'Radius X (mm)',
+      ry: 'Radius Y (mm)',
+      points: 'Spitzen',
+      outer: 'Außenradius (mm)',
+      inner: 'Innenradius (mm)',
+      teeth: 'Zähne',
+      root: 'Fußradius (mm)',
+      turns: 'Windungen',
+      start: 'Startradius (mm)',
+      end: 'Endradius (mm)',
+    },
+    radii: {
+      title: 'Ecken einzeln',
+      hint: 'Das Feld „Eckenradius“ oben setzt alle vier Ecken gleich. Ein Radius ist höchstens die halbe kürzere Seite.',
+      mixed: 'verschieden',
+      ul: 'Oben links (mm)',
+      ur: 'Oben rechts (mm)',
+      ll: 'Unten links (mm)',
+      lr: 'Unten rechts (mm)',
+    },
+    nest: {
+      title: 'Verschachteln',
+      hint: 'Packt die Rahmen der Teile auf das Rohteil, nicht ihre Umrisse: Formen greifen nicht ineinander. Was ganz im Rahmen eines Teils liegt (ein Loch), geht mit; was nur hineinragt (eine Kerbe am Rand), zählt als eigenes Teil – dann vorher gruppieren. Was nicht ausgewählt ist oder keinen Platz findet, bleibt liegen – ein verschachteltes Teil kann dann darauf zu liegen kommen (das steht unten als Warnung). Bis zum Rand des Rohteils bleibt kein Abstand – ein Fräser, der außen am Rand läuft, geht um seinen Radius über das Rohteil hinaus.',
+      twoSided:
+        'Bei zwei Seiten: Was zusammengehört (Vorder- und Rückseite eines Teils), vorher gruppieren – sonst rückt es getrennt.',
+      gap: 'Abstand der Teile (mm)',
+      rotate: 'Drehen erlaubt (nur 90°)',
+      button: 'Verschachteln',
+      needStock: 'Rohteil eingeben – im Bereich Job unter „Rohteil“.',
+      placedOne: '1 Teil verschachtelt.',
+      placedMany: '{n} Teile verschachtelt.',
+      nothingMoved: 'Die Teile liegen schon so – nichts verschoben.',
+      riders: 'Mitgenommen, weil sie im Rahmen eines Teils liegen: {n}.',
+      used: 'Die Rahmen belegen {p} % des Rohteils.',
+      unplacedOne: '1 Teil passt nicht auf das Rohteil und bleibt, wo es war: {names}.',
+      unplacedMany: '{n} Teile passen nicht auf das Rohteil und bleiben, wo sie waren: {names}.',
+      overlapOne:
+        'Achtung: 1 Teil, das liegen bleibt, überlappt ein verschachteltes Teil – beide würden ineinander gefräst: {names}. Eines von beiden verschieben oder ausblenden.',
+      overlapMany:
+        'Achtung: {n} Teile, die liegen bleiben, überlappen verschachtelte Teile – sie würden ineinander gefräst: {names}. Sie verschieben oder ausblenden.',
     },
     text: {
       sample: 'Text',
@@ -2704,6 +2749,10 @@ export const de = {
     slotLabel: 'Langloch {l} × {w} mm',
     gridLabel: 'Lochraster {nx} × {ny}, Ø {d} mm',
     circleLabel: 'Kreis Ø {d} mm',
+    ellipseLabel: 'Ellipse {w} × {h} mm',
+    starLabel: 'Stern mit {n} Spitzen, Ø {d} mm',
+    gearLabel: 'Zahnrad mit {n} Zähnen, Ø {d} mm',
+    spiralLabel: 'Spirale, {n} Windungen',
     lineLabel: 'Linie {l} mm',
     contourLabel: 'Kontur {w} × {h} mm',
     textLabel: 'Text „{text}“',
@@ -2756,6 +2805,15 @@ export const de = {
       'Zu viele Konturen für das Setzen von Hand: höchstens {max} Stege. Die Stege bleiben automatisch.',
     tabNote:
       'Die Breite ist das Material, das am Teil stehen bleibt (der Fräser hebt sich darüber noch um seinen Durchmesser). Leere Felder nehmen die Standardwerte unter „Erweitert“.',
+    tabAvoid: 'Ecken meiden',
+    tabAvoidOf: 'Stege von Teil {n}: Ecken meiden',
+    tabAvoidNote:
+      'Ein Steg, der über eine Ecke ginge, rückt auf das nächste gerade Stück. Kleine Teile und Rundungen behalten ihre gleichmäßigen Plätze, ein von Hand gesetzter Steg wird nie verschoben.',
+    tabAvoidByHand:
+      'Von Hand gesetzte Stege bleiben, wo sie stehen – das gilt nur für gleichmäßig verteilte.',
+    tabAvoidOn: 'an',
+    tabAvoidOff: 'aus',
+    tabAvoidDefault: 'Standard: Stege meiden Ecken',
     tool: 'Werkzeug',
     suggest: 'Werte aus Werkzeug und Material vorschlagen',
     suggestNeedsMaterial:
@@ -2776,14 +2834,78 @@ export const de = {
     climb: 'Gleichlauf (sonst Gegenlauf)',
     direction: 'Laufrichtung von Teil {n}',
     directions: { job: 'Laufrichtung wie der Job', climb: 'Gleichlauf', conventional: 'Gegenlauf' },
+    routeShort: 'Fahrwege kürzen',
+    routeShortNote:
+      'Ordnet die Schnitte einer Art – etwa alle Bohrungen – so, dass die Eilgänge dazwischen kürzer werden. Es wird nichts anderes gefräst, nur die Reihenfolge ändert sich, und der Weg wird nie länger als ohne.',
+    path: {
+      title: 'Fräsbahn',
+      entryTitle: 'Eintauchen',
+      entry: 'Eintauchen von Teil {n}',
+      entries: { ramp: 'Rampe', helix: 'Helix', plunge: 'Gerade' },
+      rampNote:
+        'Rampe: Der Fräser fährt schräg in die erste Bahn hinein (Winkel unter „Erweitert“).',
+      helixNote:
+        'Helix: Der Fräser bohrt sich in Schraubenlinien in die Tasche, in jeder Zustellung. Das Loch muss mit Schlichtzugabe in die Tasche passen – sonst wird mit der Rampe eingetaucht und es steht unten ein Hinweis.',
+      plungeNote:
+        'Gerade: Der Fräser sticht mit seiner ganzen Breite ins volle Material – nur mit einem Fräser, der in der Mitte schneidet, und mit dem Vorschub „Eintauchen“. Die Rampe gilt dort nicht.',
+      helixDiameter: 'Lochbreite der Helix (mm)',
+      helixDiameterOf: 'Lochbreite der Helix von Teil {n} (mm)',
+      helixDiameterNote:
+        'Leer: {usual} mm (1,5 × Fräser). Erlaubt: {least} bis {most} mm (Fräser + 0,5 mm bis 2 × Fräser) – eine andere Zahl wird auf den nächsten erlaubten Wert gesetzt.',
+      peckTitle: 'Bohren in Stufen',
+      peck: 'Spanbrechen (mm)',
+      peckOf: 'Stufe beim Bohren von Teil {n} (mm)',
+      peckRetract: 'Rückzug (mm)',
+      peckRetractOf: 'Rückzug beim Bohren von Teil {n} (mm)',
+      peckRetractNeedsPeck: 'Der Rückzug gilt nur mit einer Stufe beim Spanbrechen.',
+      off: 'aus',
+      fullRetract: 'ganz hoch',
+      peckNote:
+        'Leer: in einem Zug durchbohren. Mit einer Stufe (ab {min} mm) bohrt der Fräser in Stücken dieser Größe. Rückzug leer: nach jeder Stufe ganz hoch. Mit Rückzug: nur so weit hoch, das bricht den Span. Gilt für Löcher im Werkzeugdurchmesser; ein größeres Loch wird mit einer Helix gefräst – dann steht unten ein Hinweis.',
+    },
+    order: {
+      title: 'Reihenfolge',
+      place: 'Schnitt {n} von {m} ({kind})',
+      kinds: {
+        drill: 'Bohrungen',
+        pocket: 'Taschen',
+        on: 'Gravuren',
+        inside: 'Innenkonturen',
+        outside: 'Außenkonturen',
+      },
+      earlier: 'Früher',
+      earlierLabel: 'Teil früher fräsen',
+      later: 'Später',
+      laterLabel: 'Teil später fräsen',
+      auto: 'Automatisch',
+      autoLabel: 'Teil automatisch einordnen',
+      reset: 'Reihenfolge zurücksetzen',
+      first: 'Es ist schon das erste dieser Art.',
+      last: 'Es ist schon das letzte dieser Art.',
+      noNumber: 'Dieses Teil hat keinen eigenen Platz – es richtet sich nach dem Fahrweg.',
+      none: 'Dieses Teil wird nicht gefräst – es hat keinen Platz in der Reihenfolge.',
+      group:
+        'Für die Reihenfolge ein einzelnes Teil auswählen – bei einer Gruppe erst die Gruppierung aufheben.',
+      hint: 'Es werden immer erst die Bohrungen gefräst, dann Taschen, Gravuren, Innenkonturen und zuletzt die Außenkonturen – und was in einer Kontur liegt, vor ihr. Hier ändert sich nur die Reihenfolge unter Teilen, die gleich gefräst werden. Teile ohne eigenen Platz kommen danach, nach dem Fahrweg.',
+      badge: 'Nr. {n}',
+      badgeLabel: 'Eigener Platz {n} in der Reihenfolge',
+      badgeWish: 'Nr. {n} (Wunsch {w})',
+      badgeWishLabel: 'Wird als Nr. {n} gefräst; gewünscht war der Platz {w}.',
+      badgeIdle: 'Wunsch {w}',
+      badgeIdleLabel: 'Gewünscht war der Platz {w} – das Teil wird nicht gefräst.',
+      counted: '{n} Teile haben einen eigenen Platz.',
+      countedNone: 'Noch hat kein Teil einen eigenen Platz.',
+      noNumbers: 'Kein Teil hat einen eigenen Platz – es gibt nichts zurückzusetzen.',
+    },
+    differs: 'Gefräst, aber anders als gewünscht',
     problems: {
       'tool-too-large': 'Kontur {n}: Werkzeug zu groß dafür.',
       'open-contour': 'Kontur {n} ist offen – nur „Linie gravieren“ möglich.',
       'hole-too-small': 'Kontur {n}: Bohren nur bei Kreisen ab Werkzeugdurchmesser.',
       'helix-too-big':
-        'Kontur {n}: Die Wendel passt nicht in die Tasche – es wird mit der Rampe eingetaucht.',
+        'Kontur {n}: Die Helix passt nicht in die Tasche – es wird mit der Rampe eingetaucht.',
       'peck-not-possible':
-        'Kontur {n}: Spanbrechen geht hier nicht (nur beim Bohren eines Kreises im Werkzeugdurchmesser, Schritt ab 0,05 mm) – es wird ohne gearbeitet.',
+        'Kontur {n}: Das Bohren in Stufen geht hier nicht (nur für ein Loch im Werkzeugdurchmesser, mit einer Stufe ab {min} mm und einem Rückzug über 0) – es wird in einem Zug gebohrt oder gefräst.',
       'order-overridden':
         'Kontur {n}: Die gewünschte Reihenfolge geht nicht – was darin liegt, wird vorher gefräst.',
     },
@@ -3889,6 +4011,18 @@ export const de = {
         'rechteck, viereck, quadrat, kasten, box, rectangle, square, eckig, abgerundete ecken',
       shapeCircle: 'kreis, rund, loch, bohrung, scheibe, circle, hole, ronde, durchmesser',
       shapeSlot: 'langloch, schlitz, nut, slot, oval, längliches loch',
+      shapeEllipse:
+        'ellipse, oval, eiförmig, ei, ellipsenform, längsoval, ovale form, elipse, ellipse zeichnen',
+      shapeStar:
+        'stern, sternform, zacken, spitzen, fünfzack, star, polygon mit spitzen, sternchen',
+      shapeGear:
+        'zahnrad, zahnkranz, zähne, kettenrad, zahnscheibe, rädchen, gear, sprocket, cog, zackenrad',
+      shapeSpiral:
+        'spirale, schnecke, wendel, archimedes, spiral, schneckenlinie, windungen, gravur spirale',
+      camRadii:
+        'eckenradius, ecken einzeln, ecke abrunden, abrunden, einzelne ecken, verrunden, rundung, ecken rund, radius je ecke, corner radius, fillet, rounded corners',
+      camNest:
+        'verschachteln, schachteln, nesting, packen, zuschnitt, rohteil füllen, teile anordnen, platte ausnutzen, verschnitt, optimieren, auf das rohteil legen, platzsparend, pack, nest, plattenaufteilung',
       shapeGrid:
         'lochraster, lochreihe, raster, mehrere löcher, bohrbild, grid, pattern, reihe, dübellöcher',
       shapeText:
@@ -3941,6 +4075,20 @@ export const de = {
         'gruppieren, gruppe, zusammenfassen, teile verbinden, zu einer gruppe, zusammen bewegen, gruppe bilden, group, illustrator',
       camUngroup:
         'gruppierung aufheben, gruppe auflösen, gruppe trennen, einzelne konturen, konturen einzeln wählen, aus einer datei einzeln wählen, aufteilen, ungroup, entgruppieren',
+      tabsAvoid:
+        'ecken meiden, stege meiden ecken, steg nicht auf die ecke, stege auf gerade stücke, stege nicht in der ecke, haltestege ecken, tabs ecken, tabs corners, avoid corners, stege ecke vermeiden, stege verschieben, stege in die mitte',
+      camRoute:
+        'fahrwege kürzen, fahrweg, wege kürzen, kürzere wege, eilgang, eilgänge, leerfahrten, leerfahrt, weniger fahren, route, reihenfolge optimieren, schnitte ordnen, bohrungen ordnen, travel, rapid, rapids, 2-opt, kürzester weg, handlungsreisender, zeit sparen',
+      camEntry:
+        'eintauchen, helix, wendel, schraubenlinie, spirale eintauchen, einbohren, taschen eintauchen, rampe, gerade eintauchen, senkrecht eintauchen, plunge, ramp, helical, tasche anfangen, einstechen',
+      camHelix:
+        'helix durchmesser, wendel durchmesser, lochbreite, loch der helix, helix zu groß, wendel passt nicht, schraubenlinie breite, helix diameter, bohrung in der tasche',
+      camPeck:
+        'spanbrechen, bohren in stufen, stufenbohren, tiefbohren, peck, peck drilling, peckbohren, rückzug, rückzug beim bohren, chip breaking, spanbruch, bohrstufe, bohren stufen, späne brechen, bohrung tief, g83, g73',
+      camOrder:
+        'reihenfolge, reihenfolge von hand, schnittfolge, früher fräsen, später fräsen, zuerst fräsen, zuletzt fräsen, was zuerst, reihenfolge ändern, reihenfolge zurücksetzen, nummerieren, abarbeitung, bearbeitungsreihenfolge, order, sequence, priority, vorrang',
+      camOrderReset:
+        'reihenfolge zurücksetzen, automatische reihenfolge, nummern löschen, reihenfolge löschen, reihenfolge zurück, alle teile automatisch, reset order',
       series:
         'serie, viele gleiche, mehrere teile, rohlinge, verteilen, kopien, stapel, batch, nesting, mehrfach, auf rohlinge, untersetzer, reststücke',
       jog: 'joggen, jog, fahren, bewegen, verfahren, achsen bewegen, handrad, steuerkreuz, schrittweite, manuell fahren, x y z bewegen, pfeiltasten, gamepad, controller',

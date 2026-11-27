@@ -481,10 +481,26 @@ export async function cameraSpot(page: Page, bx: number, by: number) {
  */
 export async function drawShape(
   page: Page,
-  shape: 'Rechteck' | 'Kreis' | 'Langloch' | 'Lochraster',
+  shape:
+    | 'Rechteck'
+    | 'Kreis'
+    | 'Langloch'
+    | 'Lochraster'
+    | 'Ellipse'
+    | 'Stern'
+    | 'Zahnrad'
+    | 'Spirale',
   fields: Record<string, string> = {},
 ) {
   const cam = page.getByTestId('cam-card');
+  // "Weitere Grundformen" are folded away in the add card until the fold is opened (once; then it stays)
+  if (['Ellipse', 'Stern', 'Zahnrad', 'Spirale'].includes(shape)) {
+    const more = cam.getByTestId('cam-shapes-more').getByRole('button', {
+      name: 'Weitere Grundformen',
+      exact: true,
+    });
+    if ((await more.getAttribute('aria-expanded')) === 'false') await more.click();
+  }
   await cam.getByTestId('cam-add').getByRole('button', { name: shape, exact: true }).click();
   const selection = cam.getByTestId('cam-arrange');
   for (const [label, value] of Object.entries(fields)) {

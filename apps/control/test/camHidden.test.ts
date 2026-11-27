@@ -143,8 +143,8 @@ describe('the tabs of a hidden part', () => {
   const defaults = { count: 4, width: 6, height: 2 };
 
   it('are drawn only while the part is cut', () => {
-    expect(itemTabMarks(tabbed(), defaults)).toHaveLength(4);
-    expect(itemTabMarks(tabbed({ hidden: true }), defaults)).toEqual([]);
+    expect(itemTabMarks(tabbed(), defaults, 6)).toHaveLength(4);
+    expect(itemTabMarks(tabbed({ hidden: true }), defaults, 6)).toEqual([]);
   });
 
   it('are never missing from a part that is not cut – hidden, it has nothing loose', () => {

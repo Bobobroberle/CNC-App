@@ -52,7 +52,7 @@ import {
 } from '../render/draw';
 import { LayerCache } from '../render/layer';
 import { buildPaths, projection, type Extent, type JobPaths } from '../render/paths';
-import { useCam, type DragHints } from '../store/cam';
+import { useCam, useCamToolDiameter, type DragHints } from '../store/cam';
 import { useClampHits, useWorkFixtures } from '../store/clamps';
 import { cameraElement, pictureSize, useCamera } from '../store/camera';
 import { useJigs } from '../store/jigs';
@@ -163,6 +163,8 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
   const selected = useCam((s) => s.selected);
   // The holding tabs are drawn with the drawing's defaults and follow them; putting them by hand is a mode
   const tabDefaults = useCam((s) => s.settings.tabs);
+  // … and the places of tabs kept off the corners are the cutter's: the picture follows its diameter
+  const cutter = useCamToolDiameter();
   const placing = useCam((s) => s.placing);
   // "Messen": a mode of the screen; its two points are places on the table
   const measuring = useCam((s) => s.measure);
@@ -227,7 +229,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
       label = t('cam.live.place', { x: mm(box.minX), y: mm(box.minY) });
     }
     // The holding tabs of every thing that has them – the places the toolpath is cut with
-    const marks = project.items.flatMap((i) => itemTabMarks(i, tabDefaults));
+    const marks = project.items.flatMap((i) => itemTabMarks(i, tabDefaults, cutter));
     const chosenIds = new Set(chosen.map((i) => i.id));
     const byItem = new Map<number, typeof marks>();
     for (const m of marks) byItem.set(m.item, [...(byItem.get(m.item) ?? []), m]);
@@ -347,6 +349,7 @@ export function TableView({ follow, onPan }: { follow: boolean; onPan: () => voi
     top,
     held,
     tabDefaults,
+    cutter,
     placing,
     measuring,
     measured,

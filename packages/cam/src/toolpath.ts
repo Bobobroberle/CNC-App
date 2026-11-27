@@ -1050,9 +1050,12 @@ export function toolpaths(
         problems.push({ contour: op.contour, code: 'peck-not-possible' });
       }
       if (op.kind === 'on') {
-        at = c.closed
-          ? loopWalk(startNear([...c.points], at), depths, s, moves, { tabs, tabAt })
-          : openWalk(c.points, depths, s, moves, at);
+        // A closed contour without any length (one point, or all on one spot) has no loop to walk – it is
+        // engraved as the line of its points, which is a dot, instead of looping on a perimeter of 0
+        at =
+          c.closed && measure(c.points).length > 0
+            ? loopWalk(startNear([...c.points], at), depths, s, moves, { tabs, tabAt })
+            : openWalk(c.points, depths, s, moves, at);
       } else if (!c.closed) {
         problems.push({ contour: op.contour, code: 'open-contour' });
       } else if (op.kind === 'drill') {

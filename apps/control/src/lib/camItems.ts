@@ -11,7 +11,7 @@ import {
   type Point,
   type Relief,
   type Side,
-  type Sketch,
+  type AnySketch,
   type TextOptions,
 } from '@lowrider/cam';
 
@@ -29,6 +29,12 @@ export interface TabSpec {
   width?: number;
   /** Own height above the bottom of the cut, mm; undefined takes the default */
   height?: number;
+  /**
+   * Own choice for keeping the evenly spread tabs off the corners (automatic only: a place put by hand is
+   * never moved); undefined takes the drawing's default. A value that says what the default says is left
+   * off (`setTabs`), so the part follows the default again.
+   */
+  avoidCorners?: boolean;
   /**
    * The places of a manual spec: `c` is the contour of the item (its index in `source` and
    * `contours`), `u` the fraction 0 ≤ u < 1 of that drawn contour's length from its first point –
@@ -60,7 +66,7 @@ export interface CamItem {
    * words): `source` is made from it, around the sketch's own origin, and
    * made anew when a measure changes. A contour from a file has none.
    */
-  sketch?: Sketch;
+  sketch?: AnySketch;
   source: Contour[];
   placement: Matrix;
   /** `source` where it lies now, work mm */
@@ -76,6 +82,23 @@ export interface CamItem {
   depth?: number;
   /** Climb (true) or conventional (false) milling of this part; undefined takes the job's setting */
   climb?: boolean;
+  /**
+   * How a pocket is entered: on a helix or straight down; absent is the ramp, as always (the key is left
+   * off for it, so a project file stays as an older app wrote it). Only for pockets.
+   */
+  entry?: 'helix' | 'plunge';
+  /** The width of the hole a helix entry bores, mm; absent takes the library's 1.5 × the cutter. Only with `entry: 'helix'`. */
+  helixDiameter?: number;
+  /** Peck drilling: the size of a step, mm; absent is the straight drill. Only for drills. */
+  peck?: number;
+  /** Chip breaking with `peck`: how far the cutter comes up between the steps, mm; absent comes up to the safe height */
+  peckRetract?: number;
+  /**
+   * The place the operator gave this part among the parts cut the same way (`lib/camOrder.ts`): the lowest
+   * number is cut first. Absent: by route. Whole numbers 0…`MAX_SEQ`; the way the kinds follow each other, and
+   * that what lies inside a contour is cut before it, never change.
+   */
+  seq?: number;
   /**
    * The eye of the list: a hidden part is not cut (the program does not even mention it), is drawn
    * faint and dashed on the table, cannot be picked by a finger there and is left out of "everything"

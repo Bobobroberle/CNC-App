@@ -2511,7 +2511,12 @@ export const en: DictionaryShape = {
       slot: 'Slot',
       grid: 'Hole grid',
       text: 'Text',
+      ellipse: 'Ellipse',
+      star: 'Star',
+      gear: 'Gear',
+      spiral: 'Spiral',
     },
+    moreShapes: 'More basic shapes',
     fields: {
       w: 'Width (mm)',
       h: 'Height (mm)',
@@ -2523,6 +2528,46 @@ export const en: DictionaryShape = {
       ny: 'Holes up',
       px: 'Hole pitch X (mm)',
       py: 'Hole pitch Y (mm)',
+      rx: 'Radius X (mm)',
+      ry: 'Radius Y (mm)',
+      points: 'Points',
+      outer: 'Outer radius (mm)',
+      inner: 'Inner radius (mm)',
+      teeth: 'Teeth',
+      root: 'Root radius (mm)',
+      turns: 'Turns',
+      start: 'Start radius (mm)',
+      end: 'End radius (mm)',
+    },
+    radii: {
+      title: 'Corners one by one',
+      hint: 'The "Corner radius" field above sets all four corners alike. A radius is at most half the shorter side.',
+      mixed: 'different',
+      ul: 'Top left (mm)',
+      ur: 'Top right (mm)',
+      ll: 'Bottom left (mm)',
+      lr: 'Bottom right (mm)',
+    },
+    nest: {
+      title: 'Nest',
+      hint: 'Packs the boxes of the parts onto the stock, not their outlines: shapes do not interlock. What lies wholly inside the box of a part (a hole) goes with it; what only reaches into it (a notch at the edge) counts as a part of its own – group it first. What is not selected, or finds no place, stays where it is – a nested part may then end up on top of it (that is said below as a warning). Nothing is left free up to the rim of the stock – a cutter running outside a part at the rim goes beyond the stock by its radius.',
+      twoSided:
+        'With two sides: group what belongs together (front and back of one part) first – otherwise it moves apart.',
+      gap: 'Gap between parts (mm)',
+      rotate: 'Turning allowed (90° only)',
+      button: 'Nest',
+      needStock: 'Enter the stock – in the Job area under "Stock".',
+      placedOne: '1 part nested.',
+      placedMany: '{n} parts nested.',
+      nothingMoved: 'The parts already lie like this – nothing moved.',
+      riders: 'Taken along because they lie inside the box of a part: {n}.',
+      used: 'The boxes take {p} % of the stock.',
+      unplacedOne: '1 part does not fit on the stock and stays where it was: {names}.',
+      unplacedMany: '{n} parts do not fit on the stock and stay where they were: {names}.',
+      overlapOne:
+        'Warning: 1 part that stays overlaps a nested part – both would be cut into each other: {names}. Move or hide one of them.',
+      overlapMany:
+        'Warning: {n} parts that stay overlap nested parts – they would be cut into each other: {names}. Move or hide them.',
     },
     text: {
       sample: 'Text',
@@ -2664,6 +2709,10 @@ export const en: DictionaryShape = {
     slotLabel: 'Slot {l} × {w} mm',
     gridLabel: 'Hole grid {nx} × {ny}, Ø {d} mm',
     circleLabel: 'Circle Ø {d} mm',
+    ellipseLabel: 'Ellipse {w} × {h} mm',
+    starLabel: 'Star with {n} points, Ø {d} mm',
+    gearLabel: 'Gear with {n} teeth, Ø {d} mm',
+    spiralLabel: 'Spiral, {n} turns',
     lineLabel: 'Line {l} mm',
     contourLabel: 'Contour {w} × {h} mm',
     textLabel: 'Text "{text}"',
@@ -2715,6 +2764,15 @@ export const en: DictionaryShape = {
     tabTooMany: 'Too many contours to place by hand: at most {max} tabs. The tabs stay automatic.',
     tabNote:
       'The width is the material that stays on the part (the cutter lifts over it by its diameter on top). Empty fields take the defaults under "Advanced".',
+    tabAvoid: 'Avoid corners',
+    tabAvoidOf: 'Tabs of part {n}: avoid corners',
+    tabAvoidNote:
+      'A tab that would go over a corner moves to the nearest straight stretch. Small parts and curves keep their even places, and a tab placed by hand is never moved.',
+    tabAvoidByHand:
+      'Tabs placed by hand stay where they are – this is for evenly spread ones only.',
+    tabAvoidOn: 'on',
+    tabAvoidOff: 'off',
+    tabAvoidDefault: 'Default: tabs avoid corners',
     tool: 'Tool',
     suggest: 'Suggest values from tool and material',
     suggestNeedsMaterial:
@@ -2735,6 +2793,69 @@ export const en: DictionaryShape = {
     climb: 'Climb milling (otherwise conventional)',
     direction: 'Direction of part {n}',
     directions: { job: 'Direction as the job', climb: 'Climb', conventional: 'Conventional' },
+    routeShort: 'Shorten travel',
+    routeShortNote:
+      'Puts the cuts of one kind – all the holes, say – in an order that makes the rapid moves between them shorter. Nothing else is cut, only the order changes, and the way is never longer than without.',
+    path: {
+      title: 'Toolpath',
+      entryTitle: 'Plunge',
+      entry: 'Entry of part {n}',
+      entries: { ramp: 'Ramp', helix: 'Helix', plunge: 'Straight' },
+      rampNote:
+        'Ramp: the cutter goes in at a slant along the first pass (angle under "Advanced").',
+      helixNote:
+        'Helix: the cutter bores into the pocket along a helix, in every step down. The hole, with the finishing allowance, must fit in the pocket – else it is entered by ramp and a note says so below.',
+      plungeNote:
+        'Straight: the cutter goes into solid material with its whole width – only with a cutter that cuts at its centre, and at the "Plunge" feed. The ramp does not apply there.',
+      helixDiameter: 'Helix hole width (mm)',
+      helixDiameterOf: 'Helix hole width of part {n} (mm)',
+      helixDiameterNote:
+        'Empty: {usual} mm (1.5 × the cutter). Allowed: {least} to {most} mm (cutter + 0.5 mm up to 2 × the cutter) – any other number is set to the nearest allowed value.',
+      peckTitle: 'Drilling in steps',
+      peck: 'Chip breaking (mm)',
+      peckOf: 'Step when drilling part {n} (mm)',
+      peckRetract: 'Retract (mm)',
+      peckRetractOf: 'Retract when drilling part {n} (mm)',
+      peckRetractNeedsPeck: 'The retract only applies with a step for chip breaking.',
+      off: 'off',
+      fullRetract: 'all the way up',
+      peckNote:
+        'Empty: drill through in one go. With a step (from {min} mm) the cutter drills in pieces of that size. Retract empty: all the way up after every step. With a retract: only that far up, which breaks the chip. For holes the size of the cutter; a larger hole is milled with a helix – a note says so below.',
+    },
+    order: {
+      title: 'Order',
+      place: 'Cut {n} of {m} ({kind})',
+      kinds: {
+        drill: 'holes',
+        pocket: 'pockets',
+        on: 'engravings',
+        inside: 'inside cuts',
+        outside: 'outlines',
+      },
+      earlier: 'Earlier',
+      earlierLabel: 'Cut the part earlier',
+      later: 'Later',
+      laterLabel: 'Cut the part later',
+      auto: 'Automatic',
+      autoLabel: 'Put the part back to automatic',
+      reset: 'Reset the order',
+      first: 'It is the first of its kind already.',
+      last: 'It is the last of its kind already.',
+      noNumber: 'This part has no place of its own – it follows the route.',
+      none: 'This part is not cut – it has no place in the order.',
+      group: 'Select a single part for the order – for a group, ungroup it first.',
+      hint: 'The holes are always cut first, then pockets, engravings, inside cuts and the outlines last – and what lies inside a contour before it. Only the order among parts that are cut the same way changes here. Parts without a place of their own come after, by route.',
+      badge: 'No. {n}',
+      badgeLabel: 'Own place {n} in the order',
+      badgeWish: 'No. {n} (wish {w})',
+      badgeWishLabel: 'Is cut as No. {n}; place {w} was asked for.',
+      badgeIdle: 'Wish {w}',
+      badgeIdleLabel: 'Place {w} was asked for – the part is not cut.',
+      counted: '{n} parts have a place of their own.',
+      countedNone: 'No part has a place of its own yet.',
+      noNumbers: 'No part has a place of its own – there is nothing to reset.',
+    },
+    differs: 'Cut, but not as wished',
     problems: {
       'tool-too-large': 'Contour {n}: tool too large for it.',
       'open-contour': 'Contour {n} is open – only "Engrave the line" works.',
@@ -2742,7 +2863,7 @@ export const en: DictionaryShape = {
       'helix-too-big':
         'Contour {n}: the helix does not fit in the pocket – it is entered by ramp instead.',
       'peck-not-possible':
-        'Contour {n}: peck drilling is not possible here (only when drilling a circle the size of the cutter, steps from 0.05 mm) – it is cut without.',
+        'Contour {n}: drilling in steps is not possible here (only for a hole the size of the cutter, with a step from {min} mm and a retract above 0) – it is drilled or milled in one go.',
       'order-overridden':
         'Contour {n}: the wished order is not possible – what lies inside it is cut first.',
     },
@@ -3824,6 +3945,17 @@ export const en: DictionaryShape = {
       shapeRect: 'rectangle, square, box, rect, rounded corners, quad',
       shapeCircle: 'circle, round, hole, bore, disc, disk, diameter',
       shapeSlot: 'slot, long hole, groove, oval, oblong hole',
+      shapeEllipse:
+        'ellipse, oval, egg shape, elliptical, elliptic, ellipsis, ovale, langloch rund',
+      shapeStar:
+        'star, star shape, points, pointed, five pointed, polygon with points, stern, zacken',
+      shapeGear:
+        'gear, cog, cogwheel, toothed wheel, sprocket, teeth, gear wheel, zahnrad, zahnkranz',
+      shapeSpiral: 'spiral, coil, swirl, archimedean, spiral line, turns, schnecke, spirale',
+      camRadii:
+        'corner radius, corners one by one, round a corner, round corners, rounded corners, fillet, radius per corner, eckenradius, abrunden, individual corners',
+      camNest:
+        'nest, nesting, pack, packing, fit parts on the stock, layout, cut list, arrange automatically, sheet layout, optimise, optimize, verschachteln, zuschnitt',
       shapeGrid:
         'hole grid, row of holes, grid, several holes, hole pattern, pattern, dowel holes, array',
       shapeText: 'text, lettering, letters, engrave, engraving, name, sign, font, words, label',
@@ -3874,6 +4006,20 @@ export const en: DictionaryShape = {
         'group, group parts, combine, put together, move together, make a group, gruppieren, illustrator',
       camUngroup:
         'ungroup, ungroup parts, take apart, split a group, pick single contours, single contours of a file, gruppierung aufheben, release group',
+      tabsAvoid:
+        'avoid corners, tabs avoid corners, tab not on the corner, tabs on straight stretches, tabs corners, hold-down tabs corners, move tabs off corners, ecken meiden, stege meiden ecken',
+      camRoute:
+        'shorten travel, shorter paths, rapid moves, rapids, travel moves, air cutting, fewer moves, route, optimize order, order the cuts, order the holes, 2-opt, shortest path, traveling salesman, save time, fahrwege kürzen, eilgang',
+      camEntry:
+        'plunge, helix, helical entry, spiral entry, ramp entry, straight plunge, vertical plunge, drill into a pocket, start a pocket, eintauchen, wendel, einstechen',
+      camHelix:
+        'helix diameter, helix hole width, helix too big, hole of the helix, spiral width, helix durchmesser, wendel durchmesser, lochbreite',
+      camPeck:
+        'peck, peck drilling, chip breaking, drilling in steps, deep drilling, retract, retract when drilling, chip break, g83, g73, spanbrechen, tiefbohren, bohren in stufen',
+      camOrder:
+        'order, cutting order, sequence, cut earlier, cut later, cut first, cut last, change the order, reorder, number the cuts, priority, reihenfolge, schnittfolge, früher fräsen, später fräsen',
+      camOrderReset:
+        'reset the order, automatic order, clear numbers, clear the order, order back to automatic, all parts automatic, reihenfolge zurücksetzen',
       series:
         'series, many of the same, several parts, blanks, distribute, copies, batch, nesting, multiple, coasters, offcuts',
       jog: 'jog, jogging, move, drive, move the axes, handwheel, d-pad, step size, move manually, move x y z, arrow keys, gamepad, controller',

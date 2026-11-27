@@ -301,16 +301,22 @@ add('cam', 'Auswählen & Anordnen', [
   [
     'cam-arr2',
     'Automatisch verschachteln (Nesting)',
-    'Teile so auf dem Rohteil verteilen, dass möglichst wenig Material übrig bleibt.',
+    'Der Knopf „Verschachteln“ im Feld „Ausrichten und verteilen“ packt die ausgewählten Teile auf das Rohteil – nach ihren RECHTECKIGEN RAHMEN, nicht nach ihren Umrissen: Formen greifen nicht ineinander, ein L oder ein Ring nimmt den ganzen Rahmen, und was in den Ecken bleibt, bleibt frei. Das Verfahren ist ein einfaches Packen (MaxRects), ein gutes Ergebnis, nicht das beste; es probiert vier Reihenfolgen und nimmt, was am meisten Fläche unterbringt. Es braucht ein eingegebenes Rohteil (Job → Rohteil; ohne ist der Knopf zu, mit Grund) und einen Abstand zwischen den Teilen (ohne Eingabe: Fräserdurchmesser + 2 mm). Drehen ist freiwillig und nur um 90°; erlaubt, ist das Ergebnis nie schlechter als ohne. Zum Rand des Rohteils bleibt kein Abstand, ein Fräser, der außen um ein Teil am Rand läuft, geht um seinen Radius über das Rohteil hinaus. Was ganz im Rahmen eines gepackten Teils liegt (ein Loch in der Platte), geht mit ihm, auch wenn es nicht ausgewählt oder ausgeblendet ist. Wo die Regel aufhört (im Test festgehalten): ein Teil, das nur in den Rahmen hineinragt (eine Kerbe quer über den Rand der Platte), zählt als eigenes Teil und wird getrennt gepackt – vorher mit der Platte gruppieren; Löcher, die ohne ihre Platte ausgewählt sind, werden aus ihr herausgepackt. Was nicht ausgewählt ist und in keinem Rahmen liegt, bleibt, wo es ist – und kann dann unter gepackten Teilen liegen. Ein Teil ohne Platz bleibt liegen und steht mit Namen in der Antwort der Karte. Ein Schritt zum Rückgängigmachen; ändert sich nichts, wird nichts gemerkt. Bei zwei Seiten gehören Vorder- und Rückseite eines Teils vorher in eine Gruppe.',
     'gross',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-arr3',
     'Reihenfolge der Bearbeitung von Hand',
-    'Teile in der Liste ziehen, um die Fräsreihenfolge festzulegen (statt automatisch innen vor außen).',
+    'Für ein ausgewähltes Teil: Früher, Später, Automatisch und für alle „Reihenfolge zurücksetzen“; die Karte sagt „Schnitt 2 von 5 (Bohrungen)“, in der Liste trägt jedes Teil mit Nummer ein kleines „Nr. n“. Die Nummer gilt nur unter Teilen, die gleich gefräst werden (Bohrungen, Taschen, Gravuren, Innenkonturen, Außenkonturen): Teile mit Nummer kommen zuerst, die übrigen danach nach Fahrweg. Die Reihenfolge der Arten und „was in einer Kontur liegt, kommt vor ihr“ bleiben immer; wo eine Nummer das bräche, kommt das Teil später und ein Hinweis sagt es. Eine Nummer wird in der Projektdatei gespeichert (0 bis 9999). Ziehen in der Liste ist nicht gebaut (cam-arr4).',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
+  ],
+  [
+    'cam-arr4',
+    'Reihenfolge durch Ziehen in der Liste',
+    'Teile in der Liste mit dem Finger verschieben, statt „Früher“ und „Später“ zu tippen. Ein Griff in der Zeile, der die Zeilenhöhe nicht ändert und beim Ziehen nichts Falsches anfasst.',
+    'klein',
   ],
 ]);
 add('cam', 'Zeichnen & Formen', [
@@ -335,9 +341,9 @@ add('cam', 'Zeichnen & Formen', [
   [
     'cam-draw4',
     'Weitere Grundformen',
-    'Rechteck mit Eckenradius je Ecke, Langloch, Ellipse, Stern, Zahnrad, Spirale.',
+    'Das Langloch gab es schon vorher. Neu: ein Rechteck mit einem Radius je Ecke (vier Felder unter „Ecken einzeln“; das Feld „Eckenradius“ setzt alle vier gleich und sagt „verschieden“, wenn sie es nicht sind; ein Radius ist höchstens die halbe kürzere Seite), Ellipse (zwei Radien; zwei gleiche sind ein Kreis), Stern (3 bis 32 Spitzen, Außen- und Innenradius), Zahnrad (6 bis 80 Zähne, Außen- und Fußradius) und Spirale (archimedisch, 0,25 bis 50 Windungen, eine offene Linie). Das Zahnrad hat Trapezzähne und KEIN Evolventenprofil: es sieht aus wie ein Zahnrad und fräst sich als Zahnscheibe, Kettenrad oder Knauf – die Zähne rollen nicht aufeinander ab, zwei davon sind kein Getriebe (cam-draw12). Alle Kurven sind Streckenzüge höchstens 0,01 mm von der wahren Kurve. Ellipse, Stern und Zahnrad werden wie jede Außenkontur geschnitten (außen, mit Stegen); die Spirale wird graviert (auf der Linie, ohne Stege). Die vier Formen stehen zugeklappt unter „Weitere Grundformen“ in der Karte „Zeichnen“. Stern, Zahnrad und Spirale behalten beim Ziehen am Griff ihr Seitenverhältnis und hören auf zu wachsen oder zu schrumpfen, wo ein Maß das Ende seines Bereichs (Radius 0,25 bis 2500 mm) erreicht – sie bleiben, was sie sind. Bekannte Grenze: Gibt man ein Maß ein zweites Mal hintereinander jenseits seines Bereichs ein, bleibt die getippte Zahl im Feld stehen, obwohl Zeichnung, Beschriftung und Datei den Wert des Bereichs haben. Die Projektdatei speichert und liest alle (ein Maß außerhalb des Bereichs wird so gespeichert, wie es gezeichnet ist; ein Maß, das keine Zahl ist oder jenseits des Bereichs liegt, lässt die Skizze weg, die Konturen bleiben). Ein Rechteck mit Eckenradien über 5 m verliert beim Öffnen seine Skizze; die fünf älteren Arten behalten sie wie bisher auch über 5 m.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-draw5',
@@ -440,9 +446,9 @@ add('cam', 'Haltestege', [
   [
     'cam-tab4',
     'Stege meiden Ecken',
-    'Beim automatischen Verteilen wandern Stege in die Mitte gerader Stücke und nie auf eine Ecke.',
+    'Beim automatischen Verteilen rückt ein Steg, der den Fräser über eine Ecke heben würde, auf den nächsten freien Platz zwischen zwei Ecken (gemessen an der Bahn des Fräsers, nicht an der gezeichneten Linie). Kleine Teile ohne ein langes genug gerades Stück und Rundungen behalten ihre gleichmäßigen Plätze; verschoben wird nur die gleichmäßige Verteilung, ein von Hand gesetzter Steg nie. Ein Haken im Stegfeld des Teils und der Standard der Zeichnung unter „Erweitert“; beim Start der Anwendung an (wer eine ältere Datei öffnet, behält deren Werte für die nächsten Zeichnungen der Sitzung, wie bei jeder anderen Einstellung); eine gespeicherte Datei ohne die Angabe wird wie bisher gefräst (aus). Die Markierung auf dem Tisch und der Schnitt fragen dieselbe Funktion der Bibliothek.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   ['cam-tab5', 'Verteilen nach Abstand', 'Ein Steg alle X mm statt einer festen Anzahl.', 'klein'],
   [
@@ -485,17 +491,17 @@ add('cam', 'Bahnen & Strategien', [
   ],
   [
     'cam-path4',
-    'Helix zum Eintauchen und Vorbohren',
-    'Eintauchen in Taschen mit einer Helix; Vorbohren an einem Punkt.',
+    'Helix zum Eintauchen',
+    'Eintauchen in eine Tasche je Teil: Rampe (wie bisher), Helix oder gerade. Die Helix bohrt in jeder Zustellung ein Loch von 1,5 × Fräser (einstellbar von Fräser + 0,5 mm bis 2 × Fräser), das mit der Schlichtzugabe in die Tasche und außerhalb ihrer Inseln liegen muss; passt es nicht, wird mit der Rampe eingetaucht und ein Hinweis („gefräst, aber anders“) sagt es. „Gerade“ sticht mit der ganzen Fräserbreite ins volle Material und gehört nur zu einem Fräser, der in der Mitte schneidet. Vorbohren an einem Punkt ist nicht gebaut (cam-path16).',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-path5',
     'Bohren mit Spanbrechen',
-    'Tiefe Bohrungen in Stufen mit Rückzug; Zentrieren vor dem Bohren.',
+    'Tiefe Bohrungen in Stufen (ab 0,05 mm): ohne Rückzug fährt der Fräser nach jeder Stufe ganz hoch und mit Eilgang in sein Loch zurück, mit „Rückzug“ nur so weit hoch (Spanbrechen). Nur für Löcher im Werkzeugdurchmesser; ein größeres Loch wird in einer Helix gefräst und sagt es als Hinweis. Zentrieren vor dem Bohren ist nicht gebaut (cam-path17).',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   ['cam-path6', 'Gewindefräsen', 'Innengewinde mit einem Gewindefräser als Helix.', 'gross'],
   [
@@ -526,9 +532,9 @@ add('cam', 'Bahnen & Strategien', [
   [
     'cam-path11',
     'Fahrwege kürzen',
-    'Reihenfolge der Teile so wählen, dass die Eilgänge möglichst kurz werden.',
+    'Die Reihenfolge der Teile einer Art (etwa aller Bohrungen) wird mit einem 2-opt-Verfahren verkürzt, wo die Regeln es erlauben (Art vor Art, Inneres vor der Kontur, nummerierte Teile zuerst); benutzt wird sie nur, wenn der Eilgang im fertigen Programm wirklich kürzer ist als bei „nächstes zuerst“ – nie länger. Das Suchen hat ein festes Budget und hört bei sehr vielen Teilen früher auf. Ein Haken unter „Erweitert“; beim Start der Anwendung an (wer eine ältere Datei öffnet, behält deren Werte für die nächsten Zeichnungen der Sitzung), eine gespeicherte Datei ohne die Angabe wird wie bisher gefräst (aus). Gemessen im Test (vitest auf diesem Rechner, kein Browser, kein iPad): ein Programm aus 300 Löchern 37 ms, aus 300 Außenkonturen mit Stegen 256 ms.',
     'klein',
-    { want: true, building: true },
+    { want: true, done: true },
   ],
   [
     'cam-path12',
@@ -986,6 +992,12 @@ add('cam', 'Haltestege', [
     'In der Vorschau des Werkzeugwegs (Tisch und 3D) die Strecken anders zeichnen, auf denen der Fräser über einem Steg angehoben ist. Bisher zeigt nur die Zeichnung die Stege.',
     'klein',
   ],
+  [
+    'cam-tab10',
+    'Stegfeld: Wechsel zwischen Automatisch und Von Hand verschiebt die Knöpfe darunter',
+    'Gemessen im Browser: Beim Wechsel schrumpft das Feld der Werte (das Feld „Anzahl“ fällt weg und die Felder rücken zusammen), die Knöpfe darunter wandern bei 1280 px Breite um 82 px. Gefunden, als „Ecken meiden“ dazukam (dessen Kasten steht jetzt in beiden Arten, damit er nichts zusätzlich verschiebt); der Wechsel selbst ist unverändert und nicht behoben. Behebung: das Feld „Anzahl“ von Hand gesperrt stehen lassen, mit Grund.',
+    'klein',
+  ],
 ]);
 
 add('cam', 'Auswählen & Anordnen', [
@@ -1016,6 +1028,38 @@ add('cam', 'Zeichnen & Formen', [
     'Zinken, Schlitz und Zapfen, Nut und Feder als Vorlage mit Maßen: erzeugt beide Teile passend zur Materialstärke und zum Fräserdurchmesser.',
     'gross',
   ],
+  [
+    'cam-draw12',
+    'Zahnrad mit Evolventenzahn',
+    'Ein Zahnrad, dessen Zähne aufeinander abrollen: Evolventenprofil nach Modul, Zähnezahl und Eingriffswinkel, mit Wellenloch. Das Zahnrad von „Weitere Grundformen“ hat Trapezzähne und ist keine Zahnradstufe.',
+    'gross',
+  ],
+]);
+add('cam', 'Auswählen & Anordnen', [
+  [
+    'cam-arr5',
+    'Verschachteln nach dem Umriss',
+    'Teile nach ihrem Umriss ineinander schieben statt nach ihren Rahmen (ein L in die Ecke eines anderen). Heute packt „Verschachteln“ nur Rahmen. Braucht Geometrie auf Polygonen (No-Fit-Polygon) und wiegt schwerer für die Sicherheit: ein Abstand zwischen Umrissen muss auch für die Bahn des Fräsers gelten.',
+    'forschung',
+  ],
+  [
+    'cam-arr6',
+    'Verschachteln: Rand zum Rohteil einstellbar',
+    'Ein Abstand zum Rand des Rohteils, damit ein Fräser, der außen um ein Teil am Rand läuft, nicht über das Rohteil hinausfährt. Heute ist der Rand 0.',
+    'klein',
+  ],
+  [
+    'cam-arr7',
+    'Verschachteln auf mehrere Platten',
+    'Teile, die auf das Rohteil nicht mehr passen, auf eine zweite Platte legen (eine zweite Zeichnung oder ein zweites Programm), statt sie liegen zu lassen.',
+    'gross',
+  ],
+  [
+    'cam-arr8',
+    'Verschachteln: nicht Ausgewähltes meiden',
+    'Teile, die nicht ausgewählt sind und liegen bleiben, als belegte Fläche behandeln, damit die gepackten Teile nicht darauf kommen. Heute bleiben sie liegen und können unter gepackten Teilen liegen – die Karte nennt diese Teile und warnt davor (nicht aber ein Teil, das ganz im Rahmen eines gepackten liegt: das geht mit, wie ein Loch in einer Platte).',
+    'klein',
+  ],
 ]);
 add('cam', 'Bahnen & Strategien', [
   [
@@ -1028,6 +1072,24 @@ add('cam', 'Bahnen & Strategien', [
     'cam-path15',
     'Fase mit V-Fräser entlang der Kontur',
     'Eine Kante anfasen: der V-Fräser fährt die Kontur ab, die Tiefe bestimmt die Fasenbreite.',
+    'klein',
+  ],
+  [
+    'cam-path18',
+    'Hinweise der Bahnen auch in der Serie',
+    'Die Serie auf Rohlingen nimmt Eintauchen, Spanbrechen und die Nummer der Reihenfolge aus der Zeichnung mit, ihr Programm behält aber nur die Fahrten: passt eine Helix nicht und wird mit der Rampe eingetaucht, sagt die Serie das nicht (die Zeichnung sagt es). Kein Test setzt in der Serie eine dieser Wahlen und fräst es – nur dass sie mitkommen.',
+    'klein',
+  ],
+  [
+    'cam-path16',
+    'Vorbohren an einem Punkt',
+    'Vor dem Fräsen einer Tasche an einem Punkt (etwa dem Einstieg) bohren, mit dem Bohrer oder dem Fräser. Braucht einen eigenen Schritt im Programm und gehört zu „mehrere Werkzeuge in einem Programm“, wenn ein anderer Bohrer dafür gedacht ist.',
+    'klein',
+  ],
+  [
+    'cam-path17',
+    'Zentrieren vor dem Bohren',
+    'Ein Loch vor dem Bohren flach ankörnen (Zentrierbohrer oder Gravur-Fräser), damit der Bohrer nicht wandert. Ein zusätzlicher Schritt je Bohrung, meist mit einem anderen Werkzeug.',
     'klein',
   ],
 ]);

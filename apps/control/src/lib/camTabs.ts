@@ -2,6 +2,7 @@ import {
   bounds,
   contourSpan,
   nearestOnContour,
+  operationTabSites,
   tabSites,
   tidySketch,
   wrapUnit,
@@ -15,8 +16,10 @@ import type { CamItem, TabSpec } from './camItems';
 /**
  * Holding tabs of the drawing, per thing: what the CAM's defaults and the thing's own values make of
  * them (`itemTabs`), where they stand and what to draw there (`itemTabMarks`). All of it is pure; the
- * places themselves come from the library's `tabSites`, the one function the toolpath asks as well –
- * so what the table shows is what is cut.
+ * places themselves come from the library's `operationTabSites`, the function the toolpath asks as well
+ * – with the operation the cut uses (its kind, its tabs, the cutter's diameter), so what the table
+ * shows is what is cut. (With "Ecken meiden" the places depend on the cutter and on the kind of cut:
+ * a `tabSites` that is asked without them is not the place the cut lifts at.)
  */
 
 /** What a tab can be: the ranges of the fields, and of what a project file may hold */
@@ -44,7 +47,11 @@ export const takesTabs = (kind: OperationKind) => kind === 'outside' || kind ===
 /** Whether the tabs of the thing are on (and it is cut in a way that has tabs). */
 export const tabsOn = (item: Pick<CamItem, 'kind' | 'tabs'>) => item.tabs && takesTabs(item.kind);
 
-/** The values the thing's tabs have: its own where it has them, else the drawing's defaults. */
+/**
+ * The values the thing's tabs have: its own where it has them, else the drawing's defaults. "Ecken
+ * meiden" (`avoidCorners`) is off where neither says so: a drawing or a part that never heard of it is
+ * cut as it always was.
+ */
 export function tabValues(item: Pick<CamItem, 'tabSpec'>, defaults: Tabs) {
   const spec = item.tabSpec;
   return {
@@ -52,6 +59,7 @@ export function tabValues(item: Pick<CamItem, 'tabSpec'>, defaults: Tabs) {
     count: spec?.count ?? defaults.count,
     width: spec?.width ?? defaults.width,
     height: spec?.height ?? defaults.height,
+    avoidCorners: spec?.avoidCorners ?? defaults.avoidCorners === true,
   };
 }
 
@@ -64,8 +72,11 @@ export function itemTabs(item: CamItem, contour: number, defaults: Tabs): Tabs |
   if (!tabsOn(item)) return undefined;
   const spec = item.tabSpec;
   if (!spec) return defaults;
-  const { count, width, height } = tabValues(item, defaults);
-  if (spec.mode === 'auto') return { count, width, height };
+  const { count, width, height, avoidCorners } = tabValues(item, defaults);
+  // (the flag only where it is on: the same tabs as ever, without a key the cut would ignore)
+  if (spec.mode === 'auto')
+    return { count, width, height, ...(avoidCorners ? { avoidCorners } : {}) };
+  // Places put by hand are never moved: no "Ecken meiden" for them
   const at = (spec.at ?? []).filter((p) => p.c === contour).map((p) => p.u);
   return { count: at.length, width, height, at };
 }
@@ -110,9 +121,15 @@ export function tidySpec(spec: TabSpec): TabSpec | undefined {
   for (const key of ['count', 'width', 'height'] as const) {
     if (spec[key] !== undefined && Number.isFinite(spec[key])) out[key] = spec[key];
   }
+  if (typeof spec.avoidCorners === 'boolean') out.avoidCorners = spec.avoidCorners;
   if (spec.mode === 'manual') out.at = spec.at ?? [];
   const bare = out.mode === 'auto' && out.count === undefined;
-  return bare && out.width === undefined && out.height === undefined ? undefined : out;
+  return bare &&
+    out.width === undefined &&
+    out.height === undefined &&
+    out.avoidCorners === undefined
+    ? undefined
+    : out;
 }
 
 /** How far apart two fractions of a loop are, as a fraction of it (the shorter way round). */
@@ -225,34 +242,62 @@ function across(a: Point, b: Point, tangent: Point): Point {
   return { x: -t.y + 0, y: t.x };
 }
 
-/** The tabs of one thing as the table draws them: all contours, in the order of the places. */
-export function itemTabMarks(item: CamItem, defaults: Tabs): TabMark[] {
+/** What the picture of a thing's tabs was made from: the same again is the same picture */
+interface Drawn {
+  count: number;
+  width: number;
+  height: number;
+  avoidCorners: boolean;
+  toolDiameter: number;
+  kind: OperationKind;
+  marks: TabMark[];
+}
+
+/**
+ * The tabs of one thing as the table draws them: all contours, in the order of the places. The places
+ * are the ones the cut asks for (`operationTabSites`), so they depend on the cutter's diameter and on the
+ * kind of cut – both are part of what the picture is made from.
+ */
+export function itemTabMarks(item: CamItem, defaults: Tabs, toolDiameter: number): TabMark[] {
   // A hidden part is drawn faint and has no tabs to show: it is not cut
   if (!tabsOn(item) || item.hidden === true) return [];
   // The same thing with the same defaults draws the same: what a finger moves is one thing, not all
   const seen = drawn.get(item);
+  const avoidCorners = defaults.avoidCorners === true;
   if (
     seen &&
     seen.count === defaults.count &&
     seen.width === defaults.width &&
-    seen.height === defaults.height
+    seen.height === defaults.height &&
+    seen.avoidCorners === avoidCorners &&
+    seen.toolDiameter === toolDiameter &&
+    seen.kind === item.kind
   ) {
     return seen.marks;
   }
-  const marks = makeMarks(item, defaults);
-  drawn.set(item, { count: defaults.count, width: defaults.width, height: defaults.height, marks });
+  const marks = makeMarks(item, defaults, toolDiameter);
+  drawn.set(item, {
+    count: defaults.count,
+    width: defaults.width,
+    height: defaults.height,
+    avoidCorners,
+    toolDiameter,
+    kind: item.kind,
+    marks,
+  });
   return marks;
 }
 
-const drawn = new WeakMap<CamItem, Tabs & { marks: TabMark[] }>();
+const drawn = new WeakMap<CamItem, Drawn>();
 
-function makeMarks(item: CamItem, defaults: Tabs): TabMark[] {
+function makeMarks(item: CamItem, defaults: Tabs, toolDiameter: number): TabMark[] {
   const marks: TabMark[] = [];
   const own = item.tabSpec?.mode === 'manual' ? (item.tabSpec.at ?? []) : [];
   item.contours.forEach((contour, c) => {
     const tabs = itemTabs(item, c, defaults);
     if (!tabs) return;
-    for (const site of tabSites(contour, tabs)) {
+    // The places the cut lifts at: asked with the operation it is cut with, never `tabSites` alone
+    for (const site of operationTabSites(contour, { kind: item.kind, tabs }, { toolDiameter })) {
       const span = contourSpan(contour, site.u, tabs.width);
       const first = span[0]!;
       const last = span[span.length - 1]!;
