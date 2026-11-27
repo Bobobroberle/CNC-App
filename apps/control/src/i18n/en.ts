@@ -2739,6 +2739,12 @@ export const en: DictionaryShape = {
       'tool-too-large': 'Contour {n}: tool too large for it.',
       'open-contour': 'Contour {n} is open – only "Engrave the line" works.',
       'hole-too-small': 'Contour {n}: drilling only for circles at least the tool diameter.',
+      'helix-too-big':
+        'Contour {n}: the helix does not fit in the pocket – it is entered by ramp instead.',
+      'peck-not-possible':
+        'Contour {n}: peck drilling is not possible here (only when drilling a circle the size of the cutter, steps from 0.05 mm) – it is cut without.',
+      'order-overridden':
+        'Contour {n}: the wished order is not possible – what lies inside it is cut first.',
     },
     look: 'The toolpaths are on the table picture already. They are cut in this order: holes, pockets and engravings, cut-outs – and the outline of each part last.',
     generate: 'Generate G-code',

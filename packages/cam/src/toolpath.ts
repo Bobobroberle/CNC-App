@@ -9,6 +9,9 @@ import {
 } from './geometry';
 import { offsetPolygons, region } from './offset';
 import { reliefCorners, type Relief, type ReliefCorner } from './relief';
+import { improve, overridden, rapidLength, type RouteTask } from './route';
+
+export { rapidLength } from './route';
 
 /**
  * What happens to a contour, after Estlcam's choices. `on` engraves: the
@@ -30,6 +33,18 @@ export interface Tabs {
    * evenly spread. An empty list: no tabs at all.
    */
   at?: readonly number[];
+  /**
+   * Off by default. Keeps the tabs of the even spread off the corners: a tab that would lift the cutter
+   * over a corner (the lifted stretch, `width` + the cutter's diameter, would not stay on one straight run)
+   * moves along the contour to the nearest place where it does. Only the even spread (`count`) is moved:
+   * places given by `at` are the operator's word and stay. A *corner* is a vertex of the drawn line that
+   * turns by 20° or more (the start of the line counts like any other vertex); a vertex that turns less is
+   * one chord of a curve, and an exact circle (`Contour.circle`) has no corner at all, however coarse its
+   * chords. Where no stretch between two corners is long enough for a tab (a small part), nothing moves.
+   * `tabSites` needs the cutter's diameter for this: pass the same one the cut uses, or the drawing and
+   * the cut disagree.
+   */
+  avoidCorners?: boolean;
 }
 
 /** One place where a contour keeps a tab: how far along it (0 ≤ u < 1), the point, the way the line runs there. */
@@ -76,6 +91,53 @@ export interface Operation {
    * `climb`. Cuts that have no direction (a straight plunge, an engraved open line) ignore it.
    */
   climb?: boolean;
+  /**
+   * How the cutter enters a pocket (other kinds are entered along their line and ignore it). Absent or
+   * `'ramp'`: as always, down along the first ring by the job's `rampAngle`.
+   * - `'helix'`: on a helix, in every pass, at the start of the first ring (the one that is cut into
+   *   uncut material). The helix bores a hole `helixDiameter` wide (the cutter's path is that minus the
+   *   cutter's diameter), descends by the job's `rampAngle` (at most one turn per `stepdown`) and ends in
+   *   a flat full turn; then the cutter goes to the middle and once round the ring. The hole, with the
+   *   finishing allowance, must lie inside the pocket and outside its islands – else the pocket is
+   *   entered by ramp and the problem `helix-too-big` says so. A pocket whose clearing falls into
+   *   several separate areas gets the helix in the first only; the others are entered by ramp.
+   * - `'plunge'`: straight down at the start point of the first ring, at the plunge feed, in every
+   *   pass. Risk: the whole width of the cutter goes into uncut material – only for a cutter that cuts
+   *   at its centre, and slowly (`plungeFeed`); the job's ramp is not used for that ring.
+   */
+  entry?: 'ramp' | 'helix' | 'plunge';
+  /**
+   * The width of the hole a `'helix'` entry bores, mm (not the cutter's path: that is this minus the
+   * cutter's diameter). Absent: 1.5 × the cutter. Never below the cutter's diameter + `HELIX_CLEARANCE`
+   * and never above twice the cutter (a wider hole would leave a post in the middle); a value that is no
+   * number or not above 0 is the same as absent.
+   */
+  helixDiameter?: number;
+  /**
+   * Peck drilling, mm: a `drill` of a hole that fits the cutter goes down in steps of this size and
+   * comes up between them, the last step ending exactly at the depth. Absent: the straight drill as
+   * always. Only holes that fit the cutter are pecked: a circle larger than the cutter is bored in a
+   * helix (the milling clears its own chips), and other kinds are not drilled at all – asking for a
+   * peck there, or for one below `MIN_PECK` or that is no number, cuts the contour as it would be
+   * cut without and says `peck-not-possible`.
+   */
+  peck?: number;
+  /**
+   * Only with `peck`, mm. Absent: after every step the cutter comes up to the clearance plane (`safeZ`)
+   * and goes down again at rapid to `PECK_REENTRY` above the depth reached – inside its own hole, so
+   * never into uncut material. A number: chip breaking – the cutter comes up that far above the depth
+   * reached (never above `safeZ`) and goes on at the plunge feed. A value that is no number or not
+   * above 0 is a wrong peck (`peck-not-possible`).
+   */
+  peckRetract?: number;
+  /**
+   * Where the operator wants this operation among the operations of its rank (holes, pockets, …):
+   * those with a number come first, lowest number first (equal numbers: as the route goes), then those
+   * without, by route. The rank order never changes, and neither does cutting what lies inside a
+   * contour before the contour: where a number would break that, the operation comes later and the
+   * problem `order-overridden` says so. A value that is no number is the same as absent.
+   */
+  seq?: number;
 }
 
 /** A move in work coordinates; `feed` null means rapid. */
@@ -88,9 +150,20 @@ export interface Move {
   arc?: { cw: boolean; i: number; j: number };
 }
 
+/**
+ * What could not be cut as asked. `tool-too-large`, `open-contour` and `hole-too-small` mean the
+ * contour is not cut. The others mean it is cut, but differently: `helix-too-big` (entered by ramp),
+ * `peck-not-possible` (without a peck), `order-overridden` (later than wished).
+ */
 export interface Problem {
   contour: number;
-  code: 'tool-too-large' | 'open-contour' | 'hole-too-small';
+  code:
+    | 'tool-too-large'
+    | 'open-contour'
+    | 'hole-too-small'
+    | 'helix-too-big'
+    | 'peck-not-possible'
+    | 'order-overridden';
 }
 
 const ccw = (p: readonly Point[]) => (signedArea(p) >= 0 ? [...p] : [...p].reverse());
@@ -165,6 +238,93 @@ export function wrapUnit(u: number): number {
 /** Two places closer than this (as a fraction of the contour) are one */
 const SAME_PLACE = 1e-9;
 
+/** A vertex that turns by this many degrees or more is a corner; one that turns less is a chord of a curve */
+const CORNER_TURN = 20;
+const CORNER_COS = Math.cos((CORNER_TURN * Math.PI) / 180);
+/** Distances along a contour that differ by less than this are equal (mm): float noise */
+const WAY_EPS = 1e-9;
+
+/**
+ * The corners of a closed contour, each as the way along the line (mm, from its first point, 0 ≤ way < length) –
+ * the vertices where the line turns by 20° or more, the first vertex among them (it is where the line closes).
+ * A point drawn twice is one vertex. A vertex that turns less is a chord of a curve, not a corner, and an exact
+ * circle (`Contour.circle`) has none whatever its chords. Open lines and lines of no length have none.
+ */
+export function cornerWays(contour: Contour): number[] {
+  if (!contour.closed || contour.circle) return [];
+  const pts = contour.points;
+  const n = pts.length;
+  const m = measure(pts);
+  if (m.length === 0) return [];
+  const ways: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = pts[i]!;
+    // The first of a run of equal points stands for it: the one before it is another point
+    const before = (i + n - 1) % n;
+    if (distance(pts[before]!, p) === 0) continue;
+    let after = (i + 1) % n;
+    while (distance(pts[after]!, p) === 0) after = (after + 1) % n;
+    const a = pts[before]!;
+    const b = pts[after]!;
+    const l1 = distance(a, p);
+    const l2 = distance(p, b);
+    const dot = ((p.x - a.x) * (b.x - p.x) + (p.y - a.y) * (b.y - p.y)) / (l1 * l2);
+    if (dot <= CORNER_COS + 1e-12) ways.push(m.cum[i]! % m.length);
+  }
+  return ways.sort((a, b) => a - b);
+}
+
+/**
+ * The places of an even spread (ways along a closed contour of this `length`, ascending) with those that
+ * would lift the cutter over a corner moved to the nearest clear place. A place is clear when no corner is
+ * nearer along the line than `reach` (half the lifted stretch). The tab moves along the line only as far as
+ * the clear stretch between two corners, keeps its order among the others and stays `2 · reach` from
+ * them (so that two lifted stretches never overlap); where it cannot, or where no stretch between two
+ * corners is long enough, it stays. Of two equally near places the one earlier along the line is taken.
+ * Returns ways, possibly beyond either end of 0…length: a place moved across the start.
+ */
+function offCorners(
+  ways: readonly number[],
+  corners: readonly number[],
+  length: number,
+  reach: number,
+): number[] {
+  const gap = 2 * reach;
+  // The clear stretches between corners; the last one runs over the start of the line
+  const runs: [number, number][] = [];
+  corners.forEach((c, j) => {
+    const next = j + 1 < corners.length ? corners[j + 1]! : corners[0]! + length;
+    if (next - c >= gap - WAY_EPS) runs.push([c + reach, Math.max(c + reach, next - reach)]);
+  });
+  const blocked = (way: number) =>
+    corners.some((c) => Math.min(Math.abs(way - c), length - Math.abs(way - c)) < reach - WAY_EPS);
+  const out = [...ways];
+  const n = ways.length;
+  ways.forEach((way, k) => {
+    if (!blocked(way)) return;
+    // Between its neighbours as they are now, `gap` clear of them
+    const low = (k === 0 ? out[n - 1]! - length : out[k - 1]!) + gap;
+    const high = (k === n - 1 ? out[0]! + length : out[k + 1]!) - gap;
+    let best: number | undefined;
+    let away = Infinity;
+    for (const [a, b] of runs) {
+      for (const lap of [-length, 0, length]) {
+        const from = Math.max(a + lap, low);
+        const to = Math.min(b + lap, high);
+        if (from > to) continue;
+        const spot = Math.min(Math.max(way, from), to);
+        const d = Math.abs(spot - way);
+        if (best === undefined || d < away - WAY_EPS || (d <= away + WAY_EPS && spot < best)) {
+          best = spot;
+          away = d;
+        }
+      }
+    }
+    if (best !== undefined) out[k] = best;
+  });
+  return out;
+}
+
 /**
  * Where the tabs of a closed contour stand, in the order of its points: the places `tabs.at` names
  * (wrapped into 0 ≤ u < 1, sorted, places closer than 1e-9 one), else `count` tabs evenly along the
@@ -174,8 +334,18 @@ const SAME_PLACE = 1e-9;
  * slot narrower than the cutter) that is a little away from the drawn place, and a hole that falls into
  * several loops keeps each place on the loop nearest to it (`tabsPerLoop`), a loop with none the one
  * nearest to it. An open contour has none (nothing is cut free there), nor has a contour of no length.
+ *
+ * With `tabs.avoidCorners` the places of the even spread that would lift the cutter over a corner move
+ * along the line to the nearest place that does not (see `Tabs.avoidCorners`, `cornerWays`); the result is
+ * then in the order of `u` – a tab moved across the start of the line is the last. That needs the width
+ * (`tabs.width`) and the cutter's diameter: **pass the diameter the cut uses**, as `toolpaths` does, or the
+ * tabs drawn and the tabs cut are not the same. Without `avoidCorners` both are not looked at.
  */
-export function tabSites(contour: Contour, tabs: Pick<Tabs, 'count' | 'at'>): TabSite[] {
+export function tabSites(
+  contour: Contour,
+  tabs: Pick<Tabs, 'count' | 'at'> & Partial<Pick<Tabs, 'width' | 'avoidCorners'>>,
+  toolDiameter = 0,
+): TabSite[] {
   if (!contour.closed) return [];
   const m = measure(contour.points);
   if (m.length === 0) return [];
@@ -195,6 +365,28 @@ export function tabSites(contour: Contour, tabs: Pick<Tabs, 'count' | 'at'>): Ta
       s: ((k + 0.5) * m.length) / tabs.count,
       u: (k + 0.5) / tabs.count,
     }));
+    const corners = tabs.avoidCorners ? cornerWays(contour) : [];
+    if (corners.length > 0) {
+      const lifted = (tabs.width ?? 0) + toolDiameter;
+      const reach = Number.isFinite(lifted) ? Math.max(0, lifted) / 2 : 0;
+      const moved = offCorners(
+        places.map((p) => p.s),
+        corners,
+        m.length,
+        reach,
+      );
+      // Only a tab that moved is made anew; the others keep their exact place
+      places = places
+        .map((p, k) => {
+          if (moved[k] === p.s) return p;
+          // A way beyond either end comes round
+          return {
+            s: ((moved[k]! % m.length) + m.length) % m.length,
+            u: wrapUnit(moved[k]! / m.length),
+          };
+        })
+        .sort((a, b) => a.u - b.u);
+    }
   }
   return places.map(({ s, u }) => {
     const i = m.segmentAt(s);
@@ -408,19 +600,63 @@ function openWalk(
   return path[0]!;
 }
 
-/** A round hole: pecked with a matching drill or cutter, otherwise bored in a helix. */
+/** The widest a hole may be beyond the cutter to be drilled straight; wider ones are bored in a helix (mm) */
+const DRILL_SLACK = 0.1;
+/** Whether a hole is wider than the cutter can drill: it is bored in a helix */
+const bored = (c: { r: number }, tool: number) => c.r - tool >= DRILL_SLACK;
+
+/** The smallest peck step there is, mm: below it a hole would be thousands of steps */
+export const MIN_PECK = 0.05;
+/** After a full retract between pecks the cutter goes down at rapid to this far above the depth reached, mm: inside its own hole */
+export const PECK_REENTRY = 0.5;
+
+/** A peck drill's steps: the size of a step and, for chip breaking, how far the cutter comes up between them */
+interface Peck {
+  step: number;
+  retract?: number;
+}
+
+/**
+ * Down a hole in steps of `step` (the last ends exactly at the depth: every depth is `k · step`, not a sum).
+ * Between two steps the cutter comes up – to the clearance plane and back at rapid to `PECK_REENTRY` above the
+ * depth reached, or, for chip breaking, `retract` above it – and goes on at the plunge feed. A rapid move
+ * ends only above the bottom of the hole the cutter has made at this spot, in air.
+ */
+function peckDown(depth: number, s: CutSettings, moves: Move[], { step, retract }: Peck) {
+  const steps = Math.max(1, Math.ceil(depth / step - 1e-9));
+  for (let k = 1; k <= steps; k++) {
+    const z = k < steps ? -k * step : -depth;
+    moves.push({ z, feed: s.plungeFeed });
+    if (k === steps) break;
+    if (retract === undefined) {
+      moves.push(
+        { z: s.safeZ, feed: null },
+        { z: Math.min(z + PECK_REENTRY, s.safeZ), feed: null },
+      );
+    } else {
+      moves.push({ z: Math.min(z + retract, s.safeZ), feed: null });
+    }
+  }
+}
+
+/** A round hole: drilled in steps with a matching drill or cutter (pecked if asked), otherwise bored in a helix. */
 function hole(
   c: { cx: number; cy: number; r: number },
   depth: number,
   s: CutSettings,
   moves: Move[],
+  peck?: Peck,
 ): Point {
   const tool = s.toolDiameter / 2;
   moves.push({ z: s.safeZ, feed: null });
-  if (c.r - tool < 0.1) {
+  if (!bored(c, tool)) {
     moves.push({ x: c.cx, y: c.cy, feed: null }, { z: 1, feed: null });
-    for (const z of passDepths(depth, s.stepdown)) {
-      moves.push({ z, feed: s.plungeFeed }, { z: 1, feed: null });
+    if (peck) {
+      peckDown(depth, s, moves, peck);
+    } else {
+      for (const z of passDepths(depth, s.stepdown)) {
+        moves.push({ z, feed: s.plungeFeed }, { z: 1, feed: null });
+      }
     }
     moves.push({ z: s.safeZ, feed: null });
     return { x: c.cx, y: c.cy };
@@ -443,6 +679,74 @@ function hole(
   const end = { x: c.cx + r - Math.min(r, 0.5), y: c.cy };
   moves.push({ ...end, feed: s.feed }, { z: s.safeZ, feed: null });
   return end;
+}
+
+/** A helix entry bores a hole at least this much wider than the cutter, mm: the cutter's path is then a circle of at least half of it */
+export const HELIX_CLEARANCE = 0.5;
+/** The hole of a helix entry keeps this much further from the pocket's walls than the finishing allowance needs, mm: Clipper rounds to a micrometre and an arc to 0.01 mm */
+const HELIX_MARGIN = 0.05;
+
+/**
+ * The width of the hole a helix entry bores: the asked one, else 1.5 × the cutter – but at least the cutter +
+ * `HELIX_CLEARANCE` and at most twice the cutter: with the cutter's path a circle no wider than the cutter's
+ * radius the pass clears the whole hole, a wider one would leave a post in the middle that the next pass
+ * (a deeper cut than the step down) would have to take. (A cutter finer than the clearance gets the least.)
+ */
+function helixHole(asked: number | undefined, tool: number): number {
+  const wanted = Number.isFinite(asked) && asked! > 0 ? asked! : 1.5 * tool;
+  const least = tool + HELIX_CLEARANCE;
+  return Math.min(Math.max(wanted, least), Math.max(2 * tool, least));
+}
+
+/** Whether a point lies in an area of polygons (an outer outline with holes: the parity of the outlines it is in) */
+const inArea = (p: Point, area: readonly Point[][]) =>
+  area.filter((polygon) => pointInPolygon(p, polygon)).length % 2 === 1;
+
+/**
+ * A ring walked once in every pass, entered on a helix at its first vertex `centre` (the ring starts there):
+ * for each pass the cutter goes down on a helix that bores a hole `width` wide around `centre`, one full
+ * turn at the bottom, to the middle and once round the ring at that depth. The helix descends by the job's
+ * ramp angle, at most `stepdown` a turn, as the bored holes do. Every move after the first helix is in
+ * what the cutter has cleared already: the hole is at most twice the cutter wide (`helixHole`), so the
+ * pass clears all of it, and the way back out to the helix's start at the next pass runs through the floor
+ * of the pass above.
+ */
+function helixWalk(
+  ring: readonly Point[],
+  depths: number[],
+  s: CutSettings,
+  moves: Move[],
+  width: number,
+  climb: boolean,
+): Point {
+  const centre = ring[0]!;
+  const rho = (width - s.toolDiameter) / 2;
+  const start = { x: centre.x + rho, y: centre.y };
+  const arc = { cw: climb, i: -rho, j: 0 };
+  const tan = Math.tan((Math.min(89.9, Math.max(0.5, s.rampAngle)) * Math.PI) / 180);
+  const pitch = Math.max(0.05, Math.min(s.stepdown, 2 * Math.PI * rho * tan));
+  moves.push(
+    { z: s.safeZ, feed: null },
+    { x: start.x, y: start.y, feed: null },
+    { z: 1, feed: null },
+    { z: 0, feed: s.plungeFeed },
+  );
+  let from = 0;
+  depths.forEach((z, k) => {
+    if (k > 0) moves.push({ x: start.x, y: start.y, feed: s.feed });
+    const turns = Math.max(1, Math.ceil((from - z) / pitch - 1e-9));
+    for (let t = 1; t <= turns; t++) {
+      const zt = from + ((z - from) * t) / turns;
+      moves.push({ x: start.x, y: start.y, z: zt, feed: s.feed, arc });
+    }
+    moves.push({ x: start.x, y: start.y, z, feed: s.feed, arc });
+    moves.push({ x: centre.x, y: centre.y, feed: s.feed });
+    for (const p of ring.slice(1)) moves.push({ x: p.x, y: p.y, feed: s.feed });
+    moves.push({ x: centre.x, y: centre.y, feed: s.feed });
+    from = z;
+  });
+  moves.push({ z: s.safeZ, feed: null });
+  return centre;
 }
 
 /**
@@ -500,9 +804,33 @@ function isInside(inner: Shape, outer: Shape): boolean {
   return pointInPolygon(p, outer.contour.points);
 }
 
+/** Where the moves of one operation lie in a program: `moves[start]` up to, not including, `moves[end]`. */
+export interface CutSpan {
+  /** The index in the list of operations given to `toolpaths` */
+  op: number;
+  start: number;
+  end: number;
+}
+
 export interface Toolpath {
   moves: Move[];
   problems: Problem[];
+  /**
+   * The operations in the order they were cut – those that are not cut at all (`none`, no points) are
+   * missing, those that could not be cut have an empty span – and where each one's moves lie.
+   */
+  cuts: CutSpan[];
+}
+
+export interface ToolpathOptions {
+  /**
+   * The order of operations of one rank (holes, pockets, …). `'nearest'` (absent): the nearest is next, as
+   * always. `'short'`: that route made shorter – the operations of a rank are reordered (2-opt on the way
+   * through them) wherever the rules for the order allow, and the result is used only if the program's
+   * rapid travel (`rapidLength`) is really shorter than the nearest route's; else it is the nearest route.
+   * Never longer, never more or other cuts than `'nearest'`: only the order, and so where each cut begins.
+   */
+  route?: 'nearest' | 'short';
 }
 
 /** What comes first when several things could: holes, pockets, engraving, cut-outs, outlines. */
@@ -543,131 +871,269 @@ function spursOn(loop: readonly Point[], corners: readonly ReliefCorner[]): Map<
   return spurs;
 }
 
+/** What a cut along a line needs of it whatever the tool did before (it depends on the contour and the settings only) */
+interface SideGeometry {
+  outline: Point[];
+  /** The loops of the finished cut, and of the roughing that leaves the allowance */
+  final: Point[][];
+  rough: Point[][];
+  corners: ReliefCorner[];
+}
+
+/** The same for a pocket: the islands, the wall's loops, the rings from the wall inwards */
+interface PocketGeometry {
+  islands: Point[][];
+  wall: Point[][];
+  levels: Point[][][];
+  corners: ReliefCorner[];
+}
+
 /**
  * The toolpaths of a drawing in a sensible order: holes first, then
  * pockets, engravings, cut-outs and the outlines that free the parts last –
  * and whatever lies inside a contour before that contour is cut free. Among
- * equals the nearest is next, so the tool travels little in between. The
- * tool starts from the work zero, or from `from` (where an earlier toolpath
- * left it).
+ * equals the nearest is next, so the tool travels little in between (or, with
+ * `options.route: 'short'`, a shorter route – see `ToolpathOptions`), except
+ * that operations with a `seq` come first within their rank, lowest number
+ * first (see `Operation.seq`). The tool starts from the work zero, or from
+ * `from` (where an earlier toolpath left it). `cuts` says in which order the
+ * operations were cut and where their moves lie.
  */
 export function toolpaths(
   contours: readonly Contour[],
   operations: readonly Operation[],
   s: CutSettings,
   from: Point = { x: 0, y: 0 },
+  options: ToolpathOptions = {},
 ): Toolpath {
-  const moves: Move[] = [];
-  const problems: Problem[] = [];
   const r = s.toolDiameter / 2;
   const allowance = Math.max(0, s.allowance ?? 0);
   const shapes = contours.map(shapeOf);
-  let at: Point = from;
 
-  const cut = (op: Operation) => {
-    const c = contours[op.contour]!;
-    const depth = op.depth ?? s.depth;
-    const depths = passDepths(depth, s.stepdown);
-    const finish = [-depth];
-    // The same places the drawing shows (`tabSites`); none on an open contour or without any
-    const sites = op.tabs ? tabSites(c, op.tabs) : [];
-    const tabs = sites.length > 0 ? op.tabs : undefined;
-    const tabAt = sites.map((site) => site.point);
-    // This contour's own direction, else the job's
-    const climb = op.climb ?? s.climb;
-    if (op.kind === 'on') {
-      at = c.closed
-        ? loopWalk(startNear([...c.points], at), depths, s, moves, { tabs, tabAt })
-        : openWalk(c.points, depths, s, moves, at);
-    } else if (!c.closed) {
-      problems.push({ contour: op.contour, code: 'open-contour' });
-    } else if (op.kind === 'drill') {
-      if (!c.circle || c.circle.r < r - 0.1) {
-        problems.push({ contour: op.contour, code: 'hole-too-small' });
-        return;
-      }
-      at = hole(c.circle, depth, { ...s, climb }, moves);
-    } else if (op.kind === 'outside' || op.kind === 'inside') {
-      const sign = op.kind === 'outside' ? 1 : -1;
-      const outline = ccw(c.points);
-      const final = offsetPolygons([outline], sign * r);
-      if (final.length === 0) {
-        problems.push({ contour: op.contour, code: 'tool-too-large' });
-        return;
-      }
-      const corners = op.relief ? reliefCorners(outline, op.kind, r, op.relief) : [];
-      // Material left of the cutter for climb: outside counter-clockwise, inside clockwise.
-      const turned = (g: Point[]) => ((op.kind === 'outside') === climb ? ccw(g) : cw(g));
-      const rough = allowance > 0 ? offsetPolygons([outline], sign * (r + allowance)) : [];
-      // Told one by one, the places go to the loops they lie nearest to
-      const split = op.tabs?.at !== undefined && tabAt.length > 1;
-      const roughAt = tabsPerLoop(rough, tabAt, split);
-      rough.forEach((g, k) => {
-        at = loopWalk(startNear(turned(g), at), depths, s, moves, { tabs, tabAt: roughAt[k] });
-      });
-      const finalAt = tabsPerLoop(final, tabAt, split);
-      final.forEach((g, k) => {
-        const loop = startNear(turned(g), at);
-        // After roughing, one pass at full depth takes off the allowance.
-        at = loopWalk(loop, rough.length > 0 ? finish : depths, s, moves, {
-          tabs,
-          tabAt: finalAt[k],
-          spurs: spursOn(loop, corners),
-        });
-      });
-    } else {
-      const islands = shapes
-        .filter((o, j) => j !== op.contour && o.contour.closed && isInside(o, shapes[op.contour]!))
-        .map((o) => o.contour.points);
-      const wall = offsetPolygons(region(c.points, islands), -r);
-      if (wall.length === 0) {
-        problems.push({ contour: op.contour, code: 'tool-too-large' });
-        return;
-      }
-      const levels = pocketRings(c.points, islands, s, allowance);
-      const corners = op.relief ? reliefCorners(c.points, 'inside', r, op.relief) : [];
-      // Climb runs against Clipper's orientation.
-      const turned = (ring: Point[]) => (climb ? [...ring].reverse() : ring);
-      // Innermost rings first, out to the wall.
-      const rings = [...levels].reverse().flat();
-      // Without an allowance the outermost ring is the wall itself.
-      const roughing = allowance > 0 ? rings : rings.slice(0, rings.length - levels[0]!.length);
-      for (const ring of roughing) {
-        at = loopWalk(startNear(turned(ring), at), depths, s, moves);
-      }
-      for (const ring of wall) {
-        const loop = startNear(turned(ring), at);
-        at = loopWalk(loop, allowance > 0 && roughing.length > 0 ? finish : depths, s, moves, {
-          spurs: spursOn(loop, corners),
-        });
-      }
-    }
+  // What does not depend on where the tool comes from is worked out once per operation, however many orders are tried
+  const sides = new Map<number, SideGeometry | null>();
+  const pockets = new Map<number, PocketGeometry | null>();
+  const zones = new Map<number, Point[][]>();
+  const once = <T>(store: Map<number, T>, index: number, make: () => T): T => {
+    if (!store.has(index)) store.set(index, make());
+    return store.get(index) as T;
   };
 
-  const todo = operations.filter(
-    (o) => o.kind !== 'none' && (contours[o.contour]?.points.length ?? 0) > 0,
+  const todo = operations.flatMap((op, index) =>
+    op.kind !== 'none' && (contours[op.contour]?.points.length ?? 0) > 0 ? [{ op, index }] : [],
   );
   // A contour that is cut free waits for everything that lies inside it.
   const waits = todo.map((a, i) => {
-    const outer = shapes[a.contour]!;
-    if (!outer.contour.closed || (a.kind !== 'inside' && a.kind !== 'outside')) return [];
-    return todo.flatMap((b, j) => (j !== i && isInside(shapes[b.contour]!, outer) ? [j] : []));
+    const outer = shapes[a.op.contour]!;
+    if (!outer.contour.closed || (a.op.kind !== 'inside' && a.op.kind !== 'outside')) return [];
+    return todo.flatMap((b, j) => (j !== i && isInside(shapes[b.op.contour]!, outer) ? [j] : []));
   });
-  const open = new Set(todo.keys());
-  while (open.size > 0) {
-    let pick = -1;
-    let best: [rank: number, travel: number] = [Infinity, Infinity];
-    for (const i of open) {
-      if (waits[i]!.some((j) => open.has(j))) continue;
-      const rank = RANK[todo[i]!.kind];
-      const travel = travelTo(shapes[todo[i]!.contour]!, at);
-      if (rank < best[0] || (rank === best[0] && travel < best[1])) {
-        pick = i;
-        best = [rank, travel];
+  const seqs = todo.map(({ op }) => (Number.isFinite(op.seq) ? op.seq : undefined));
+  const task: RouteTask = {
+    rank: todo.map(({ op }) => RANK[op.kind]),
+    seq: seqs,
+    waits,
+    anchor: todo.map(({ op }) => shapes[op.contour]!.centre),
+  };
+
+  /** The whole program, the operations picked by the rules (the nearest next) or in the order given */
+  const run = (given?: readonly number[]) => {
+    const moves: Move[] = [];
+    const problems: Problem[] = [];
+    const cuts: CutSpan[] = [];
+    const order: number[] = [];
+    let at: Point = from;
+
+    const cut = (op: Operation, index: number) => {
+      const c = contours[op.contour]!;
+      const depth = op.depth ?? s.depth;
+      const depths = passDepths(depth, s.stepdown);
+      const finish = [-depth];
+      // The same places the drawing shows (`tabSites`); none on an open contour or without any
+      const sites = op.tabs ? tabSites(c, op.tabs, s.toolDiameter) : [];
+      const tabs = sites.length > 0 ? op.tabs : undefined;
+      const tabAt = sites.map((site) => site.point);
+      // This contour's own direction, else the job's
+      const climb = op.climb ?? s.climb;
+      // A peck is for drilling only; elsewhere it is said and the contour is cut without
+      if (op.peck !== undefined && op.kind !== 'drill') {
+        problems.push({ contour: op.contour, code: 'peck-not-possible' });
+      }
+      if (op.kind === 'on') {
+        at = c.closed
+          ? loopWalk(startNear([...c.points], at), depths, s, moves, { tabs, tabAt })
+          : openWalk(c.points, depths, s, moves, at);
+      } else if (!c.closed) {
+        problems.push({ contour: op.contour, code: 'open-contour' });
+      } else if (op.kind === 'drill') {
+        if (!c.circle || c.circle.r < r - DRILL_SLACK) {
+          problems.push({ contour: op.contour, code: 'hole-too-small' });
+          return;
+        }
+        let peck: Peck | undefined;
+        if (op.peck !== undefined) {
+          const { peckRetract: retract } = op;
+          const asked =
+            op.peck >= MIN_PECK &&
+            Number.isFinite(op.peck) &&
+            (retract === undefined || (Number.isFinite(retract) && retract > 0));
+          if (asked && !bored(c.circle, r)) peck = { step: op.peck, retract };
+          else problems.push({ contour: op.contour, code: 'peck-not-possible' });
+        }
+        at = hole(c.circle, depth, { ...s, climb }, moves, peck);
+      } else if (op.kind === 'outside' || op.kind === 'inside') {
+        const kind = op.kind;
+        const sign = kind === 'outside' ? 1 : -1;
+        const geometry = once(sides, index, (): SideGeometry | null => {
+          const outline = ccw(c.points);
+          const final = offsetPolygons([outline], sign * r);
+          if (final.length === 0) return null;
+          return {
+            outline,
+            final,
+            rough: allowance > 0 ? offsetPolygons([outline], sign * (r + allowance)) : [],
+            corners: op.relief ? reliefCorners(outline, kind, r, op.relief) : [],
+          };
+        });
+        if (!geometry) {
+          problems.push({ contour: op.contour, code: 'tool-too-large' });
+          return;
+        }
+        const { final, rough, corners } = geometry;
+        // Material left of the cutter for climb: outside counter-clockwise, inside clockwise.
+        const turned = (g: Point[]) => ((op.kind === 'outside') === climb ? ccw(g) : cw(g));
+        // Told one by one, the places go to the loops they lie nearest to
+        const split = op.tabs?.at !== undefined && tabAt.length > 1;
+        const roughAt = tabsPerLoop(rough, tabAt, split);
+        rough.forEach((g, k) => {
+          at = loopWalk(startNear(turned(g), at), depths, s, moves, { tabs, tabAt: roughAt[k] });
+        });
+        const finalAt = tabsPerLoop(final, tabAt, split);
+        final.forEach((g, k) => {
+          const loop = startNear(turned(g), at);
+          // After roughing, one pass at full depth takes off the allowance.
+          at = loopWalk(loop, rough.length > 0 ? finish : depths, s, moves, {
+            tabs,
+            tabAt: finalAt[k],
+            spurs: spursOn(loop, corners),
+          });
+        });
+      } else {
+        const geometry = once(pockets, index, (): PocketGeometry | null => {
+          const islands = shapes
+            .filter(
+              (o, j) => j !== op.contour && o.contour.closed && isInside(o, shapes[op.contour]!),
+            )
+            .map((o) => o.contour.points);
+          const wall = offsetPolygons(region(c.points, islands), -r);
+          if (wall.length === 0) return null;
+          return {
+            islands,
+            wall,
+            levels: pocketRings(c.points, islands, s, allowance),
+            corners: op.relief ? reliefCorners(c.points, 'inside', r, op.relief) : [],
+          };
+        });
+        if (!geometry) {
+          problems.push({ contour: op.contour, code: 'tool-too-large' });
+          return;
+        }
+        const { islands, wall, levels, corners } = geometry;
+        // Climb runs against Clipper's orientation.
+        const turned = (ring: Point[]) => (climb ? [...ring].reverse() : ring);
+        // Innermost rings first, out to the wall.
+        const rings = [...levels].reverse().flat();
+        // Without an allowance the outermost ring is the wall itself.
+        const roughing = allowance > 0 ? rings : rings.slice(0, rings.length - levels[0]!.length);
+        // The first ring walked is the one that goes into uncut material: how the cutter enters is for it
+        const entry = op.entry === 'helix' || op.entry === 'plunge' ? op.entry : 'ramp';
+        let entered = false;
+        if (entry === 'helix') {
+          const width = helixHole(op.helixDiameter, s.toolDiameter);
+          // Where the hole, with the allowance, lies inside the pocket and clear of the islands. Without
+          // a ring inside the wall's there is no place for it: the first ring would be the wall itself
+          const zone = once(zones, index, () =>
+            offsetPolygons(region(c.points, islands), -(allowance + width / 2 + HELIX_MARGIN)),
+          );
+          const ring = roughing[0] && turned(roughing[0]);
+          const vertices = ring ? ring.filter((p) => inArea(p, zone)) : [];
+          if (ring && vertices.length > 0) {
+            // The vertex nearest to the tool; the ring goes on from there
+            const near = vertices.reduce((a, b) => (distance(b, at) < distance(a, at) ? b : a));
+            at = helixWalk(startNear(ring, near), depths, s, moves, width, climb);
+            entered = true;
+          } else {
+            problems.push({ contour: op.contour, code: 'helix-too-big' });
+          }
+        }
+        roughing.forEach((ring, k) => {
+          if (entered && k === 0) return;
+          const plunge = entry === 'plunge' && k === 0;
+          at = loopWalk(
+            startNear(turned(ring), at),
+            depths,
+            plunge ? { ...s, rampAngle: 90 } : s,
+            moves,
+          );
+        });
+        wall.forEach((ring, k) => {
+          const loop = startNear(turned(ring), at);
+          const settings =
+            entry === 'plunge' && roughing.length === 0 && k === 0 ? { ...s, rampAngle: 90 } : s;
+          at = loopWalk(
+            loop,
+            allowance > 0 && roughing.length > 0 ? finish : depths,
+            settings,
+            moves,
+            {
+              spurs: spursOn(loop, corners),
+            },
+          );
+        });
+      }
+    };
+
+    const open = new Set(todo.keys());
+    for (let k = 0; open.size > 0; k++) {
+      let pick = given ? given[k]! : -1;
+      if (!given) {
+        let best: [rank: number, wish: number, travel: number] = [Infinity, Infinity, Infinity];
+        for (const i of open) {
+          if (waits[i]!.some((j) => open.has(j))) continue;
+          const rank = task.rank[i]!;
+          // The operator's numbers first, then the nearest
+          const wish = seqs[i] ?? Infinity;
+          const travel = travelTo(shapes[todo[i]!.op.contour]!, at);
+          if (
+            rank < best[0] ||
+            (rank === best[0] && (wish < best[1] || (wish === best[1] && travel < best[2])))
+          ) {
+            pick = i;
+            best = [rank, wish, travel];
+          }
+        }
+      }
+      open.delete(pick);
+      order.push(pick);
+      const start = moves.length;
+      cut(todo[pick]!.op, todo[pick]!.index);
+      cuts.push({ op: todo[pick]!.index, start, end: moves.length });
+    }
+    if (seqs.some((q) => q !== undefined)) {
+      for (const i of overridden(order, task)) {
+        problems.push({ contour: todo[i]!.op.contour, code: 'order-overridden' });
       }
     }
-    open.delete(pick);
-    cut(todo[pick]!);
-  }
-  return { moves, problems };
+    return { path: { moves, problems, cuts }, order };
+  };
+
+  const nearest = run();
+  if (options.route !== 'short') return nearest.path;
+  const shorter = improve(nearest.order, from, task);
+  if (shorter.every((v, i) => v === nearest.order[i])) return nearest.path;
+  const other = run(shorter);
+  // The estimate is by anchor points; the program itself decides
+  return rapidLength(other.path.moves, from) < rapidLength(nearest.path.moves, from) - 1e-9
+    ? other.path
+    : nearest.path;
 }

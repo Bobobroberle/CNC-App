@@ -2780,6 +2780,12 @@ export const de = {
       'tool-too-large': 'Kontur {n}: Werkzeug zu groß dafür.',
       'open-contour': 'Kontur {n} ist offen – nur „Linie gravieren“ möglich.',
       'hole-too-small': 'Kontur {n}: Bohren nur bei Kreisen ab Werkzeugdurchmesser.',
+      'helix-too-big':
+        'Kontur {n}: Die Wendel passt nicht in die Tasche – es wird mit der Rampe eingetaucht.',
+      'peck-not-possible':
+        'Kontur {n}: Spanbrechen geht hier nicht (nur beim Bohren eines Kreises im Werkzeugdurchmesser, Schritt ab 0,05 mm) – es wird ohne gearbeitet.',
+      'order-overridden':
+        'Kontur {n}: Die gewünschte Reihenfolge geht nicht – was darin liegt, wird vorher gefräst.',
     },
     look: 'Die Fräsbahnen stehen schon auf dem Tisch-Bild. Gefräst wird in dieser Reihenfolge: Bohrungen, Taschen und Gravuren, Ausschnitte – und die Außenkontur jedes Teils zuletzt.',
     generate: 'G-Code erzeugen',
