@@ -39,6 +39,8 @@ const CAP_WORDS: Record<string, MessageKey> = {
   pageDown: 'find.caps.pageDown',
   wheel: 'find.caps.wheel',
   space: 'find.caps.space',
+  tap: 'find.caps.tap',
+  drag: 'find.caps.drag',
 };
 
 function capText(cap: Cap): string {

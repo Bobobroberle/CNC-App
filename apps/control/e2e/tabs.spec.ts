@@ -1,6 +1,15 @@
 import { readFileSync } from 'node:fs';
-import { expect, test, type Page } from '@playwright/test';
-import { drawShape, onStage, openApp, rested, restingTable, tableSpot } from './helpers';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import {
+  drawShape,
+  drawThreePlates,
+  inReach,
+  onStage,
+  openApp,
+  rested,
+  restingTable,
+  tableSpot,
+} from './helpers';
 
 /**
  * The holding tabs of a part ("Haltestege"): drawn on the table where they stand, with values of their
@@ -95,9 +104,17 @@ test('shows the tabs on the table, in their width, and takes values of their own
   // The sites of an automatic part have no place in a list of their own
   expect(mark!.sites.map((s) => s.index)).toEqual([-1, -1, -1, -1]);
 
-  // The panel of this part: automatic, with the drawing's values shown as what an empty field takes
+  // The panel of this part opens on demand – the part is selected and has tabs, and still nothing opened by itself
   const panel = cam.getByTestId('cam-tabs');
+  await expect(panel).toHaveCount(0);
+  const openIt = cam.getByTestId('cam-tabs-open');
+  expect((await openIt.boundingBox())!.height).toBeGreaterThanOrEqual(47.5);
+  await openIt.click();
+  // The panel of this part: automatic, with the drawing's values shown as what an empty field takes
   await expect(panel).toBeVisible();
+  expect((await panel.getByTestId('cam-tabs-close').boundingBox())!.height).toBeGreaterThanOrEqual(
+    47.5,
+  );
   await expect(panel.getByRole('button', { name: 'Automatisch' })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -167,6 +184,7 @@ test('puts tabs by hand: a tap on the line sets one, a drag moves it along, a ta
   const table = page.getByTestId('table-view');
   await drawShape(page, 'Rechteck');
   const panel = cam.getByTestId('cam-tabs');
+  await cam.getByTestId('cam-tabs-open').click();
   await panel.getByRole('textbox', { name: /^Anzahl/ }).fill('2');
   await panel.getByRole('textbox', { name: /^Breite/ }).fill('10');
   await cam.getByText('Erweitert', { exact: true }).click();
@@ -310,6 +328,7 @@ test('keeps the places of the tabs when the part is moved, and carries them into
   const cam = page.getByTestId('cam-card');
   await drawShape(page, 'Rechteck');
   const panel = cam.getByTestId('cam-tabs');
+  await cam.getByTestId('cam-tabs-open').click();
   await panel.getByRole('button', { name: 'Von Hand' }).click();
   await expect.poll(async () => (await sites(page)).length).toBe(4);
   const before = await sites(page);
@@ -330,4 +349,257 @@ test('keeps the places of the tabs when the part is moved, and carries them into
   expect(file.items[0].tabSpec.mode).toBe('manual');
   expect(file.items[0].tabSpec.at).toHaveLength(4);
   expect(file.version).toBe(1);
+});
+
+test('the panel of the tabs opens on demand only: nothing that selects changes the height of a row', async ({
+  page,
+}) => {
+  await openApp(page);
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  const cam = page.getByTestId('cam-card');
+  const arrange = cam.getByTestId('cam-arrange');
+  const table = page.getByTestId('table-view');
+  // Three plates, each with its tabs on
+  await drawShape(page, 'Rechteck', { 'Breite (mm)': '40', 'Höhe (mm)': '20' });
+  await drawShape(page, 'Rechteck', {
+    'Breite (mm)': '30',
+    'Höhe (mm)': '30',
+    'X links (mm)': '100',
+    'Y unten (mm)': '40',
+  });
+  await drawShape(page, 'Rechteck', {
+    'Breite (mm)': '50',
+    'Höhe (mm)': '10',
+    'X links (mm)': '60',
+    'Y unten (mm)': '100',
+  });
+  const rows = cam.getByTestId('cam-contours').getByRole('listitem');
+  await expect(rows).toHaveCount(3);
+  const heights = () => rows.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+  const still = await heights();
+  const unchanged = async (what: string) => {
+    // the picture and the list follow a moment after a tap
+    await page.waitForTimeout(200);
+    const now = await heights();
+    for (const [i, h] of now.entries()) {
+      expect(Math.abs(h - still[i]!), `${what}: row ${i + 1}`).toBeLessThan(0.5);
+    }
+    await expect(cam.getByTestId('cam-tabs')).toHaveCount(0);
+  };
+  // Every row has the button, a full target, and none has a panel
+  await expect(cam.getByTestId('cam-tabs-open')).toHaveCount(3);
+  for (const button of await cam.getByTestId('cam-tabs-open').all()) {
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(47.5);
+  }
+  await unchanged('three plates drawn');
+
+  // Drawing a fourth shape adds a row below them: the three rows above keep their height
+  await drawShape(page, 'Kreis');
+  await expect(rows).toHaveCount(4);
+  await page.waitForTimeout(200);
+  const four = await heights();
+  for (const i of [0, 1, 2])
+    expect(Math.abs(four[i]! - still[i]!), `row ${i + 1}`).toBeLessThan(0.5);
+  await cam.getByRole('button', { name: 'Kontur 4 entfernen' }).click();
+  await expect(rows).toHaveCount(3);
+  await unchanged('the fourth shape removed again');
+
+  // Selecting: the boxes of the rows, the names, everything, invert, nothing
+  for (const n of [1, 2, 3]) {
+    await cam.getByRole('checkbox', { name: `Kontur ${n} zur Auswahl` }).click();
+    await unchanged(`box ${n}`);
+  }
+  await arrange.getByRole('button', { name: 'Alles auswählen', exact: true }).click();
+  await unchanged('select all');
+  await arrange.getByRole('button', { name: 'Auswahl umkehren', exact: true }).click();
+  await unchanged('invert');
+  await cam.getByRole('button', { name: /^2\. / }).click();
+  await unchanged('name of row 2');
+
+  // A tap on the table picks a part; with "Mehrfachauswahl" on it takes parts in
+  await restingTable(page);
+  const tap = async (x: number, y: number) => {
+    const at = await tableSpot(page, { x, y });
+    expect(await onStage(page, at)).toBe(true);
+    await page.waitForTimeout(400);
+    await page.mouse.click(at.x, at.y);
+  };
+  await tap(20, 10);
+  await expect(table).toHaveAttribute('data-drawing-selected', '0.0,0.0,40.0,20.0');
+  await unchanged('a tap on the table');
+  await arrange.getByRole('checkbox', { name: 'Mehrfachauswahl' }).check();
+  await unchanged('Mehrfachauswahl on');
+  await tap(115, 55);
+  await expect(arrange.getByTestId('cam-selected')).toContainText('2 Teile');
+  await unchanged('a part taken in with Mehrfachauswahl');
+  await arrange.getByRole('checkbox', { name: 'Mehrfachauswahl' }).uncheck();
+
+  // On demand: the button of row 2 opens its panel there – and in no other row; its own button closes it
+  const open = cam.getByRole('button', { name: 'Stege von Teil 2 einstellen' });
+  await open.click();
+  const panel = cam.getByTestId('cam-tabs');
+  await expect(panel).toHaveCount(1);
+  await expect(rows.nth(1).getByTestId('cam-tabs')).toBeVisible();
+  await expect(cam.getByRole('checkbox', { name: 'Kontur 2 zur Auswahl' })).toBeChecked();
+  await expect(cam.getByRole('checkbox', { name: 'Kontur 1 zur Auswahl' })).not.toBeChecked();
+  const opened = await heights();
+  expect(opened[1]!).toBeGreaterThan(still[1]! + 100);
+  expect(Math.abs(opened[0]! - still[0]!)).toBeLessThan(0.5);
+  expect(Math.abs(opened[2]! - still[2]!)).toBeLessThan(0.5);
+  // Ticking another box lets go of "alone": the panel closes, the rows are as they were
+  await cam.getByRole('checkbox', { name: 'Kontur 3 zur Auswahl' }).click();
+  await unchanged('a second part taken in while a panel was open');
+  await open.click();
+  await expect(panel).toHaveCount(1);
+  await panel.getByRole('button', { name: 'Haltestege von Teil 2 schließen' }).click();
+  await unchanged('the panel closed by its own button');
+  // The box of the tabs ticked off and on again opens the panel (and selects that part alone)
+  const tabsBox = rows.nth(0).getByRole('checkbox', { name: 'Haltestege' });
+  await tabsBox.uncheck();
+  await tabsBox.check();
+  await expect(rows.nth(0).getByTestId('cam-tabs')).toBeVisible();
+  await expect(cam.getByRole('checkbox', { name: 'Kontur 1 zur Auswahl' })).toBeChecked();
+  await expect(cam.getByRole('checkbox', { name: 'Kontur 2 zur Auswahl' })).not.toBeChecked();
+  // "Stege setzen" is in the panel: starting it keeps the panel open
+  await panel.getByRole('button', { name: 'Von Hand' }).click();
+  await panel.getByRole('button', { name: 'Stege setzen' }).click();
+  await expect(table).toHaveAttribute('data-drawing-placing', '1');
+  await expect(panel).toHaveCount(1);
+  // …and closing the panel ends putting tabs
+  await panel.getByRole('button', { name: 'Haltestege von Teil 1 schließen' }).click();
+  await expect(table).not.toHaveAttribute('data-drawing-placing');
+  await expect(panel).toHaveCount(0);
+});
+
+/**
+ * A control in the middle of the panel (its own scroll only), measured where it stands – a locator's click would
+ * scroll once more by itself after the place was taken.
+ */
+async function centred(control: Locator) {
+  await control.evaluate((el) => {
+    const body = el.closest<HTMLElement>('.panel-body')!;
+    const at = el.getBoundingClientRect();
+    const room = body.getBoundingClientRect();
+    body.scrollTop += at.top - room.top - (room.height - at.height) / 2;
+  });
+  await control.page().waitForTimeout(50);
+  return (await control.boundingBox())!;
+}
+
+test('"Stege einstellen" and the box of the tabs keep their place under the finger – from nothing selected and from a set', async ({
+  page,
+}) => {
+  await openApp(page);
+  const cam = await drawThreePlates(page);
+  const arrange = cam.getByTestId('cam-arrange');
+  await arrange.getByRole('button', { name: 'Auswahl aufheben' }).click();
+  const open = (n: number) => cam.getByRole('button', { name: `Stege von Teil ${n} einstellen` });
+  /**
+   * Taps the control where it stands (a mouse click at a measured point) and says how far the row it is in – the box
+   * of that row, which is always there – moved: the control itself gives way to the panel it opens
+   */
+  const tapAndMeasure = async (control: Locator, n: number) => {
+    const pick = cam.getByTestId('cam-pick').nth(n - 1);
+    const at = await centred(control);
+    const before = (await pick.boundingBox())!;
+    await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+    await page.waitForTimeout(250);
+    return Math.abs((await pick.boundingBox())!.y - before.y);
+  };
+
+  // nothing selected: the card of the selection appears above the list when row 2 is taken
+  expect(await tapAndMeasure(open(2), 2)).toBeLessThan(1.5);
+  await expect(cam.getByTestId('cam-tabs')).toHaveCount(1);
+  await expect(cam.getByRole('checkbox', { name: 'Kontur 2 zur Auswahl' })).toBeChecked();
+  // a set of three: the align panel goes when row 1 alone is asked for
+  await arrange.getByRole('button', { name: 'Alles auswählen', exact: true }).click();
+  await expect(cam.getByTestId('cam-align')).toBeVisible();
+  expect(await tapAndMeasure(open(1), 1)).toBeLessThan(1.5);
+  await expect(cam.getByTestId('cam-align')).toHaveCount(0);
+  await expect(cam.getByTestId('cam-tabs')).toHaveCount(1);
+  // the box of the tabs of a row that is not selected: off and on again selects the part and opens its panel
+  await arrange.getByRole('button', { name: 'Auswahl aufheben' }).click();
+  const box = cam.getByTestId('cam-contours').getByRole('listitem').nth(2).getByRole('checkbox', {
+    name: 'Haltestege',
+  });
+  await box.uncheck();
+  const tabsBox = box.locator('xpath=ancestor::label');
+  const before = await centred(tabsBox);
+  await page.mouse.click(before.x + 20, before.y + before.height / 2);
+  await page.waitForTimeout(250);
+  await expect(box).toBeChecked();
+  expect(Math.abs((await tabsBox.boundingBox())!.y - before.y)).toBeLessThan(1.5);
+  await expect(cam.getByRole('checkbox', { name: 'Kontur 3 zur Auswahl' })).toBeChecked();
+});
+
+/**
+ * The panel opens below its row, where the button that opened it stood – and that button is gone with the tap. A row
+ * low in the list must not leave the operator with nothing to see: where the panel's head (its name and the way to
+ * close it) would lie below the fold, the panel is brought into view. Measured with `inReach`: inside the box that
+ * scrolls, and a touch at its middle reaches it (`toBeVisible` cannot see a control below the fold).
+ */
+async function panelOpensInReach(page: Page, cam: Locator) {
+  const scroller = cam.locator('xpath=ancestor::*[contains(@class,"panel-body")][1]');
+  await cam.getByTestId('cam-arrange').getByRole('button', { name: 'Auswahl aufheben' }).click();
+  const panel = cam.getByTestId('cam-tabs');
+  const close = cam.getByRole('button', { name: 'Haltestege von Teil 3 schließen' });
+  // The control at the very bottom of what the panel shows (the panel's own scroll only – a locator's click would
+  // scroll to it once more after the place was taken)
+  const low = async (control: Locator) => {
+    await control.evaluate((el) => {
+      const body = el.closest<HTMLElement>('.panel-body')!;
+      body.scrollTop += el.getBoundingClientRect().bottom - body.getBoundingClientRect().bottom + 8;
+    });
+    await page.waitForTimeout(50);
+    const box = (await control.boundingBox())!;
+    const area = (await scroller.boundingBox())!;
+    expect(box.y + box.height, 'the control to tap is low in the list').toBeGreaterThan(
+      area.y + area.height - 24,
+    );
+    return { x: box.x + 20, y: box.y + box.height / 2 };
+  };
+  const reached = async (what: string) => {
+    await expect(panel, what).toHaveCount(1);
+    // the panel is drawn and the scroll that brings it into view is made with it
+    await page.waitForTimeout(250);
+    const where = await inReach(page, close, scroller);
+    expect(where.inside && where.reached, `${what}: ${JSON.stringify(where)}`).toBe(true);
+  };
+
+  // (a) the button of the last row
+  const spot = await low(cam.getByRole('button', { name: 'Stege von Teil 3 einstellen' }));
+  await page.mouse.click(spot.x, spot.y);
+  await reached('the button "Stege einstellen"');
+  await close.click();
+  await expect(panel).toHaveCount(0);
+
+  // (b) the box of the tabs of the last row, off and on again
+  const box = cam.getByTestId('cam-contours').getByRole('listitem').nth(2).getByRole('checkbox', {
+    name: 'Haltestege',
+  });
+  await box.uncheck();
+  await expect(panel).toHaveCount(0);
+  const tick = await low(box.locator('xpath=ancestor::label'));
+  await page.mouse.click(tick.x, tick.y);
+  await expect(box).toBeChecked();
+  await reached('the box "Haltestege"');
+}
+
+test('a panel opened low in the list is brought into view – the button that opened it is gone', async ({
+  page,
+}) => {
+  await openApp(page);
+  const cam = await drawThreePlates(page);
+  await panelOpensInReach(page, cam);
+});
+
+test('the same on the machine screen (800 × 600), in the sheet at its largest', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 800, height: 600 });
+  await openApp(page);
+  const cam = await drawThreePlates(page);
+  await page.locator('[data-slot="sheet-larger"]').click();
+  await expect(page.locator('[data-slot="sheet"]')).toHaveAttribute('data-level', 'full');
+  await panelOpensInReach(page, cam);
 });

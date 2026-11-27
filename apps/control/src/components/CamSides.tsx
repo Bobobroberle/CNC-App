@@ -32,7 +32,8 @@ export function CamSides() {
   const cam = useCam.getState();
   if (!project) return null;
   const two = project.twoSided;
-  const box = itemsBounds(partsOf(project.items));
+  // (what is cut: a hidden part does not decide which way round the plate is)
+  const box = itemsBounds(partsOf(project.items).filter((i) => !i.hidden));
   const holes = project.items.filter((i) => i.registration !== undefined);
   const tool = tools.find((x) => x.id === toolId)?.diameter ?? 6;
   const d = registrationDiameter(tool);

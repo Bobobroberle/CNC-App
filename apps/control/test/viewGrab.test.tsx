@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render, within } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { usePanZoom, type ViewGrab } from '../src/components/usePanZoom';
@@ -7,6 +7,8 @@ import { usePanZoom, type ViewGrab } from '../src/components/usePanZoom';
 /** A view whose grabs are whatever the test hands out; what happens to them goes into `log`. */
 function mount(make: (log: string[]) => ViewGrab | null) {
   const log: string[] = [];
+  /** What the view was asked: the arguments of its `grab` and of its `tap` */
+  const asked: unknown[][] = [];
   function Probe() {
     const [el, setEl] = useState<HTMLDivElement | null>(null);
     usePanZoom(el, {
@@ -14,18 +16,35 @@ function mount(make: (log: string[]) => ViewGrab | null) {
       write: () => undefined,
       limits: () => null,
       size: () => ({ width: 400, height: 300 }),
-      grab: () => make(log),
+      grab: (...args: unknown[]) => {
+        asked.push(['grab', ...args]);
+        return make(log);
+      },
+      tap: (...args: unknown[]) => void asked.push(['tap', ...args]),
     });
     return <div ref={setEl} data-testid="view" />;
   }
-  const view = render(<Probe />).getByTestId('view');
-  const fire = (type: string, id: number, x: number, y: number) => {
-    const e = new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true });
+  // (of this mount only: a test may mount several views)
+  const view = within(render(<Probe />).container).getByTestId('view');
+  const fire = (
+    type: string,
+    id: number,
+    x: number,
+    y: number,
+    keys: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean } = {},
+  ) => {
+    const e = new MouseEvent(type, {
+      clientX: x,
+      clientY: y,
+      bubbles: true,
+      cancelable: true,
+      ...keys,
+    });
     Object.defineProperty(e, 'pointerId', { value: id });
     Object.defineProperty(e, 'pointerType', { value: 'touch' });
     view.dispatchEvent(e);
   };
-  return { log, fire };
+  return { log, fire, asked };
 }
 
 const grab = (log: string[], over: Partial<ViewGrab> = {}): ViewGrab => ({
@@ -96,5 +115,77 @@ describe('a thing taken by a finger on the view', () => {
     fire('pointerdown', 1, 50, 50);
     fire('pointerup', 1, 50, 50);
     expect(log).toEqual([]);
+  });
+});
+
+describe('how a thing taken by a finger ends – and what keys were held', () => {
+  afterEach(cleanup);
+
+  /** A grab that says how it ended: `end` is given `true` only for a finger that was lifted */
+  const noting = (log: string[]): ViewGrab => ({
+    move: () => undefined,
+    end: (...args) => log.push(`end ${JSON.stringify(args)}`),
+    tap: () => log.push('tap'),
+    yields: true,
+  });
+
+  it('is told that the finger was lifted – and only then', () => {
+    const lifted = mount((l) => noting(l));
+    lifted.fire('pointerdown', 1, 50, 50);
+    lifted.fire('pointermove', 1, 90, 60);
+    lifted.fire('pointerup', 1, 90, 60);
+    expect(lifted.log).toEqual(['end [true]']);
+    // a touch the system took away, a second finger, the app being left: no word of it
+    const lost = mount((l) => noting(l));
+    lost.fire('pointerdown', 1, 50, 50);
+    lost.fire('pointermove', 1, 90, 60);
+    lost.fire('pointercancel', 1, 90, 60);
+    expect(lost.log).toEqual(['end []']);
+    const second = mount((l) => noting(l));
+    second.fire('pointerdown', 1, 50, 50);
+    second.fire('pointermove', 1, 90, 60);
+    second.fire('pointerdown', 2, 200, 100);
+    expect(second.log).toEqual(['end []']);
+  });
+
+  it('says where the finger really is, beside where the thing it carries goes', () => {
+    const moves: unknown[][] = [];
+    const { fire } = mount(() => ({ move: (...args) => moves.push(args), end: () => undefined }));
+    fire('pointerdown', 1, 50, 50);
+    fire('pointermove', 1, 80, 50);
+    fire('pointermove', 1, 90, 60);
+    // the thing starts from where the finger left the slop (50,50) – the finger itself is further on
+    expect(moves).toEqual([
+      [
+        { x: 50, y: 50 },
+        { x: 80, y: 50 },
+      ],
+      [
+        { x: 60, y: 60 },
+        { x: 90, y: 60 },
+      ],
+    ]);
+  });
+
+  it('hands Shift and Ctrl to the grab and to the tap – and nothing where none is held', () => {
+    const held = mount((l) => noting(l));
+    held.fire('pointerdown', 1, 50, 50, { shiftKey: true });
+    expect(held.asked).toEqual([['grab', { x: 50, y: 50 }, 'touch', { shift: true, ctrl: false }]]);
+    const cmd = mount(() => null);
+    cmd.fire('pointerdown', 1, 50, 50, { metaKey: true });
+    cmd.fire('pointerup', 1, 50, 50, { metaKey: true });
+    // Cmd is Ctrl; the tap of the view, where no grab took the finger, says so as well
+    expect(cmd.asked).toEqual([
+      ['grab', { x: 50, y: 50 }, 'touch', { shift: false, ctrl: true }],
+      ['tap', { x: 50, y: 50 }, 'touch', { shift: false, ctrl: true }],
+    ]);
+    // no key: called as ever – two arguments for the grab, two for the tap
+    const bare = mount(() => null);
+    bare.fire('pointerdown', 1, 50, 50);
+    bare.fire('pointerup', 1, 50, 50);
+    expect(bare.asked).toEqual([
+      ['grab', { x: 50, y: 50 }, 'touch'],
+      ['tap', { x: 50, y: 50 }, 'touch'],
+    ]);
   });
 });

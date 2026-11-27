@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  additive,
   blendTransform,
   clampTransform,
   DOUBLE_TAP_MS,
@@ -15,6 +16,7 @@ import {
   unsoften,
   zoomAround,
   type Limits,
+  type Modifiers,
   type Motion,
   type PanZoomHost,
   type Point,
@@ -46,6 +48,8 @@ function view(options: { limits?: Limits | null; reduce?: boolean; doubleTap?: b
   let queued: ((now: number) => void) | null = null;
   let now = 0;
   const taps: Point[] = [];
+  /** The arguments of every call of the host's tap, as it was given them */
+  const tapCalls: unknown[][] = [];
   const undone: Point[] = [];
   const doubles: Point[] = [];
   const grabs: string[] = [];
@@ -56,7 +60,9 @@ function view(options: { limits?: Limits | null; reduce?: boolean; doubleTap?: b
     },
     limits: () => (options.limits === undefined ? limits : options.limits),
     size: () => size,
-    tap: (p) => {
+    tap: (...args: unknown[]) => {
+      const p = args[0] as Point;
+      tapCalls.push(args);
       taps.push(p);
       return () => undone.push(p);
     },
@@ -77,6 +83,7 @@ function view(options: { limits?: Limits | null; reduce?: boolean; doubleTap?: b
   return {
     pz,
     taps,
+    tapCalls,
     undone,
     doubles,
     grabs,
@@ -388,6 +395,41 @@ describe('tap or drag', () => {
     v.pz.cancel(9);
     v.pz.up(9, { x: 0, y: 0 }, 0);
     v.pz.move(9, { x: 0, y: 0 }, 0);
+  });
+});
+
+describe('Shift and Ctrl on a tap', () => {
+  const keys = (shift: boolean, ctrl: boolean): Modifiers => ({ shift, ctrl });
+
+  it('are handed to the host with the tap – only where one is held', () => {
+    const v = view();
+    v.pz.down(1, { x: 100, y: 100 }, 0, 'mouse');
+    v.pz.up(1, { x: 100, y: 100 }, 80, keys(true, false));
+    expect(v.tapCalls).toEqual([[{ x: 100, y: 100 }, 'mouse', { shift: true, ctrl: false }]]);
+    // a tap with no key held is called exactly as it always was: two arguments, nothing more
+    const plain = view();
+    plain.pz.down(1, { x: 100, y: 100 }, 0, 'touch');
+    plain.pz.up(1, { x: 100, y: 100 }, 80);
+    expect(plain.tapCalls).toEqual([[{ x: 100, y: 100 }, 'touch']]);
+    expect(plain.tapCalls[0]).toHaveLength(2);
+  });
+
+  it('change nothing else: a pan still pans and a pinch still pinches', () => {
+    const v = view();
+    v.pz.down(1, { x: 100, y: 100 }, 0, 'mouse');
+    v.pz.move(1, { x: 160, y: 130 }, 30);
+    v.pz.move(1, { x: 200, y: 140 }, 60);
+    v.pz.up(1, { x: 200, y: 140 }, 90, keys(true, true));
+    expect(v.taps).toEqual([]);
+    expect(v.grabs).toEqual(['pan']);
+  });
+
+  it('say that either key counts – and neither does not', () => {
+    expect(additive(undefined)).toBe(false);
+    expect(additive(keys(false, false))).toBe(false);
+    expect(additive(keys(true, false))).toBe(true);
+    expect(additive(keys(false, true))).toBe(true);
+    expect(additive(keys(true, true))).toBe(true);
   });
 });
 

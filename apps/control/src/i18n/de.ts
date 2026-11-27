@@ -2586,7 +2586,10 @@ export const de = {
       invert: 'Auswahl umkehren',
       multi: 'Mehrfachauswahl',
       multiHint:
-        'Ein Tipp auf ein Teil nimmt es in die Auswahl oder wieder heraus. Ein Tipp daneben lässt die Auswahl, wie sie ist.',
+        'Ein Tipp auf ein Teil nimmt es in die Auswahl oder wieder heraus. Ein Tipp daneben lässt die Auswahl, wie sie ist. Am Rechner geht das auch ohne diesen Schalter: Umschalt- oder Strg-Taste halten und tippen.',
+      marquee: 'Rahmen aufziehen',
+      marqueeHint:
+        'Über den Tisch ziehen: Beim Loslassen kommen alle Teile in die Auswahl, die der Rahmen berührt. Mit „Mehrfachauswahl“ oder gehaltener Umschalt-/Strg-Taste kommen sie zur Auswahl dazu, sonst ersetzen sie sie. Dabei wird nichts verschoben. Die Ansicht verschieben und zoomen: zwei Finger oder das Mausrad.',
       parts: '{n} Teile',
       partsOf: '{n} Teile, {m} Konturen',
       groupOf: 'Gruppe aus {m} Konturen',
@@ -2649,6 +2652,16 @@ export const de = {
         },
       },
     },
+    hide: {
+      hide: 'Teil ausblenden',
+      hideOf: 'Teil {n} ausblenden',
+      showOf: 'Teil {n} einblenden',
+      state: 'ausgeblendet',
+      showAll: 'Alle einblenden',
+      note: 'Ausgeblendete Teile werden nicht gefräst, lassen sich auf dem Tisch nicht antippen und fehlen bei „Alles auswählen“ und beim Ausrichten. In der Liste bleiben sie.',
+      allHidden: 'Alle Teile sind ausgeblendet – es gibt nichts zu fräsen.',
+      noTabs: 'Ein ausgeblendetes Teil hat keine Stege auf dem Tisch – erst einblenden.',
+    },
     group: {
       group: 'Gruppieren',
       ungroup: 'Gruppierung aufheben',
@@ -2708,6 +2721,8 @@ export const de = {
     tabZero: 'Anzahl 0 – das Teil wird nicht gehalten.',
     tabsOpenOf: 'Stege von Teil {n} einstellen',
     tabsOpen: 'Stege einstellen',
+    tabsCloseOf: 'Haltestege von Teil {n} schließen',
+    tabsClose: 'Schließen',
     tabTooMany:
       'Zu viele Konturen für das Setzen von Hand: höchstens {max} Stege. Die Stege bleiben automatisch.',
     tabNote:
@@ -3713,6 +3728,8 @@ export const de = {
       camCopy: 'Kopieren und einfügen',
       camAll: 'Alles auswählen',
       camDeselect: 'Auswahl loslassen',
+      camTapAdd: 'Teil in die Auswahl nehmen oder herausnehmen (ohne „Mehrfachauswahl“)',
+      camBandAdd: 'Rahmen aufziehen: zur Auswahl hinzufügen',
       jogXY: 'X und Y fahren',
       jogZ: 'Z heben und senken',
       jogStop: 'Fahrt anhalten',
@@ -3731,6 +3748,8 @@ export const de = {
       space: 'Leertaste',
       pageDown: 'Bild ↓',
       wheel: 'Mausrad (Taste gehalten)',
+      tap: 'Tippen',
+      drag: 'Ziehen',
     },
     // What else a function is found by: other names, wrong names, jargon.
     words: {
@@ -3861,7 +3880,13 @@ export const de = {
       camUndo:
         'rückgängig, zurück, undo, wiederholen, redo, letzter schritt zurück, versehentlich gelöscht',
       camMulti:
-        'mehrfachauswahl, mehrere auswählen, mehrere teile, mehrfach, auswahl erweitern, mehrere markieren, mehrere teile anfassen, mehrere antippen, multi select, shift, umschalt, illustrator',
+        'mehrfachauswahl, mehrere auswählen, mehrere teile, mehrfach, auswahl erweitern, mehrere markieren, mehrere teile anfassen, mehrere antippen, multi select, shift, umschalt, umschalt tipp, strg tipp, ctrl klick, shift klick, illustrator',
+      camMarquee:
+        'rahmen aufziehen, auswahlrahmen, rechteck aufziehen, gummiband, lasso, mehrere mit einem zug, über mehrere teile ziehen, marquee, rubber band, rahmen, box select',
+      camHide:
+        'teil ausblenden, ausblenden, auge, augensymbol, verstecken, unsichtbar, nicht fräsen, teil weglassen, sichtbarkeit, hide, eye, layer aus',
+      camShowAll:
+        'alle einblenden, einblenden, wieder zeigen, alles sichtbar, ausgeblendete teile, auge, verstecktes zeigen, show all, unhide',
       camSelectAll:
         'alles auswählen, alles markieren, alle teile, ganze zeichnung, select all, strg a, ctrl a, alles anfassen',
       camInvert:

@@ -707,6 +707,44 @@
   cursor: pointer;
 }
 
+/* A hidden part: its row is set apart – the way the part is drawn on the table, dashed and without the fill – but
+   as tall as ever, and nothing in it is faded: half-transparent text and controls fall below the contrast of
+   DESIGN.md §7 (text 7:1, controls 4.5:1; measured at 0.7 they did). The state is the word and the eye-off icon. */
+.cam-row.hidden-part {
+  border-style: dashed;
+  border-color: var(--input);
+  background: transparent;
+}
+
+/* Selected, it keeps the look of a selected row: the outline and the fill of the selection */
+.cam-row.hidden-part.selected {
+  border-color: var(--ring);
+  background: var(--input);
+}
+
+/* The word beside the eye keeps its place: the name gives way to it (one line, cut short) rather than wrapping */
+.cam-row.hidden-part .cam-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The word beside the eye of a hidden part: the state is never the look of the row alone. The plain text colour –
+   the muted one is 3.6:1 on the fill of a selected row, and this word is what says the state. */
+.cam-state {
+  flex: none;
+  font-size: var(--text-sm);
+  color: var(--foreground);
+}
+
+/* Below the list: what the eyes have done, and the way back */
+.cam-hidden {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
 /* The name of a row is the way to select it alone */
 .cam-name {
   flex: 1;
@@ -1940,6 +1978,15 @@
   gap: 0.5rem;
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
+}
+
+/* Whose panel it is, and the way to close it: a target of its own, never squeezed */
+.cam-tabs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
 }
 
 .cam-tabs-fields {

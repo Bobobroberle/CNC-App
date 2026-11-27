@@ -2,7 +2,7 @@
 
 Die lebende Fassung zum Abhaken ist die Artifact-Seite **LowRider Ideenliste** (Adresse und Pflege: CLAUDE.md, Abschnitt „Merkliste“). Diese Datei ist der Stand im Projekt, erzeugt aus `docs/merkliste.katalog.mjs` mit `node scripts/merkliste.mjs md`. ★ = will ich haben, ✓ = erledigt, „in Arbeit“ = wird gerade gebaut. Ältere Ausführungen zu den Ideen: [ideen.md](ideen.md).
 
-24 von 159 erledigt.
+28 von 160 erledigt.
 
 ## Scan & Kamera
 
@@ -51,15 +51,15 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 
 ### Auswählen & Anordnen
 
-- [x] **Mehrfachauswahl** (kleiner Schritt) – Schalter „Mehrfachauswahl“: ein Tipp auf dem Tisch nimmt ein Teil in die Auswahl oder heraus, ein Tipp daneben lässt sie, wie sie ist; ein Häkchen vor jeder Zeile der Liste tut dasselbe; „Alles auswählen“ und „Auswahl umkehren“ stehen bei der Auswahl. Umschalt/Strg+Tipp und Rahmen aufziehen sind nicht gebaut (cam-sel8, cam-sel9).
+- [x] **Mehrfachauswahl** (kleiner Schritt) – Schalter „Mehrfachauswahl“: ein Tipp auf dem Tisch nimmt ein Teil in die Auswahl oder heraus, ein Tipp daneben lässt sie, wie sie ist; ein Häkchen vor jeder Zeile der Liste tut dasselbe; „Alles auswählen“ und „Auswahl umkehren“ stehen bei der Auswahl. Umschalt/Strg+Tipp und Rahmen aufziehen: cam-sel8, cam-sel9.
 - [x] **Ausrichten** (kleiner Schritt) – Sechs Knöpfe: links, waagerecht mittig, rechts, oben, senkrecht mittig, unten – an der Auswahl (das äußerste Teil bleibt); eine Gruppe zählt als ein Teil. Am Rohteil oder am Tisch ausrichten ist nicht gebaut (cam-sel11, cam-sel12).
 - [x] **Gleichmäßig verteilen** (kleiner Schritt) – Waagerecht und senkrecht, mit gleichen Abständen oder gleichen Mitten; ab drei Teilen, die beiden äußeren bleiben stehen.
 - [x] **Gruppieren und auflösen** (kleiner Schritt) – Gruppieren verbindet die gewählten Teile zu einer Gruppe, die sich gemeinsam wählen, schieben, drehen, skalieren und ausrichten lässt; „Gruppierung aufheben“ macht aus jeder Kontur wieder ein eigenes Teil (so lassen sich auch die einzelnen Konturen einer DXF- oder SVG-Datei wählen).
 - [ ] **Teile sperren** (kleiner Schritt) – Ein gesperrtes Teil lässt sich nicht versehentlich schieben.
-- [ ] ★ **Teile ausblenden** (kleiner Schritt, in Arbeit) – Auge je Teil: ausgeblendete Teile werden nicht gefräst und stören nicht beim Anordnen.
+- [x] ★ **Teile ausblenden** (kleiner Schritt) – Auge je Teil: ausgeblendete Teile werden nicht gefräst und stören nicht beim Anordnen. Gebaut: Das Programm erwähnt ein ausgeblendetes Teil nicht (eingeblendet ist es wieder dasselbe Programm, Byte für Byte); auf dem Tisch steht es gestrichelt und blass, lässt sich dort nicht antippen und fehlt bei „Alles auswählen“, „Auswahl umkehren“ und beim Ausrichten; in der Liste bleibt es, abgeblendet, und lässt sich dort wählen und wieder einblenden („Alle einblenden“ steht unter der Liste). Eine Gruppe ist starr: Ein ausgeblendetes Teil einer Gruppe mit sichtbaren Teilen rückt mit. Die Projektdatei merkt es sich (optionales „hidden“, Version 1). Kein ausgeblendetes Teil schlägt Passlöcher vor oder zählt bei den Hinweisen zum Wenden.
 - [ ] **Gleiche Art auswählen** (kleiner Schritt) – Alle Bohrungen, alle Taschen oder alle Teile mit demselben Werkzeug mit einem Tipp wählen.
-- [ ] ★ **Umschalt/Strg+Tipp** (kleiner Schritt, in Arbeit) – Am Rechner mit Umschalt oder Strg auf ein Teil tippen nimmt es in die Auswahl, ohne den Schalter „Mehrfachauswahl“ anzufassen. Braucht die Modifier-Tasten in der Gestenschicht (usePanZoom).
-- [ ] ★ **Rahmen aufziehen** (kleiner Schritt, in Arbeit) – Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt.
+- [x] ★ **Umschalt/Strg+Tipp** (kleiner Schritt) – Am Rechner mit Umschalt oder Strg (Cmd) auf ein Teil tippen nimmt es in die Auswahl oder heraus, ohne den Schalter „Mehrfachauswahl“ anzufassen; Umschalt/Strg und Ziehen auf einem Teil der Auswahl nimmt die ganze Auswahl mit. Gebaut: Die Gestenschicht gibt die Tasten an Tippen und Greifen weiter, aber nur wo eine gehalten ist; der Schalter selbst wird nie umgelegt. Die Tastenliste führt es. Das Mausrad mit Strg (Pinch) bleibt Zoom.
+- [x] ★ **Rahmen aufziehen** (kleiner Schritt) – Mit Finger oder Maus einen Rahmen über mehrere Teile ziehen; alles, was er berührt, wird gewählt. Gebaut als Schalter „Rahmen aufziehen“: Beim Loslassen kommen die Gruppen aller sichtbaren Teile in die Auswahl, deren eigener Umriss den Rahmen berührt (Passlöcher und ausgeblendete Teile nie); mit „Mehrfachauswahl“ oder gehaltener Umschalt-/Strg-Taste kommen sie dazu, sonst ersetzen sie die Auswahl. Ein zweiter Finger und ein verlorener Finger nehmen nichts in die Auswahl (am iPad-Lauf mit echten Berührungen geprüft). Solange der Schalter an ist, zieht ein Finger oder die Maus nie ein Teil, sondern immer einen Rahmen; die Ansicht verschieben geht dann mit zwei Fingern, das Doppeltippen zum Einpassen fällt weg („Einpassen“ bleibt).
 - [ ] **Tasten für Gruppieren und Ausrichten** (kleiner Schritt) – Strg+G gruppiert, Strg+Umschalt+G löst auf, Tasten zum Ausrichten – jede mit Zeile in der Tastenliste und in der Schnellsuche.
 - [ ] **Am Rohteil ausrichten** (kleiner Schritt) – Links, mittig, rechts … am eingegebenen Rohteil statt an der Auswahl, etwa zum Mittigsetzen auf der Platte. Der Speicher kennt das Rohteil schon (enteredStock), es fehlt die Wahl in der Oberfläche.
 - [ ] **Am Tisch ausrichten** (kleiner Schritt) – Dasselbe am Arbeitsbereich der Maschine. Der Zeichen-Speicher kennt die Tischgröße noch nicht; sie wird nur im Tischbild aus dem Maschinenprofil abgeleitet.
@@ -70,7 +70,8 @@ _Wunschliste für den Zeichenbereich. ★ = will ich haben, ✓ = gebaut._
 - [ ] ★ **Automatisch verschachteln (Nesting)** (größeres Projekt, in Arbeit) – Teile so auf dem Rohteil verteilen, dass möglichst wenig Material übrig bleibt.
 - [ ] ★ **Reihenfolge der Bearbeitung von Hand** (kleiner Schritt, in Arbeit) – Teile in der Liste ziehen, um die Fräsreihenfolge festzulegen (statt automatisch innen vor außen).
 - [ ] **Beziehungen festhalten** (größeres Projekt) – Teile an Regeln binden, die beim Ändern bestehen bleiben: ein Loch bleibt mittig im Teil, ein Abstand bleibt 10 mm, zwei Teile bleiben bündig, auch wenn eines größer wird (wie Einschränkungen in CAD).
-- [ ] ★ **Haltestege-Feld schiebt die Liste beim Abhaken** (kleiner Schritt, in Arbeit) – Das Feld der Haltestege klappt unter dem ersten abgehakten Teil auf und schiebt die Zeilen darunter um etwa 380 px. Lösung: das Feld erst auf Wunsch öffnen oder aus der Zeile herausnehmen.
+- [x] ★ **Haltestege-Feld schiebt die Liste beim Abhaken** (kleiner Schritt) – Das Feld der Haltestege klappte unter dem ersten abgehakten Teil auf und schob die Zeilen darunter um etwa 380 px. Behoben: Das Feld öffnet nur noch auf Wunsch – mit „Stege einstellen“ in jeder Zeile, die Stege hat (ob sie gewählt ist oder nicht), mit dem Häkchen „Haltestege“ oder mit „Stege setzen“ – und schließt mit „Schließen“. Auswählen, Abhaken, Antippen auf dem Tisch, Zeichnen und die Mehrfachauswahl ändern keine Zeilenhöhe mehr (im Browser an drei Zeilen gemessen, jede an einem Platz getippt, der vor dem ersten Haken berechnet war). Dafür wird jede Zeile mit Stegen um den Knopf höher.
+- [ ] **Rahmen: Treffer schon beim Ziehen zeigen** (kleiner Schritt) – Während der Rahmen aufgezogen wird, die Teile hervorheben, die er beim Loslassen nimmt – bisher ändert sich die Auswahl erst beim Loslassen und der Rahmen ist die einzige Rückmeldung.
 
 ### Zeichnen & Formen
 

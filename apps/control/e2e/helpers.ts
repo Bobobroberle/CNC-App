@@ -492,6 +492,31 @@ export async function drawShape(
   }
 }
 
+/**
+ * Three plates in the drawing workspace, each its own thing, by hand (x from, y from, x to, y to):
+ *   1: 0 0 40 20      2: 100 40 130 70      3: 60 100 110 110
+ * together 0 0 130 110. Returns the workspace.
+ */
+export async function drawThreePlates(page: Page) {
+  await page.getByRole('button', { name: 'Zeichnen / DXF' }).click();
+  const cam = page.getByTestId('cam-card');
+  await drawShape(page, 'Rechteck', { 'Breite (mm)': '40', 'Höhe (mm)': '20' });
+  await drawShape(page, 'Rechteck', {
+    'Breite (mm)': '30',
+    'Höhe (mm)': '30',
+    'X links (mm)': '100',
+    'Y unten (mm)': '40',
+  });
+  await drawShape(page, 'Rechteck', {
+    'Breite (mm)': '50',
+    'Höhe (mm)': '10',
+    'X links (mm)': '60',
+    'Y unten (mm)': '100',
+  });
+  await expect(cam.getByTestId('cam-contours').getByRole('listitem')).toHaveCount(3);
+  return cam;
+}
+
 /** Whether the stage view itself (not a panel or an inset lying on it) is under a place on the page. */
 export const onStage = (page: Page, spot: { x: number; y: number }) =>
   page.evaluate(({ x, y }) => {

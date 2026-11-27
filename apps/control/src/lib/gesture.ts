@@ -64,6 +64,22 @@ const SCALE_GIVE = 0.5;
 
 export type PointerKind = keyof typeof TAP_SLOP;
 
+/**
+ * The keys held while a finger or the mouse goes down or lifts, on a computer: Shift, and Ctrl or Cmd (`ctrl`
+ * is either). Only passed on when one of them is held – a host that is given none behaves as it always did.
+ */
+export interface Modifiers {
+  shift: boolean;
+  ctrl: boolean;
+}
+
+/**
+ * Whether Shift or Ctrl is held: the computer's way to what a touch screen has a switch for, adding to what
+ * is selected without "Mehrfachauswahl". (The mouse wheel's Ctrl – a trackpad pinch – is no part of this.)
+ */
+export const additive = (modifiers?: Modifiers): boolean =>
+  modifiers !== undefined && (modifiers.shift || modifiers.ctrl);
+
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const middle = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -278,8 +294,11 @@ export interface PanZoomHost {
   write(t: Transform): void;
   limits(): Limits | null;
   size(): Size;
-  /** A short tap. May return how to take it back if it turns out to start a double tap. */
-  tap?(p: Point, kind: PointerKind): void | (() => void);
+  /**
+   * A short tap. May return how to take it back if it turns out to start a double tap. `modifiers` is there
+   * only when Shift or Ctrl was held as the finger lifted.
+   */
+  tap?(p: Point, kind: PointerKind, modifiers?: Modifiers): void | (() => void);
   doubleTap?(p: Point): void;
   /** The user took the view: `pan` with one finger, `zoom` with two or the wheel */
   grabbed?(how: 'pan' | 'zoom'): void;
@@ -397,7 +416,7 @@ export class PanZoom {
     this.show();
   }
 
-  up(id: number, p: Point, time: number): void {
+  up(id: number, p: Point, time: number, modifiers?: Modifiers): void {
     const finger = this.fingers.get(id);
     if (!finger) return;
     this.fingers.delete(id);
@@ -409,7 +428,7 @@ export class PanZoom {
       return;
     }
     if (!this.moved && !this.pinched && time - finger.at < TAP_MS) {
-      this.tapped(p, time, finger.kind);
+      this.tapped(p, time, finger.kind, modifiers);
       this.release({ x: 0, y: 0 });
       return;
     }
@@ -453,7 +472,7 @@ export class PanZoom {
     this.glide.to(1, { config: SPRINGS.default });
   }
 
-  private tapped(p: Point, time: number, kind: PointerKind): void {
+  private tapped(p: Point, time: number, kind: PointerKind, modifiers?: Modifiers): void {
     const last = this.lastTap;
     if (last && time - last.at < DOUBLE_TAP_MS && distance(p, last.p) < DOUBLE_TAP_SLOP) {
       // The first tap was the start of a double tap, not a point for a tool.
@@ -464,7 +483,9 @@ export class PanZoom {
         return;
       }
     }
-    this.lastTap = { p, at: time, undo: this.host.tap?.(p, kind) };
+    // (a third argument only where there is something to say: a host written without it is called as ever)
+    const undo = modifiers ? this.host.tap?.(p, kind, modifiers) : this.host.tap?.(p, kind);
+    this.lastTap = { p, at: time, undo };
   }
 
   /** `raw` for what is on screen, with the fingers that are down now. */

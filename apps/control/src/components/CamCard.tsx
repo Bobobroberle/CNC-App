@@ -1,5 +1,5 @@
 import { reliefCorners, type OperationKind, type Relief, type Side } from '@lowrider/cam';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { t } from '../i18n';
 import { camKey, typingInto } from '../lib/camKeys';
 import { isSelected, partsOf } from '../lib/camItems';
@@ -88,34 +88,31 @@ const hasDirection = (item: CamItem) =>
 const DIRECTIONS = ['job', 'climb', 'conventional'] as const;
 
 /**
- * One thing of the drawing in the list: what it is, how it is cut and how deep. Of the things of one
- * selected group (a file's contours come in together) only one row, `panel`, holds the tab panel; the
- * others, where `several` have tabs, have a button that moves it to them.
+ * One thing of the drawing in the list: what it is, how it is cut and how deep. A row that has tabs has the
+ * button "Stege einstellen" – always, selected or not, so that selecting never changes a row's height; the panel
+ * of its tabs opens only on demand (that button, the box of the tabs ticked on, "Stege setzen") and only
+ * for a thing that is the one selected.
  */
-function ItemRow({
-  item,
-  n,
-  panel,
-  several,
-  onPanel,
-}: {
-  item: CamItem;
-  n: number;
-  panel: boolean;
-  several: boolean;
-  onPanel: () => void;
-}) {
+function ItemRow({ item, n }: { item: CamItem; n: number }) {
   const selected = useCam((s) => isSelected(item, s.selected));
   // A tap on the one selected part lets go of it; from "everything" it picks this part.
   const alone = useCam((s) => s.selected === item.group);
+  // The panel of this row's tabs is open (and then it is the one selected: the store ends it otherwise)
+  const open = useCam((s) => s.tabsOpen === item.id || s.placing === item.id);
+  const panel = alone && open && item.tabs && through(item.kind);
+  // The eye: a hidden part is not cut and out of reach on the table; its row is set apart (dashed, a word), never faded and never smaller
+  const hidden = item.hidden === true;
   const settings = useCam((s) => s.settings);
   const twoSided = useCam((s) => s.project?.twoSided != null);
   const sided = twoSided && item.kind !== 'none';
+  // (what the cards above the list make of any change of the selection – all of it, not only this row's box)
+  const selection = useCam((s) => s.selected);
   const cam = useCam.getState();
   const usual = item.kind === 'on' ? settings.engraveDepth : settings.depth;
   // The box is tapped where it is, again and again. What grows or shrinks above it with the selection (the card
-  // of the selection, the align panel) must not take the row from under the finger: after the change it goes
-  // back to where it was on the screen. Measured, not guessed – no browser keeps it (Safari has no scroll anchoring).
+  // of the selection, the align panel) or with the eye (a part of a set hidden takes the align panel away, shown
+  // it brings it back) must not take the row from under the finger: after the change it goes back to where it
+  // was on the screen. Measured, not guessed – no browser keeps it (Safari has no scroll anchoring).
   const head = useRef<HTMLDivElement>(null);
   const was = useRef<number | null>(null);
   useLayoutEffect(() => {
@@ -128,15 +125,23 @@ function ItemRow({
     // Assigned, not `scrollTo({ behavior: 'instant' })`: an older Safari knows only 'auto' and 'smooth' there and
     // throws – and nothing in the app's styles makes a scroll smooth, so the assignment is at once
     if (Math.abs(by) > 0.5) scroller.scrollTop += by;
-  }, [selected]);
-  const pick = () => {
+    // (the selection may stay as it is while the cards above change: the eye alone takes a part out of what is
+    // aligned, so this row's own `hidden` is a reason to look again)
+  }, [selection, hidden]);
+  // Whatever in this row changes what the cards above the list make of it – its box, its name, "Stege einstellen",
+  // the tabs box, its eye – is held in place: the card of the selection becomes the whole one, or loses its align
+  // panel, and the row would be taken from under the finger.
+  const hold = () => {
     was.current = head.current?.getBoundingClientRect().top ?? null;
     // A tap that changes nothing here must not leave the mark for the next change
     requestAnimationFrame(() => (was.current = null));
+  };
+  const pick = () => {
+    hold();
     cam.toggleSelect(item.group);
   };
   return (
-    <li className={`cam-row${selected ? ' selected' : ''}`}>
+    <li className={`cam-row${selected ? ' selected' : ''}${hidden ? ' hidden-part' : ''}`}>
       <div className="cam-head" ref={head}>
         {/* Takes the part's group into the selection or out of it – with or without "Mehrfachauswahl" */}
         <Label className="cam-pick" data-testid="cam-pick">
@@ -146,10 +151,28 @@ function ItemRow({
           type="button"
           className="cam-name"
           aria-pressed={selected}
-          onClick={() => cam.select(alone ? null : item.group)}
+          onClick={() => {
+            hold();
+            cam.select(alone ? null : item.group);
+          }}
         >
           {n}. {describeItem(item)}
         </button>
+        {hidden ? <span className="cam-state">{t('cam.hide.state')}</span> : null}
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={t(hidden ? 'cam.hide.showOf' : 'cam.hide.hideOf', { n })}
+          title={t(hidden ? 'cam.hide.showOf' : 'cam.hide.hideOf', { n })}
+          data-find="cam-hide"
+          data-testid="cam-eye"
+          onClick={() => {
+            hold();
+            cam.setHidden(item.id, !hidden);
+          }}
+        >
+          <Icon name={hidden ? 'eyeOff' : 'eye'} size={22} />
+        </Button>
       </div>
       <NativeSelect
         aria-label={t('cam.operation', { n })}
@@ -205,23 +228,28 @@ function ItemRow({
               <Checkbox
                 checked={item.tabs}
                 onCheckedChange={(checked) => {
+                  hold();
                   cam.setItem(item.id, { tabs: checked });
                   // The tabs are shown on the table with the part selected: that is where they are set
-                  if (checked) {
-                    cam.select(item.group);
-                    onPanel();
-                  }
+                  if (checked) cam.openTabs(item.id);
                 }}
               />
               <span>{t('cam.tabs')}</span>
             </Label>
           ) : null}
-          {alone && several && !panel && item.tabs && through(item.kind) ? (
+          {item.tabs && through(item.kind) && !panel ? (
             <Button
               variant="outline"
               aria-label={t('cam.tabsOpenOf', { n })}
+              data-find="cam-tabs-open"
               data-testid="cam-tabs-open"
-              onClick={onPanel}
+              // (a hidden part has no tabs on the table: its panel would close at once)
+              disabled={hidden}
+              reason={t('cam.hide.noTabs')}
+              onClick={() => {
+                hold();
+                cam.openTabs(item.id);
+              }}
             >
               {t('cam.tabsOpen')}
             </Button>
@@ -262,7 +290,7 @@ function ItemRow({
           ) : null}
         </div>
       ) : null}
-      {alone && panel && item.tabs && through(item.kind) ? <CamTabs item={item} n={n} /> : null}
+      {panel ? <CamTabs item={item} n={n} /> : null}
     </li>
   );
 }
@@ -319,7 +347,8 @@ function Drawing() {
   if (!project) return null;
   // Another program lies on the table (this drawing's job, aligned; a file opened since): the
   // drawing changes nothing there – one tap puts it there, and not while a job is under way.
-  const other = fileName !== null && !ownsTable(fileName) && partsOf(project.items).length > 0;
+  const other =
+    fileName !== null && !ownsTable(fileName) && partsOf(project.items).some((i) => !i.hidden);
   // The drawing's own program lies there, but the drawing has moved on while a job was under way.
   const behind = ahead && !other;
   const why = other
@@ -386,9 +415,6 @@ export function CamCard() {
   const running = useJobUnderWay();
   const canUndo = useCam((s) => s.past.length > 0);
   const canRedo = useCam((s) => s.future.length > 0);
-  const group = useCam((s) => s.selected);
-  // Of the things of the selected group, the one whose tab panel is open (the first until another is asked for)
-  const [tabRow, setTabRow] = useState<number | null>(null);
   if (!project) return null;
   // A series on scattered blanks takes the place of the drawing's cards while it is put together.
   if (seriesOpen) return <SeriesCard />;
@@ -405,11 +431,9 @@ export function CamCard() {
   // The drawing's own program lies on the table (not the aligned back, not a file opened since).
   const made = ownsTable(fileName);
   const parts = partsOf(project.items);
-  const tabbed =
-    typeof group === 'number'
-      ? parts.filter((i) => i.group === group && i.tabs && through(i.kind))
-      : [];
-  const panelId = (tabbed.find((i) => i.id === tabRow) ?? tabbed[0])?.id ?? null;
+  // What is cut: the parts the eye has not hidden
+  const shown = parts.filter((i) => !i.hidden);
+  const hiddenCount = parts.length - shown.length;
   const relieved = parts.some((i) => i.relief !== null && hasCorners(i));
   const backText = parts.some((i) => i.side === 'back' && i.text !== undefined);
 
@@ -455,21 +479,25 @@ export function CamCard() {
           <>
             <ul className="cam-list" data-testid="cam-contours">
               {parts.map((item, i) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  n={i + 1}
-                  panel={item.id === panelId}
-                  several={tabbed.length > 1}
-                  onPanel={() => {
-                    // Putting tabs on the table belongs to the one panel that is open
-                    const { placing, setPlacing } = useCam.getState();
-                    if (placing !== null && placing !== item.id) setPlacing(null);
-                    setTabRow(item.id);
-                  }}
-                />
+                <ItemRow key={item.id} item={item} n={i + 1} />
               ))}
             </ul>
+            {/* Below the list, never above it: what the eye just tapped must not move away from the finger */}
+            {hiddenCount > 0 ? (
+              <div className="cam-hidden" data-testid="cam-hidden">
+                <p className="text-muted-foreground text-sm">
+                  {shown.length === 0 ? t('cam.hide.allHidden') : t('cam.hide.note')}
+                </p>
+                <Button
+                  variant="outline"
+                  data-find="cam-show-all"
+                  data-testid="cam-show-all"
+                  onClick={cam.showAll}
+                >
+                  {t('cam.hide.showAll')}
+                </Button>
+              </div>
+            ) : null}
             {relieved ? (
               <p className="text-muted-foreground text-sm">{t('cam.reliefHint')}</p>
             ) : null}
@@ -627,8 +655,14 @@ export function CamCard() {
         ) : null}
         {both ? <p className="text-muted-foreground text-sm">{t('flip.twoPrograms')}</p> : null}
         <Button
-          reason={running ? t('cam.jobRuns') : 'missing'}
-          disabled={parts.length === 0 || flipNotes.some(blocksFlip) || running}
+          reason={
+            running
+              ? t('cam.jobRuns')
+              : parts.length > 0 && shown.length === 0
+                ? t('cam.hide.allHidden')
+                : 'missing'
+          }
+          disabled={shown.length === 0 || flipNotes.some(blocksFlip) || running}
           data-testid="cam-hand-over"
           onClick={() => {
             // With the job made, the next step is the job itself.
@@ -677,7 +711,7 @@ export function CamCard() {
           <Button
             reason="missing"
             variant="outline"
-            disabled={!parts.some((i) => i.kind !== 'none') || project.twoSided !== null}
+            disabled={!shown.some((i) => i.kind !== 'none') || project.twoSided !== null}
             onClick={() => {
               cam.select(null);
               useSeries.getState().begin();
@@ -687,7 +721,7 @@ export function CamCard() {
           </Button>
           {project.twoSided !== null ? (
             <p className="text-muted-foreground text-sm">{t('series.notTwoSided')}</p>
-          ) : !parts.some((i) => i.kind !== 'none') ? (
+          ) : !shown.some((i) => i.kind !== 'none') ? (
             <p className="text-muted-foreground text-sm">{t('series.needsMotif')}</p>
           ) : null}
         </Card>

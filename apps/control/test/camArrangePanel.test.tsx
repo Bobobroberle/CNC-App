@@ -247,6 +247,74 @@ describe('the arranging tools of the drawing', () => {
     }
   });
 
+  it('holds the row for every tap of it that changes the selection – its name, "Stege einstellen", the tabs box', () => {
+    // jsdom has no layout: the row's place on the screen is whatever the selection above it makes of it
+    const rect = (top: number) =>
+      ({
+        top,
+        bottom: top + 48,
+        left: 0,
+        right: 48,
+        width: 48,
+        height: 48,
+        x: 0,
+        y: top,
+      }) as DOMRect;
+    let shift = 0;
+    const box = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('cam-head') ? rect(300 + shift) : rect(0);
+      });
+    let scrollTop = 1000;
+    const moved: number[] = [];
+    const body = document.createElement('div');
+    body.className = 'panel-body';
+    Object.defineProperty(body, 'scrollTop', {
+      get: () => scrollTop,
+      set: (v: number) => {
+        scrollTop = v;
+        moved.push(v);
+      },
+    });
+    document.body.append(body);
+    try {
+      render(<CamCard />, { container: body.appendChild(document.createElement('div')) });
+      // the cards above grow by `grows` as the selection changes: the row must be taken back by as much
+      const tap = (click: () => void, grows: number) => {
+        shift = 0;
+        const off = useCam.subscribe(() => {
+          shift = grows;
+        });
+        click();
+        off();
+      };
+      // its name from nothing selected: the card of the selection appears
+      tap(() => fireEvent.click(screen.getByRole('button', { name: /^2\. / })), 400);
+      expect(moved).toEqual([1400]);
+      // "Stege einstellen" of the row of a part that is one of a set: the set becomes this part alone, the align panel goes
+      act(() => cam().select([a, b]));
+      moved.length = 0;
+      tap(() => fireEvent.click(screen.getAllByTestId('cam-tabs-open')[0]!), -150);
+      expect(cam().selected).toBe(a);
+      expect(cam().tabsOpen).toBe(items()[0]!.id);
+      expect(moved).toEqual([1250]);
+      // the tabs box of a row that is not selected: ticked off and on, it selects the part and opens its panel
+      act(() => cam().select(null));
+      moved.length = 0;
+      const tabsBox = within(
+        screen.getAllByRole('listitem').filter((li) => li.classList.contains('cam-row'))[2]!,
+      ).getByRole('checkbox', { name: t('cam.tabs') });
+      tap(() => fireEvent.click(tabsBox), 0);
+      tap(() => fireEvent.click(tabsBox), 300);
+      expect(cam().selected).toBe(c);
+      expect(moved).toEqual([1550]);
+    } finally {
+      box.mockRestore();
+      body.remove();
+    }
+  });
+
   it('remembers whether the align panel was folded: it does not open again with every new selection', () => {
     useUi.getState().setDepth('camAlign', 'more');
     render(<CamCard />);

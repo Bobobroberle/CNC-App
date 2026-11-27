@@ -112,7 +112,7 @@ export function seriesMotif(): MotifPart[] {
   const { project, settings } = useCam.getState();
   if (!project) return [];
   return partsOf(project.items)
-    .filter((item) => item.kind !== 'none')
+    .filter((item) => item.kind !== 'none' && item.hidden !== true)
     .flatMap((item): MotifPart[] => {
       const text = item.textStyle ? { text: { ...item.textStyle, placement: item.placement } } : {};
       // Tabs put by hand stand at places of each contour: such a part is one part per contour

@@ -75,6 +75,7 @@ export type CommandIcon =
   | 'group'
   | 'ungroup'
   | 'select'
+  | 'eye'
   | 'play'
   | 'keyboard'
   | 'stop';
@@ -258,14 +259,20 @@ export const COMMANDS: readonly Command[] = [
   draw('projectOpen', 'cam.project.open', 'project-open'),
   draw('projectSave', 'cam.project.save', 'project-save'),
   draw('camHow', 'cam.steps.how', 'cam-how'),
-  draw('tabs', 'cam.tabs', 'cam-how'),
-  // The panel of a part's tabs shows with the part selected and its tabs on; else the card is the place
-  entry({ id: 'tabsPlace', title: 'cam.tabPlace', place: 'cam', anchor: ['cam-tabs', 'cam-how'] }),
+  // The tabs of a part: the panel is open on demand (the button "Stege einstellen" of the first row that has tabs
+  // opens it); where no part has tabs the card of the list is the place
+  entry({ id: 'tabs', title: 'cam.tabs', place: 'cam', anchor: ['cam-tabs-open', 'cam-how'] }),
+  entry({
+    id: 'tabsPlace',
+    title: 'cam.tabPlace',
+    place: 'cam',
+    anchor: ['cam-tabs', 'cam-tabs-open', 'cam-how'],
+  }),
   entry({
     id: 'tabsSpread',
     title: 'cam.tabSpread',
     place: 'cam',
-    anchor: ['cam-tabs', 'cam-how'],
+    anchor: ['cam-tabs', 'cam-tabs-open', 'cam-how'],
   }),
   draw('camTool', 'cam.tool', 'cam-tool', 'tool'),
   draw('camAdvanced', 'cam.advanced', 'cam-advanced'),
@@ -322,6 +329,29 @@ export const COMMANDS: readonly Command[] = [
     place: 'cam',
     anchor: ['cam-group', 'cam-multi', 'cam-draw'],
     icon: 'ungroup',
+  }),
+  // A frame drawn across the table, and the eye of a part: the switch and the eyes are only there with parts on
+  // the table – the chains end in the card that always is
+  entry({
+    id: 'camMarquee',
+    title: 'cam.arrange.marquee',
+    place: 'cam',
+    anchor: ['cam-marquee', 'cam-multi', 'cam-draw'],
+    icon: 'select',
+  }),
+  entry({
+    id: 'camHide',
+    title: 'cam.hide.hide',
+    place: 'cam',
+    anchor: ['cam-hide', 'cam-how'],
+    icon: 'eye',
+  }),
+  entry({
+    id: 'camShowAll',
+    title: 'cam.hide.showAll',
+    place: 'cam',
+    anchor: ['cam-show-all', 'cam-hide', 'cam-how'],
+    icon: 'eye',
   }),
   entry({ id: 'series', title: 'series.open', place: 'cam', anchor: 'series', needs: 'series' }),
 

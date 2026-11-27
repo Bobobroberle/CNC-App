@@ -90,7 +90,7 @@ entscheidet.
 - ✅ Zeichnen wie in einem Zeichenprogramm: ein Tipp legt die Form auf den Tisch, Griffe für Größe
   und Drehen, Maße des gewählten Teils als Zahlen, Rückgängig/Wiederholen, Tasten (Entf, Pfeile,
   Strg+Z/D/C/V). Formen und Text bleiben änderbar.
-- 🟡 Mehrere Teile einzeln zusammen auswählen (Umschalt+Tipp, Rahmen aufziehen); bisher: eines oder alles.
+- ✅ Mehrere Teile zusammen auswählen: Schalter „Mehrfachauswahl“, Umschalt/Strg+Tipp, Rahmen aufziehen, Häkchen je Zeile; dazu ausrichten, verteilen, gruppieren, Teile ausblenden.
 - 🟡 Fangen beim Schieben: an Kanten und Mitten anderer Teile, am Rohteil.
 - 🟡 Freie Linie / Vieleck zeichnen, Punkte einer geladenen Kontur verschieben.
 - ✅ Innenecken freischneiden (Dogbone, T-Bone), Schlichtzugabe, Reihenfolge innen vor außen.

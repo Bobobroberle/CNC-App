@@ -38,8 +38,9 @@ describe('the table of keys', () => {
       expect(hasKey(s.label), s.id).toBe(true);
       expect(SHORTCUT_GROUPS, s.id).toContain(s.group);
       expect(s.caps.length, s.id).toBeGreaterThan(0);
-      // The mouse wheel is no key: it counts only while its field in the jog panel is held.
-      if (s.id === 'jogWheel') expect(s.keys).toEqual([]);
+      // The mouse wheel is no key – it counts only while its field in the jog panel is held – and a tap or a drag
+      // with Shift or Ctrl held is read from the pointer event: such a row is marked `pointer` and has no key event
+      if (s.pointer) expect(s.keys, s.id).toEqual([]);
       else expect(s.keys.length, s.id).toBeGreaterThan(0);
     }
     for (const group of SHORTCUT_GROUPS) {
@@ -101,6 +102,32 @@ describe('the table of keys', () => {
     // Nothing the drawing reads is missing from the table.
     for (const s of scope('drawing')) {
       for (const spec of s.keys) expect(camKey(eventOf(spec)), s.id).not.toBeNull();
+    }
+  });
+
+  it('lists the taps and drags with a modifier as pointer rows – no key event, so no clash with a key', () => {
+    const pointer = SHORTCUTS.filter((s) => s.pointer).map((s) => s.id);
+    expect(pointer).toEqual(['camTapAdd', 'camBandAdd', 'jogWheel']);
+    for (const s of SHORTCUTS.filter((x) => x.pointer)) {
+      expect(s.keys, s.id).toEqual([]);
+      expect(s.runs, s.id).toBeUndefined();
+    }
+    // What the handlers read (`additive`: Shift, or Ctrl/Cmd) is what the rows say – each as its own way
+    for (const id of ['camTapAdd', 'camBandAdd']) {
+      const row = SHORTCUTS.find((s) => s.id === id)!;
+      expect(row.scope, id).toBe('drawing');
+      expect(
+        row.caps.map((way) => way[0]),
+        id,
+      ).toEqual(['shift', 'mod']);
+      expect(
+        row.caps.map((way) => way[1]),
+        id,
+      ).toEqual(id === 'camTapAdd' ? ['tap', 'tap'] : ['drag', 'drag']);
+    }
+    // the words for the caps exist in both languages
+    for (const cap of ['tap', 'drag']) {
+      expect(hasKey(`find.caps.${cap}`), cap).toBe(true);
     }
   });
 

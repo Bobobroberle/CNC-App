@@ -15,6 +15,8 @@ import {
   CircleIcon,
   CopyIcon,
   EllipsisIcon,
+  EyeIcon,
+  EyeOffIcon,
   FileTextIcon,
   FileUpIcon,
   GroupIcon,
@@ -90,6 +92,9 @@ const PATHS = {
   group: 'M3 5h6v6H3zM15 13h6v6h-6zM6 14v5h5M18 10V5h-5',
   ungroup: 'M3 5h6v6H3zM15 13h6v6h-6z',
   select: 'M4 4h3M10 4h4M17 4h3M4 20h3M10 20h4M17 20h3M4 4v16M20 4v16',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z',
+  eyeOff:
+    'M3 3l18 18M10.6 5.1A9.8 9.8 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-3 3.9M6.6 6.7A17 17 0 002 12s3.5 7 10 7a9.7 9.7 0 004.1-.9M9.9 9.9a3 3 0 004.2 4.2',
 } as const;
 
 export type IconName = keyof typeof PATHS;
@@ -135,6 +140,8 @@ const LUCIDE: Partial<Record<IconName, LucideIcon>> = {
   group: GroupIcon,
   ungroup: UngroupIcon,
   select: BoxSelectIcon,
+  eye: EyeIcon,
+  eyeOff: EyeOffIcon,
 };
 
 export function Icon({ name, size = 24 }: { name: IconName; size?: number }) {
