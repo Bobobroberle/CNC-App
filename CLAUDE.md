@@ -127,9 +127,23 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
     that follows a tool change** – `toolChange`: "Werkzeug gewechselt – Länge neu gemessen?") is
     pure in `lib/startChecks.ts`; the hold then opens `StartConfirm` instead of starting, and the
     start is a second hold in there (zero and Z once per job, a probe and a tool change every time:
-    `pendingWarnings`; `useStart` sets `toolChanged` where the part before this one had another tool –
-    only the SD route's part starts, the streamed "Job fortsetzen" is not a start and asks nothing, see the
-    Merkliste entry cam-path23). While a job
+    `pendingWarnings`; `useStart` sets `toolChanged` where the part before this one had another tool, and for
+    the FIRST part where the tool that was last STARTED in this job – `useRun.lastTool` `{ key, tool }`, set by
+    `startPart` the moment a part starts to run, kept by `nextPiece` and `reset` (a job given up between two parts
+    leaves its tool in the spindle), compared only with a part of the same job key – is another: the first part of
+    the next piece ("Nächstes Teil: gleicher Job") and the first part of a job started over ask, the first start of a
+    job (no `lastTool`), a job with one tool and a program loaded since (another key) do not; "Nächstes Teil" says
+    in its hint to mount the first tool again and measure it. **What is asked and what is not** (read in the code; the
+    first case probed in `startHook.test.ts`): the confirmations of §6.4 – zero, Z, probe, tool change – belong to the
+    start in the action bar and the start in the tool-change card (`requestStart`/`useStart`). The expert routes
+    under "Mehr Optionen"/"Alle Parameter" – the SD list (`SdCard`: it looks at errors in the part and at the travel,
+    not at the readiness list), "Programm starten" (`RunCard`, the streamed route) and "Ab Zeile fortsetzen"
+    (`ResumeCard`) – ask none of them and are locked only while a job waits between two parts (decision 32); a part
+    started from the SD list is not remembered in `lastTool`; `lastTool` lives in the page's memory and is compared only within one job, so after a reload of the page, or when another job was started in between, the first part of the next piece asks nothing. The streamed route holds at every `M6` of the program
+    (`breakAt`, the streamed tool-change card) but the card's "Job fortsetzen" is no start and asks nothing about the
+    length. **The sections flow is not covered:** every section is a program of its own under its own file name
+    (`sectionFileName`), so for `lastTool` it is another job and its first part asks nothing though the last tool of
+    the section before is in the spindle (pinned in `startHook.test.ts`). See the Merkliste entry cam-path23). While a job
     runs: figures in 48–72 px, `Override` (50–150 %, `clampOverride`; a slider never without ±
     and "100 %"), pause as the primary action, going on as a hold, abort through `AbortDialog`.
     At the end `useRun.summary` and "Nächstes Teil: gleicher Job" (`nextPiece` – it starts
@@ -293,8 +307,10 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   `invalid-json`, `wrong-format`, `newer-version`, `invalid-project`; non-finite numbers, duplicate ids, 2000 items / 400 000
   points; a name with control characters or over 120 characters – it goes into the program header and the file name –, ids that
   are no safe integers, a circle that is not where its polygon is, a back side without the two-sided state, a part deeper than
-  100 mm); the cutting settings are held to fixed ranges (`SETTING_RANGES`: stepdown ≥ 0.05, tabs ≤ 50 …) and **one outside is
-  left out, not refused** (what is set now stays); a sketch or text style that cannot be trusted is dropped (the item keeps its
+  500 mm (`MAX_DEPTH`); the 100 mm are the cutters' diameters in the file); the cutting settings are held to fixed ranges (`SETTING_RANGES`: stepdown ≥ 0.01, tabs ≤ 50 …)
+  and **one outside is left out, not refused** (what is set now stays; so is a stepdown that would make more than 2000 passes, and **the peck of a hole that
+  would – its depth (its own, else its colour's, else the drawing's) over its peck – make more than `MAX_PASSES` = 2000 passes: the hole is drilled in one go, as one with no peck is, and the
+  file says which hole, `dropped` `peck.<n>` with n the hole's number in the list; a file never hands the generator more passes than that – the store itself can still set such a peck live, which is how such a file gets saved**; a registration hole's peck is never read and is left as it is); a sketch or text style that cannot be trusted is dropped (the item keeps its
   contours); a cutter the workshop lacks stays the chosen one and is said, and so is one of the same id with another
   diameter (`toolDiameter` is in the file). Opening is **whole or not at all** (it catches what `generate` throws and puts
   everything back), replaces the drawing in one step of undo that carries the **name and the settings** too (`Snapshot.name`/
@@ -419,7 +435,9 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   **`planCutters(items, settings, tools, spindle, colors?)` (pure) is the one place that says which cutter each part is cut with – the part's own, else its colour's ("Colour groups" below), else the drawing's – and everything asks it:**
   `generate` (the program), `manualTabs`, the table's tab marks (`itemTabMarks(…, diameterOfItem(plan, item))` through `useCamCutters`), the helix range
   (`CamPath`), the nesting gap (the widest cutter), `insert`'s hole decision (`defaultOperations` with a diameter per contour – only where a part has a
-  cutter of its own; else the one number, as ever), the summary line, the series and the two-sided guards. A hidden part, a part that is "nicht
+  cutter of its own; else the one number, as ever), the summary line (**it describes the program, not the plan: it counts only the cutters that cut something – a cutter whose
+  parts are all uncut, a cutter too large or a hole too small, has no entry in `cutOrder` and is not counted; the plan itself stays whole for the tab marks and the helix range**),
+  the series and the two-sided guards. A hidden part, a part that is "nicht
   fräsen" and a registration hole count for no cutter (the holes follow the drawing's). **With ONE cutter the code path is today's by construction**: plain `CutSettings`,
   no `Operation.tool`, no blocks, `toGcode` with that cutter's speed – the programs of every existing drawing are byte for byte as before (goldens, the
   `test/fixtures/old*` programs, `camToolsStore`: a drawing whose parts all name the drawing's own tool equals one that names none, and both equal
@@ -434,7 +452,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   cutter (V-bit, ball, chamfer, drill) is chosen only for `on` and `drill`** (`fitsKind`; the library models every cutter as a flat cylinder of its diameter – a V-bit
   really cuts wider or narrower with depth: not modelled, V-carving is cam-path7): the field lists the others closed (`<option disabled>`) with "nur Gravur und Bohren" in their
   label, a change of kind drops a choice that no longer fits (as it drops `seq`), a probe is not offered, and what a project file carries anyway is cut with the drawing's
-  cutter and said. **`generate()` never throws from an edit:** what the library would raise a `RangeError` for is checked first (`ToolNote`, `TOOL_NOTE_EFFECT`):
+  cutter and said. **The drawing's own cutter** (`cam-tool` field) lists the tools that are no probe and the one chosen now: a probe that is the cutter already (a stored
+  setting, a project file) stays in the field, closed and named "Messtaster", and **is still cut with, with no note – the refusal is not built (Merkliste cam-path26)**. **`generate()` never throws from an edit:** what the library would raise a `RangeError` for is checked first (`ToolNote`, `TOOL_NOTE_EFFECT`):
   `refused` – a T number twice **anywhere in the tool list** (the change card and every lookup name the FIRST tool with a number), a T number that is no whole number from 1, the drawing's own
   cutter gone from the list beside other cutters – makes NO program (the table is left as `offStage` leaves it: a job under way keeps its program and the drawing
   is `ahead`; `cam-tool-notes`, the hand-over and the download are closed with the reason), checked only where two or more cutters name their numbers (a drawing with one
@@ -446,11 +465,11 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   (a second one, or one alone) in a two-sided drawing is the flip note `tools` (`blocksFlip`, no program, no plan, in either order of the edits; a project file that
   carries both opens whole and shows the note), and `seriesOwnToolRows()` closes the series (`begin`, `make`, the card's button with `series-own-tools`); sections work on
   the program text and keep every `T`/`M6` line (tested). **Project file:** optional `toolId` per item (a safe id: ≤ 120 characters, no control characters;
-  never on a registration hole), optional `toolDiameters` (tool id → mm, written for the tools the parts name); **version 2 exactly where a part carries a `toolId` – or a colour is in use ("Colour groups" below)**
+  never on a registration hole), optional `toolDiameters` (tool id → mm, written for the tools the parts name – **only those the reader takes, 0.001 … 100 mm: it refuses the whole file for one outside, so a cutter above that is named by its id alone and the diameter is only the "differs here" hint**); **version 2 exactly where a part carries a `toolId` – or a colour is in use ("Colour groups" below)**
   (`projectVersion(project)` – the ONE helper that decides, which later additions extend – the colour groups did; `PROJECT_VERSION` is 1, the version a drawing is written as while it needs nothing newer,
   `PROJECT_VERSION_MAX` 2 what is read; an older build refuses 2 with `newer-version` instead of cutting everything with one cutter; a file with neither is written as version 1,
   key for key as before); `openProject` answers `partTools: { missing, differ }` (the ids this list lacks – the part stays on it – and the ones with another diameter here; said in the
-  log like `toolMissing`/`toolDiffers`). **The part's start after a change asks first** (start warning `toolChange`, above). **The simulator** takes the width of each cutter at its `M6`
+  log like `toolMissing`/`toolDiffers`). **The part's start after a change asks first** (start warning `toolChange`, above – also the first part of the next piece, from `useRun.lastTool`; not the expert routes and not the next section). **The simulator** takes the width of each cutter at its `M6`
   from the program's header (`Simulator.toolDiameters`, set by `simulatedCutter` from `useJob.header`; a move carries the radius it was queued with); a program without such a header keeps
   its one radius. **Not built (Merkliste):** flip with several tools (cam-path21), series with several tools (cam-path22), measuring forced after a change, also for the streamed route
   (cam-path23), collision and clamp checks per tool (cam-path24), the identity of a one-cutter program (it names no tool: the cards take the library's first, cam-path25). Tests: `camToolsStore`,
@@ -471,7 +490,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   (a series carries the colour's depth, direction and tabs; **its cutter is only the refusal** – `seriesOwnToolRows` and the two-sided note `tools` name parts whose colour has another cutter than
   the drawing's, like a part's own), the placeholders and the first choice of the direction and cutter fields in `ItemRow`, the file reader's bounds for the number of passes
   (`ownedDepth`). **Where the table lives: `CamProject.colors`**, not `CamSettings`: it is on every `Snapshot` (`snap`, `restore` replaces it – never overlays –, `alongWith` rides on `snap`), so
-  assigning a colour and editing a value are both steps of undo (`setColor`: its own step like the eye; `setColorValue`: coalesced by value, `color:<id>:<keys>`); copies carry the colour (`copies`),
+  assigning a colour and editing a value are both steps of undo (`setColor`: its own step like the eye; `setColorValue`: coalesced by value, `color:<id>:<keys>`); copies carry the colour (`copies`) **and, for copy and paste (module `clipboard`, which survives `close()` and `openProject`), what the colour set where it was copied** (`clipboardColors`: `pruneColors` of the table at `copy()`;
+  `paste()` adds, in its one step of undo, only the table entries for the letters the pasted parts carry that the drawing has no entry for – `withColorsOf` – **the drawing's own definition of a letter wins, nothing is overlaid**),
   `group`/`ungroup` change nothing, a new part gets none, everything through `remember()` + `update()` so the job lock and `ahead` hold (`camGroupsRunning`). **The key is left off wherever it is empty**
   (`project.colors`, `item.color`, an entry that sets nothing): **`update()` takes the values of a colour that no part carries away** (`pruneColors`; undo brings them back with the part) – so the card, the
   file and the file's version always agree; `clear()` follows (an emptied drawing starts without colours). `setColorValue` clamps to the reader's ranges (`COLOR_LIMITS`, the same as the
@@ -485,7 +505,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   height (`e2e/colors.spec.ts` measures every row's top and height before and after, at tablet size and in the 800 × 600 sheet). **The card "Farbgruppen" lies BELOW the list** (like the note of hidden parts: what
   the finger just tapped must not move away) **as a `Fold` of its own** (not nested in "Erweitert" – two folds deep would hide it from the list it belongs to; `data-find="cam-colors"`, `useUi.depth.camColors`, closed
   until opened once, `registerFold` for the search): only the colours some part carries, each with its parts ("Teile: n", "davon ausgeblendet: m"), the depth and engraving depth (placeholder = the drawing's, a
-  `Deviation` dot where they differ), the direction, the cutter (all tools that are no probe, a gone one stays visible, a hint for a V-bit) and – under that colour's own "Mehr Optionen" (`camColorA`…) – the tab defaults, plus one
+  `Deviation` dot where they differ – in its words "Weicht von der Zeichnung ab (6 mm)": what it is compared with is the drawing's setting, not a recommendation, so `Deviation` takes `from="drawing"` and the value
+  with its unit, the number of tabs bare; every other use keeps "Weicht von der Empfehlung ab"), the direction, the cutter (all tools that are no probe, a gone one stays visible, a hint for a V-bit) and – under that colour's own "Mehr Optionen" (`camColorA`…) – the tab defaults, plus one
   sentence that a part's own value goes first and that the order of the cuts is not a colour's matter. Its fields carry their own names ("Tiefe (mm) von Farbe A": the visible label first) – a Base UI `FieldLabel`
   would take the name over from the control, and four colours must not each have a field called "Tiefe (mm)". **On the table** (`drawingColored`, `drawingLetters` in `render/draw.ts`, built in `TableView`): the
   outline of a coloured part that is cut is a path of its own per colour, 2 px in the colour on a rim of `--stage-bg` (readable on a photo), parts without a colour stay 1 px `--stage-text`, a hidden part stays grey and
@@ -537,7 +558,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   whole one and the align panel coming and going would otherwise take the next box from under the finger; Safari has no scroll anchoring, and
   Chrome's did not hold it either, measured). What lies _below_ the ticked row no longer moves with a tick either: the tab panel opens on demand only (above). **The hold covers every tap of a row that
   changes the selection or the cards above the list** – its box, its name, "Stege einstellen" (from nothing selected the card of the selection appears above the list; from a set the
-  align panel goes), the "Haltestege" box, **its kind select** (a pocket or a hole brings the panel of its way in or of its drilling to the card above the list) and **the eye** (`hold()` in `ItemRow`; the layout effect runs on the whole selection *and on this row's `hidden` and its kind*, not on this row's box only,
+  align panel goes), the "Haltestege" box, **its kind select** (a pocket or a hole brings the panel of its way in or of its drilling to the card above the list) and **the eye** (`hold()` in `ItemRow`; the layout effect runs on the whole selection *and on this row's `hidden`, its kind and its cutter (`toolId` alone moves the helix range in the card above, and the part-cutter select holds the row)*, not on this row's box only,
   because a part that stays selected can still change the cards above it – a part of a selected set hidden leaves one to align, so the align panel goes, and shown it
   comes back, with the selection unchanged; Safari has no scroll anchoring and Chrome's held it by chance, so `e2e/hide.spec.ts` turns `overflow-anchor` off to measure the app's own hold) – measured with a mouse click at a measured point in `e2e/tabs.spec.ts`
   (a locator's click scrolls to the control again after the place was taken). **Quick search** entries `camMulti`, `camSelectAll`, `camInvert`, `camAlign`,
@@ -714,7 +735,9 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   standard face and cuts the stored contours until that text is edited – then the geometry silently becomes the standard face (catalog `cam-font3`); the standard face is written as no key, so a drawing
   without a face is byte-for-byte the file it was (`test/fixtures/old*.json|nc` give their programs). **Both readers are strict**: `validateSketch` (a face that is no `FontId` – an unknown name of a newer app, a wrong
   case, `null`, a number, an array, `toString` – refuses the sketch) and `textStyleOf` (the same for `options.font`: the style is dropped); **`olderSketchOf` refuses a text that has a `font` key** – the older reading
-  would drop the key and take an unknown face for the standard one; where a sketch and its style name **different faces both are dropped** (a series must never set a name in a face the drawing does not show); the item
+  would drop the key and take an unknown face for the standard one; where a sketch and its style name **different faces both are dropped** (a series must never set a name in a face the drawing does not show) – **the sketch's face is read from the file's own text sketch, also where
+  that sketch was refused for its face (an unknown name, `null`, a number, `''`: only an absent key is the standard face, never a value that is there but wrong), so a refused sketch face beside a style that names a
+  known face drops the style too** (`itemOf`); the item
   keeps its words and its contours and stays cuttable (`test/camFontsProject.test.ts`; each guard was checked by deleting it – a hand run, not kept in the file: the older reading's `font` guard, both guards of `textStyleOf`, the rule for a sketch and a style that
   differ, and the two of `canonicalFace` each failed a test). **Licences – a release rule:** the three faces' data carries its notice (`FONT_CREDITS`, in the
   object that holds the glyphs, so it goes wherever they go) and the licence text must be readable in the app: **Einstellungen → Maschine → Schriften und Lizenzen** (`LicencesCard`, `data-find="licences"`, folded
@@ -723,7 +746,8 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   both imported with `?raw` at build time (`lib/fontLicences.ts`, `FACE_LICENCE` is a `Record` over every face but the standard one – a fifth face fails the typecheck), shown in a `<pre>`, **never retyped and in no
   dictionary** (licence text is not translated). `test/fontLicences.test.tsx` walks `FONT_IDS` and holds the shown text byte-equal to the files; `scripts/bundle.mjs` throws when the built HTML lacks a line of them and
   copies `THIRD-PARTY.md` and `licenses/` beside the single file (not into `release/pi`: the Pi refuses unknown names); `e2e/fonts.spec.ts` greps the built `dist/index.html`. **A new face needs its entry in
-  `FACE_LICENCE`, its `licences.sources.<id>` and `cam.text.fonts.<id>` in de AND en, and a licence file.** Quick search: `textFont` (chain `['text-font', 'cam-draw']`) and `licences`. Tests: `camFonts`,
+  `FACE_LICENCE`, its `licences.sources.<id>` and `cam.text.fonts.<id>` in de AND en, and a licence file** – the notice's sentence (`licences.hint`, `{faces}` with `licences.quoted`/`licences.and`) names the faces from
+  `LICENSED_FACES`, so it needs no edit, and the text of each licence is a labelled `role="group"`. Quick search: `textFont` (chain `['text-font', 'cam-draw']`) and `licences`. Tests: `camFonts`,
   `camFontsRunning`, `camFontsProject`, `camFontsPanel`, `fontLicences`, `e2e/fonts.spec.ts`, one touch case in `e2e/ipad.spec.ts`.
   **Verschachteln – packing the selected parts onto the stock** (`lib/camNest.ts` pure `planNest`, `useCam.nest`/`nested`, `NestPanel` in the fold "Ausrichten und
   verteilen", `data-find="cam-nest"`; library `nestParts`/`nestMatrix`): **it packs the RECTANGULAR BOXES of the parts, not their outlines – shapes do not interlock**

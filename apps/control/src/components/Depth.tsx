@@ -55,12 +55,25 @@ export function Recommended() {
   );
 }
 
-/** A dot at a value that differs from the recommendation: seen, not prevented (§2). */
-export function Deviation({ recommended }: { recommended: string }) {
+/**
+ * A dot at a value that differs from the recommendation: seen, not prevented (§2). Where the value it is compared with
+ * is not a recommendation but a value of the drawing (a colour's field against the drawing's setting), `from="drawing"`
+ * says so – "Weicht von der Zeichnung ab (6 mm)" – and `recommended` is that value, with its unit.
+ */
+export function Deviation({
+  recommended,
+  from = 'recommendation',
+}: {
+  recommended: string;
+  from?: 'recommendation' | 'drawing';
+}) {
+  const text = t(from === 'drawing' ? 'depth.deviatesDrawing' : 'depth.deviates', {
+    value: recommended,
+  });
   return (
-    <span className="deviation-dot" title={t('depth.deviates', { value: recommended })}>
+    <span className="deviation-dot" title={text}>
       <span aria-hidden="true" className="deviation-dot-mark" />
-      <span className="sr-only">{t('depth.deviates', { value: recommended })}</span>
+      <span className="sr-only">{text}</span>
     </span>
   );
 }

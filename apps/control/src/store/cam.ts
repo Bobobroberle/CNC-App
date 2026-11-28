@@ -136,6 +136,7 @@ import {
   colorable,
   effective,
   pruneColors,
+  withColorsOf,
   withColorValues,
   type ColorId,
   type ColorPatch,
@@ -727,6 +728,8 @@ const PASTE_SHIFT = 10;
 let nextId = 1;
 /** What Ctrl+C took, and how often it was pasted since */
 let clipboard: CamItem[] = [];
+/** What the colours of the copied parts set when they were copied: a drawing pasted into may not have them */
+let clipboardColors: ColorTable | undefined;
 let pasted = 0;
 
 /** What a sketch makes: its contours, and for a text how it was set. */
@@ -2071,6 +2074,8 @@ export const useCam = create<CamStore>((set, get) => {
       const taken = partsOf(chosen());
       if (taken.length === 0) return;
       clipboard = taken;
+      // (only the colours the copied parts carry, as the drawing holds them now)
+      clipboardColors = pruneColors(get().project?.colors, taken);
       pasted = 0;
     },
     paste() {
@@ -2079,6 +2084,11 @@ export const useCam = create<CamStore>((set, get) => {
       remember();
       pasted += 1;
       const made = copies([{ x: pasted * PASTE_SHIFT, y: -pasted * PASTE_SHIFT }], clipboard);
+      // A copy brings what its colour set where it was copied – for a colour this drawing has no entry for; the
+      // drawing's own definition of a letter wins. In the same step as the parts (`update` takes the values of a
+      // colour no part carries away, so they go in first, and undo brings the table back with the snapshot above)
+      const colors = withColorsOf(p.colors, clipboardColors, made);
+      if (colors !== p.colors) set({ project: withColors(p, colors) });
       // What was pasted is selected: its group, or the several groups that were copied – and what
       // was "everything" stays so (the copies are part of it)
       update([...p.items, ...made], get().selected === 'all' ? 'all' : normalise(groupsOf(made)));

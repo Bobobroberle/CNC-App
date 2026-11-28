@@ -188,8 +188,9 @@ function ItemRow({ item, n }: { item: CamItem; n: number }) {
     // throws – and nothing in the app's styles makes a scroll smooth, so the assignment is at once
     if (Math.abs(by) > 0.5) scroller.scrollTop += by;
     // (the selection may stay as it is while the cards above change: the eye alone takes a part out of what is
-    // aligned, so this row's own `hidden` is a reason to look again)
-  }, [selection, hidden, item.kind]);
+    // aligned, so this row's own `hidden` is a reason to look again; and the part's cutter alone changes what the card of
+    // the selection shows above the list – the range of the pocket's helix is the cutter's – with the selection as it was)
+  }, [selection, hidden, item.kind, item.toolId]);
   // Whatever in this row changes what the cards above the list make of it – its box, its name, its kind, "Stege einstellen",
   // the tabs box, its eye – is held in place: the card of the selection becomes the whole one, or loses its align
   // panel, and the row would be taken from under the finger.
@@ -532,6 +533,8 @@ export function CamCard() {
   const problems = useCam((s) => s.problems);
   const flipNotes = useCam((s) => s.flipNotes);
   const toolNotes = useCam((s) => s.toolNotes);
+  // Where the program cuts each part (a part with a place is cut; none: hidden, a cutter too large, a hole too small …)
+  const cutOrder = useCam((s) => s.cutOrder);
   const cutters = useCamCutters();
   // The order the program on the table uses its tools in (read from it, as the places of the order are)
   const toolsUsed = useJob((s) => s.analysis?.toolOrder);
@@ -586,17 +589,24 @@ export function CamCard() {
       other: n.other ?? '',
       number: n.number ?? 0,
     });
+  // The cutters that cut something in the program: the plan names the cutter of every part in sight, but a part the
+  // library could not cut has no place in the order – a cutter whose parts are all like that cuts nothing, and the
+  // summary must not count it (it describes the program, not the plan; the plan itself stays whole for the tab marks
+  // and the helix range)
+  const cutting = cutters.cutters.filter((c) =>
+    c.rows.some((row) => {
+      const part = project.items[row];
+      return part !== undefined && cutOrder[part.id] !== undefined;
+    }),
+  );
   // The cutters in the order the program uses them – where the program on the table is the drawing's own and as
   // current as the drawing; else as the list names them
   const inOrder =
-    made &&
-    !ahead &&
-    toolsUsed &&
-    cutters.cutters.every((c) => c.tool && toolsUsed.includes(c.tool.number))
-      ? [...cutters.cutters].sort(
+    made && !ahead && toolsUsed && cutting.every((c) => c.tool && toolsUsed.includes(c.tool.number))
+      ? [...cutting].sort(
           (a, b) => toolsUsed.indexOf(a.tool!.number) - toolsUsed.indexOf(b.tool!.number),
         )
-      : cutters.cutters;
+      : cutting;
   // A part with a cutter of its own is cut with it: series and two-sided jobs cut with the drawing's alone
   const ownRows = cutters.cutters
     .filter((c) => c.id !== settings.toolId)
@@ -683,12 +693,17 @@ export function CamCard() {
         {/* The few values every job needs; the rest keeps its defaults under "Erweitert". */}
         <Field data-find="cam-tool">
           <FieldLabel>{t('cam.tool')}</FieldLabel>
+          {/* A probe measures, it does not cut: not offered as the cutter; one that is the cutter already (a stored
+              setting, a project file) stays in the field, closed and named, so it is seen and can only be left */}
           <NativeSelect value={settings.toolId} onChange={(e) => set({ toolId: e.target.value })}>
-            {tools.map((x) => (
-              <option key={x.id} value={x.id}>
-                T{x.number} {x.name} (Ø {formatNumber(x.diameter, 1)})
-              </option>
-            ))}
+            {tools
+              .filter((x) => x.probe !== true || x.id === settings.toolId)
+              .map((x) => (
+                <option key={x.id} value={x.id} disabled={x.probe === true}>
+                  T{x.number} {x.name} (Ø {formatNumber(x.diameter, 1)})
+                  {x.probe === true ? ` – ${t('tools.probeShort')}` : ''}
+                </option>
+              ))}
           </NativeSelect>
         </Field>
         <div className="grid grid-cols-2 gap-2">
@@ -825,21 +840,21 @@ export function CamCard() {
         {/* Which cutters the program uses – one that is not the drawing's, or several with a change between them */}
         {!cutters.refused &&
         !flipNotes.some((n) => n.code === 'tools') &&
-        (cutters.cutters.length >= 2 || ownRows.length > 0) ? (
+        (cutting.length >= 2 || cutting.some((c) => c.id !== settings.toolId)) ? (
           <div className="flex flex-col gap-1" data-testid="cam-tools-summary">
             <p className="text-sm font-medium">
-              {cutters.cutters.length >= 2
+              {cutting.length >= 2
                 ? t('cam.tools.several', {
-                    count: cutters.cutters.length,
+                    count: cutting.length,
                     list: inOrder.map(cutterLabel).join(' · '),
                   })
-                : t('cam.tools.one', { tool: cutterLabel(cutters.cutters[0]!) })}
+                : t('cam.tools.one', { tool: cutterLabel(cutting[0]!) })}
             </p>
-            {cutters.cutters.length >= 2 ? (
+            {cutting.length >= 2 ? (
               <p className="text-muted-foreground text-sm">{t('cam.tools.changeHint')}</p>
             ) : null}
             {/* A cutter without values of its own cuts with the drawing's: a V-bit at an end mill's feed – said */}
-            {cutters.cutters
+            {cutting
               .filter((c) => c.id !== settings.toolId && !c.ownValues)
               .map((c) => (
                 <p

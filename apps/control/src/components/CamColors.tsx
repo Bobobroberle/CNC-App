@@ -37,6 +37,8 @@ export const colorLabel = (id: ColorId) =>
  */
 export function droppedName(key: string): string {
   const [head, id, field, sub] = key.split('.');
+  // The peck of a hole that would have made too many passes, by the hole's number in the list: `peck.3`
+  if (head === 'peck') return t('cam.project.peckDropped', { n: id ?? '' });
   if (head !== 'colors') return t(`cam.${key === 'tabs' ? 'tabCount' : key}` as 'cam.depth');
   if (!isColorId(id)) return t('cam.colors.droppedTable');
   const named: Record<string, MessageKey> = {
@@ -159,7 +161,9 @@ function ColorCard({ id }: { id: ColorId }) {
       label={
         <>
           {visible}
-          {differs(values[key], usual) ? <Deviation recommended={mm(usual)} /> : null}
+          {differs(values[key], usual) ? (
+            <Deviation from="drawing" recommended={`${mm(usual)} mm`} />
+          ) : null}
         </>
       }
     >
@@ -184,7 +188,13 @@ function ColorCard({ id }: { id: ColorId }) {
       label={
         <>
           {visible}
-          {differs(values.tabs?.[key], usual) ? <Deviation recommended={mm(usual)} /> : null}
+          {differs(values.tabs?.[key], usual) ? (
+            // (the number of tabs is a bare number, the others are millimetres)
+            <Deviation
+              from="drawing"
+              recommended={key === 'count' ? mm(usual) : `${mm(usual)} mm`}
+            />
+          ) : null}
         </>
       }
     >

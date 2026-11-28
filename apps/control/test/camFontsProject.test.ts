@@ -162,6 +162,24 @@ describe('the face of a text in a project file', () => {
         expect(program()).toBe(before);
       });
 
+      it(`drops the style too where the sketch's face is ${what} and the style names a face that is known – the face of the strokes is not known, so no series writes in another`, () => {
+        // (the sketch was refused above; the style beside it names the face "modern", "script" – as the text was made – or none)
+        for (const style of ['modern', 'script', undefined]) {
+          const item = read(
+            filed((f) => {
+              f.items[0]!.sketch.font = font;
+              if (style === undefined) delete f.items[0]!.textStyle.options.font;
+              else f.items[0]!.textStyle.options.font = style;
+            }),
+          );
+          expect(item.sketch, String(style)).toBeUndefined();
+          expect(item.textStyle, String(style)).toBeUndefined();
+          // the words and the strokes are what they were
+          expect(item.text).toBe('Größe 5');
+          expect(item.source).toEqual(items()[0]!.source);
+        }
+      });
+
       it(`drops the style of a series for ${what}, and still the sketch of the same face is judged alone`, () => {
         const item = read(
           filed((f) => {

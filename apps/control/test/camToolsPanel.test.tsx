@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
-import { rectangle } from '@lowrider/cam';
+import { rectangle, type Sketch } from '@lowrider/cam';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CamCard } from '../src/components/CamCard';
 import { t } from '../src/i18n';
 import { findCommands } from '../src/lib/commandSearch';
 import { COMMANDS } from '../src/lib/commands';
+import { useCam } from '../src/store/cam';
 import { openCam } from '../src/store/camPlace';
 import { useJob } from '../src/store/job';
 import { useWorkshop } from '../src/store/workshop';
-import { cam, changes, items, resetTools, scene, SMALL, VBIT } from './camToolsFixtures';
+import { cam, changes, items, program, resetTools, scene, SMALL, VBIT } from './camToolsFixtures';
 
 // jsdom has no observers; the segmented controls want them
 class Quiet {
@@ -133,6 +134,116 @@ describe('the cutter of a part in the list', () => {
       t('cam.tools.one', { tool: 'T4 V-Fräser 60°' }),
     );
     expect(changes()).toEqual([]);
+  });
+
+  it('does not offer a probe as the drawing’s cutter – one that is it already stays in the field, closed and named, and a program is still made', () => {
+    render(<CamCard />);
+    act(() =>
+      useWorkshop
+        .getState()
+        .saveTool({ ...SMALL, id: 'probe1', number: 9, probe: true, name: 'Taster' }),
+    );
+    const drawing = () =>
+      document.querySelector<HTMLSelectElement>('[data-find="cam-tool"] select')!;
+    expect(options(drawing()).some((o) => o.value === 'probe1')).toBe(false);
+    // the choices are the tools of the list that are no probe (the drawing's own among them, open)
+    expect(options(drawing()).map((o) => o.value)).toEqual(['t1', 't2', 't3', 'v1', 'f2']);
+    expect(options(drawing()).some((o) => o.disabled)).toBe(false);
+    // a probe that is the drawing's cutter already (a stored setting, a project file): still cut with, no note – the
+    // refusal is not built (cam-path26) – but visible, named as a probe and closed
+    act(() => cam().setSettings({ toolId: 'probe1' }));
+    cam().remake();
+    expect(drawing().value).toBe('probe1');
+    const chosen = options(drawing()).find((o) => o.value === 'probe1')!;
+    expect(chosen.disabled).toBe(true);
+    expect(chosen.text).toContain('Taster');
+    expect(chosen.text).toContain(t('tools.probeShort'));
+    expect(options(drawing()).filter((o) => o.disabled)).toHaveLength(1);
+    expect(cam().toolNotes).toEqual([]);
+    // a program is made and cut with it: the spindle on, no tool change, no T word
+    expect(program()).toContain('M3');
+    expect(changes()).toEqual([]);
+    expect(program()).not.toMatch(/(^|\s)T\d/m);
+    // leaving it is a choice like any other
+    fireEvent.change(drawing(), { target: { value: 't3' } });
+    expect(cam().settings.toolId).toBe('t3');
+    expect(options(drawing()).some((o) => o.value === 'probe1')).toBe(false);
+  });
+
+  it('holds the row where it is when the cutter alone changes and the cards above change with it', () => {
+    // jsdom has no layout: the row's place on the screen is whatever the cards above it make of it
+    const rect = (top: number) =>
+      ({
+        top,
+        bottom: top + 48,
+        left: 0,
+        right: 48,
+        width: 48,
+        height: 48,
+        x: 0,
+        y: top,
+      }) as DOMRect;
+    let shift = 0;
+    const box = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('cam-head') ? rect(300 + shift) : rect(0);
+      });
+    let scrollTop = 1000;
+    const moved: number[] = [];
+    const body = document.createElement('div');
+    body.className = 'panel-body';
+    Object.defineProperty(body, 'scrollTop', {
+      get: () => scrollTop,
+      set: (v: number) => {
+        scrollTop = v;
+        moved.push(v);
+      },
+    });
+    document.body.append(body);
+    try {
+      render(<CamCard />, { container: body.appendChild(document.createElement('div')) });
+      // The selection, the eye and the kind of the row stay as they are: only the cutter changes – and the card above
+      // the list grows with it (the program of two tools, the summary …), 120 px
+      const off = useCam.subscribe(() => {
+        shift = 120;
+      });
+      fireEvent.change(field(2)!, { target: { value: 'v1' } });
+      off();
+      expect(items().find((i) => i.id === text)!.toolId).toBe('v1');
+      // the row was 120 px lower after it – the panel follows, the finger stays on the field
+      expect(moved).toEqual([1120]);
+    } finally {
+      box.mockRestore();
+      body.remove();
+    }
+  });
+
+  it('describes the program, not the plan: a cutter whose only part cannot be cut is no second tool', () => {
+    render(<CamCard />);
+    // the plate is cut with the small T5; a 1 mm circle is drilled with the drawing's T3 (6 mm), which the library
+    // cannot do (hole-too-small), and the text that was cut with T3 is off – so T3 cuts nothing
+    act(() => cam().setItem(text, { kind: 'none' }));
+    act(() => cam().addSketch({ type: 'circle', d: 1 } as Sketch));
+    const hole = items()[2]!;
+    act(() => cam().setItem(hole.id, { kind: 'drill' }));
+    fireEvent.change(field(1)!, { target: { value: 'f2' } });
+    expect(cam().problems.map((p) => p.code)).toContain('hole-too-small');
+    // one cutter in the program: no change of tool in it
+    expect(changes()).toEqual([]);
+    const summary = screen.getByTestId('cam-tools-summary');
+    expect(summary.textContent).toContain(t('cam.tools.one', { tool: 'T5 Schaftfräser 2 mm' }));
+    expect(summary.textContent).not.toContain(t('cam.tools.changeHint'));
+    expect(summary.textContent).not.toContain('T3');
+    // the cutter that cuts something and has no values of its own says so – the one that cuts nothing does not
+    expect(screen.getAllByTestId('cam-tools-values')).toHaveLength(1);
+    // …and with the hole off and the text cut again, T3 cuts again: two tools, a change between them
+    act(() => cam().setItem(hole.id, { kind: 'none' }));
+    act(() => cam().setItem(text, { kind: 'on' }));
+    expect(changes()).toHaveLength(2);
+    expect(screen.getByTestId('cam-tools-summary').textContent).toContain(
+      t('cam.tools.changeHint'),
+    );
   });
 
   it('a choice that is no longer in the list stays visible in the field, with a word for it – never "wie die Zeichnung"', () => {

@@ -293,7 +293,9 @@ export const de = {
   },
   licences: {
     title: 'Schriften und Lizenzen',
-    hint: 'Die Schriften „Einfach“, „Schreibschrift“ und „Modern“ des Zeichnens stammen aus fremden Daten. Ihre Lizenzen verlangen, dass dieser Hinweis und der Lizenztext mit der Software weitergegeben werden – hier stehen sie, auch ohne Netz. „Standard“ ist die eigene Schrift der App und braucht keinen.',
+    hint: 'Die Schriften {faces} des Zeichnens stammen aus fremden Daten. Ihre Lizenzen verlangen, dass dieser Hinweis und der Lizenztext mit der Software weitergegeben werden – hier stehen sie, auch ohne Netz. „Standard“ ist die eigene Schrift der App und braucht keinen.',
+    quoted: '„{name}“',
+    and: 'und',
     notice: 'Hinweis des Urhebers',
     source: 'Quelle: {name}',
     textOf: 'Lizenztext: {name}',
@@ -336,6 +338,7 @@ export const de = {
     all: 'Alle Parameter',
     recommended: 'empfohlen',
     deviates: 'Weicht von der Empfehlung ab ({value})',
+    deviatesDrawing: 'Weicht von der Zeichnung ab ({value})',
   },
   run5: {
     remaining: 'Restzeit',
@@ -347,7 +350,7 @@ export const de = {
     parts: 'Teile (Werkzeuge)',
     pieces: 'Stück in dieser Sitzung',
     nextHint:
-      'Für das nächste Stück: fertiges Teil abnehmen, neuen Rohling an dieselbe Stelle spannen. Der Nullpunkt bleibt, wie er ist.',
+      'Für das nächste Stück: fertiges Teil abnehmen, neuen Rohling an dieselbe Stelle spannen. Der Nullpunkt bleibt, wie er ist. Hat der Job mehrere Werkzeuge, das erste wieder einspannen und seine Länge neu messen.',
     nextPiece: 'Nächstes Teil: gleicher Job',
     resume: 'Fräsen fortsetzen',
     pause: 'Fräsen pausieren',
@@ -2542,6 +2545,8 @@ export const de = {
         'Werkzeuge einzelner Teile hatten im Projekt einen anderen Durchmesser als hier: {list} – die Bahnen werden mit den jetzigen gerechnet.',
       settingsDropped:
         'Aus der Datei nicht übernommen (Werte, die keine Maschine hat): {list} – es bleibt, was jetzt eingestellt ist.',
+      peckDropped:
+        'Bohren in Stufen von Teil {n} (so viele Stufen gibt es nicht: gebohrt wird in einem Zug)',
       toolDiffers:
         'Das Werkzeug des Projekts hatte {file} mm Durchmesser, hier hat es {now} mm – die Bahnen werden mit dem jetzigen gerechnet.',
       errors: {

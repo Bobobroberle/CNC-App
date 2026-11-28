@@ -481,7 +481,8 @@ das CAM zu sehen.
     der Reihenfolge, in der das Programm sie braucht. Die Reihenfolge der Arten bleibt; innerhalb einer Art
     kommt zuerst, was das eingespannte Werkzeug fräst. Von der SD-Karte läuft es Teil für Teil (der Job
     trennt an `M6`); der Start eines Teils nach einem Wechsel fragt vorher, ob die Länge des neuen Werkzeugs
-    gemessen ist – ein zweiter Halt, bei jedem Wechsel; beim Streamen hält der Job an jedem Wechsel. Mit
+    gemessen ist – ein zweiter Halt, bei jedem Wechsel im Job und auch beim ersten Teil des nächsten Stücks
+    (gegen das Werkzeug, mit dem zuletzt gestartet wurde); beim Streamen hält der Job an jedem Wechsel. Mit
     **einem** Werkzeug ist das Programm das von früher, Zeichen für Zeichen. Kein Programm entsteht aus
     einer Werkzeugliste, in der eine T-Nummer zweimal vorkommt oder keine ganze Zahl ab 1 ist, oder aus der
     das Werkzeug der Zeichnung fehlt, wenn es neben anderen gefräst wird: die Karte sagt warum, und das
@@ -492,9 +493,11 @@ das CAM zu sehen.
     `*.lowrider.json`; _Projekt öffnen …_ (unter den Formen) liest sie wieder ein, ersetzt die
     Zeichnung in einem Schritt, den _Rückgängig_ zurücknimmt, und lädt nie selbst ein Programm. Eine
     Datei, die sich nicht lesen lässt, wird mit dem Grund abgelehnt, ohne etwas zu öffnen. Nennt ein Teil
-    ein eigenes Werkzeug, ist die Datei eine **Version 2** (mit den Durchmessern dieser Werkzeuge); ohne
-    ein solches Teil bleibt sie Version 1, Zeichen für Zeichen wie bisher – eine ältere App lehnt eine
-    Version 2 ab, statt alles mit einem Werkzeug zu fräsen. Ein Werkzeug, das es in dieser Werkzeugliste
+    ein eigenes Werkzeug oder trägt ein Teil eine Farbe (oder setzt die Farbtabelle etwas), ist die Datei
+    eine **Version 2** (mit den Durchmessern dieser Werkzeuge, soweit sie zwischen 0,001 und 100 mm liegen –
+    ein größerer Fräser steht nur mit seiner Kennung darin); sonst bleibt sie Version 1, Zeichen für Zeichen
+    wie bisher – eine ältere App lehnt eine Version 2 ab, statt alles mit einem Werkzeug zu fräsen. Ein
+    Werkzeug, das es in dieser Werkzeugliste
     nicht gibt oder dessen Durchmesser hier ein anderer ist, bleibt gewählt und wird gemeldet.
 
 - **Zeichnung und Programm auf dem Tisch:** Liegt auf dem Tisch nichts oder das Programm dieser
@@ -1003,12 +1006,14 @@ jetzt läuft.
   jeder Höhe aus sicher), _Messtaster als Werkzeug_ (ein Werkzeug des Jobs ist in der
   Werkzeugliste als Messtaster markiert, und das Programm schaltet die Spindel ein) und _Werkzeug
   gewechselt – Länge neu gemessen?_ (der Teil, der gestartet wird, fräst mit einem anderen Werkzeug
-  als der vorige: ohne neu zu messen fräst der neue Fräser zu hoch oder ins Werkstück; die App weiß
-  nicht, ob gemessen wurde). Nullpunkt und Z werden je Job einmal bestätigt, der Messtaster und der
+  als der vorige – beim ersten Teil des nächsten Stücks als das zuletzt gestartete des Jobs: ohne neu
+  zu messen fräst der neue Fräser zu hoch oder ins Werkstück; die App weiß nicht, ob gemessen wurde). Nullpunkt und Z werden je Job einmal bestätigt, der Messtaster und der
   Werkzeugwechsel bei jedem Start; der Messtaster sperrt die Spindel nicht hart, denn die App weiß
   nicht, was wirklich in der Spindel steckt. **Nicht gefragt wird** bei _Programm
   starten_ (Streamen; dort hält der Job an jedem Wechsel und fragt nach dem Messen nichts, siehe
-  Merkliste cam-path23), _Ab Zeile … starten_ und _Starten_ in der Liste der SD-Karte.
+  Merkliste cam-path23), _Ab Zeile … starten_ und _Starten_ in der Liste der SD-Karte – und nicht
+  beim nächsten Abschnitt eines langen Teils (jeder Abschnitt ist ein eigenes Programm: sein erstes Teil
+  fragt nicht nach dem letzten Werkzeug des Abschnitts davor).
 - _Fräsen_ (die Karte vor dem Start): Programm, geschätzte Laufzeit, die Teile je Werkzeug mit ihrer
   Laufzeit, was sperrt (_Start gesperrt: n Punkt(e) offen_ mit dem ersten Grund und _Prüfen_), und
   Hinweise: bereinigte `G43 … H`-Zeilen, vorangestelltes `G21 G90`, ein Messtaster im Job

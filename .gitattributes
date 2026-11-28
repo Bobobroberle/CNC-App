@@ -1,3 +1,15 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 *.mjs text eol=lf
+
+# Byte-exact pins: a checkout that converts line endings (core.autocrlf on Windows) must not change what a test compares
+# with (the licence texts are held to a hash, the goldens and fixtures to the programs the code makes).
+licenses/*.txt text eol=lf
+THIRD-PARTY.md text eol=lf
+apps/control/test/fixtures/* text eol=lf
+packages/*/test/golden/* text eol=lf
+# …except four goldens that are real programs with CRLF line ends, kept exactly as they are
+packages/gcode-core/test/golden/estlcam-genauigkeit-check.nc -text
+packages/gcode-core/test/golden/estlcam-spie-kl-haltestege.nc -text
+packages/gcode-core/test/golden/fusion360-1002-parallel-kugel.nc -text
+packages/gcode-core/test/golden/fusion360-1003-adaptiv-kontur-parallel.nc -text

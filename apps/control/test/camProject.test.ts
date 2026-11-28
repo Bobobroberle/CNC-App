@@ -406,23 +406,67 @@ describe('what a project file must be to be opened', () => {
     expect(error(dot)).toBeNull();
   });
 
-  it('refuses a peck of more steps than any drilling has, and keeps one of a sensible size', () => {
+  it('leaves out the peck of a hole of more steps than any drilling has – the hole is drilled in one go, and the file says which hole', () => {
+    type Opened = Exclude<ReturnType<typeof parseProject>, { error: string }>;
+    const read = (value: unknown) => parseProject(JSON.stringify(value)) as Opened;
     const file = good();
     file.items[1].kind = 'drill';
     file.items[1].depth = 20;
     file.items[1].peck = 2;
-    expect(error(file)).toBeNull();
+    file.items[1].peckRetract = 1;
+    const kept = read(file);
+    expect(kept.dropped).toEqual([]);
+    expect(kept.project.items[1]).toMatchObject({ peck: 2, peckRetract: 1 });
     // 20 mm in steps of 0.05 is 400 pecks: still fine; 2001 pecks is not
     file.items[1].peck = 0.05;
-    expect(error(file)).toBeNull();
+    expect(read(file).dropped).toEqual([]);
+    expect(read(file).project.items[1]).toMatchObject({ peck: 0.05, peckRetract: 1 });
     file.items[1].depth = 100.1;
-    expect(error(file)).toBe('invalid-project');
+    const dropped = read(file);
+    expect(error(file)).toBeNull();
+    // the hole is the second part of the list: named so; the peck and its retract are gone, the rest of the hole is not
+    expect(dropped.dropped).toEqual(['peck.2']);
+    expect(dropped.project.items[1]).not.toHaveProperty('peck');
+    expect(dropped.project.items[1]).not.toHaveProperty('peckRetract');
+    expect(dropped.project.items[1]).toMatchObject({ kind: 'drill', depth: 100.1 });
+    // the other part is as it was
+    expect(dropped.project.items[0]).toEqual(kept.project.items[0]);
+    // exactly 2000 pecks is still a way to drill
+    file.items[1].depth = 100;
+    expect(read(file).dropped).toEqual([]);
     // Without a depth of its own the drawing's depth counts
     delete file.items[1].depth;
     file.settings.depth = 500;
-    expect(error(file)).toBe('invalid-project');
+    expect(read(file).dropped).toEqual(['peck.2']);
     file.settings.depth = 50;
-    expect(error(file)).toBeNull();
+    expect(read(file).dropped).toEqual([]);
+    // a peck on a registration hole is never read by the generator and no part of the list: it is left as it is
+    file.items[1].registration = 1;
+    file.settings.depth = 500;
+    expect(read(file).dropped).toEqual([]);
+  });
+
+  it('a hole whose peck was left out makes a program with no peck in it: the generator never sees more passes than the bound', () => {
+    cam().close();
+    cam().addSketch({ type: 'circle', d: 20 });
+    const hole = items()[0]!;
+    cam().setItem(hole.id, { kind: 'drill', depth: 40 });
+    cam().setPath(hole.id, { peck: 0.05, peckRetract: 1 });
+    // what the store can write: 800 pecks (a peck down to 0.05 is allowed, a depth up to 500 mm too)
+    const file = JSON.parse(cam().saveProject()!);
+    file.items[0].depth = 500;
+    const text = JSON.stringify(file);
+    cam().close();
+    useJob.getState().unload();
+    const result = cam().openProject(text);
+    expect(result).toEqual({ toolMissing: false, dropped: ['peck.1'] });
+    expect(items()[0]).not.toHaveProperty('peck');
+    // one plunge to the depth, not ten thousand lines of pecks
+    const moves = program()
+      .split('\n')
+      .filter((l) => l.startsWith('G1')).length;
+    expect(moves).toBeLessThan(40);
+    expect(program()).toContain('Z-500');
   });
 
   it('refuses a name that could put lines into the program or the file name', () => {

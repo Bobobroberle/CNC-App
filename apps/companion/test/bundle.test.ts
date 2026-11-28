@@ -7,7 +7,9 @@ import { readPackage } from '../src/release';
 import { readZip } from '../src/zip';
 
 // The release the operator gets: `pnpm bundle` makes lowrider-pi.zip with update-pi.bat beside the folder pi, and checks it
-// with the reader the Pi uses. Needs the app built (apps/control/dist) – a clean checkout builds it after the tests.
+// with the reader the Pi uses. Needs the app built (apps/control/dist): `pnpm check` builds before it runs the tests, so
+// it is there; the suite is skipped only where nobody built (the tests run alone on a clean checkout). A stale `dist`
+// does not skip it – the licence guard of scripts/bundle.mjs fails it.
 
 const ROOT = join(import.meta.dirname, '../../..');
 const built = existsSync(join(ROOT, 'apps/control/dist/index.html'));

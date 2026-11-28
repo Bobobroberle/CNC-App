@@ -186,6 +186,25 @@ export function ownedDepth(
   return colorDepth(own, item.kind);
 }
 
+/**
+ * The table with what `from` (the table a copy was taken from) sets for the colours these items carry and `table`
+ * has no entry for. A letter the table defines already keeps its own values – never overlaid, because the drawing
+ * pasted into says what its colour A means. The very `table` where nothing is added.
+ */
+export function withColorsOf(
+  table: ColorTable | undefined,
+  from: ColorTable | undefined,
+  items: readonly Pick<CamItem, 'color' | 'registration'>[],
+): ColorTable | undefined {
+  if (!from) return table;
+  let out = table;
+  for (const id of colorsInUse(items)) {
+    if (table?.[id] !== undefined || from[id] === undefined) continue;
+    out = { ...out, [id]: from[id] };
+  }
+  return out;
+}
+
 /** The colours some part carries, in the order of `COLOR_IDS` */
 export function colorsInUse(items: readonly Pick<CamItem, 'color' | 'registration'>[]): ColorId[] {
   const used = new Set<ColorId>();

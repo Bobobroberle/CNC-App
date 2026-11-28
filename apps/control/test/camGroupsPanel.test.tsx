@@ -352,6 +352,42 @@ describe('the colours in the workspace', () => {
       expect(screen.getByTestId('depth-more-camColorA')).not.toBeNull();
     });
 
+    it('the dot of a colour’s field says what it is compared with – the drawing’s setting, with its unit – and not a recommendation', () => {
+      render(<CamCard />);
+      unfold();
+      act(() => cam().setColor('a', [plate]));
+      const dots = () =>
+        [...screen.getByTestId('cam-color-a').querySelectorAll<HTMLElement>('.deviation-dot')].map(
+          (d) => [d.getAttribute('title'), d.querySelector('.sr-only')!.textContent],
+        );
+      expect(dots()).toEqual([]);
+      // the drawing is 6 mm deep, engraves 1 mm deep, has four tabs of 6 × 2 mm
+      type(colourField('a', 'depthOf'), '3');
+      type(colourField('a', 'engraveDepthOf'), '0.4');
+      type(colourField('a', 'tabCountOf'), '2');
+      type(colourField('a', 'tabWidthOf'), '9');
+      type(colourField('a', 'tabHeightOf'), '1,5');
+      const said = [
+        'Weicht von der Zeichnung ab (6 mm)',
+        'Weicht von der Zeichnung ab (1 mm)',
+        'Weicht von der Zeichnung ab (4)',
+        'Weicht von der Zeichnung ab (6 mm)',
+        'Weicht von der Zeichnung ab (2 mm)',
+      ];
+      expect(dots()).toEqual(said.map((text) => [text, text]));
+      for (const [title] of dots()) {
+        expect(title).toContain('Zeichnung');
+        expect(title).not.toContain('Empfehlung');
+      }
+      // a deviation that really is from a recommendation says so as ever
+      expect(t('depth.deviates', { value: '100 %' })).toBe('Weicht von der Empfehlung ab (100 %)');
+    });
+
+    it('names the peck a project file left out by the number of the hole', () => {
+      expect(droppedName('peck.3')).toBe(t('cam.project.peckDropped', { n: '3' }));
+      expect(droppedName('peck.3')).toContain('Teil 3');
+    });
+
     it('a part keeps its own value: the panel of its tabs shows the colour’s as the default', () => {
       render(<CamCard />);
       act(() => {

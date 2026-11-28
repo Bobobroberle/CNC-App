@@ -4,6 +4,7 @@ import { operationAt, operationsOf } from '../src/lib/operations';
 import { PREVIEW_BOX, previewPath } from '../src/lib/preview';
 import { pendingWarnings, startWarnings, type StartInput } from '../src/lib/startChecks';
 import { clampOverride, OVERRIDE_RANGE } from '../src/components/Override';
+import { useRun } from '../src/store/run';
 import { sizeOf, validRecent, withZero, ZERO_HISTORY, type UsedZero } from '../src/store/recent';
 import { Simulator } from '../src/sim/simulator';
 
@@ -209,5 +210,20 @@ describe('recently used jobs', () => {
     const { cutBounds } = analyzeProgram('G0 Z5\nG1 Z-3 F100\nG1 X40 Y20\n');
     expect(sizeOf(cutBounds)).toEqual({ x: 40, y: 20, z: 3 });
     expect(sizeOf(analyzeProgram('').cutBounds)).toBeNull();
+  });
+});
+
+describe('the tool the spindle holds (useRun.lastTool)', () => {
+  it('is nothing before a first start, and kept by "Nächstes Teil" and by "Job abbrechen": it is the spindle’s, not the run’s', () => {
+    // (the cases that start parts and ask the question are in startHook.test.ts)
+    expect(useRun.getState().lastTool).toBeNull();
+    const held = { key: 'a.nc:9', tool: 2 };
+    useRun.setState({ lastTool: held, phase: 'done', partIndex: 0 });
+    useRun.getState().nextPiece();
+    expect(useRun.getState().lastTool).toBe(held);
+    expect(useRun.getState().phase).toBe('idle');
+    useRun.getState().reset();
+    expect(useRun.getState().lastTool).toBe(held);
+    useRun.setState({ lastTool: null });
   });
 });

@@ -23,6 +23,13 @@ interface RunStore {
   summary: RunSummary | null;
   /** How many pieces of this job were cut one after the other in this session */
   pieces: number;
+  /**
+   * The tool of the part that was STARTED last, with the job it belonged to: the spindle still holds it
+   * when the first part of the next piece or of a job started over comes. Kept by `nextPiece` and `reset`
+   * (a job given up between two parts leaves its tool in the spindle); it is only compared with a part of the
+   * same job. `tool` is undefined for a program that names no tool.
+   */
+  lastTool: { key: string; tool: number | undefined } | null;
   /** Start warnings (§6.4) the operator confirmed for this job */
   confirmed: StartWarning[];
   confirm(warnings: readonly StartWarning[]): void;
@@ -70,6 +77,7 @@ export const useRun = create<RunStore>((set, get) => ({
   startedAt: null,
   summary: null,
   pieces: 0,
+  lastTool: null,
   confirmed: [],
   asking: null,
   confirm: (warnings) => set((s) => ({ confirmed: [...new Set([...s.confirmed, ...warnings])] })),
@@ -116,7 +124,9 @@ export const useRun = create<RunStore>((set, get) => ({
       set((s) => ({ uploaded: { ...s.uploaded, [part.fileName]: part.text } }));
     }
 
-    set({ phase: 'running' });
+    // From here the machine may cut with this part's tool, whatever happens to the part.
+    const key = jobKey();
+    set({ phase: 'running', lastTool: key === null ? null : { key, tool: part.tool } });
     await useMachine.getState().runSdFile(part.fileName);
     const { lastFileResult, homed, command, addLog } = useMachine.getState();
     if (lastFileResult !== 'done') {

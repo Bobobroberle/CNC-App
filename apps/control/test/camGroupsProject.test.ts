@@ -362,7 +362,7 @@ describe('how deep a colour can make a cut is held like a part’s own depth', (
     });
   });
 
-  it('a hole drilled in so many pecks that it would stall the drawing refuses the file – with the depth its colour gives it', () => {
+  it('a hole drilled in so many pecks that it would stall the drawing loses its peck, said by its number – counted with the depth its colour gives it', () => {
     cam().addSketch({ type: 'circle', d: 4 });
     const hole = items().at(-1)!;
     cam().setItem(hole.id, { kind: 'drill' });
@@ -371,19 +371,32 @@ describe('how deep a colour can make a cut is held like a part’s own depth', (
     cam().setPath(hole.id, { peck: 0.5 });
     // 150 / 0.5 = 300 pecks: well
     const file = saved();
-    expect(error(file)).toBeNull();
-    // 150 / 0.05 = 3000 pecks: refused – the part has no depth of its own, the colour's is the one
+    const read = (value: unknown) => {
+      const parsed = result(value);
+      expect('error' in parsed).toBe(false);
+      return parsed as Exclude<typeof parsed, { error: string }>;
+    };
+    expect(read(file).dropped).toEqual([]);
+    // 150 / 0.05 = 3000 pecks: the peck is left out – the part has no depth of its own, the colour's is the one
     const own = () => file.items.find((i: { id: number }) => i.id === hole.id);
     own().peck = 0.05;
-    expect(error(file)).toBe('invalid-project');
+    own().peckRetract = 1;
+    const number = items().findIndex((i) => i.id === hole.id) + 1;
+    const thin = read(file);
+    expect(thin.dropped).toEqual([`peck.${number}`]);
+    const opened = thin.project.items.find((i) => i.id === hole.id)!;
+    expect(opened).not.toHaveProperty('peck');
+    expect(opened).not.toHaveProperty('peckRetract');
+    // …and it keeps its colour and kind
+    expect(opened).toMatchObject({ kind: 'drill', color: 'c' });
     // a depth of the part's own goes over the colour's: 6 / 0.05 = 120
     own().depth = 6;
-    expect(error(file)).toBeNull();
+    expect(read(file).dropped).toEqual([]);
     delete own().depth;
     // the same peck with the colour taken away is the drawing's 6 / 0.05 = 120
     delete own().color;
     delete file.colors;
-    expect(error(file)).toBeNull();
+    expect(read(file).dropped).toEqual([]);
   });
 });
 

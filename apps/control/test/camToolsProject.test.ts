@@ -12,7 +12,17 @@ import { useCam } from '../src/store/cam';
 import { useFlip } from '../src/store/flip';
 import { useJob } from '../src/store/job';
 import { useWorkshop } from '../src/store/workshop';
-import { cam, changes, items, LIST, program, resetTools, scene, VBIT } from './camToolsFixtures';
+import {
+  cam,
+  changes,
+  items,
+  LIST,
+  program,
+  resetTools,
+  scene,
+  SMALL,
+  VBIT,
+} from './camToolsFixtures';
 
 let plate = 0;
 let text = 0;
@@ -234,6 +244,35 @@ describe('a cutter that this workshop does not have, or has differently', () => 
       partTools: { missing: [], differ: [{ id: 'v1', name: VBIT.name, file: 3, now: 4 }] },
     });
     expect(program()).toContain('(T4 D=4 V-Fräser 60°)');
+    resetTools();
+  });
+
+  it('a cutter above 100 mm is written without a diameter – the reader refuses one, so the file opens again and the part keeps its cutter', () => {
+    // a 4-inch face mill: a real tool, but above the 0.001 … 100 mm a diameter in a file may have
+    const BIG = { ...SMALL, id: 'big', number: 6, name: 'Planfräser 101,6 mm', diameter: 101.6 };
+    useWorkshop.getState().saveTool(BIG);
+    cam().setItem(text, { toolId: 'big' });
+    // …beside one that is within them: its diameter is written
+    cam().setItem(plate, { toolId: 'f2' });
+    const file = cam().saveProject()!;
+    const written = JSON.parse(file);
+    expect(written.version).toBe(2);
+    expect(written.toolDiameters).toEqual({ f2: 2 });
+    expect(written.items.find((i: { id: number }) => i.id === text).toolId).toBe('big');
+    expect(error(file)).toBeNull();
+    // a new drawing in the same workshop, the file opened: whole, and the part is cut with the cutter it named
+    drawing();
+    useWorkshop.getState().saveTool(BIG);
+    const opened = cam().openProject(file);
+    expect(opened).toEqual({ toolMissing: false });
+    expect(items().find((i) => i.text !== undefined)!.toolId).toBe('big');
+    expect(cam().toolNotes).toEqual([]);
+    // the cutter alone: no diameter left to write, so no key of them – the version is still 2 (a part names a cutter)
+    cam().setItem(items().find((i) => i.text === undefined)!.id, { toolId: undefined });
+    const alone = saved();
+    expect(alone.version).toBe(2);
+    expect(alone).not.toHaveProperty('toolDiameters');
+    expect(cam().openProject(textOf(alone))).toEqual({ toolMissing: false });
     resetTools();
   });
 

@@ -12,10 +12,19 @@ import { Fold } from './Fold';
  * time (`lib/fontLicences.ts`), and shown as they are: licence text is not translated.
  */
 export function LicencesCard() {
+  // The faces the notice names are the faces that carry a licence: "„Einfach“, „Schreibschrift“ und „Modern“" – a face
+  // added to the library is named here without anyone editing the sentence
+  const quoted = LICENSED_FACES.map((id) =>
+    t('licences.quoted', { name: t(`cam.text.fonts.${id}`) }),
+  );
+  const faces =
+    quoted.length > 1
+      ? `${quoted.slice(0, -1).join(', ')} ${t('licences.and')} ${quoted[quoted.length - 1]}`
+      : (quoted[0] ?? '');
   return (
     <Card className="gap-3 p-4" data-testid="licences-card" data-find="licences">
       <CardTitle render={<h2 />}>{t('licences.title')}</CardTitle>
-      <p className="text-muted-foreground text-sm">{t('licences.hint')}</p>
+      <p className="text-muted-foreground text-sm">{t('licences.hint', { faces })}</p>
       {LICENSED_FACES.map((id) => (
         <section key={id} className="flex flex-col gap-1" data-testid={`licence-face-${id}`}>
           <h3 className="font-medium">
@@ -47,6 +56,7 @@ export function LicencesCard() {
             </p>
             <pre
               lang="en"
+              role="group"
               tabIndex={0}
               aria-label={t(`licences.names.${licence}`)}
               className="config-text font-mono whitespace-pre-wrap break-words"

@@ -127,7 +127,7 @@ describe.each([
     }
   });
 
-  it('are none of the colours that mean something: a fault, the selection, the cut, done, the current, the primary action', () => {
+  it('are not the very same colour (hex equality only – no distance) as any colour that means something: a fault, the selection, the cut, done, the current, the primary action; the letter is the carrier', () => {
     const MEANING = [
       '--destructive',
       '--stage-select',
@@ -141,6 +141,8 @@ describe.each([
       '--stage-text',
       '--stage-muted',
     ];
+    // (a check of identity, not of how far apart they look: orange A is close to the amber of "current" – the catalog entry
+    // cam-col4 has the distances – and that is why a part's letter, not its colour, names the group)
     for (const name of GROUPS) {
       for (const meaning of MEANING) {
         expect(theme[name], `${name} / ${meaning}`).not.toBe(theme[meaning]);

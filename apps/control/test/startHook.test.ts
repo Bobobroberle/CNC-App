@@ -2,6 +2,7 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { t } from '../src/i18n';
+import { sectionFileName } from '../src/lib/sections';
 import { useJob } from '../src/store/job';
 import { useMachine } from '../src/store/machine';
 import { useRun } from '../src/store/run';
@@ -14,6 +15,9 @@ import { requestStart, useStart } from '../src/store/start';
 vi.mock('../src/store/readiness', () => ({
   useReadiness: () => ({ items: [], collisions: [], clamps: [] }),
 }));
+
+// The earlier tests put a stub in the store's place; the ones below run the real thing.
+const realStartPart = useRun.getState().startPart;
 
 const PROGRAM = 'G21 G90\nG0 Z5\nM3 S10000\nG0 X10 Y10\nG1 Z-1 F300\nG1 X20\nG0 Z5\nM5\nM30\n';
 
@@ -162,5 +166,151 @@ describe('why the start cannot be held (store/start.ts)', () => {
       expect(startPart).not.toHaveBeenCalled();
       expect(useRun.getState().asking).toBeNull();
     });
+  });
+});
+
+// The spindle still holds the tool the LAST part ran with: the first part of the next piece
+// ("Nächstes Teil: gleicher Job") and the first part after "Job abbrechen" need the same question
+// as a part after a change in the middle of a job.
+describe('the tool the spindle holds after the last part started (useRun.lastTool)', () => {
+  const TWO_TOOLS =
+    'G21 G90\nT1 M6\nG0 Z5\nS10000 M3\nG0 X10 Y10\nG1 Z-1 F300\nG1 X20\nG0 Z5\nM5\nT2 M6\nS10000 M3\nG0 X30 Y10\nG1 Z-1 F300\nG1 X40\nG0 Z5\nM5\nM30\n';
+  const keyOf = (name: string) => `${name}:${useJob.getState().lines.length}`;
+  const load = (name: string, text: string) => {
+    useJob.getState().unload();
+    useJob.getState().load(name, text);
+  };
+  const start = () => renderHook(() => useStart()).result.current!;
+  const originals = {
+    uploadToSd: useMachine.getState().uploadToSd,
+    runSdFile: useMachine.getState().runSdFile,
+    command: useMachine.getState().command,
+  };
+
+  beforeEach(() => {
+    useRun.setState({ startPart: realStartPart, lastTool: null } as never);
+    useRun.getState().reset();
+    useMachine.setState({
+      connection: 'connected',
+      viewer: false,
+      fileJob: null,
+      stream: null,
+      homed: true,
+      status: { state: 'Idle', mpos: [0, 0, 5], wco: [10, 10, 0] } as never,
+      // a machine that takes every part and cuts it to its end
+      uploadToSd: async () => true,
+      runSdFile: async () => {
+        useMachine.setState({ lastFileResult: 'done' });
+      },
+      command: (async () => {}) as never,
+    });
+  });
+  afterEach(() => {
+    useMachine.setState({ connection: 'disconnected', status: null, viewer: false, ...originals });
+    useJob.getState().unload();
+  });
+
+  const cutBothParts = async () => {
+    await useRun.getState().startPart(0);
+    await useRun.getState().startPart(1);
+  };
+
+  it('is remembered when a part starts to run – with the job it belongs to', async () => {
+    load('two.nc', TWO_TOOLS);
+    expect(useRun.getState().lastTool).toBeNull();
+    await useRun.getState().startPart(0);
+    expect(useRun.getState().lastTool).toEqual({ key: keyOf('two.nc'), tool: 1 });
+    await useRun.getState().startPart(1);
+    expect(useRun.getState().lastTool).toEqual({ key: keyOf('two.nc'), tool: 2 });
+  });
+
+  it('asks about the tool change at the first part of the next piece – T2 is in the spindle, T1 comes first', async () => {
+    load('two.nc', TWO_TOOLS);
+    await cutBothParts();
+    expect(useRun.getState().phase).toBe('done');
+    useRun.getState().nextPiece();
+    const next = start();
+    expect(next.index).toBe(0);
+    expect(next.part.tool).toBe(1);
+    expect(next.warnings).toEqual(['toolChange']);
+    expect(next.pending).toEqual(['toolChange']);
+    // asked every time, even once it was confirmed for this job
+    useRun.setState({ confirmed: ['toolChange'] });
+    expect(start().pending).toEqual(['toolChange']);
+    // and the hold asks instead of starting
+    const startPart = vi.fn(async () => {});
+    useRun.setState({ startPart } as never);
+    requestStart(start());
+    expect(startPart).not.toHaveBeenCalled();
+    expect(useRun.getState().asking).toEqual(['toolChange']);
+  });
+
+  it('asks nothing for a job with one tool, however often it is cut', async () => {
+    load('one.nc', PROGRAM);
+    await useRun.getState().startPart(0);
+    expect(useRun.getState().phase).toBe('done');
+    useRun.getState().nextPiece();
+    expect(start().warnings).toEqual([]);
+    expect(start().pending).toEqual([]);
+    // a program that names no tool at all is no change either
+    expect(useRun.getState().lastTool).toEqual({ key: keyOf('one.nc'), tool: undefined });
+  });
+
+  it('asks nothing at the very first start of a job: nothing was started before', () => {
+    load('two.nc', TWO_TOOLS);
+    expect(useRun.getState().lastTool).toBeNull();
+    expect(start().index).toBe(0);
+    expect(start().warnings).toEqual([]);
+  });
+
+  it('never compares with the tool of another job', async () => {
+    load('two.nc', TWO_TOOLS);
+    await cutBothParts();
+    // a different program lies on the table: it starts with T1, the last tool run was T2 – of the other job
+    load('other.nc', TWO_TOOLS.replace('G1 X40', 'G1 X41'));
+    useRun.getState().reset();
+    const other = start();
+    expect(other.index).toBe(0);
+    expect(other.part.tool).toBe(1);
+    expect(other.warnings).toEqual([]);
+  });
+
+  it('is kept by "Job abbrechen" between two parts: the next first part asks', async () => {
+    load('two.nc', TWO_TOOLS);
+    await useRun.getState().startPart(0);
+    expect(useRun.getState().phase).toBe('between');
+    useRun.getState().reset();
+    expect(useRun.getState().lastTool).toEqual({ key: keyOf('two.nc'), tool: 1 });
+    // T1 is in the spindle and part 0 is T1: nothing to ask
+    expect(start().warnings).toEqual([]);
+    // the second part was started, then the operator abandoned the job
+    await useRun.getState().startPart(1);
+    useRun.getState().reset();
+    expect(useRun.getState().lastTool).toEqual({ key: keyOf('two.nc'), tool: 2 });
+    expect(start().index).toBe(0);
+    expect(start().warnings).toEqual(['toolChange']);
+  });
+
+  it('LIMIT, pinned: the next section of a long job is a program of its own – its first part asks nothing, though the last tool of the section before is in the spindle', async () => {
+    // store/sections.ts puts every section on the table under its own file name (`sectionFileName`), so it is another job
+    // to `useRun.lastTool`, which compares only within one job. Each section keeps its T and M6 lines (camToolsFlip).
+    const first = sectionFileName('long', 0, 2);
+    const second = sectionFileName('long', 1, 2);
+    expect(second).not.toBe(first);
+    load(first, TWO_TOOLS);
+    await cutBothParts();
+    expect(useRun.getState().lastTool).toEqual({ key: keyOf(first), tool: 2 });
+    load(second, TWO_TOOLS);
+    useRun.getState().reset();
+    const next = start();
+    expect(next.index).toBe(0);
+    expect(next.part.tool).toBe(1);
+    expect(next.warnings).toEqual([]);
+  });
+
+  it('does not change the rule inside a job: the part after a change still asks', () => {
+    load('two.nc', TWO_TOOLS);
+    useRun.setState({ phase: 'between', jobKey: keyOf('two.nc'), partIndex: 1 });
+    expect(start().warnings).toEqual(['toolChange']);
   });
 });

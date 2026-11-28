@@ -124,7 +124,10 @@ export function projectToFile(
   toolDiameter?: number,
   toolDiameters?: Readonly<Record<string, number>>,
 ): ProjectFile {
-  const named = toolDiameters && Object.keys(toolDiameters).length > 0;
+  // Only the diameters the reader takes: it refuses the WHOLE file for one outside 0.001 … 100 mm, so a cutter above that
+  // (a face mill) is named by its id alone – the part keeps it, and the diameter is a hint only ("differs here")
+  const readable = Object.entries(toolDiameters ?? {}).filter(([id, d]) => toolDiameterOk(id, d));
+  const named = readable.length > 0;
   const colors = tidyColors(project.colors);
   return {
     format: PROJECT_FORMAT,
@@ -140,7 +143,7 @@ export function projectToFile(
     settings,
     ...(colors ? { colors } : {}),
     ...(toolDiameter !== undefined ? { toolDiameter } : {}),
-    ...(named ? { toolDiameters } : {}),
+    ...(named ? { toolDiameters: Object.fromEntries(readable) } : {}),
   };
 }
 
@@ -370,11 +373,16 @@ function itemOf(v: unknown): SavedItem | null {
   let sketch = v.sketch === undefined ? null : sketchOf(v.sketch);
   let textStyle = v.textStyle === undefined ? null : textStyleOf(v.textStyle);
   // A text's sketch and the style a series sets other words in say the same face – or neither is kept (the item
-  // keeps its words and contours): a series must never write names in a face the drawing does not show
+  // keeps its words and contours): a series must never write names in a face the drawing does not show. The face
+  // of the sketch is read from the FILE's own text sketch, whether or not the sketch survived its reader: a sketch
+  // whose face was refused (unknown, null, a number …) still says the strokes are in a face this app does not know –
+  // only a key that is absent is the standard face, never a value that is there but wrong.
+  const written = isObject(v.sketch) && v.sketch.type === 'text' ? v.sketch : null;
   if (
-    sketch?.type === 'text' &&
+    written &&
     textStyle &&
-    (sketch.font ?? DEFAULT_FONT) !== (textStyle.options.font ?? DEFAULT_FONT)
+    (written.font === undefined ? DEFAULT_FONT : written.font) !==
+      (textStyle.options.font ?? DEFAULT_FONT)
   ) {
     sketch = null;
     textStyle = null;
@@ -548,13 +556,16 @@ function colorsOf(v: unknown): { colors: ColorTable | undefined; dropped: string
   return { colors: tidyColors(out), dropped };
 }
 
+/** A tool id and a diameter (mm) the file may carry: the reader refuses the file for one that is not – the writer leaves it out */
+const toolDiameterOk = (id: unknown, d: unknown): boolean => toolIdOf(id) && within(d, 0.001, 100);
+
 /** The diameters of the cutters the parts name: an object of tool ids and diameters (mm) – null where it is anything else */
 function toolDiametersOf(v: unknown): Record<string, number> | null {
   if (v === undefined) return {};
   if (!isObject(v)) return null;
   const entries = Object.entries(v);
   if (entries.length > MAX_TOOLS) return null;
-  if (!entries.every(([id, d]) => toolIdOf(id) && within(d, 0.001, 100))) return null;
+  if (!entries.every(([id, d]) => toolDiameterOk(id, d))) return null;
   // (`fromEntries` makes plain own properties: an id like "__proto__" is only a key)
   return Object.fromEntries(entries as [string, number][]);
 }
@@ -611,22 +622,30 @@ export function parseProject(text: string): OpenedProject | { error: ProjectErro
     delete settings.stepdown;
     dropped.push('stepdown');
   }
-  // A hole of so many pecks is no way to drill and would stall the drawing: the file is refused (a peck left
-  // out would drill the hole straight, which is not what was stored)
-  if (
-    items.some(
-      (i) =>
-        i.peck !== undefined &&
-        Math.ceil((ownedDepth(i, colors) ?? settings.depth ?? 0) / i.peck) > MAX_PASSES,
-    )
-  ) {
-    return { error: 'invalid-project' };
-  }
+  // A hole of so many pecks is no way to drill and would stall the drawing (the generator must never see more than
+  // MAX_PASSES): its peck and the retract that goes with it are left out – the hole is drilled in one go, as a hole
+  // with no peck is – and said, by the hole's number in the list, like a stepdown above. The store can write such a
+  // file (a peck down to 0.05 mm, a depth up to MAX_DEPTH), so refusing the whole file would lose a drawing the app
+  // itself saved. A registration hole is no part of the list and its peck is never read: it is left as it is.
+  let number = 0;
+  const kept = items.map((i) => {
+    if (i.registration !== undefined) return i;
+    number += 1;
+    if (
+      i.peck === undefined ||
+      Math.ceil((ownedDepth(i, colors) ?? settings.depth ?? 0) / i.peck) <= MAX_PASSES
+    ) {
+      return i;
+    }
+    dropped.push(`peck.${number}`);
+    const { peck: _peck, peckRetract: _retract, ...plain } = i;
+    return plain;
+  });
   return {
     project: {
       name: raw.name.trim(),
       // The contours where they lie are made from the source and the placement: filled in by the store
-      items: items.map((i) => ({ ...i, contours: [] })),
+      items: kept.map((i) => ({ ...i, contours: [] })),
       twoSided,
       skipped: {},
       notes: [],

@@ -289,7 +289,9 @@ export const en: DictionaryShape = {
   },
   licences: {
     title: 'Fonts and licences',
-    hint: 'The fonts "Simple", "Script" and "Modern" of the drawing come from third-party data. Their licences require this notice and the licence text to be passed on with the software – here they are, with no network needed. "Standard" is the app\'s own font and needs none.',
+    hint: 'The fonts {faces} of the drawing come from third-party data. Their licences require this notice and the licence text to be passed on with the software – here they are, with no network needed. "Standard" is the app\'s own font and needs none.',
+    quoted: '"{name}"',
+    and: 'and',
     notice: "The author's notice",
     source: 'Source: {name}',
     textOf: 'Licence text: {name}',
@@ -331,6 +333,7 @@ export const en: DictionaryShape = {
     all: 'All parameters',
     recommended: 'recommended',
     deviates: 'Differs from the recommendation ({value})',
+    deviatesDrawing: 'Differs from the drawing ({value})',
   },
   run5: {
     remaining: 'Time left',
@@ -342,7 +345,7 @@ export const en: DictionaryShape = {
     parts: 'Parts (tools)',
     pieces: 'Pieces in this session',
     nextHint:
-      'For the next piece: take the finished part off and clamp a new blank in the same place. The zero stays as it is.',
+      'For the next piece: take the finished part off and clamp a new blank in the same place. The zero stays as it is. With several tools, mount the first tool again and measure its length.',
     nextPiece: 'Next piece: same job',
     resume: 'Resume cutting',
     pause: 'Pause cutting',
@@ -2504,6 +2507,8 @@ export const en: DictionaryShape = {
         'Tools of single parts had another diameter in the project than here: {list} – the paths are made with the present ones.',
       settingsDropped:
         'Not taken from the file (values no machine has): {list} – what is set now stays.',
+      peckDropped:
+        'Peck drilling of part {n} (there are not that many steps: it is drilled in one go)',
       toolDiffers:
         'The project’s cutter was {file} mm in diameter, here it is {now} mm – the toolpaths are made with this one.',
       errors: {

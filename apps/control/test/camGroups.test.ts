@@ -12,6 +12,7 @@ import {
   pruneColors,
   tabDefaultsOf,
   tidyColors,
+  withColorsOf,
   withColorValues,
   type ColorTable,
   type EffectiveItem,
@@ -315,5 +316,21 @@ describe('the table: tidy, changed, pruned', () => {
     // a hole's colour counts for nothing; an entry that says nothing goes with it
     expect(pruneColors({ a: { depth: 3 } }, [{ color: 'a', registration: 1 }])).toBeUndefined();
     expect(pruneColors({ a: {} }, [{ color: 'a' }])).toBeUndefined();
+  });
+  it('takes over what a copy’s colours set only for the letters the table has no entry for', () => {
+    const from: ColorTable = { a: { depth: 3 }, b: { depth: 2 }, c: { climb: true } };
+    // the table has no A: it comes; B is the table's own and wins; C is carried by nothing that is pasted
+    const table: ColorTable = { b: { depth: 9 } };
+    const out = withColorsOf(table, from, [{ color: 'a' }, { color: 'b' }, {}]);
+    expect(out).toEqual({ a: { depth: 3 }, b: { depth: 9 } });
+    // …the very table where nothing is added, and none where the copy had none
+    expect(withColorsOf(table, from, [{ color: 'b' }])).toBe(table);
+    expect(withColorsOf(table, undefined, [{ color: 'a' }])).toBe(table);
+    expect(withColorsOf(undefined, undefined, [{ color: 'a' }])).toBeUndefined();
+    expect(withColorsOf(undefined, from, [{ color: 'c' }])).toEqual({ c: { climb: true } });
+    // a colour on a registration hole counts for nothing
+    expect(withColorsOf(undefined, from, [{ color: 'a', registration: 1 }])).toBeUndefined();
+    // a letter the copy had no entry for brings none
+    expect(withColorsOf(undefined, { b: { depth: 2 } }, [{ color: 'a' }])).toBeUndefined();
   });
 });

@@ -64,6 +64,7 @@ export function useStart(): Start | null {
   const partIndex = useRun((s) => s.partIndex);
   const runPhase = useRun((s) => s.phase);
   const confirmed = useRun((s) => s.confirmed);
+  const lastTool = useRun((s) => s.lastTool);
   const tools = useJobTools();
 
   const prepared = useMemo(
@@ -99,8 +100,13 @@ export function useStart(): Start | null {
     spindleOn,
     probeTool: probeLock,
     // The part before this one was cut with another tool (the job is split at every change): not measured
-    // since is the one thing the app cannot know – the card of the change offers it, nothing forces it
-    toolChanged: index > 0 && parts[index - 1]!.tool !== part.tool,
+    // since is the one thing the app cannot know – the card of the change offers it, nothing forces it.
+    // The first part has no part before it, but the spindle holds the tool the last start of THIS job ran with
+    // (the next piece, a job started over): only that job's, a program loaded since compares with nothing.
+    toolChanged:
+      index > 0
+        ? parts[index - 1]!.tool !== part.tool
+        : lastTool?.key === key && lastTool.tool !== part.tool,
   });
   let reason: string | null = null;
   if (!connected) reason = t('ready.offline');

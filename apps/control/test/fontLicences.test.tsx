@@ -6,7 +6,7 @@ import { DEFAULT_FONT, FONT_CREDITS, FONT_IDS } from '@lowrider/cam';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LicencesCard } from '../src/components/LicencesCard';
-import { hasKey, t } from '../src/i18n';
+import { hasKey, setDictionary, t } from '../src/i18n';
 import { de } from '../src/i18n/de';
 import { en } from '../src/i18n/en';
 import {
@@ -89,6 +89,43 @@ describe('the licences of the faces of the CAM', () => {
     expect(shown).toContain('Dr. A. V. Hershey');
     expect(shown).toContain('James Hurt');
     expect(shown).toContain('Relief SingleLine Project Authors');
+  });
+
+  it('names the faces in its notice from the faces that carry a licence – in both languages, in the wording it always had', () => {
+    // no face is spelled out in the sentence: it has a place for the list the card makes from `LICENSED_FACES`
+    expect(de.licences.hint).toContain('{faces}');
+    expect(en.licences.hint).toContain('{faces}');
+    for (const dictionary of [de, en]) {
+      for (const id of LICENSED_FACES) {
+        expect(dictionary.licences.hint).not.toContain(dictionary.cam.text.fonts[id]);
+      }
+    }
+    const hint = () => screen.getByTestId('licences-card').querySelector('p')!.textContent;
+    render(<LicencesCard />);
+    expect(hint()).toContain(
+      'Die Schriften „Einfach“, „Schreibschrift“ und „Modern“ des Zeichnens',
+    );
+    cleanup();
+    setDictionary(en);
+    try {
+      render(<LicencesCard />);
+      expect(hint()).toContain('The fonts "Simple", "Script" and "Modern" of the drawing');
+    } finally {
+      setDictionary(de);
+    }
+  });
+
+  it('gives the text of each licence a role, so its name is not ignored: a labelled group that can be focused', () => {
+    render(<LicencesCard />);
+    for (const licence of LICENCES) {
+      const pre = screen.getByTestId(`licence-pre-${licence}`);
+      expect(pre.getAttribute('role')).toBe('group');
+      expect(pre.getAttribute('aria-label')).toBe(t(`licences.names.${licence}`));
+      expect(pre.getAttribute('tabindex')).toBe('0');
+      expect(
+        screen.getByRole('group', { name: t(`licences.names.${licence}`), hidden: true }),
+      ).toBe(pre);
+    }
   });
 
   it('shows the licence texts as the files in licenses/ hold them – byte for byte', () => {
