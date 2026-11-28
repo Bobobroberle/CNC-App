@@ -448,7 +448,12 @@ describe('what a project file must be to be opened', () => {
 
   it('a hole whose peck was left out makes a program with no peck in it: the generator never sees more passes than the bound', () => {
     cam().close();
-    cam().addSketch({ type: 'circle', d: 20 });
+    useJob.getState().unload();
+    // This describe has no beforeEach of its own: the cutter is set here (and given back below), a 6 mm ball cutter, which
+    // drills a 6 mm hole straight – so a peck is really made (a wider hole is bored by a helix and never pecked)
+    const cutter = cam().settings.toolId;
+    cam().setSettings({ toolId: 't2' });
+    cam().addSketch({ type: 'circle', d: 6 });
     const hole = items()[0]!;
     cam().setItem(hole.id, { kind: 'drill', depth: 40 });
     cam().setPath(hole.id, { peck: 0.05, peckRetract: 1 });
@@ -456,17 +461,22 @@ describe('what a project file must be to be opened', () => {
     const file = JSON.parse(cam().saveProject()!);
     file.items[0].depth = 500;
     const text = JSON.stringify(file);
+    const g1 = () =>
+      program()
+        .split('\n')
+        .filter((l) => l.startsWith('G1')).length;
+    // the same drawing with its peck KEPT is the large program the bound keeps away (this is what makes the test bite)
+    cam().setItem(hole.id, { depth: 500 });
+    expect(g1()).toBeGreaterThan(5000);
     cam().close();
     useJob.getState().unload();
     const result = cam().openProject(text);
     expect(result).toEqual({ toolMissing: false, dropped: ['peck.1'] });
     expect(items()[0]).not.toHaveProperty('peck');
-    // one plunge to the depth, not ten thousand lines of pecks
-    const moves = program()
-      .split('\n')
-      .filter((l) => l.startsWith('G1')).length;
-    expect(moves).toBeLessThan(40);
+    // the straight drill goes down by the stepdown (250 plunges of 2 mm), not in ten thousand pecks of 0.05 mm
+    expect(g1()).toBeLessThan(500);
     expect(program()).toContain('Z-500');
+    cam().setSettings({ toolId: cutter });
   });
 
   it('refuses a name that could put lines into the program or the file name', () => {

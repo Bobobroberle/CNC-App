@@ -2545,8 +2545,9 @@ export const de = {
         'Werkzeuge einzelner Teile hatten im Projekt einen anderen Durchmesser als hier: {list} – die Bahnen werden mit den jetzigen gerechnet.',
       settingsDropped:
         'Aus der Datei nicht übernommen (Werte, die keine Maschine hat): {list} – es bleibt, was jetzt eingestellt ist.',
-      peckDropped:
-        'Bohren in Stufen von Teil {n} (so viele Stufen gibt es nicht: gebohrt wird in einem Zug)',
+      peckDropped: 'Teil {n}',
+      pecksDropped:
+        'Bohren in Stufen aus der Datei nicht übernommen: {list} – so viele Stufen gibt es nicht, gebohrt wird in einem Zug.',
       toolDiffers:
         'Das Werkzeug des Projekts hatte {file} mm Durchmesser, hier hat es {now} mm – die Bahnen werden mit dem jetzigen gerechnet.',
       errors: {

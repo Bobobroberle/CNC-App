@@ -9,6 +9,7 @@ import { t } from '../src/i18n';
 import { findCommands } from '../src/lib/commandSearch';
 import { COMMANDS } from '../src/lib/commands';
 import { openCam } from '../src/store/camPlace';
+import { useMachine } from '../src/store/machine';
 import { useUi } from '../src/store/ui';
 import { useWorkshop } from '../src/store/workshop';
 import { cam, changes, items, program, resetTools, scene, SMALL } from './camToolsFixtures';
@@ -498,5 +499,48 @@ describe('what the log says of a colour a file could not give', () => {
     expect(droppedName('depth')).toBe(t('cam.depth'));
     expect(droppedName('tabs')).toBe(t('cam.tabCount'));
     expect(droppedName('colors.a.something')).toBe('Farbe A, Orange');
+  });
+});
+
+describe('opening a project file whose peck was left out', () => {
+  beforeEach(() => {
+    scene();
+    openCam();
+    useUi.setState({ depth: {} });
+  });
+  afterEach(() => {
+    cleanup();
+    resetTools();
+  });
+
+  it('says so in a message of its own – the peck is gone, it is no setting that stays as it is now', async () => {
+    // a hole the cutter drills straight (6 mm), a peck of 0.05 mm: 500 mm would be ten thousand passes
+    cam().addSketch({ type: 'circle', d: 6 });
+    const hole = items()[0]!;
+    cam().setItem(hole.id, { kind: 'drill', depth: 40 });
+    cam().setPath(hole.id, { peck: 0.05, peckRetract: 1 });
+    const file = JSON.parse(cam().saveProject()!);
+    file.items[0].depth = 500;
+    const text = JSON.stringify(file);
+    cam().close();
+    // (an empty drawing again – the file is opened from the card that is there with nothing drawn)
+    openCam();
+    useMachine.setState({ log: [] });
+    render(<CamCard />);
+    const input = screen.getByTestId('cam-project-file');
+    fireEvent.change(input, {
+      target: { files: [{ size: text.length, text: () => Promise.resolve(text) }] },
+    });
+    await vi.waitFor(() =>
+      expect(useMachine.getState().log.some((l) => l.key === 'cam.project.pecksDropped')).toBe(
+        true,
+      ),
+    );
+    const log = useMachine.getState().log;
+    const said = log.find((l) => l.key === 'cam.project.pecksDropped')!;
+    expect(said.text).toBe(t('cam.project.pecksDropped', { list: 'Teil 1' }));
+    expect(said.text).not.toContain(t('cam.project.settingsDropped', { list: '' }).slice(-30));
+    // nothing else was dropped: the message about settings that stay is not there
+    expect(log.some((l) => l.key === 'cam.project.settingsDropped')).toBe(false);
   });
 });

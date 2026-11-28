@@ -168,12 +168,23 @@ export function CamAdd() {
               addLog('error', t('cam.project.toolMissing'), 'cam.project.toolMissing');
             }
             if (result.dropped) {
-              const names = result.dropped.map(droppedName);
-              addLog(
-                'error',
-                t('cam.project.settingsDropped', { list: names.join(', ') }),
-                'cam.project.settingsDropped',
-              );
+              // The peck of a hole is not a "setting that stays as it is now": it is gone and the hole is drilled in one go
+              const pecks = result.dropped.filter((key) => key.startsWith('peck.'));
+              const rest = result.dropped.filter((key) => !key.startsWith('peck.'));
+              if (rest.length) {
+                addLog(
+                  'error',
+                  t('cam.project.settingsDropped', { list: rest.map(droppedName).join(', ') }),
+                  'cam.project.settingsDropped',
+                );
+              }
+              if (pecks.length) {
+                addLog(
+                  'error',
+                  t('cam.project.pecksDropped', { list: pecks.map(droppedName).join(', ') }),
+                  'cam.project.pecksDropped',
+                );
+              }
             }
             // Tools of single parts: one the list lacks stays chosen (the part is cut with the drawing's meanwhile) – said
             if (result.partTools?.missing.length) {

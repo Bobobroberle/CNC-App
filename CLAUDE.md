@@ -139,7 +139,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
     under "Mehr Optionen"/"Alle Parameter" – the SD list (`SdCard`: it looks at errors in the part and at the travel,
     not at the readiness list), "Programm starten" (`RunCard`, the streamed route) and "Ab Zeile fortsetzen"
     (`ResumeCard`) – ask none of them and are locked only while a job waits between two parts (decision 32); a part
-    started from the SD list is not remembered in `lastTool`; `lastTool` lives in the page's memory and is compared only within one job, so after a reload of the page, or when another job was started in between, the first part of the next piece asks nothing. The streamed route holds at every `M6` of the program
+    started from the SD list is not remembered in `lastTool`; `lastTool` lives in the page's memory and is compared only within one job, so after a reload of the page, when another job was started in between, or when the drawing's program was made anew with another number of lines in between (the key is the file name and the number of lines), the first part of the next piece asks nothing. The streamed route holds at every `M6` of the program
     (`breakAt`, the streamed tool-change card) but the card's "Job fortsetzen" is no start and asks nothing about the
     length. **The sections flow is not covered:** every section is a program of its own under its own file name
     (`sectionFileName`), so for `lastTool` it is another job and its first part asks nothing though the last tool of
@@ -310,7 +310,7 @@ changed screen and wins where an older rule here says otherwise. Open hardware q
   500 mm (`MAX_DEPTH`); the 100 mm are the cutters' diameters in the file); the cutting settings are held to fixed ranges (`SETTING_RANGES`: stepdown ≥ 0.01, tabs ≤ 50 …)
   and **one outside is left out, not refused** (what is set now stays; so is a stepdown that would make more than 2000 passes, and **the peck of a hole that
   would – its depth (its own, else its colour's, else the drawing's) over its peck – make more than `MAX_PASSES` = 2000 passes: the hole is drilled in one go, as one with no peck is, and the
-  file says which hole, `dropped` `peck.<n>` with n the hole's number in the list; a file never hands the generator more passes than that – the store itself can still set such a peck live, which is how such a file gets saved**; a registration hole's peck is never read and is left as it is); a sketch or text style that cannot be trusted is dropped (the item keeps its
+  file says which hole, `dropped` `peck.<n>` with n the hole's number in the list; the count uses the depths the FILE states (its own, its colour's, the file's `settings.depth`) – a file that states none is counted against 0 and the session's depth then decides, which can be up to 500 mm over a peck of 0.05 mm, a program of 10 000 passes made in a fraction of a second –; the store itself can also set such a peck live, which is how such a file gets saved**; a registration hole's peck is never read and is left as it is); a sketch or text style that cannot be trusted is dropped (the item keeps its
   contours); a cutter the workshop lacks stays the chosen one and is said, and so is one of the same id with another
   diameter (`toolDiameter` is in the file). Opening is **whole or not at all** (it catches what `generate` throws and puts
   everything back), replaces the drawing in one step of undo that carries the **name and the settings** too (`Snapshot.name`/

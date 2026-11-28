@@ -1013,7 +1013,8 @@ jetzt läuft.
   starten_ (Streamen; dort hält der Job an jedem Wechsel und fragt nach dem Messen nichts, siehe
   Merkliste cam-path23), _Ab Zeile … starten_ und _Starten_ in der Liste der SD-Karte – und nicht
   beim nächsten Abschnitt eines langen Teils (jeder Abschnitt ist ein eigenes Programm: sein erstes Teil
-  fragt nicht nach dem letzten Werkzeug des Abschnitts davor).
+  fragt nicht nach dem letzten Werkzeug des Abschnitts davor) – und nicht beim ersten Teil des nächsten Stücks, wenn die Seite
+  neu geladen oder das Programm der Zeichnung dazwischen neu gemacht wurde (die App merkt sich das zuletzt gestartete Werkzeug nur im Speicher der Seite).
 - _Fräsen_ (die Karte vor dem Start): Programm, geschätzte Laufzeit, die Teile je Werkzeug mit ihrer
   Laufzeit, was sperrt (_Start gesperrt: n Punkt(e) offen_ mit dem ersten Grund und _Prüfen_), und
   Hinweise: bereinigte `G43 … H`-Zeilen, vorangestelltes `G21 G90`, ein Messtaster im Job

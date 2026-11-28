@@ -2507,8 +2507,9 @@ export const en: DictionaryShape = {
         'Tools of single parts had another diameter in the project than here: {list} – the paths are made with the present ones.',
       settingsDropped:
         'Not taken from the file (values no machine has): {list} – what is set now stays.',
-      peckDropped:
-        'Peck drilling of part {n} (there are not that many steps: it is drilled in one go)',
+      peckDropped: 'part {n}',
+      pecksDropped:
+        'Peck drilling not taken from the file: {list} – there are not that many steps, it is drilled in one go.',
       toolDiffers:
         'The project’s cutter was {file} mm in diameter, here it is {now} mm – the toolpaths are made with this one.',
       errors: {
